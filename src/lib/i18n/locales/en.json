@@ -1,0 +1,233 @@
+{
+  "common": {
+    "loading": "Loading...",
+    "error": "Something went wrong",
+    "retry": "Try again",
+    "save": "Save",
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
+    "edit": "Edit",
+    "back": "Back",
+    "next": "Next",
+    "done": "Done",
+    "close": "Close",
+    "search": "Search",
+    "filter": "Filter",
+    "noResults": "No results found",
+    "points": "points"
+  },
+  "auth": {
+    "welcome": {
+      "title": "Welcome to PawTaker",
+      "subtitle": "The community pet-sitting app",
+      "getStarted": "Get Started",
+      "signIn": "Already have an account? Sign in"
+    },
+    "login": {
+      "title": "Sign In",
+      "email": "Email address",
+      "password": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account? Sign up"
+    },
+    "signup": {
+      "credentials": {
+        "title": "Create Account",
+        "email": "Email address",
+        "password": "Password",
+        "confirmPassword": "Confirm password",
+        "submit": "Continue"
+      },
+      "profile": {
+        "title": "Your Profile",
+        "firstName": "First name",
+        "lastName": "Last name",
+        "city": "City",
+        "bio": "Bio (optional)",
+        "submit": "Continue"
+      },
+      "declaration": {
+        "title": "Community Agreement",
+        "subtitle": "Please read and agree to our community standards",
+        "agreeAll": "I agree to all terms",
+        "submit": "Join PawTaker"
+      }
+    },
+    "kyc": {
+      "submit": {
+        "title": "Identity Verification",
+        "subtitle": "We need to verify your identity to ensure community safety",
+        "docType": "Document type",
+        "passport": "Passport",
+        "driversLicense": "Driver's License",
+        "nationalId": "National ID",
+        "uploadFront": "Upload front",
+        "uploadBack": "Upload back",
+        "uploadSelfie": "Take a selfie",
+        "submit": "Submit for verification"
+      },
+      "pending": {
+        "title": "Verification Pending",
+        "subtitle": "We're reviewing your identity documents. This usually takes 24–48 hours.",
+        "status": "Status: Under review",
+        "continue": "Continue browsing"
+      }
+    },
+    "forgotPassword": {
+      "title": "Reset Password",
+      "subtitle": "Enter your email and we'll send you a reset link",
+      "email": "Email address",
+      "submit": "Send reset link",
+      "success": "Check your email for a reset link"
+    }
+  },
+  "feed": {
+    "title": "Home",
+    "searchPlaceholder": "Search pets or takers...",
+    "filters": "Filters",
+    "nearYou": "Near You",
+    "topTakers": "Top Takers",
+    "recentRequests": "Recent Requests",
+    "noTakers": "No takers found nearby",
+    "noPets": "No pets need care right now"
+  },
+  "myCare": {
+    "title": "My Care",
+    "noCare": "No active care sessions",
+    "startCare": "Browse requests",
+    "contract": {
+      "title": "Contract",
+      "sign": "Sign contract",
+      "signed": "Signed",
+      "status": "Status"
+    },
+    "checkin": {
+      "title": "Check-in",
+      "addPhoto": "Add photo",
+      "note": "Add a note",
+      "submit": "Submit check-in"
+    },
+    "review": {
+      "title": "Leave a Review",
+      "rating": "Rating",
+      "comment": "Comment (optional)",
+      "submit": "Submit review"
+    }
+  },
+  "post": {
+    "title": "Post",
+    "choose": {
+      "title": "What do you need?",
+      "requestCare": "Request care for my pet",
+      "offerAvailability": "Offer my availability as a taker"
+    },
+    "request": {
+      "pet": {
+        "title": "Select a pet",
+        "addPet": "Add a new pet"
+      },
+      "details": {
+        "title": "Care Details",
+        "careType": "Type of care",
+        "sitting": "Pet Sitting",
+        "walking": "Dog Walking",
+        "boarding": "Boarding",
+        "startDate": "Start date",
+        "endDate": "End date",
+        "points": "Points offered",
+        "description": "Additional notes"
+      },
+      "publish": {
+        "title": "Review & Publish",
+        "publish": "Publish request"
+      }
+    },
+    "availability": {
+      "title": "My Availability",
+      "subtitle": "Set when you're available to take care of pets",
+      "save": "Save availability"
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "noMessages": "No messages yet",
+    "typeMessage": "Type a message...",
+    "send": "Send",
+    "proposal": "Care Proposal",
+    "agreement": "Agreement"
+  },
+  "profile": {
+    "title": "My Profile",
+    "reviews": "Reviews",
+    "points": "Points",
+    "pets": "My Pets",
+    "edit": {
+      "title": "Edit Profile",
+      "save": "Save changes"
+    },
+    "emergencyContacts": {
+      "title": "Emergency Contacts",
+      "add": "Add contact",
+      "name": "Full name",
+      "phone": "Phone number",
+      "relationship": "Relationship"
+    },
+    "pointsHistory": {
+      "title": "Points History",
+      "balance": "Balance",
+      "earned": "Earned",
+      "spent": "Spent"
+    }
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "help": "Help & Support",
+    "logout": "Sign Out",
+    "deleteAccount": "Delete Account"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "noNotifications": "No notifications",
+    "markAllRead": "Mark all as read"
+  },
+  "search": {
+    "title": "Search",
+    "placeholder": "Search pets, takers, or requests...",
+    "takers": "Takers",
+    "requests": "Requests"
+  },
+  "pets": {
+    "add": {
+      "title": "Add Pet",
+      "name": "Pet name",
+      "species": "Species",
+      "breed": "Breed (optional)",
+      "age": "Age (years)",
+      "weight": "Weight (kg)",
+      "notes": "Special notes",
+      "submit": "Add pet"
+    },
+    "profile": {
+      "title": "Pet Profile",
+      "owner": "Owner",
+      "info": "Information"
+    },
+    "edit": {
+      "title": "Edit Pet"
+    }
+  },
+  "errors": {
+    "required": "This field is required",
+    "invalidEmail": "Invalid email address",
+    "passwordTooShort": "Password must be at least 8 characters",
+    "passwordsDoNotMatch": "Passwords do not match",
+    "networkError": "Network error. Check your connection.",
+    "unknownError": "An unexpected error occurred"
+  }
+}

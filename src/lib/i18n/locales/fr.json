@@ -1,0 +1,233 @@
+{
+  "common": {
+    "loading": "Chargement...",
+    "error": "Une erreur s'est produite",
+    "retry": "Réessayer",
+    "save": "Enregistrer",
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
+    "edit": "Modifier",
+    "back": "Retour",
+    "next": "Suivant",
+    "done": "Terminé",
+    "close": "Fermer",
+    "search": "Rechercher",
+    "filter": "Filtrer",
+    "noResults": "Aucun résultat",
+    "points": "points"
+  },
+  "auth": {
+    "welcome": {
+      "title": "Bienvenue sur PawTaker",
+      "subtitle": "L'application communautaire de garde d'animaux",
+      "getStarted": "Commencer",
+      "signIn": "Déjà un compte ? Se connecter"
+    },
+    "login": {
+      "title": "Se connecter",
+      "email": "Adresse e-mail",
+      "password": "Mot de passe",
+      "forgotPassword": "Mot de passe oublié ?",
+      "submit": "Se connecter",
+      "noAccount": "Pas de compte ? S'inscrire"
+    },
+    "signup": {
+      "credentials": {
+        "title": "Créer un compte",
+        "email": "Adresse e-mail",
+        "password": "Mot de passe",
+        "confirmPassword": "Confirmer le mot de passe",
+        "submit": "Continuer"
+      },
+      "profile": {
+        "title": "Votre profil",
+        "firstName": "Prénom",
+        "lastName": "Nom de famille",
+        "city": "Ville",
+        "bio": "Bio (optionnel)",
+        "submit": "Continuer"
+      },
+      "declaration": {
+        "title": "Accord communautaire",
+        "subtitle": "Veuillez lire et accepter nos règles communautaires",
+        "agreeAll": "J'accepte toutes les conditions",
+        "submit": "Rejoindre PawTaker"
+      }
+    },
+    "kyc": {
+      "submit": {
+        "title": "Vérification d'identité",
+        "subtitle": "Nous devons vérifier votre identité pour la sécurité de la communauté",
+        "docType": "Type de document",
+        "passport": "Passeport",
+        "driversLicense": "Permis de conduire",
+        "nationalId": "Carte nationale d'identité",
+        "uploadFront": "Télécharger le recto",
+        "uploadBack": "Télécharger le verso",
+        "uploadSelfie": "Prendre un selfie",
+        "submit": "Soumettre pour vérification"
+      },
+      "pending": {
+        "title": "Vérification en cours",
+        "subtitle": "Nous examinons vos documents. Cela prend généralement 24 à 48 heures.",
+        "status": "Statut : En cours d'examen",
+        "continue": "Continuer à parcourir"
+      }
+    },
+    "forgotPassword": {
+      "title": "Réinitialiser le mot de passe",
+      "subtitle": "Entrez votre e-mail pour recevoir un lien de réinitialisation",
+      "email": "Adresse e-mail",
+      "submit": "Envoyer le lien",
+      "success": "Vérifiez votre e-mail pour le lien de réinitialisation"
+    }
+  },
+  "feed": {
+    "title": "Accueil",
+    "searchPlaceholder": "Rechercher des animaux ou des gardiens...",
+    "filters": "Filtres",
+    "nearYou": "Près de vous",
+    "topTakers": "Meilleurs gardiens",
+    "recentRequests": "Demandes récentes",
+    "noTakers": "Aucun gardien trouvé à proximité",
+    "noPets": "Aucun animal n'a besoin de soins pour l'instant"
+  },
+  "myCare": {
+    "title": "Mes soins",
+    "noCare": "Aucune session de soins active",
+    "startCare": "Parcourir les demandes",
+    "contract": {
+      "title": "Contrat",
+      "sign": "Signer le contrat",
+      "signed": "Signé",
+      "status": "Statut"
+    },
+    "checkin": {
+      "title": "Enregistrement",
+      "addPhoto": "Ajouter une photo",
+      "note": "Ajouter une note",
+      "submit": "Soumettre l'enregistrement"
+    },
+    "review": {
+      "title": "Laisser un avis",
+      "rating": "Note",
+      "comment": "Commentaire (optionnel)",
+      "submit": "Soumettre l'avis"
+    }
+  },
+  "post": {
+    "title": "Publier",
+    "choose": {
+      "title": "De quoi avez-vous besoin ?",
+      "requestCare": "Demander des soins pour mon animal",
+      "offerAvailability": "Proposer ma disponibilité comme gardien"
+    },
+    "request": {
+      "pet": {
+        "title": "Sélectionner un animal",
+        "addPet": "Ajouter un nouvel animal"
+      },
+      "details": {
+        "title": "Détails des soins",
+        "careType": "Type de soins",
+        "sitting": "Garde à domicile",
+        "walking": "Promenade",
+        "boarding": "Pension",
+        "startDate": "Date de début",
+        "endDate": "Date de fin",
+        "points": "Points offerts",
+        "description": "Notes supplémentaires"
+      },
+      "publish": {
+        "title": "Vérifier et publier",
+        "publish": "Publier la demande"
+      }
+    },
+    "availability": {
+      "title": "Ma disponibilité",
+      "subtitle": "Définissez quand vous êtes disponible pour garder des animaux",
+      "save": "Enregistrer la disponibilité"
+    }
+  },
+  "messages": {
+    "title": "Messages",
+    "noMessages": "Aucun message",
+    "typeMessage": "Écrire un message...",
+    "send": "Envoyer",
+    "proposal": "Proposition de soins",
+    "agreement": "Accord"
+  },
+  "profile": {
+    "title": "Mon profil",
+    "reviews": "Avis",
+    "points": "Points",
+    "pets": "Mes animaux",
+    "edit": {
+      "title": "Modifier le profil",
+      "save": "Enregistrer les modifications"
+    },
+    "emergencyContacts": {
+      "title": "Contacts d'urgence",
+      "add": "Ajouter un contact",
+      "name": "Nom complet",
+      "phone": "Numéro de téléphone",
+      "relationship": "Relation"
+    },
+    "pointsHistory": {
+      "title": "Historique des points",
+      "balance": "Solde",
+      "earned": "Gagnés",
+      "spent": "Dépensés"
+    }
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "theme": "Thème",
+    "notifications": "Notifications",
+    "privacy": "Confidentialité",
+    "help": "Aide et support",
+    "logout": "Se déconnecter",
+    "deleteAccount": "Supprimer le compte"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "noNotifications": "Aucune notification",
+    "markAllRead": "Tout marquer comme lu"
+  },
+  "search": {
+    "title": "Rechercher",
+    "placeholder": "Rechercher des animaux, gardiens ou demandes...",
+    "takers": "Gardiens",
+    "requests": "Demandes"
+  },
+  "pets": {
+    "add": {
+      "title": "Ajouter un animal",
+      "name": "Nom de l'animal",
+      "species": "Espèce",
+      "breed": "Race (optionnel)",
+      "age": "Âge (années)",
+      "weight": "Poids (kg)",
+      "notes": "Notes spéciales",
+      "submit": "Ajouter l'animal"
+    },
+    "profile": {
+      "title": "Profil de l'animal",
+      "owner": "Propriétaire",
+      "info": "Informations"
+    },
+    "edit": {
+      "title": "Modifier l'animal"
+    }
+  },
+  "errors": {
+    "required": "Ce champ est obligatoire",
+    "invalidEmail": "Adresse e-mail invalide",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
+    "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
+    "networkError": "Erreur réseau. Vérifiez votre connexion.",
+    "unknownError": "Une erreur inattendue s'est produite"
+  }
+}

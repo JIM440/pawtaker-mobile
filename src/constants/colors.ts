@@ -1,0 +1,86 @@
+/**
+ * App colors – Light & Dark schemes (inlined; no external imports).
+ */
+const materialLight = {
+  primary: '#8c4a60',
+  onPrimary: '#ffffff',
+  primaryContainer: '#ffd9e2',
+  onPrimaryContainer: '#703348',
+  secondary: '#74565f',
+  onSecondary: '#ffffff',
+  secondaryContainer: '#ffe0e8',
+  onSecondaryContainer: '#5a3f47',
+  tertiary: '#7c5635',
+  onTertiary: '#ffffff',
+  tertiaryContainer: '#ffdcc1',
+  onTertiaryContainer: '#623f20',
+  error: '#ba1a1a',
+  onError: '#ffffff',
+  errorContainer: '#ffdad6',
+  onErrorContainer: '#93000a',
+  background: '#f5f0f0',
+  onBackground: '#22191c',
+  surface: '#fff8f8',
+  onSurface: '#22191c',
+  surfaceVariant: '#f2dde1',
+  onSurfaceVariant: '#665459',
+  outline: '#837377',
+  outlineVariant: '#d5c2c6',
+  surfaceContainer: '#faf2f4',
+  surfaceContainerLowest: '#ffffff',
+} as const;
+
+const materialDark = {
+  primary: '#ffb1c8',
+  onPrimary: '#541d32',
+  primaryContainer: '#703348',
+  onPrimaryContainer: '#ffd9e2',
+  secondary: '#e3bdc6',
+  onSecondary: '#422931',
+  secondaryContainer: '#5a3f47',
+  onSecondaryContainer: '#ffd9e2',
+  tertiary: '#efbd94',
+  onTertiary: '#48290b',
+  tertiaryContainer: '#623f20',
+  onTertiaryContainer: '#ffdcc1',
+  error: '#ffb4ab',
+  onError: '#690005',
+  errorContainer: '#93000a',
+  onErrorContainer: '#ffdad6',
+  background: '#1a1718',
+  onBackground: '#efdfe1',
+  surface: '#191113',
+  onSurface: '#efdfe1',
+  surfaceVariant: '#514347',
+  onSurfaceVariant: '#d5c2c6',
+  outline: '#9e8c90',
+  outlineVariant: '#514347',
+  surfaceContainer: '#0d0c0c',
+  surfaceContainerLowest: '#0a090a',
+} as const;
+
+export const Colors = {
+  light: {
+    ...materialLight,
+    frameStroke: '#e8e7e7',
+    textPrimary: materialLight.onSurface,
+    textSecondary: materialLight.onSurfaceVariant,
+    border: materialLight.outlineVariant,
+    accent: materialLight.tertiary,
+    accentLight: materialLight.tertiaryContainer,
+    primaryLight: materialLight.primaryContainer,
+  },
+  dark: {
+    ...materialDark,
+    frameStroke: '#403a37',
+    textPrimary: materialDark.onSurface,
+    textSecondary: materialDark.onSurfaceVariant,
+    border: materialDark.outlineVariant,
+    accent: materialDark.tertiary,
+    accentLight: materialDark.tertiaryContainer,
+    primaryLight: materialDark.primaryContainer,
+  },
+} as const;
+
+export type ColorScheme = keyof typeof Colors;
+export type ColorToken = keyof typeof Colors.light;
