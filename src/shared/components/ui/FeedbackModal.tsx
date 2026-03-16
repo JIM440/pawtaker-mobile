@@ -1,16 +1,16 @@
-import React from 'react';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import React from "react";
 import {
   Modal,
-  View,
-  StyleSheet,
   Pressable,
-  type ViewStyle,
+  StyleSheet,
+  View,
   type StyleProp,
-} from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { AppText } from './AppText';
-import { Button } from './Button';
+  type ViewStyle,
+} from "react-native";
+import { AppText } from "./AppText";
+import { Button } from "./Button";
 
 type FeedbackModalProps = {
   visible: boolean;
@@ -62,13 +62,18 @@ export function FeedbackModal({
         <Pressable
           style={[
             styles.card,
-            { backgroundColor: colors.surfaceContainerLowest },
+            { backgroundColor: colors.surfaceContainer },
             containerStyle,
           ]}
           onPress={(e) => e.stopPropagation()}
         >
-          {icon && <View style={styles.iconWrap}>{icon}</View>}
-          <AppText variant="title" style={styles.title}>
+          {icon && (
+            <View style={styles.iconWrap}>
+              {/* Ensure icon uses 24 size & primary fill when possible */}
+              {icon}
+            </View>
+          )}
+          <AppText variant="title" style={[styles.title, { fontSize: 16 }]}>
             {title}
           </AppText>
           {description ? (
@@ -84,7 +89,7 @@ export function FeedbackModal({
             {secondaryLabel && onSecondary && (
               <Button
                 label={secondaryLabel}
-                variant="outline"
+                variant="secondary"
                 fullWidth
                 onPress={onSecondary}
                 style={styles.button}
@@ -92,7 +97,7 @@ export function FeedbackModal({
             )}
             <Button
               label={primaryLabel}
-              variant={destructive ? 'danger' : 'primary'}
+              variant={destructive ? "danger" : "primary"}
               fullWidth
               onPress={onPrimary}
               style={styles.button}
@@ -107,38 +112,43 @@ export function FeedbackModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
-    justifyContent: 'center',
-    alignItems: 'center',
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "center",
+    alignItems: "center",
     padding: 24,
   },
   card: {
     maxWidth: 360,
-    width: '100%',
-    borderRadius: 20,
+    width: "100%",
+    borderRadius: 16,
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
+    // Shadow so the card pops in both light & dark theme
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
   },
   iconWrap: {
-    alignItems: 'center',
-    marginBottom: 12,
+    alignItems: "center",
+    marginBottom: 16,
   },
   title: {
-    textAlign: 'center',
-    marginBottom: 8,
+    textAlign: "center",
+    marginBottom: 4,
   },
   description: {
-    textAlign: 'center',
+    textAlign: "center",
     marginBottom: 16,
-    fontSize: 14,
+    fontSize: 12,
   },
   buttons: {
-    flexDirection: 'row',
-    gap: 8,
+    flexDirection: "row",
+    gap: 16,
   },
   button: {
     flex: 1,
   },
 });
-

@@ -1,26 +1,25 @@
-import '../global.css';
-import '../src/lib/i18n';
+import "../global.css";
+import "../src/lib/i18n";
 
-import { useEffect } from 'react';
-import { Platform } from 'react-native';
-import { Stack, useRouter } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { useFonts } from '@expo-google-fonts/roboto';
 import {
   Roboto_400Regular,
   Roboto_500Medium,
-  Roboto_700Bold,
-} from '@expo-google-fonts/roboto';
-import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
-import { I18nextProvider } from 'react-i18next';
-import i18n from '../src/lib/i18n';
-import { supabase } from '../src/lib/supabase/client';
-import { useAuthStore } from '../src/lib/store/auth.store';
-import { useThemeStore } from '../src/lib/store/theme.store';
+  Roboto_700Bold, useFonts
+} from "@expo-google-fonts/roboto";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import { Stack, useRouter } from "expo-router";
+import * as SplashScreen from "expo-splash-screen";
+import { StatusBar } from "expo-status-bar";
+import { useEffect } from "react";
+import { I18nextProvider } from "react-i18next";
+import { Platform } from "react-native";
+import i18n from "../src/lib/i18n";
+import { useAuthStore } from "../src/lib/store/auth.store";
+import { useThemeStore } from "../src/lib/store/theme.store";
+import { supabase } from "../src/lib/supabase/client";
 
 // Keep native splash visible until auth and fonts are ready
-if (Platform.OS !== 'web') {
+if (Platform.OS !== "web") {
   SplashScreen.preventAutoHideAsync();
 }
 
@@ -51,7 +50,9 @@ export default function RootLayout() {
       setLoading(false);
     });
 
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
     });
 
@@ -62,11 +63,12 @@ export default function RootLayout() {
 
   useEffect(() => {
     if (!ready) return;
-    if (Platform.OS !== 'web') SplashScreen.hideAsync();
+    if (Platform.OS !== "web") SplashScreen.hideAsync();
     if (session) {
-      router.replace('/(private)/(tabs)');
+      router.replace("/(private)/(tabs)");
     } else {
-      router.replace('/(auth)/welcome');
+      // router.replace('/(auth)/welcome');
+      router.replace("/(private)/(tabs)");
     }
   }, [ready, session]);
 
@@ -77,7 +79,7 @@ export default function RootLayout() {
           <Stack.Screen name="(auth)" options={{ headerShown: false }} />
           <Stack.Screen name="(private)" options={{ headerShown: false }} />
         </Stack>
-        <StatusBar style={resolvedTheme === 'dark' ? 'light' : 'dark'} />
+        <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
       </I18nextProvider>
     </QueryClientProvider>
   );

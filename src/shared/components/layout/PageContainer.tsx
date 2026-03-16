@@ -1,14 +1,7 @@
-import React from 'react';
-import {
-  View,
-  ScrollView,
-  StyleSheet,
-  type ViewStyle,
-  type StyleProp,
-} from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import React from "react";
+import { StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
 
 type PageContainerProps = {
   children: React.ReactNode;
@@ -18,11 +11,10 @@ type PageContainerProps = {
   style?: StyleProp<ViewStyle>;
   /** Applied to the inner ScrollView/View (overwrites default padding) */
   contentStyle?: StyleProp<ViewStyle>;
-  edges?: ('top' | 'bottom' | 'left' | 'right')[];
 };
 
 const DEFAULT_PADDING_VERTICAL = 16;
-const DEFAULT_PADDING_HORIZONTAL = 10;
+const DEFAULT_PADDING_HORIZONTAL = 16;
 
 /**
  * Page container with safe area, background (Schemes-Background), and default padding.
@@ -30,39 +22,26 @@ const DEFAULT_PADDING_HORIZONTAL = 10;
  */
 export function PageContainer({
   children,
-  scrollable = false,
   style,
   contentStyle,
-  edges = ['top', 'left', 'right'],
 }: PageContainerProps) {
   const { resolvedTheme } = useThemeStore();
   const backgroundColor = Colors[resolvedTheme].background;
 
   const contentPadding = {
-    paddingVertical: DEFAULT_PADDING_VERTICAL,
+    paddingTop: DEFAULT_PADDING_VERTICAL,
     paddingHorizontal: DEFAULT_PADDING_HORIZONTAL,
   };
 
   return (
-    <SafeAreaView
+    <View
       style={[styles.safe, { backgroundColor }, style]}
-      edges={edges}
+      // edges={edges}
     >
-      {scrollable ? (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={[styles.scrollContent, contentPadding, contentStyle]}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          {children}
-        </ScrollView>
-      ) : (
-        <View style={[styles.content, contentPadding, contentStyle]}>
-          {children}
-        </View>
-      )}
-    </SafeAreaView>
+      <View style={[styles.content, contentPadding, contentStyle]}>
+        {children}
+      </View>
+    </View>
   );
 }
 

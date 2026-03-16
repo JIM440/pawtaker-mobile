@@ -1,16 +1,16 @@
-import React from 'react';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import React from "react";
 import {
-  TouchableOpacity,
   ActivityIndicator,
   StyleSheet,
-  type ViewStyle,
+  TouchableOpacity,
   type StyleProp,
-} from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { AppText } from './AppText';
+  type ViewStyle,
+} from "react-native";
+import { AppText } from "./AppText";
 
-type Variant = 'primary' | 'secondary' | 'outline' | 'ghost' | 'danger';
+type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
 
 type ButtonProps = {
   label: string;
@@ -22,17 +22,20 @@ type ButtonProps = {
   style?: StyleProp<ViewStyle>;
 };
 
-const variantBg: Record<Variant, (colors: typeof Colors.light) => string> = {
+const variantBg: Record<Variant, (colors: (typeof Colors)[keyof typeof Colors]) => string> = {
   primary: (c) => c.primary,
-  secondary: (c) => c.secondary,
-  outline: () => 'transparent',
-  ghost: () => 'transparent',
+  secondary: (c) => c.primaryContainer,
+  outline: () => "transparent",
+  ghost: () => "transparent",
   danger: (c) => c.error,
 };
 
-const variantTextColor: Record<Variant, (colors: typeof Colors.light) => string> = {
+const variantTextColor: Record<
+  Variant,
+  (colors: (typeof Colors)[keyof typeof Colors]) => string
+> = {
   primary: (c) => c.onPrimary,
-  secondary: (c) => c.onSecondary,
+  secondary: (c) => c.onPrimaryContainer,
   outline: (c) => c.primary,
   ghost: (c) => c.primary,
   danger: (c) => c.onError,
@@ -45,7 +48,7 @@ const variantTextColor: Record<Variant, (colors: typeof Colors.light) => string>
 export function Button({
   label,
   onPress,
-  variant = 'primary',
+  variant = "primary",
   loading = false,
   disabled = false,
   fullWidth = true,
@@ -55,11 +58,13 @@ export function Button({
   const colors = Colors[resolvedTheme];
   const isDisabled = disabled || loading;
 
-  const backgroundColor = variant === 'outline' || variant === 'ghost'
-    ? 'transparent'
-    : variantBg[variant](colors);
-  const borderWidth = variant === 'outline' ? 1.5 : 0;
-  const borderColor = variant === 'outline' ? colors.primary : 'transparent';
+  const backgroundColor =
+    variant === "outline" || variant === "ghost"
+      ? "transparent"
+      : variantBg[variant](colors);
+  const borderWidth = variant === "outline" ? 1 : 0;
+  const borderColor =
+    variant === "outline" ? colors.outlineVariant : "transparent";
 
   return (
     <TouchableOpacity
@@ -72,7 +77,7 @@ export function Button({
           backgroundColor,
           borderWidth,
           borderColor,
-          alignSelf: fullWidth ? 'stretch' : 'flex-start',
+          alignSelf: fullWidth ? "stretch" : "flex-start",
           opacity: isDisabled ? 0.5 : 1,
         },
         style,
@@ -81,7 +86,11 @@ export function Button({
       {loading && (
         <ActivityIndicator
           size="small"
-          color={variant === 'outline' || variant === 'ghost' ? colors.primary : colors.onPrimary}
+          color={
+            variant === "outline" || variant === "ghost"
+              ? colors.primary
+              : colors.onPrimary
+          }
         />
       )}
       <AppText
@@ -97,21 +106,21 @@ export function Button({
 
 const styles = StyleSheet.create({
   button: {
-    flexDirection: 'row',
-    display: 'flex',
+    flexDirection: "row",
+    display: "flex",
     paddingVertical: 12,
     paddingHorizontal: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    justifyContent: "center",
+    alignItems: "center",
     gap: 8,
-    borderRadius: 8,
+    borderRadius: 100,
   },
   label: {
-    textAlign: 'center',
-    fontFamily: 'Roboto_500Medium',
+    textAlign: "center",
+    fontFamily: "Roboto_500Medium",
     fontSize: 14,
-    fontStyle: 'normal',
-    fontWeight: '500',
+    fontStyle: "normal",
+    fontWeight: "500",
     lineHeight: 20,
     letterSpacing: -0.2,
   },

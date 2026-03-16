@@ -165,7 +165,14 @@
     "pets": "Mes animaux",
     "edit": {
       "title": "Modifier le profil",
-      "save": "Enregistrer les modifications"
+      "save": "Enregistrer les modifications",
+      "detailsTab": "Vos informations",
+      "petsTab": "Vos animaux",
+      "availabilityTab": "Disponibilité",
+      "discardTitle": "Annuler les modifications ?",
+      "discardDescription": "Si vous revenez en arrière, votre progression sera perdue.",
+      "keepEditing": "Continuer",
+      "discard": "Annuler"
     },
     "emergencyContacts": {
       "title": "Contacts d'urgence",

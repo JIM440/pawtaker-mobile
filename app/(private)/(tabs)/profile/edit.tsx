@@ -1,18 +1,80 @@
-import React, { useState } from 'react';
-import { View, TextInput, StyleSheet, ScrollView } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { Button } from '@/src/shared/components/ui/Button';
+import { Colors } from "@/src/constants/colors";
+import { EditAvailabilityTab } from "@/src/features/profile/components/EditAvailabilityTab";
+import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab";
+import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { TabBar } from "@/src/shared/components/ui/TabBar";
+import { useRouter } from "expo-router";
+import { CircleAlert } from "lucide-react-native";
+import React, { useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+
+type EditTab = "details" | "pets" | "availability";
+
+const MOCK_PETS = [
+  {
+    id: "1",
+    imageSource:
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
+    petName: "Polo",
+    breed: "Golden Retriever",
+    petType: "Dog",
+    bio: "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch.",
+    tags: ["fenced yard", "high energy", "1-3yrs"],
+    seekingDateRange: "Mar 14-Apr 02",
+    seekingTime: "8am-4pm",
+  },
+  {
+    id: "2",
+    imageSource:
+      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200",
+    petName: "Bobby",
+    breed: "Tabby",
+    petType: "Cat",
+    bio: "Bobby is an independent and affectionate tabby cat.",
+    tags: ["indoors only", "calm", "1-3yrs"],
+  },
+];
 
 export default function EditProfileScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [name, setName] = useState('Jane Ambers');
-  const [location, setLocation] = useState('Lake Placid, New York, US');
-  const [bio, setBio] = useState('Pet lover, weekend hiker, and coffee enthusiast.');
+
+  const [activeTab, setActiveTab] = useState<EditTab>("details");
+  const [showDiscard, setShowDiscard] = useState(false);
+
+  // Form state
+  const [avatarUri] = useState(
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
+  );
+  const [username, setUsername] = useState("Jane Ambers");
+  const [bio, setBio] = useState(
+    "I own a golden retriever. His name is Polo. I love him so much. Then I have Bobby a very cunning and smart cat",
+  );
+  const [zipCode, setZipCode] = useState("00501");
+  const [location, setLocation] = useState("Lake Placid, New York, US");
+
+  const initialValues = useRef({ username, bio, zipCode, location });
+
+  const isDirty =
+    username !== initialValues.current.username ||
+    bio !== initialValues.current.bio ||
+    zipCode !== initialValues.current.zipCode ||
+    location !== initialValues.current.location;
+
+  const handleBack = () => {
+    if (isDirty) {
+      setShowDiscard(true);
+    } else {
+      router.back();
+    }
+  };
 
   const handleSave = () => {
     // TODO: persist profile changes
@@ -21,79 +83,80 @@ export default function EditProfileScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <BackHeader
+        onBack={handleBack}
+        title={t("profile.edit.title", "Edit Profile")}
+        rightSlot={
+          <TouchableOpacity onPress={handleSave} activeOpacity={0.7}>
+            <AppText
+              variant="body"
+              color={colors.onSurface}
+              style={styles.saveText}
+            >
+              {t("common.save", "Save")}
+            </AppText>
+          </TouchableOpacity>
+        }
+      />
+
+      <TabBar<EditTab>
+        tabs={[
+          { key: "details", label: t("profile.edit.detailsTab", "Your Details") },
+          { key: "pets", label: t("profile.edit.petsTab", "Your Pets") },
+          { key: "availability", label: t("profile.edit.availabilityTab", "Availability") },
+        ]}
+        activeKey={activeTab}
+        onChange={setActiveTab}
+        variant="underline"
+      />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
       >
-        <AppText variant="headline" style={styles.title}>
-          Edit profile
-        </AppText>
-
-        <View style={styles.field}>
-          <AppText variant="label" color={colors.onSurfaceVariant} style={styles.label}>
-            Name
-          </AppText>
-          <TextInput
-            value={name}
-            onChangeText={setName}
-            style={[styles.input, { borderColor: colors.outlineVariant, color: colors.onSurface }]}
-            placeholder="Your name"
-            placeholderTextColor={colors.onSurfaceVariant}
+        {activeTab === "details" && (
+          <EditDetailsTab
+            avatarUri={avatarUri}
+            username={username}
+            bio={bio}
+            zipCode={zipCode}
+            location={location}
+            onChangeUsername={setUsername}
+            onChangeBio={setBio}
+            onChangeZipCode={setZipCode}
+            onChangeLocation={setLocation}
+            onChooseImage={() => {
+              // TODO: image picker
+            }}
           />
-        </View>
-
-        <View style={styles.field}>
-          <AppText variant="label" color={colors.onSurfaceVariant} style={styles.label}>
-            Location
-          </AppText>
-          <TextInput
-            value={location}
-            onChangeText={setLocation}
-            style={[styles.input, { borderColor: colors.outlineVariant, color: colors.onSurface }]}
-            placeholder="City, Country"
-            placeholderTextColor={colors.onSurfaceVariant}
+        )}
+        {activeTab === "pets" && (
+          <EditPetsTab
+            pets={MOCK_PETS}
+            onAddPet={() => router.push("/(private)/pets/add")}
+            onEditPet={() => {}}
+            onDeletePet={() => {}}
           />
-        </View>
-
-        <View style={styles.field}>
-          <AppText variant="label" color={colors.onSurfaceVariant} style={styles.label}>
-            Short bio
-          </AppText>
-          <TextInput
-            value={bio}
-            onChangeText={setBio}
-            style={[
-              styles.input,
-              styles.textarea,
-              { borderColor: colors.outlineVariant, color: colors.onSurface },
-            ]}
-            placeholder="Tell others about you"
-            placeholderTextColor={colors.onSurfaceVariant}
-            multiline
-          />
-        </View>
-
-        <View style={styles.sectionHeader}>
-          <AppText variant="label" color={colors.onSurfaceVariant}>
-            Your pets
-          </AppText>
-          <Button
-            label="+ Add a pet"
-            variant="outline"
-            fullWidth={false}
-            onPress={() => router.push('/(private)/pets/add')}
-          />
-        </View>
-
-        <AppText variant="caption" color={colors.onSurfaceVariant}>
-          Manage detailed pet profiles from the pet cards on your profile.
-        </AppText>
+        )}
+        {activeTab === "availability" && <EditAvailabilityTab />}
       </ScrollView>
 
-      <View style={styles.footer}>
-        <Button label="Save changes" onPress={handleSave} />
-      </View>
+      <FeedbackModal
+        visible={showDiscard}
+        icon={<CircleAlert size={24} color={colors.primary} />}
+        title={t("profile.edit.discardTitle", "Discard changes?")}
+        description={t("profile.edit.discardDescription", "If you go back now, your progress will be lost.")}
+        primaryLabel={t("profile.edit.keepEditing", "Keep Editing")}
+        secondaryLabel={t("profile.edit.discard", "Discard")}
+        onPrimary={() => setShowDiscard(false)}
+        onSecondary={() => {
+          setShowDiscard(false);
+          router.back();
+        }}
+        onRequestClose={() => setShowDiscard(false)}
+      />
     </View>
   );
 }
@@ -102,44 +165,14 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  saveText: {
+    textDecorationLine: "underline",
+    fontSize: 16,
+  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
-    paddingTop: 20,
-    paddingBottom: 24,
-    gap: 16,
-  },
-  title: {
-    marginBottom: 8,
-  },
-  field: {
-    gap: 6,
-  },
-  label: {
-    fontSize: 14,
-  },
-  input: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-  },
-  textarea: {
-    minHeight: 96,
-    textAlignVertical: 'top',
-  },
-  sectionHeader: {
-    marginTop: 8,
-    marginBottom: 4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  footer: {
-    padding: 16,
-    paddingBottom: 24,
+    paddingBottom: 32,
   },
 });

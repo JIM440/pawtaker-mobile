@@ -21,6 +21,7 @@ export type PetCardCaretaker = {
   rating: number;
   reviewsCount: number;
   petsCount: number;
+  id?: string;
 };
 
 export type PetCardProps = {
@@ -38,6 +39,7 @@ export type PetCardProps = {
   isFavorite?: boolean;
   onFavorite?: () => void;
   onApply?: () => void;
+  onCaretakerPress?: () => void;
 };
 
 const CARD_RADIUS = 20;
@@ -59,6 +61,7 @@ export function PetCard({
   isFavorite = false,
   onFavorite,
   onApply,
+  onCaretakerPress,
 }: PetCardProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -122,7 +125,11 @@ export function PetCard({
         </AppText>
 
         <View style={styles.footer}>
-          <View style={[styles.caretakerChip, { backgroundColor: colors.surfaceContainer }]}>
+          <TouchableOpacity
+            activeOpacity={0.85}
+            onPress={onCaretakerPress}
+            style={[styles.caretakerChip, { backgroundColor: colors.surfaceContainer }]}
+          >
             {caretaker.avatarUri != null ? (
               <AppImage
                 source={typeof caretaker.avatarUri === 'string' ? { uri: caretaker.avatarUri } : caretaker.avatarUri}
@@ -146,7 +153,7 @@ export function PetCard({
                 </View>
               </View>
             </View>
-          </View>
+          </TouchableOpacity>
           <Button label="Apply" onPress={onApply} style={styles.applyBtn} fullWidth />
         </View>
       </View>

@@ -13,15 +13,13 @@ import {
   Calendar,
   Clock,
   MapPin,
-  Star,
-  Handshake,
-  PawPrint,
 } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { Button } from '@/src/shared/components/ui/Button';
+import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PADDING = 16;
@@ -194,20 +192,21 @@ export default function RequestDetailScreen() {
             <View style={styles.ownerInfo}>
               <AppText variant="title" style={styles.ownerName}>{request.owner.name}</AppText>
               <View style={styles.ownerStats}>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{request.owner.rating}</AppText>
-                <Star size={10} color={colors.onSurfaceVariant} fill={colors.onSurfaceVariant} />
-                <View style={[styles.miniPill, { backgroundColor: colors.surfaceContainerLowest }]}>
-                  <Handshake size={12} color={colors.onSurfaceVariant} />
-                  <AppText variant="caption" color={colors.onSurfaceVariant}>{request.owner.handshakes}</AppText>
-                </View>
-                <View style={[styles.miniPill, { backgroundColor: colors.surfaceContainerLowest }]}>
-                  <PawPrint size={12} color={colors.onSurfaceVariant} />
-                  <AppText variant="caption" color={colors.onSurfaceVariant}>{request.owner.paws}</AppText>
-                </View>
+                <RatingSummary
+                  rating={request.owner.rating}
+                  handshakes={request.owner.handshakes}
+                  paws={request.owner.paws}
+                />
               </View>
             </View>
           </View>
-          <TouchableOpacity onPress={() => router.push(`/users/${request.owner.id}`)}>
+          <TouchableOpacity
+            onPress={() =>
+              router.push(
+                `/(private)/(tabs)/(no-label)/users/${request.owner.id}`,
+              )
+            }
+          >
             <AppText variant="title" color={colors.primary}>View Profile</AppText>
           </TouchableOpacity>
         </View>

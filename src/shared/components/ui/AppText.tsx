@@ -1,9 +1,20 @@
-import React from 'react';
-import { Text, type TextProps, type StyleProp, type TextStyle } from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import React from "react";
+import {
+  Text,
+  type StyleProp,
+  type TextProps,
+  type TextStyle,
+} from "react-native";
 
-type AppTextVariant = 'body' | 'label' | 'title' | 'headline' | 'caption';
+type AppTextVariant =
+  | "body"
+  | "bodyLarge"
+  | "label"
+  | "title"
+  | "headline"
+  | "caption";
 
 type AppTextProps = TextProps & {
   variant?: AppTextVariant;
@@ -14,28 +25,33 @@ type AppTextProps = TextProps & {
 
 const variantStyles: Record<AppTextVariant, TextStyle> = {
   body: {
-    fontFamily: 'Roboto_400Regular',
+    fontFamily: "Roboto_400Regular",
     fontSize: 16,
     lineHeight: 24,
   },
+  bodyLarge: {
+    fontFamily: "Roboto_400Regular",
+    fontSize: 22,
+    lineHeight: 24,
+  },
   label: {
-    fontFamily: 'Roboto_500Medium',
+    fontFamily: "Roboto_500Medium",
     fontSize: 14,
     lineHeight: 20,
     letterSpacing: -0.2,
   },
   title: {
-    fontFamily: 'Roboto_500Medium',
+    fontFamily: "Roboto_500Medium",
     fontSize: 20,
     lineHeight: 28,
   },
   headline: {
-    fontFamily: 'Roboto_700Bold',
+    fontFamily: "Roboto_700Bold",
     fontSize: 24,
     lineHeight: 32,
   },
   caption: {
-    fontFamily: 'Roboto_400Regular',
+    fontFamily: "Roboto_400Regular",
     fontSize: 12,
     lineHeight: 16,
   },
@@ -46,7 +62,7 @@ const variantStyles: Record<AppTextVariant, TextStyle> = {
  * Use for all app text so typography and color stay consistent.
  */
 export function AppText({
-  variant = 'body',
+  variant = "body",
   color,
   style,
   children,
@@ -57,11 +73,7 @@ export function AppText({
 
   return (
     <Text
-      style={[
-        variantStyles[variant],
-        { color: defaultColor },
-        style,
-      ]}
+      style={[variantStyles[variant], { color: defaultColor }, style]}
       {...rest}
     >
       {children}

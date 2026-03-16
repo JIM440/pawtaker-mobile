@@ -1,5 +1,9 @@
-import { Platform } from 'react-native';
-import { Stack } from 'expo-router';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { Stack } from "expo-router";
+import { StatusBar } from "expo-status-bar";
+import { Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
  * Private (authenticated) app shell: tabs + detail screens.
@@ -7,24 +11,35 @@ import { Stack } from 'expo-router';
  * Web: navigation will still feel like page loads (Expo Router web limitation).
  */
 export default function PrivateLayout() {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        ...(Platform.OS !== 'web' && { animation: 'slide_from_right' }),
-      }}
+    <SafeAreaView
+      className={`flex-1`}
+      style={{ backgroundColor: colors.background }}
     >
-      <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-      <Stack.Screen name="users/[id]" options={{ headerShown: true, title: 'Profile' }} />
-      <Stack.Screen name="requests/[id]" options={{ headerShown: true, title: 'Request' }} />
-      <Stack.Screen name="offers/[id]" options={{ headerShown: false }} />
-      <Stack.Screen name="takers/[id]" options={{ headerShown: true, title: 'Taker' }} />
-      <Stack.Screen name="pets/add" options={{ headerShown: true, title: 'Add Pet' }} />
-      <Stack.Screen name="pets/[id]" options={{ headerShown: true, title: 'Pet Profile' }} />
-      <Stack.Screen name="pets/[id]/edit" options={{ headerShown: true, title: 'Edit Pet' }} />
-      <Stack.Screen name="settings" options={{ headerShown: true, title: 'Settings' }} />
-      <Stack.Screen name="notifications" options={{ headerShown: true, title: 'Notifications' }} />
-      <Stack.Screen name="search" options={{ headerShown: true, title: 'Search' }} />
-    </Stack>
+      <StatusBar style={resolvedTheme === "light" ? "dark" : "light"} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          ...(Platform.OS !== "web" && { animation: "slide_from_right" }),
+        }}
+      >
+        <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
+        <Stack.Screen name="requests/[id]" options={{ title: "Request" }} />
+        <Stack.Screen name="offers/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="takers/[id]" options={{ title: "Taker" }} />
+        <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />
+        <Stack.Screen name="pets/[id]" options={{ title: "Pet Profile" }} />
+        <Stack.Screen name="pets/[id]/edit" options={{ title: "Edit Pet" }} />
+        <Stack.Screen
+          name="notifications"
+          options={{ title: "Notifications" }}
+        />
+        <Stack.Screen name="search" options={{ title: "Search" }} />
+      </Stack>
+    </SafeAreaView>
   );
 }

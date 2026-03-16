@@ -1,310 +1,337 @@
-import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { router } from 'expo-router';
+import { Colors } from "@/src/constants/colors";
+import { ProfileAvailabilityTab } from "@/src/features/profile/components/ProfileAvailabilityTab";
+import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
+import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
+import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { PageContainer } from "@/src/shared/components/layout";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { TabBar } from "@/src/shared/components/ui/TabBar";
+import { router } from "expo-router";
 import {
-  Settings,
-  MapPin,
   Activity,
-  Handshake,
-  PawPrint,
-  Star,
   BadgeCheck,
-} from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { PageContainer } from '@/src/shared/components/layout';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { Button } from '@/src/shared/components/ui/Button';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { ProfilePetCard } from '@/src/shared/components/cards';
+  Handshake,
+  MapPin,
+  PawPrint,
+  Settings,
+  Star,
+} from "lucide-react-native";
+import React, { useState } from "react";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 const PROFILE = {
-  avatarUri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200',
-  name: 'Jane Ambers',
-  location: 'Lake Placid, New York, US',
+  avatarUri:
+    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
+  name: "Jane Ambers",
+  location: "Lake Placid, New York, US",
   points: 58,
   handshakes: 12,
   paws: 17,
   rating: 4.1,
-  currentTask: 'Caring for Bob Majors',
+  currentTask: "Caring for Bob Majors",
 };
 
 const MOCK_PETS = [
   {
-    id: '1',
-    imageSource: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200',
-    petName: 'Polo',
-    breed: 'Golden Retriever',
-    petType: 'Dog',
+    id: "1",
+    imageSource:
+      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
+    petName: "Polo",
+    breed: "Golden Retriever",
+    petType: "Dog",
     bio: "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch. He's well-trained.",
-    tags: ['fenced yard', 'high energy', '1-3yrs'],
-    seekingDateRange: 'Mar 14-Apr 02',
-    seekingTime: '8am-4pm',
+    tags: ["fenced yard", "high energy", "1-3yrs"],
+    seekingDateRange: "Mar 14-Apr 02",
+    seekingTime: "8am-4pm",
   },
   {
-    id: '2',
-    imageSource: 'https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200',
-    petName: 'Bobby',
-    breed: 'Tabby',
-    petType: 'Cat',
-    bio: 'Bobby is an independent and affectionate tabby cat. He enjoys her alone time but also loves cuddles.',
-    tags: ['indoors only', 'calm', '1-3yrs'],
+    id: "2",
+    imageSource:
+      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200",
+    petName: "Bobby",
+    breed: "Tabby",
+    petType: "Cat",
+    bio: "Bobby is an independent and affectionate tabby cat. He enjoys her alone time but also loves cuddles.",
+    tags: ["indoors only", "calm", "1-3yrs"],
+  },
+  {
+    id: "3",
+    imageSource:
+      "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=200",
+    petName: "Rex",
+    breed: "Mixed",
+    petType: "Dog",
+    bio: "Rex is a playful mixed-breed pup who loves the beach and meeting new people.",
+    tags: ["beach lover", "medium energy"],
+  },
+  {
+    id: "4",
+    imageSource:
+      "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=200",
+    petName: "Luna",
+    breed: "Siamese",
+    petType: "Cat",
+    bio: "Luna is a curious Siamese cat who enjoys sunny windowsills and quiet naps.",
+    tags: ["indoor", "gentle"],
+  },
+  {
+    id: "5",
+    imageSource:
+      "https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=200",
+    petName: "Milo",
+    breed: "Beagle",
+    petType: "Dog",
+    bio: "Milo is a food-motivated beagle with a great nose and a friendly attitude.",
+    tags: ["foodie", "good with kids"],
   },
 ];
 
-type ProfileTab = 'pets' | 'availability' | 'bio' | 'reviews';
+type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function ProfileScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [activeTab, setActiveTab] = useState<ProfileTab>('pets');
+  const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const hasPets = MOCK_PETS.length > 0;
 
   return (
-    <PageContainer scrollable edges={['top', 'left', 'right']}>
+    <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
       {/* Header: Profile + Edit Profile + Settings */}
       <View style={styles.header}>
-        <AppText variant="headline" style={styles.title}>Profile</AppText>
+        <AppText
+          variant="bodyLarge"
+          style={styles.title}
+          color={colors.onSurface}
+        >
+          Profile
+        </AppText>
         <View style={styles.headerActions}>
-          <TouchableOpacity onPress={() => router.push('/(private)/(tabs)/profile/edit')} hitSlop={8}>
-            <AppText variant="body" color={colors.primary} style={styles.editLink}>
+          <TouchableOpacity
+            onPress={() => router.push("/(private)/(tabs)/profile/edit")}
+            hitSlop={8}
+          >
+            <AppText
+              variant="body"
+              color={colors.onSurface}
+              style={styles.editLink}
+            >
               Edit Profile
             </AppText>
           </TouchableOpacity>
-          <TouchableOpacity onPress={() => router.push('/(private)/settings')} hitSlop={12} style={styles.settingsBtn}>
-            <Settings size={24} color={colors.onSurface} />
-          </TouchableOpacity>
-        </View>
-      </View>
-
-      {/* Profile head: avatar, Available, name, location, stats */}
-      <View style={styles.profileHead}>
-        <View style={styles.avatarWrap}>
-          <AppImage
-            source={{ uri: PROFILE.avatarUri }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-          <View style={[styles.onlineBadge, { backgroundColor: colors.primary }]} />
-        </View>
-        <View style={[styles.availablePill, { backgroundColor: colors.tertiaryContainer }]}>
-          <AppText variant="caption" color={colors.onTertiaryContainer}>Available</AppText>
-        </View>
-        <View style={styles.nameRow}>
-          <AppText variant="headline" style={styles.userName}>{PROFILE.name}</AppText>
-          <BadgeCheck size={20} color={colors.primary} />
-        </View>
-        <View style={styles.locationRow}>
-          <MapPin size={20} color={colors.onSurfaceVariant} />
-          <AppText variant="caption" color={colors.onSurfaceVariant}>{PROFILE.location}</AppText>
-        </View>
-        <View style={styles.statsRow}>
-          <View style={[styles.statPill, { backgroundColor: colors.surfaceContainer }]}>
-            <Activity size={14} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" color={colors.onSurfaceVariant}>{PROFILE.points} Points</AppText>
-          </View>
-          <View style={[styles.statPill, { backgroundColor: colors.surfaceContainer }]}>
-            <View style={[styles.statInner, { backgroundColor: colors.tertiaryContainer, borderColor: colors.outlineVariant }]}>
-              <Handshake size={12} color={colors.tertiary} />
-              <AppText variant="caption" color={colors.onTertiaryContainer}>{PROFILE.handshakes}</AppText>
-            </View>
-            <View style={[styles.statInner, { backgroundColor: colors.primaryContainer, borderColor: colors.outlineVariant }]}>
-              <PawPrint size={12} color={colors.onPrimaryContainer} />
-              <AppText variant="caption" color={colors.onPrimaryContainer}>{PROFILE.paws}</AppText>
-            </View>
-          </View>
-          <View style={[styles.statPill, { backgroundColor: colors.surfaceContainer }]}>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>{PROFILE.rating}</AppText>
-            <Star size={12} color={colors.onSurfaceVariant} fill={colors.onSurfaceVariant} />
-          </View>
-        </View>
-        <View style={[styles.currentTaskPill, { backgroundColor: colors.surfaceContainer }]}>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>{PROFILE.currentTask}</AppText>
-        </View>
-      </View>
-
-      {/* Tabs */}
-      <View style={[styles.tabs, { borderBottomColor: colors.outlineVariant }]}>
-        {[
-          { key: 'pets' as const, label: 'Your Pets' },
-          { key: 'availability' as const, label: 'Availability' },
-          { key: 'bio' as const, label: 'Short Bio' },
-          { key: 'reviews' as const, label: 'Reviews' },
-        ].map(({ key, label }) => (
           <TouchableOpacity
-            key={key}
-            onPress={() => setActiveTab(key)}
-            style={[styles.tab, activeTab === key && styles.tabActive]}
+            onPress={() => router.push("/(private)/(tabs)/profile/settings")}
+            hitSlop={12}
+            style={styles.settingsBtn}
           >
-            <AppText
-              variant="label"
-              color={activeTab === key ? colors.primary : colors.onSurfaceVariant}
-              style={activeTab === key ? styles.tabLabelActive : undefined}
-            >
-              {label}
-            </AppText>
-            {activeTab === key && (
-              <View style={[styles.tabIndicator, { backgroundColor: colors.primary }]} />
-            )}
+            <Settings size={24} color={colors.onSurfaceVariant} />
           </TouchableOpacity>
-        ))}
+        </View>
       </View>
-
-      {/* Tab content */}
-      {activeTab === 'pets' && (
-        <>
-          {hasPets ? (
-            <View style={styles.petList}>
-              {MOCK_PETS.map((pet) => (
-                <ProfilePetCard
-                  key={pet.id}
-                  imageSource={pet.imageSource}
-                  petName={pet.petName}
-                  breed={pet.breed}
-                  petType={pet.petType}
-                  bio={pet.bio}
-                  tags={pet.tags}
-                  seekingDateRange={pet.seekingDateRange}
-                  seekingTime={pet.seekingTime}
-                  onPress={() => {}}
-                  onMenuPress={() => {}}
-                />
-              ))}
-              <Button
-                label="+ Add a pet"
-                variant="outline"
-                onPress={() => router.push('/(private)/pets/add')}
-                style={styles.addPetBtn}
-              />
-            </View>
-          ) : (
-            <View style={styles.emptyState}>
-              <View style={[styles.emptyIllustration, { backgroundColor: colors.surfaceContainer }]} />
-              <AppText variant="body" style={styles.emptyMessage}>
-                Uh oh! This user has not uploaded any pets yet
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={{ paddingBottom: 24 }}
+        showsVerticalScrollIndicator={false}
+      >
+        {/* Profile head: avatar, Available, name, location, stats */}
+        <View style={styles.profileHead}>
+          <View style={styles.avatarWrap}>
+            <AppImage
+              source={{ uri: PROFILE.avatarUri }}
+              style={styles.avatar}
+              contentFit="cover"
+            />
+            <View
+              style={[styles.onlineBadge, { backgroundColor: colors.primary }]}
+            />
+          </View>
+          <View
+            style={[
+              styles.availablePill,
+              { backgroundColor: colors.tertiaryContainer },
+            ]}
+          >
+            <AppText variant="caption" color={colors.onTertiaryContainer}>
+              Available
+            </AppText>
+          </View>
+          <View style={styles.nameRow}>
+            <AppText variant="headline" style={styles.userName}>
+              {PROFILE.name}
+            </AppText>
+            <BadgeCheck size={20} color={colors.primary} />
+          </View>
+          <View style={styles.locationRow}>
+            <MapPin size={20} color={colors.onSurfaceVariant} />
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {PROFILE.location}
+            </AppText>
+          </View>
+          <View style={styles.statsRow}>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
+              <Activity size={16} color={colors.onSurfaceVariant} />
+              <AppText
+                variant="caption"
+                color={colors.onSurfaceVariant}
+                style={styles.statText}
+              >
+                {PROFILE.points} Points
               </AppText>
-              <Button
-                label="+ Add a pet"
-                variant="outline"
-                onPress={() => router.push('/(private)/pets/add')}
-                style={styles.addPetBtn}
-              />
             </View>
-          )}
-        </>
-      )}
-      {activeTab === 'availability' && (
-        <View style={styles.placeholder}>
-          <AppText variant="body" color={colors.onSurfaceVariant}>Availability</AppText>
-        </View>
-      )}
-      {activeTab === 'bio' && (
-        <View style={styles.placeholder}>
-          <AppText variant="body" color={colors.onSurfaceVariant}>Short Bio</AppText>
-        </View>
-      )}
-      {activeTab === 'reviews' && (
-        <View style={styles.reviewsSection}>
-          <View style={styles.reviewsHeaderRow}>
-            <View style={styles.reviewsScore}>
-              <AppText variant="headline" style={styles.reviewsScoreValue}>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
+              <View
+                style={[
+                  styles.statInner,
+                  {
+                    backgroundColor: colors.tertiaryContainer,
+                    borderColor: colors.outlineVariant,
+                  },
+                ]}
+              >
+                <Handshake size={12} color={colors.tertiary} />
+                <AppText
+                  variant="caption"
+                  color={colors.tertiary}
+                  style={styles.statText}
+                >
+                  {PROFILE.handshakes}
+                </AppText>
+              </View>
+              <View
+                style={[
+                  styles.statInner,
+                  {
+                    backgroundColor: colors.secondaryContainer,
+                    borderColor: colors.outlineVariant,
+                  },
+                ]}
+              >
+                <PawPrint size={12} color={colors.onSurfaceVariant} />
+                <AppText
+                  variant="caption"
+                  color={colors.onSecondaryContainer}
+                  style={styles.statText}
+                >
+                  {PROFILE.paws}
+                </AppText>
+              </View>
+            </View>
+            <View
+              style={[
+                styles.statPill,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
+              <AppText variant="caption" color={colors.onSurfaceVariant}>
                 {PROFILE.rating.toFixed(1)}
               </AppText>
-              <View style={styles.reviewsScoreMeta}>
-                <Star size={16} color={colors.primary} fill={colors.primary} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  out of 5
-                </AppText>
-              </View>
-            </View>
-            <View style={styles.reviewsStats}>
-              <AppText variant="caption" color={colors.onSurfaceVariant}>
-                {PROFILE.handshakes} Care Given
-              </AppText>
-              <AppText variant="caption" color={colors.onSurfaceVariant}>
-                {PROFILE.paws} Care Received
-              </AppText>
+              <Star size={12} color={colors.primary} fill={colors.primary} />
             </View>
           </View>
-          <View style={styles.reviewsList}>
-            <View style={[styles.reviewCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-              <View style={styles.reviewHeader}>
-                <View style={styles.reviewAvatar} />
-                <View style={styles.reviewTitleCol}>
-                  <AppText variant="label">Bob Majors</AppText>
-                  <View style={styles.reviewMetaRow}>
-                    <Star size={12} color={colors.primary} fill={colors.primary} />
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      4.5 • Daytime
-                    </AppText>
-                  </View>
-                </View>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  2d ago
-                </AppText>
-              </View>
-              <AppText
-                variant="body"
-                color={colors.onSurfaceVariant}
-                style={styles.reviewBody}
-              >
-                Jane took incredible care of Polo. Lots of photo updates and clear communication.
-                Came home to a very happy pup!
-              </AppText>
-            </View>
+          <View style={[styles.currentTaskPill]}>
+            <AppText variant="label" color={colors.onSurfaceVariant}>
+              {PROFILE.currentTask}
+            </AppText>
           </View>
         </View>
-      )}
+
+        {/* Tabs */}
+        <TabBar<ProfileTab>
+          tabs={[
+            { key: "pets", label: "Your Pets" },
+            { key: "availability", label: "Availability" },
+            { key: "bio", label: "Short Bio" },
+            { key: "reviews", label: "Reviews" },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          variant="underline"
+        />
+
+        {/* Tab content */}
+        {activeTab === "pets" && hasPets && (
+          <ProfilePetsTab
+            pets={MOCK_PETS}
+            onAddPet={() => router.push("/(private)/pets/add")}
+            showAddPetButton
+          />
+        )}
+        {activeTab === "availability" && <ProfileAvailabilityTab />}
+        {activeTab === "bio" && <ProfileBioTab />}
+        {activeTab === "reviews" && (
+          <ProfileReviewsTab
+            rating={PROFILE.rating}
+            handshakes={PROFILE.handshakes}
+            paws={PROFILE.paws}
+            onReviewerPress={(id) =>
+              router.push({
+                pathname: "/(private)/(tabs)/(no-label)/users/[id]",
+                params: { id },
+              })
+            }
+          />
+        )}
+      </ScrollView>
     </PageContainer>
   );
 }
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingBottom: 12,
+    paddingHorizontal: 16,
   },
   title: {
     fontSize: 22,
     letterSpacing: -0.1,
   },
   headerActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 32,
   },
   editLink: {
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
     fontSize: 16,
   },
   settingsBtn: {
     padding: 4,
   },
   profileHead: {
-    alignItems: 'center',
+    alignItems: "center",
     marginBottom: 16,
+    paddingHorizontal: 16,
   },
   avatarWrap: {
-    position: 'relative',
+    position: "relative",
     marginBottom: 8,
   },
   avatar: {
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#eee',
   },
   onlineBadge: {
-    position: 'absolute',
+    position: "absolute",
     right: 0,
     bottom: 0,
     width: 10,
     height: 10,
     borderRadius: 5,
-    borderWidth: 2,
-    borderColor: '#fff',
   },
   availablePill: {
     paddingHorizontal: 4,
@@ -313,8 +340,8 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     marginBottom: 4,
   },
@@ -324,30 +351,34 @@ const styles = StyleSheet.create({
     lineHeight: 36,
   },
   locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     marginBottom: 8,
   },
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexWrap: 'wrap',
-    justifyContent: 'center',
-    gap: 8,
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
+    justifyContent: "center",
+    gap: 16,
     marginBottom: 8,
   },
+  statText: {
+    fontSize: 9,
+    lineHeight: 16,
+  },
   statPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
   },
   statInner: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
     paddingHorizontal: 4,
     paddingVertical: 2,
@@ -360,110 +391,38 @@ const styles = StyleSheet.create({
     borderRadius: 999,
   },
   tabs: {
-    flexDirection: 'row',
+    flexDirection: "row",
     borderBottomWidth: 1,
     marginBottom: 16,
+    justifyContent: "space-between",
+    paddingHorizontal: 16,
   },
   tab: {
     paddingVertical: 12,
     paddingHorizontal: 8,
-    marginRight: 8,
   },
   tabActive: {},
   tabLabelActive: {
-    fontWeight: '600',
+    fontWeight: "600",
   },
   tabIndicator: {
-    position: 'absolute',
+    position: "absolute",
     bottom: 0,
     left: 8,
     right: 8,
     height: 2,
     borderRadius: 1,
   },
-  petList: {
-    gap: 8,
-    paddingBottom: 24,
-  },
-  addPetBtn: {
-    marginTop: 8,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 32,
-  },
-  emptyIllustration: {
-    width: 140,
-    height: 120,
-    borderRadius: 16,
-    marginBottom: 16,
-  },
-  emptyMessage: {
-    textAlign: 'center',
-    marginBottom: 16,
-  },
-  placeholder: {
-    paddingVertical: 24,
-  },
-  reviewsSection: {
-    paddingVertical: 16,
-    gap: 12,
-  },
-  reviewsHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  reviewsScore: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  reviewsScoreValue: {
-    fontSize: 24,
-  },
-  reviewsScoreMeta: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  reviewsStats: {
-    alignItems: 'flex-end',
-    gap: 2,
-  },
-  reviewsList: {
-    gap: 8,
-  },
-  reviewCard: {
-    borderRadius: 16,
-    padding: 12,
-    gap: 6,
-  },
-  reviewHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-  },
-  reviewAvatar: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#eee',
-    marginRight: 8,
-  },
   reviewTitleCol: {
     flex: 1,
     gap: 2,
   },
   reviewMetaRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
   },
-  reviewBody: {
-    fontSize: 12,
-    lineHeight: 16,
+  scroll: {
+    flex: 1,
   },
 });

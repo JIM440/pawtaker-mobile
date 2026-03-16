@@ -4,7 +4,7 @@ import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { BackHeader, PageContainer } from "@/src/shared/components/layout";
+import { PageContainer } from "@/src/shared/components/layout";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
@@ -12,14 +12,13 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Activity,
   BadgeCheck,
-  EllipsisVertical,
   Handshake,
   MapPin,
   PawPrint,
   Star,
 } from "lucide-react-native";
 import React, { useState } from "react";
-import { Modal, Pressable, StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 const PUBLIC_PROFILE = {
   avatarUri:
@@ -31,7 +30,6 @@ const PUBLIC_PROFILE = {
   paws: 17,
   rating: 4.1,
   currentTask: "Caring for Bob Majors",
-  available: true,
 };
 
 const PUBLIC_PETS = [
@@ -57,31 +55,10 @@ export default function PublicProfileScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
-  const [menuOpen, setMenuOpen] = useState(false);
 
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
-      <BackHeader
-        onBack={() => router.back()}
-        title={
-          <View style={styles.headerTitleRow}>
-            <AppText variant="headline" style={styles.userName}>
-              {PUBLIC_PROFILE.name}
-            </AppText>
-            <BadgeCheck size={20} color={colors.primary} />
-          </View>
-        }
-        rightSlot={
-          <TouchableOpacity
-            hitSlop={8}
-            onPress={() => setMenuOpen(true)}
-            style={styles.menuButton}
-          >
-            <EllipsisVertical size={22} color={colors.onSurfaceVariant} />
-          </TouchableOpacity>
-        }
-      />
-
+      {/* Back is handled by stack header; this is nested profile content */}
       <View style={styles.profileHead}>
         <View style={styles.avatarWrap}>
           <AppImage
@@ -99,6 +76,12 @@ export default function PublicProfileScreen() {
           <AppText variant="caption" color={colors.onTertiaryContainer}>
             Available
           </AppText>
+        </View>
+        <View style={styles.nameRow}>
+          <AppText variant="headline" style={styles.userName}>
+            {PUBLIC_PROFILE.name}
+          </AppText>
+          <BadgeCheck size={20} color={colors.primary} />
         </View>
         <View style={styles.locationRow}>
           <MapPin size={20} color={colors.onSurfaceVariant} />
@@ -199,11 +182,7 @@ export default function PublicProfileScreen() {
 
       {/* Tab content */}
       {activeTab === "pets" && (
-        <ProfilePetsTab
-          pets={PUBLIC_PETS}
-          onAddPet={() => {}}
-          showAddPetButton={false}
-        />
+        <ProfilePetsTab pets={PUBLIC_PETS} onAddPet={() => {}} />
       )}
       {activeTab === "availability" && <ProfileAvailabilityTab />}
       {activeTab === "bio" && <ProfileBioTab />}
@@ -212,65 +191,11 @@ export default function PublicProfileScreen() {
           rating={PUBLIC_PROFILE.rating}
           handshakes={PUBLIC_PROFILE.handshakes}
           paws={PUBLIC_PROFILE.paws}
-          scrollEnabled
           onReviewerPress={(reviewerId) =>
-            router.push({
-              pathname: "/users/[id]",
-              params: { id: reviewerId },
-            })
+            router.push(`/(private)/(tabs)/(no-label)/users/${reviewerId}`)
           }
         />
       )}
-      <Modal
-        transparent
-        visible={menuOpen}
-        animationType="fade"
-        onRequestClose={() => setMenuOpen(false)}
-      >
-        <Pressable
-          style={styles.menuBackdrop}
-          onPress={() => setMenuOpen(false)}
-        >
-          <View style={styles.menuCard}>
-            {PUBLIC_PROFILE.available && (
-              <Pressable
-                style={styles.menuItem}
-                onPress={() => {
-                  setMenuOpen(false);
-                  // TODO: implement send to chat flow
-                  router.push("/(private)/(tabs)/messages");
-                }}
-              >
-                <AppText variant="body" color={colors.onSurface}>
-                  Send to chat
-                </AppText>
-              </Pressable>
-            )}
-            <Pressable
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                router.push("/(private)/(tabs)/messages");
-              }}
-            >
-              <AppText variant="body" color={colors.onSurface}>
-                Go to chat
-              </AppText>
-            </Pressable>
-            <Pressable
-              style={styles.menuItem}
-              onPress={() => {
-                setMenuOpen(false);
-                // TODO: implement block user
-              }}
-            >
-              <AppText variant="body" color={colors.error}>
-                Block user
-              </AppText>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
     </PageContainer>
   );
 }
@@ -280,9 +205,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 16,
     paddingHorizontal: 16,
-  },
-  menuButton: {
-    padding: 4,
   },
   avatarWrap: {
     position: "relative",
@@ -299,15 +221,16 @@ const styles = StyleSheet.create({
     borderRadius: 4,
     marginBottom: 6,
   },
+  nameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginBottom: 4,
+  },
   userName: {
     fontSize: 28,
     letterSpacing: -0.5,
     lineHeight: 36,
-  },
-  headerTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
   },
   locationRow: {
     flexDirection: "row",
@@ -348,25 +271,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8,
     paddingVertical: 2,
     borderRadius: 999,
-  },
-  menuBackdrop: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.3)",
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-    paddingTop: 48,
-    paddingRight: 16,
-  },
-  menuCard: {
-    width: 220,
-    borderRadius: 16,
-    backgroundColor: "white",
-    paddingVertical: 8,
-    paddingHorizontal: 4,
-    gap: 4,
-  },
-  menuItem: {
-    paddingHorizontal: 12,
-    paddingVertical: 10,
   },
 });

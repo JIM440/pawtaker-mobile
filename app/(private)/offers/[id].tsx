@@ -4,9 +4,6 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import {
   ChevronLeft,
   EllipsisVertical,
-  Star,
-  Handshake,
-  PawPrint,
   MapPin,
 } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
@@ -15,6 +12,7 @@ import { PageContainer } from '@/src/shared/components/layout';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { Button } from '@/src/shared/components/ui/Button';
+import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
 
 const MOCK_OFFER = {
   petName: 'Polo',
@@ -68,7 +66,13 @@ export default function ViewOfferScreen() {
         </View>
 
         {/* Taker profile card */}
-        <View style={[styles.takerCard, { backgroundColor: colors.surfaceContainerLowest }]}>
+        <TouchableOpacity
+          activeOpacity={0.9}
+          onPress={() =>
+            router.push(`/(private)/(tabs)/(no-label)/users/${id ?? "t1"}`)
+          }
+          style={[styles.takerCard, { backgroundColor: colors.surfaceContainerLowest }]}
+        >
           <AppImage
             source={{ uri: offer.taker.avatarUri }}
             style={styles.takerAvatar}
@@ -89,16 +93,11 @@ export default function ViewOfferScreen() {
               </TouchableOpacity>
             </View>
             <View style={styles.statsRow}>
-              <AppText variant="caption" color={colors.onSurfaceVariant}>{offer.taker.rating}</AppText>
-              <Star size={10} color={colors.onSurfaceVariant} fill={colors.onSurfaceVariant} />
-              <View style={[styles.statPill, { backgroundColor: colors.surfaceContainerLowest }]}>
-                <Handshake size={12} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{offer.taker.handshakes}</AppText>
-              </View>
-              <View style={[styles.statPill, { backgroundColor: colors.surfaceContainerLowest }]}>
-                <PawPrint size={12} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{offer.taker.paws}</AppText>
-              </View>
+              <RatingSummary
+                rating={offer.taker.rating}
+                handshakes={offer.taker.handshakes}
+                paws={offer.taker.paws}
+              />
             </View>
             <AppText variant="caption" color={colors.onSurface} style={styles.petTypes}>
               {offer.taker.petTypes}
@@ -111,7 +110,7 @@ export default function ViewOfferScreen() {
               <AppText variant="caption" color={colors.onSurfaceVariant}>{offer.taker.location}</AppText>
             </View>
           </View>
-        </View>
+        </TouchableOpacity>
 
         {/* Details */}
         <AppText variant="title" style={styles.sectionTitle}>Details</AppText>

@@ -1,10 +1,10 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { Calendar, Clock, EllipsisVertical } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { AppText } from '@/src/shared/components/ui/AppText';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Calendar, Clock, EllipsisVertical } from "lucide-react-native";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export type ProfilePetCardProps = {
   imageSource: string | number | { uri: string };
@@ -40,46 +40,79 @@ export function ProfilePetCard({
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      style={[styles.card, { backgroundColor: colors.surfaceContainerLowest ?? '#fffafa' }]}
+      style={[styles.card, { backgroundColor: colors.surfaceBright }]}
     >
       <AppImage
-        source={typeof imageSource === 'string' ? { uri: imageSource } : imageSource}
+        source={
+          typeof imageSource === "string" ? { uri: imageSource } : imageSource
+        }
         style={styles.image}
-        contentFit="cover"
       />
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <View style={styles.nameRow}>
-            <AppText variant="title" style={styles.petName}>{petName}</AppText>
+            <AppText variant="title" style={styles.petName}>
+              {petName}
+            </AppText>
             {showSeeking && (
-              <View style={[styles.seekingMarker, { backgroundColor: colors.tertiaryContainer }]}>
-                <AppText variant="caption" color={colors.onTertiaryContainer}>Seeking</AppText>
+              <View
+                style={[
+                  styles.seekingMarker,
+                  { backgroundColor: colors.tertiaryContainer },
+                ]}
+              >
+                <AppText variant="caption" color={colors.onTertiaryContainer}>
+                  Seeking
+                </AppText>
               </View>
             )}
           </View>
-          <TouchableOpacity onPress={onMenuPress} hitSlop={8} style={styles.menuBtn}>
+          <TouchableOpacity
+            onPress={onMenuPress}
+            hitSlop={8}
+            style={styles.menuBtn}
+          >
             <EllipsisVertical size={20} color={colors.onSurface} />
           </TouchableOpacity>
         </View>
         <View style={styles.breedRow}>
-          <AppText variant="caption" style={styles.breed}>{breed}</AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}> • </AppText>
-          <AppText variant="caption" style={styles.breed}>{petType}</AppText>
+          <AppText variant="caption" style={styles.breed}>
+            {breed}
+          </AppText>
+          <AppText variant="caption" color={colors.onSurfaceVariant}>
+            {" "}
+            •{" "}
+          </AppText>
+          <AppText variant="caption" style={styles.breed}>
+            {petType}
+          </AppText>
         </View>
         {showSeeking && seekingDateRange && (
           <View style={styles.dateRow}>
-            <Calendar size={16} color={colors.onSurface} />
-            <AppText variant="caption" style={styles.metaText}>{seekingDateRange}</AppText>
+            <Calendar size={16} color={colors.onSurfaceVariant} />
+            <AppText variant="caption" style={styles.metaText}>
+              {seekingDateRange}
+            </AppText>
             {seekingTime && (
               <>
-                <AppText variant="caption" color={colors.onSurfaceVariant}> • </AppText>
-                <Clock size={16} color={colors.onSurface} />
-                <AppText variant="caption" style={styles.metaText}>{seekingTime}</AppText>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {" "}
+                  •{" "}
+                </AppText>
+                <Clock size={16} color={colors.onSurfaceVariant} />
+                <AppText variant="caption" style={styles.metaText}>
+                  {seekingTime}
+                </AppText>
               </>
             )}
           </View>
         )}
-        <AppText variant="caption" color={colors.onSurfaceVariant} numberOfLines={2} style={styles.bio}>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          numberOfLines={2}
+          style={styles.bio}
+        >
           {bio}
         </AppText>
         {tags.length > 0 && (
@@ -87,9 +120,18 @@ export function ProfilePetCard({
             {tags.map((tag) => (
               <View
                 key={tag}
-                style={[styles.tag, { backgroundColor: colors.surfaceContainer }]}
+                style={[
+                  styles.tag,
+                  { backgroundColor: colors.surfaceContainer },
+                ]}
               >
-                <AppText variant="caption" color={colors.onSecondaryContainer}>{tag}</AppText>
+                <AppText
+                  variant="caption"
+                  color={colors.onSecondaryContainer}
+                  style={styles.tagText}
+                >
+                  {tag}
+                </AppText>
               </View>
             ))}
           </View>
@@ -101,7 +143,7 @@ export function ProfilePetCard({
 
 const styles = StyleSheet.create({
   card: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 12,
     borderRadius: 16,
     gap: 12,
@@ -110,7 +152,7 @@ const styles = StyleSheet.create({
     width: 92,
     height: 92,
     borderRadius: 12,
-    backgroundColor: '#eee',
+    backgroundColor: "#eee",
   },
   body: {
     flex: 1,
@@ -118,13 +160,13 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   nameRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     flex: 1,
     minWidth: 0,
@@ -142,16 +184,16 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   breedRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   breed: {
     fontSize: 11,
     lineHeight: 13,
   },
   dateRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
   },
   metaText: {
@@ -163,8 +205,8 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   tags: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
+    flexDirection: "row",
+    flexWrap: "wrap",
     gap: 4,
     marginTop: 4,
   },
@@ -172,5 +214,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
     borderRadius: 999,
+  },
+  tagText: {
+    fontSize: 11,
+    lineHeight: 12,
   },
 });

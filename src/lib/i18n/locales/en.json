@@ -165,7 +165,14 @@
     "pets": "My Pets",
     "edit": {
       "title": "Edit Profile",
-      "save": "Save changes"
+      "save": "Save changes",
+      "detailsTab": "Your Details",
+      "petsTab": "Your Pets",
+      "availabilityTab": "Availability",
+      "discardTitle": "Discard changes?",
+      "discardDescription": "If you go back now, your progress will be lost.",
+      "keepEditing": "Keep Editing",
+      "discard": "Discard"
     },
     "emergencyContacts": {
       "title": "Emergency Contacts",
