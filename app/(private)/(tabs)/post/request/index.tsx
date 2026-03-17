@@ -7,6 +7,7 @@ import {
   Switch,
 } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   Sun,
@@ -47,6 +48,7 @@ const MOCK_PETS = [
 
 export default function LaunchRequestWizardScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
@@ -141,7 +143,7 @@ export default function LaunchRequestWizardScreen() {
 
         {step === 1 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>Select pet</AppText>
+            <AppText variant="title" style={styles.stepTitle}>{t('post.request.selectPet')}</AppText>
             <View style={styles.petGrid}>
               {MOCK_PETS.map((pet) => (
                 <TouchableOpacity
@@ -150,7 +152,7 @@ export default function LaunchRequestWizardScreen() {
                 >
                   <AppImage
                     source={{ uri: pet.imageUri }}
-                    style={styles.petTileImage}
+                    style={[styles.petTileImage, { backgroundColor: colors.surfaceContainer }]}
                     contentFit="cover"
                   />
                   <AppText variant="caption" numberOfLines={1}>{pet.name}</AppText>
@@ -162,7 +164,7 @@ export default function LaunchRequestWizardScreen() {
                 <AppText variant="body" color={colors.onSurfaceVariant}>+ Add pet</AppText>
               </TouchableOpacity>
             </View>
-            <Button label="Add pet" variant="outline" onPress={() => {}} style={styles.addPetBtn} />
+            <Button label={t('post.request.addPet')} variant="outline" onPress={() => {}} style={styles.addPetBtn} />
           </>
         )}
 
@@ -171,7 +173,7 @@ export default function LaunchRequestWizardScreen() {
             <AppText variant="title" style={styles.stepTitle}>Select date</AppText>
             <View style={[styles.switchRow, { backgroundColor: colors.surfaceContainer }]}>
               <AppText variant="body" color={colors.onSurface}>
-                Need this service for more than 1 day
+                {t('post.request.multiDay')}
               </AppText>
               <Switch
                 value={multiDay}
@@ -182,25 +184,25 @@ export default function LaunchRequestWizardScreen() {
             </View>
             <DateTimeField
               mode="date"
-              label="Date"
+              label={t('post.request.date')}
               value={date}
               onChange={setDate}
-              placeholder="Select a date"
+              placeholder={t('post.request.selectDatePlaceholder')}
             />
             <View style={styles.timeRow}>
               <DateTimeField
                 mode="time"
-                label="Start time"
+                label={t('post.request.startTime')}
                 value={timeStart}
                 onChange={setTimeStart}
-                placeholder="Start"
+                placeholder={t('availability.startTime')}
               />
               <DateTimeField
                 mode="time"
-                label="End time"
+                label={t('post.request.endTime')}
                 value={timeEnd}
                 onChange={setTimeEnd}
-                placeholder="End"
+                placeholder={t('availability.endTime')}
               />
             </View>
           </>
@@ -208,9 +210,9 @@ export default function LaunchRequestWizardScreen() {
 
         {step === 3 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>Details & special needs</AppText>
+            <AppText variant="title" style={styles.stepTitle}>{t('post.request.detailsTitle')}</AppText>
             <AppText variant="body" color={colors.onSurfaceVariant} style={styles.detailHint}>
-              Yard type, energy level, special needs (optional).
+              {t('post.request.detailsHint')}
             </AppText>
             <View style={[styles.detailPills, { backgroundColor: colors.surfaceContainer }]}>
               <AppText variant="caption" color={colors.onSurfaceVariant}>fenced yard • 3-8 yrs • medium energy</AppText>
@@ -229,7 +231,7 @@ export default function LaunchRequestWizardScreen() {
             <View style={[styles.previewCard, { backgroundColor: colors.surfaceContainerLowest }]}>
               <AppImage
                 source={{ uri: MOCK_PETS[0].imageUri }}
-                style={styles.previewImage}
+                style={[styles.previewImage, { backgroundColor: colors.surfaceContainer }]}
                 contentFit="cover"
               />
               <View style={styles.previewBody}>
@@ -261,7 +263,7 @@ export default function LaunchRequestWizardScreen() {
                   <View style={styles.previewProfile}>
                     <AppImage
                       source={{ uri: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=100' }}
-                      style={styles.previewAvatar}
+                      style={[styles.previewAvatar, { backgroundColor: colors.surfaceContainer }]}
                       contentFit="cover"
                     />
                     <AppText variant="caption">Jane Ambers</AppText>
@@ -390,7 +392,6 @@ const styles = StyleSheet.create({
     width: 84,
     height: 84,
     borderRadius: 12,
-    backgroundColor: '#eee',
   },
   petTileAdd: {
     width: 100,
@@ -454,7 +455,6 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: 200,
-    backgroundColor: '#eee',
   },
   previewBody: {
     padding: 16,
@@ -489,7 +489,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eee',
   },
   previewDateRow: {
     flexDirection: 'row',

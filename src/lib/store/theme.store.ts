@@ -9,18 +9,27 @@ interface ThemeState {
   theme: ThemeMode;
   resolvedTheme: 'light' | 'dark';
   setTheme: (theme: ThemeMode) => void;
+  syncResolvedTheme: () => void;
+}
+
+function getSystemTheme(): 'light' | 'dark' {
+  return (Appearance.getColorScheme() ?? 'light') as 'light' | 'dark';
 }
 
 export const useThemeStore = create<ThemeState>()(
   persist(
     (set, get) => ({
       theme: 'system',
-      resolvedTheme: (Appearance.getColorScheme() ?? 'light') as 'light' | 'dark',
+      resolvedTheme: getSystemTheme(),
       setTheme: (theme) => {
-        const resolved = theme === 'system'
-          ? ((Appearance.getColorScheme() ?? 'light') as 'light' | 'dark')
-          : theme;
+        const resolved = theme === 'system' ? getSystemTheme() : theme;
         set({ theme, resolvedTheme: resolved });
+      },
+      syncResolvedTheme: () => {
+        const { theme } = get();
+        if (theme === 'system') {
+          set({ resolvedTheme: getSystemTheme() });
+        }
       },
     }),
     {
@@ -30,3 +39,10 @@ export const useThemeStore = create<ThemeState>()(
     }
   )
 );
+
+// Subscribe to system appearance so resolvedTheme updates when theme is 'system'
+if (typeof Appearance?.addChangeListener === 'function') {
+  Appearance.addChangeListener(() => {
+    useThemeStore.getState().syncResolvedTheme();
+  });
+}

@@ -1,6 +1,7 @@
 import React from 'react';
 import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   EllipsisVertical,
@@ -40,6 +41,7 @@ const MOCK_OFFER = {
 export default function ViewOfferScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const offer = MOCK_OFFER;
@@ -75,7 +77,7 @@ export default function ViewOfferScreen() {
         >
           <AppImage
             source={{ uri: offer.taker.avatarUri }}
-            style={styles.takerAvatar}
+            style={[styles.takerAvatar, { backgroundColor: colors.surfaceContainer }]}
             contentFit="cover"
           />
           <View style={styles.takerBody}>
@@ -115,10 +117,10 @@ export default function ViewOfferScreen() {
         {/* Details */}
         <AppText variant="title" style={styles.sectionTitle}>Details</AppText>
         <View style={styles.detailGrid}>
-          <DetailRow label="Yard type" value={offer.details.yardType} colors={colors} />
+          <DetailRow label={t('requestDetails.yardType')} value={offer.details.yardType} colors={colors} />
           <DetailRow label="Active" value={offer.details.active} colors={colors} />
-          <DetailRow label="Care types" value={offer.details.careTypes} colors={colors} />
-          <DetailRow label="Pet owner" value={offer.details.petOwner} colors={colors} />
+          <DetailRow label={t('requestDetails.careTypes')} value={offer.details.careTypes} colors={colors} />
+          <DetailRow label={t('requestDetails.petOwner')} value={offer.details.petOwner} colors={colors} />
         </View>
 
         {/* Note */}
@@ -202,7 +204,6 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#eee',
   },
   takerBody: {
     flex: 1,
@@ -215,8 +216,9 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   takerName: {
-    flex: 1,
+    flexShrink: 1,
     minWidth: 0,
+    maxWidth: 180,
   },
   availablePill: {
     paddingHorizontal: 4,

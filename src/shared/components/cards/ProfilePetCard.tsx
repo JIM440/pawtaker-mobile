@@ -18,6 +18,7 @@ export type ProfilePetCardProps = {
   seekingTime?: string;
   onPress?: () => void;
   onMenuPress?: () => void;
+  menuButtonRef?: (ref: View | null) => void;
 };
 
 export function ProfilePetCard({
@@ -31,6 +32,7 @@ export function ProfilePetCard({
   seekingTime,
   onPress,
   onMenuPress,
+  menuButtonRef,
 }: ProfilePetCardProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -71,6 +73,7 @@ export function ProfilePetCard({
             onPress={onMenuPress}
             hitSlop={8}
             style={styles.menuBtn}
+            ref={menuButtonRef}
           >
             <EllipsisVertical size={20} color={colors.onSurface} />
           </TouchableOpacity>

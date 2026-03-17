@@ -4,6 +4,8 @@ import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { StepProgress } from "@/src/shared/components/ui/StepProgress";
+import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -12,7 +14,6 @@ import {
   ScrollView,
   StyleSheet,
   Switch,
-  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
@@ -53,11 +54,11 @@ export default function CreateRequestScreen() {
 
   const [petId, setPetId] = useState<string>("1");
   const [multiDay, setMultiDay] = useState(false);
-  const [startDate, setStartDate] = useState("");
-  const [endDate, setEndDate] = useState("");
+  const [startDate, setStartDate] = useState<Date | null>(null);
+  const [endDate, setEndDate] = useState<Date | null>(null);
 
-  const [startTime, setStartTime] = useState("08:00 AM");
-  const [endTime, setEndTime] = useState("09:00 PM");
+  const [startTime, setStartTime] = useState<Date | null>(null);
+  const [endTime, setEndTime] = useState<Date | null>(null);
 
   const progress = useMemo(() => {
     switch (step) {
@@ -91,30 +92,20 @@ export default function CreateRequestScreen() {
 
   const selectedPet = MOCK_PETS.find((p) => p.id === petId) ?? MOCK_PETS[0];
 
+  const formatDate = (d: Date | null) =>
+    d ? d.toLocaleDateString() : "";
+  const formatTime = (d: Date | null) =>
+    d
+      ? d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+      : "";
+
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <BackHeader
         onBack={() => router.back()}
         title={t("post.choose.requestCare", "Request care for my pet")}
+        rightSlot={<StepProgress progress={progress} width={120} />}
       />
-
-      {/* Progress bar */}
-      <View style={styles.progressBarWrap}>
-        <View
-          style={[
-            styles.progressTrack,
-            { backgroundColor: colors.surfaceContainerHighest },
-          ]}
-        >
-          <View
-            style={[
-              styles.progressFill,
-              { backgroundColor: colors.primary, flex: progress },
-            ]}
-          />
-          <View style={{ flex: 1 - progress }} />
-        </View>
-      </View>
 
       {step === "careType" && (
         <ScrollView
@@ -141,14 +132,14 @@ export default function CreateRequestScreen() {
                   style={[
                     styles.careChip,
                     {
-                      backgroundColor: colors.surfaceDim,
+                      backgroundColor: colors.surfaceVariant,
                       borderColor: active
                         ? colors.primary
-                        : colors.surfaceDim,
+                        : colors.surfaceVariant,
                     },
                   ]}
                 >
-                  <View style={styles.careIconPlaceholder} />
+                  <View style={[styles.careIconPlaceholder, { backgroundColor: colors.errorContainer }]} />
                   <AppText
                     variant="caption"
                     color={
@@ -167,7 +158,7 @@ export default function CreateRequestScreen() {
             style={[
               styles.hintsCard,
               {
-                backgroundColor: colors.surfaceContainerLow,
+                backgroundColor: colors.surfaceContainer,
               },
             ]}
           >
@@ -223,50 +214,88 @@ export default function CreateRequestScreen() {
             color={colors.onSurface}
             style={styles.question}
           >
-            Select pet
+            {t('post.request.selectPet')}
           </AppText>
-          <View style={styles.petRow}>
-            {MOCK_PETS.map((pet) => {
-              const active = pet.id === petId;
-              return (
-                <TouchableOpacity
-                  key={pet.id}
-                  style={styles.petCard}
-                  activeOpacity={0.9}
-                  onPress={() => setPetId(pet.id)}
+          {(MOCK_PETS as readonly { id: string; name: string; image: string }[]).length === 0 ? (
+            <View style={styles.emptyPets}>
+              <AppImage
+                source={require("@/assets/illustrations/empty-state.png")}
+                style={styles.emptyIllustration}
+                contentFit="contain"
+              />
+              <AppText
+                variant="body"
+                color={colors.onSurface}
+                style={styles.emptyTitle}
+              >
+                {t('post.request.emptyPetsTitle')}
+              </AppText>
+              <AppText
+                variant="caption"
+                color={colors.onSurfaceVariant}
+                style={styles.emptySubtitle}
+              >
+                {t('post.request.emptyPetsSubtitle')}
+              </AppText>
+              <Button
+                label={t('post.request.addAPet')}
+                variant="outline"
+                fullWidth
+                onPress={() => router.push("/(private)/pets/add")}
+                style={{ marginTop: 12 }}
+              />
+            </View>
+          ) : (
+            <>
+              <View style={styles.petRow}>
+                {MOCK_PETS.map((pet) => {
+                  const active = pet.id === petId;
+                  return (
+                    <TouchableOpacity
+                      key={pet.id}
+                      style={styles.petCard}
+                      activeOpacity={0.9}
+                      onPress={() => setPetId(pet.id)}
+                    >
+                      <AppImage
+                        source={{ uri: pet.image }}
+                        style={[
+                          styles.petImage,
+                          active && {
+                            borderColor: colors.primary,
+                            borderWidth: 3,
+                          },
+                        ]}
+                        contentFit="cover"
+                      />
+                      <AppText
+                        variant="body"
+                        style={styles.petName}
+                        color={
+                          active ? colors.primary : colors.onSurface
+                        }
+                      >
+                        {pet.name}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+              <TouchableOpacity
+                activeOpacity={0.7}
+                style={{ marginTop: 24 }}
+                onPress={() => router.push("/(private)/pets/add")}
+              >
+                <AppText
+                  variant="body"
+                  color={colors.primary}
+                  style={{ textAlign: "center" }}
                 >
-                  <AppImage
-                    source={{ uri: pet.image }}
-                    style={[
-                      styles.petImage,
-                      {
-                        borderColor: active
-                          ? colors.primary
-                          : "transparent",
-                      },
-                    ]}
-                  />
-                  <AppText
-                    variant="caption"
-                    color={
-                      active ? colors.primary : colors.onSurfaceVariant
-                    }
-                  >
-                    {pet.name}
-                  </AppText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-          <TouchableOpacity activeOpacity={0.7} style={{ marginTop: 24 }}>
-            <AppText
-              variant="body"
-              color={colors.primary}
-              style={{ textAlign: "center" }}
-            >
-              + or add another pet
-            </AppText>
-          </TouchableOpacity>
+                  + or add another pet
+                </AppText>
+              </TouchableOpacity>
+            </>
+          )}
         </ScrollView>
       )}
 
@@ -302,46 +331,25 @@ export default function CreateRequestScreen() {
             />
           </View>
           <View style={styles.dateRow}>
-            <View
-              style={[
-                styles.dateField,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.fieldLabel}
-              >
-                Start Date
-              </AppText>
-              <TextInput
+            <View style={styles.dateField}>
+              <DateTimeField
+                mode="date"
+                label={t("availability.startDate", "Start date")}
                 value={startDate}
-                onChangeText={setStartDate}
-                placeholder={t("post.request.details.startDate", "Start date")}
-                placeholderTextColor={colors.onSurfaceVariant}
-                style={styles.dateInput}
+                onChange={(d) => {
+                  setStartDate(d);
+                  if (!multiDay) setEndDate(d);
+                }}
+                placeholder={t("post.request.details.startDate", "Select date")}
               />
             </View>
-            <View
-              style={[
-                styles.dateField,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.fieldLabel}
-              >
-                End Date
-              </AppText>
-              <TextInput
+            <View style={styles.dateField}>
+              <DateTimeField
+                mode="date"
+                label={t("availability.endDate", "End date")}
                 value={endDate}
-                onChangeText={setEndDate}
-                placeholder={t("post.request.details.endDate", "End date")}
-                placeholderTextColor={colors.onSurfaceVariant}
-                style={styles.dateInput}
+                onChange={setEndDate}
+                placeholder={t("post.request.details.endDate", "Select date")}
               />
             </View>
           </View>
@@ -362,46 +370,22 @@ export default function CreateRequestScreen() {
             Select start time
           </AppText>
           <View style={styles.dateRow}>
-            <View
-              style={[
-                styles.dateField,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.fieldLabel}
-              >
-                Start Time
-              </AppText>
-              <TextInput
+            <View style={styles.dateField}>
+              <DateTimeField
+                mode="time"
+                label={t("post.request.startTime", "Start time")}
                 value={startTime}
-                onChangeText={setStartTime}
-                placeholder="hh:mm"
-                placeholderTextColor={colors.onSurfaceVariant}
-                style={styles.dateInput}
+                onChange={setStartTime}
+                placeholder={t("post.request.start", "Start")}
               />
             </View>
-            <View
-              style={[
-                styles.dateField,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.fieldLabel}
-              >
-                End Time
-              </AppText>
-              <TextInput
+            <View style={styles.dateField}>
+              <DateTimeField
+                mode="time"
+                label={t("post.request.endTime", "End time")}
                 value={endTime}
-                onChangeText={setEndTime}
-                placeholder="hh:mm"
-                placeholderTextColor={colors.onSurfaceVariant}
-                style={styles.dateInput}
+                onChange={setEndTime}
+                placeholder={t("post.request.end", "End")}
               />
             </View>
           </View>
@@ -424,7 +408,7 @@ export default function CreateRequestScreen() {
           <View style={[styles.previewCard, { backgroundColor: colors.surface }]}>
             <AppImage
               source={{ uri: selectedPet.image }}
-              style={styles.previewImage}
+              style={[styles.previewImage, { backgroundColor: colors.surfaceContainer }]}
             />
             <View style={styles.previewContent}>
               <AppText variant="headline" style={{ fontSize: 18 }}>
@@ -435,8 +419,11 @@ export default function CreateRequestScreen() {
                 color={colors.onSurfaceVariant}
                 style={{ marginTop: 4 }}
               >
-                {careType} • {startDate || "Mar 14"} -{" "}
-                {endDate || "Mar 18"} • {startTime} - {endTime}
+                {careType} •{" "}
+                {formatDate(startDate) || "Mar 14"} -{" "}
+                {formatDate(endDate) || "Mar 18"} •{" "}
+                {formatTime(startTime) || "08:00 AM"} -{" "}
+                {formatTime(endTime) || "09:00 PM"}
               </AppText>
             </View>
           </View>
@@ -453,20 +440,6 @@ export default function CreateRequestScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  progressBarWrap: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
-  },
-  progressTrack: {
-    height: 4,
-    borderRadius: 999,
-    flexDirection: "row",
-    overflow: "hidden",
-  },
-  progressFill: {
-    borderRadius: 999,
   },
   scroll: {
     flex: 1,
@@ -497,7 +470,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: "#F4D6D6",
   },
   careLabel: {
     fontSize: 12,
@@ -520,18 +492,36 @@ const styles = StyleSheet.create({
   },
   petRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
     marginTop: 16,
+    gap: 12,
   },
   petCard: {
     alignItems: "center",
     gap: 4,
   },
   petImage: {
-    width: 100,
-    height: 100,
-    borderRadius: 12,
-    borderWidth: 3,
+    width: 96,
+    height: 96,
+    borderRadius: 16,
+  },
+  emptyPets: {
+    alignItems: "center",
+    paddingVertical: 24,
+    gap: 12,
+  },
+  emptyIllustration: {
+    width: 160,
+    height: 120,
+  },
+  emptyTitle: {
+    fontWeight: "600",
+  },
+  emptySubtitle: {
+    textAlign: "center",
+  },
+  petName: {
+    marginTop: 4,
   },
   multiDayRow: {
     flexDirection: "row",
@@ -547,6 +537,7 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     paddingHorizontal: 16,
     paddingVertical: 8,
+    borderWidth: 1,
   },
   fieldLabel: {
     fontSize: 12,

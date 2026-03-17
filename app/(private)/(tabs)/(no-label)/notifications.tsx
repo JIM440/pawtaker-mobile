@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { NotificationCard } from "@/src/shared/components/cards";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -13,9 +14,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
-  TextInput,
   View,
 } from "react-native";
+import { NotificationsSkeleton } from "@/src/shared/components/skeletons";
+import { SearchField } from "@/src/shared/components/forms/SearchField";
 
 type NotificationItem = {
   id: string;
@@ -60,6 +62,7 @@ export default function NotificationsScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
+  const [loading, setLoading] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
   const [menuForId, setMenuForId] = useState<string | null>(null);
@@ -90,6 +93,20 @@ export default function NotificationsScreen() {
 
   const hasNotifications = filtered.length > 0;
   const badgeCount = items.length;
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <NotificationsSkeleton />
+        </ScrollView>
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -139,25 +156,13 @@ export default function NotificationsScreen() {
             }
           />
 
-          {/* Search bar */}
-          <View
-            style={[
-              styles.searchBar,
-              { backgroundColor: colors.surfaceContainer },
-            ]}
-          >
-            <TextInput
-              style={[styles.searchInput, { color: colors.onSurface }]}
-              placeholder={t(
-                "notifications.searchPlaceholder",
-                "Search notifications",
-              )}
-              placeholderTextColor={colors.onSurfaceVariant}
-              value={query}
-              onChangeText={setQuery}
-            />
-            <Search size={18} color={colors.onSurfaceVariant} />
-          </View>
+          {/* Search bar (Figma-aligned) */}
+          <SearchField
+            containerStyle={styles.searchBar}
+            placeholder={t("notifications.searchPlaceholder", "Search notifications")}
+            value={query}
+            onChangeText={setQuery}
+          />
         </View>
 
         {hasNotifications ? (
@@ -307,18 +312,19 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     marginTop: 4,
-    borderRadius: 22,
+    marginHorizontal: 16,
+    height: SearchFilterStyles.searchBarHeight,
+    borderRadius: SearchFilterStyles.searchBarBorderRadius,
+    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
-    marginHorizontal: 16,
-    gap: 8,
-    paddingHorizontal: 16,
+    gap: SearchFilterStyles.searchBarGap,
+    paddingHorizontal: SearchFilterStyles.searchBarPaddingHorizontal,
   },
   searchInput: {
     flex: 1,
-    paddingHorizontal: 8,
-    paddingVertical: 16,
-    fontSize: 13,
+    paddingVertical: 14,
+    fontSize: SearchFilterStyles.searchInputFontSize,
   },
   list: {},
   itemOuter: {

@@ -6,10 +6,12 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { useRouter } from "expo-router";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { View } from "react-native";
 
 export default function NotFoundScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -38,15 +40,14 @@ export default function NotFoundScreen() {
           }}
         >
           <AppText variant="headline" style={{ fontSize: 22, marginBottom: 4 }}>
-            Oops!
+            {t("notFound.title")}
           </AppText>
           <AppText
             variant="caption"
             color={colors.onSurfaceVariant}
             style={{ fontSize: 12, textAlign: "center", marginBottom: 16 }}
           >
-            We couldn&apos;t find the page you were looking for. It may have
-            been moved or no longer exists.
+            {t("notFound.message")}
           </AppText>
 
           <View
@@ -58,13 +59,13 @@ export default function NotFoundScreen() {
             }}
           >
             <Button
-              label="Go home"
+              label={t("common.goHome")}
               fullWidth
               onPress={() => router.replace("/(private)/(tabs)")}
               style={{ flex: 1 }}
             />
             <Button
-              label="Back"
+              label={t("common.back")}
               variant="outline"
               fullWidth
               onPress={() => router.back()}

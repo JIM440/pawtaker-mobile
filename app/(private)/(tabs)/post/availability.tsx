@@ -6,23 +6,31 @@ import {
   StyleSheet,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import { ChevronLeft, Calendar, Clock, MapPin, Pencil } from 'lucide-react-native';
+import { useTranslation } from 'react-i18next';
+import { Calendar, Clock, MapPin, Pencil } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
+import { BackHeader } from '@/src/shared/components/layout/BackHeader';
+import { StepProgress } from '@/src/shared/components/ui/StepProgress';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { Button } from '@/src/shared/components/ui/Button';
 import { DateTimeField } from '@/src/shared/components/forms/DateTimeField';
+import { TextField } from '@/src/shared/components/forms/TextField';
 
 const TOTAL_STEPS = 8; // 7 steps + preview
 const YARD_OPTIONS = [
-  { id: 'fenced', label: 'Fenced yard' },
-  { id: 'high', label: 'High Fence' },
-  { id: 'none', label: 'No yard' },
+  { id: 'fenced', labelKey: 'availability.yardFenced' as const },
+  { id: 'high', labelKey: 'availability.yardHigh' as const },
+  { id: 'none', labelKey: 'availability.yardNone' as const },
 ];
+
+const DAYS_OF_WEEK = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'] as const;
+const DEFAULT_DAYS_ACTIVE = [0, 6]; // Sunday and Saturday active per Figma
 
 export default function AvailabilityWizardScreen() {
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
@@ -32,7 +40,16 @@ export default function AvailabilityWizardScreen() {
   const [endDate, setEndDate] = useState<Date>(new Date());
   const [startTime, setStartTime] = useState<Date>(new Date());
   const [endTime, setEndTime] = useState<Date>(new Date());
+  const [location, setLocation] = useState('');
+  const [notes, setNotes] = useState('');
+  const [selectedDays, setSelectedDays] = useState<number[]>(DEFAULT_DAYS_ACTIVE);
   const progress = (step + 1) / TOTAL_STEPS;
+
+  const toggleDay = (dayIndex: number) => {
+    setSelectedDays((prev) =>
+      prev.includes(dayIndex) ? prev.filter((d) => d !== dayIndex) : [...prev, dayIndex].sort((a, b) => a - b)
+    );
+  };
 
   const goBack = () => {
     if (step > 0) setStep((s) => s - 1);
@@ -48,19 +65,11 @@ export default function AvailabilityWizardScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <View style={styles.header}>
-        <TouchableOpacity onPress={goBack} style={styles.backBtn} hitSlop={12}>
-          <ChevronLeft size={24} color={colors.onSurface} />
-        </TouchableOpacity>
-        <View style={[styles.progressTrack, { backgroundColor: colors.tertiaryContainer }]}>
-          <View
-            style={[
-              styles.progressFill,
-              { backgroundColor: colors.primary, width: `${progress * 100}%` },
-            ]}
-          />
-        </View>
-      </View>
+      <BackHeader
+        title={t('availability.title')}
+        onBack={goBack}
+        rightSlot={<StepProgress progress={progress} width={120} />}
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -69,11 +78,11 @@ export default function AvailabilityWizardScreen() {
       >
         {step === 0 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>
-              What care can you offer?
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.careTitle')}
             </AppText>
             <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
-              Select the types of care you're available to provide (e.g. Daytime, Play/walk).
+              {t('availability.careSubtitle')}
             </AppText>
             <View style={styles.chipRow}>
               {['Daytime', 'Play/walk', 'Overnight', 'Vacation'].map((label) => {
@@ -81,20 +90,25 @@ export default function AvailabilityWizardScreen() {
                 return (
                   <TouchableOpacity
                     key={label}
+                    activeOpacity={0.9}
                     onPress={() => {
                       setCareTypes((prev) =>
                         prev.includes(label) ? prev.filter((x) => x !== label) : [...prev, label]
                       );
                     }}
                     style={[
-                      styles.chip,
-                      { backgroundColor: colors.surfaceContainer },
-                      selected && { backgroundColor: colors.primaryContainer },
+                      styles.careChip,
+                      {
+                        backgroundColor: selected
+                          ? colors.primary
+                          : colors.surfaceBright,
+                        borderColor: selected ? colors.primary : colors.outlineVariant,
+                      },
                     ]}
                   >
                     <AppText
                       variant="body"
-                      color={selected ? colors.onPrimaryContainer : colors.onSurface}
+                      color={selected ? colors.onPrimary : colors.onSurface}
                     >
                       {label}
                     </AppText>
@@ -105,10 +119,42 @@ export default function AvailabilityWizardScreen() {
           </>
         )}
 
+        {/* Tab 2: Choose your dates */}
         {step === 1 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>
-              What type of yard do you have?
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.datesTitle')}
+            </AppText>
+            <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
+              {t('availability.datesSubtitle')}
+            </AppText>
+            <View style={styles.timeFieldsRow}>
+              <DateTimeField
+                mode="date"
+                label={t('availability.startDate')}
+                value={startDate}
+                onChange={setStartDate}
+                placeholder={t('availability.selectStart')}
+              />
+              <DateTimeField
+                mode="date"
+                label={t('availability.endDate')}
+                value={endDate}
+                onChange={setEndDate}
+                placeholder={t('availability.selectEnd')}
+              />
+            </View>
+          </>
+        )}
+
+        {/* Tab 3: What type of yard */}
+        {step === 2 && (
+          <>
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.yardTitle')}
+            </AppText>
+            <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
+              {t('availability.yardSubtitle')}
             </AppText>
             <View style={styles.radioGroup}>
               {YARD_OPTIONS.map((opt) => {
@@ -128,7 +174,7 @@ export default function AvailabilityWizardScreen() {
                     >
                       {selected && <View style={[styles.radioInner, { backgroundColor: colors.primary }]} />}
                     </View>
-                    <AppText variant="body">{opt.label}</AppText>
+                    <AppText variant="body" color={colors.onSurface}>{t(opt.labelKey)}</AppText>
                   </TouchableOpacity>
                 );
               })}
@@ -136,61 +182,106 @@ export default function AvailabilityWizardScreen() {
           </>
         )}
 
-        {step === 2 && (
-          <>
-            <AppText variant="title" style={styles.stepTitle}>
-              Choose your dates
-            </AppText>
-            <DateTimeField
-              mode="date"
-              label="Start date"
-              value={startDate}
-              onChange={setStartDate}
-              placeholder="Select start"
-            />
-            <DateTimeField
-              mode="date"
-              label="End date"
-              value={endDate}
-              onChange={setEndDate}
-              placeholder="Select end"
-            />
-          </>
-        )}
-
+        {/* Tab 4: Which days (Sat & Sun active by default) */}
         {step === 3 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>
-              Choose your daily hours
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.daysTitle')}
             </AppText>
-            <DateTimeField
-              mode="time"
-              label="Start time"
-              value={startTime}
-              onChange={setStartTime}
-              placeholder="Start"
+            <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
+              {t('availability.daysSubtitle')}
+            </AppText>
+            <View style={styles.daysRow}>
+              {DAYS_OF_WEEK.map((label, index) => {
+                const selected = selectedDays.includes(index);
+                return (
+                  <TouchableOpacity
+                    key={label}
+                    activeOpacity={0.9}
+                    onPress={() => toggleDay(index)}
+                    style={[
+                      styles.dayChip,
+                      {
+                        backgroundColor: selected ? colors.primary : colors.surfaceBright,
+                        borderColor: selected ? colors.primary : colors.outlineVariant,
+                      },
+                    ]}
+                  >
+                    <AppText
+                      variant="caption"
+                      color={selected ? colors.onPrimary : colors.onSurface}
+                      style={styles.dayChipText}
+                    >
+                      {label}
+                    </AppText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          </>
+        )}
+
+        {step === 4 && (
+          <>
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.timeTitle')}
+            </AppText>
+            <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
+              {t('availability.timeSubtitle')}
+            </AppText>
+            <View style={styles.timeFieldsRow}>
+              <DateTimeField
+                mode="time"
+                label={t('availability.startTime')}
+                value={startTime}
+                onChange={setStartTime}
+                placeholder={t('availability.startTime')}
+              />
+              <DateTimeField
+                mode="time"
+                label={t('availability.endTime')}
+                value={endTime}
+                onChange={setEndTime}
+                placeholder={t('availability.endTime')}
+              />
+            </View>
+          </>
+        )}
+
+        {step === 5 && (
+          <>
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.locationTitle')}
+            </AppText>
+            <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
+              {t('availability.locationSubtitle')}
+            </AppText>
+            <TextField
+              label={t('availability.locationLabel')}
+              value={location}
+              onChangeText={setLocation}
+              placeholder={t('availability.locationPlaceholder')}
             />
-            <DateTimeField
-              mode="time"
-              label="End time"
-              value={endTime}
-              onChange={setEndTime}
-              placeholder="End"
+            <TextField
+              label={t('availability.notesLabel')}
+              value={notes}
+              onChangeText={setNotes}
+              placeholder={t('availability.notesPlaceholder')}
             />
           </>
         )}
 
-        {step >= 4 && step <= 6 && (
+        {step === 6 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>
-              Step {step + 1}: Availability details
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              Step 7: Availability details
             </AppText>
             <AppText variant="body" color={colors.onSurfaceVariant}>
-              (Location, preferences, notes, etc.)
+              (More preferences, etc.)
             </AppText>
             <View style={[styles.placeholderBox, { backgroundColor: colors.surfaceContainer }]}>
               <AppText variant="caption" color={colors.onSurfaceVariant}>
-                Content for step {step + 1}
+                Content for step 7
               </AppText>
             </View>
           </>
@@ -198,48 +289,74 @@ export default function AvailabilityWizardScreen() {
 
         {step === 7 && (
           <>
-            <AppText variant="title" style={styles.stepTitle}>
-              Preview: Your availability
+            <AppText variant="title" color={colors.onSurface} style={styles.stepTitle}>
+              {t('availability.previewTitle')}
             </AppText>
-            <View style={[styles.previewCard, { backgroundColor: colors.surfaceContainerLowest }]}>
+            <AppText variant="body" color={colors.onSurfaceVariant} style={styles.stepSubtitle}>
+              {t('availability.previewSubtitle')}
+            </AppText>
+            <View style={[styles.previewCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}>
               <View style={styles.previewProfileRow}>
                 <AppImage
                   source={{ uri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100' }}
-                  style={styles.previewAvatar}
+                  style={[styles.previewAvatar, { backgroundColor: colors.surfaceContainer }]}
                   contentFit="cover"
                 />
                 <View style={styles.previewProfileInfo}>
-                  <AppText variant="title">You're available to care</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  <AppText variant="title" color={colors.onSurface} style={styles.previewCardTitle}>
+                    You're available to care
+                  </AppText>
+                  <AppText variant="body" color={colors.onSurfaceVariant} numberOfLines={2}>
                     {careTypes.length ? careTypes.join(', ') : 'Daytime, Play/walk'}
                   </AppText>
                 </View>
               </View>
               <View style={[styles.previewMeta, { backgroundColor: colors.surfaceContainer }]}>
-                <View style={styles.previewMetaRow}>
-                  <Calendar size={18} color={colors.onSurface} />
-                  <AppText variant="body">
-                    {startDate.toLocaleDateString()} – {endDate.toLocaleDateString()}
+                <View style={[styles.previewMetaRow, { borderBottomColor: colors.outlineVariant }]}>
+                  <View style={styles.previewIconSlot}>
+                    <Calendar size={20} color={colors.primary} />
+                  </View>
+                  <AppText variant="body" color={colors.onSurface} style={styles.previewMetaText}>
+                    {startDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })} –{' '}
+                    {endDate.toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
                   </AppText>
-                  <TouchableOpacity><Pencil size={18} color={colors.onSurface} /></TouchableOpacity>
                 </View>
-                <View style={styles.previewMetaRow}>
-                  <Clock size={18} color={colors.onSurface} />
-                  <AppText variant="body">
+                <View style={[styles.previewMetaRow, { borderBottomColor: colors.outlineVariant }]}>
+                  <View style={styles.previewIconSlot}>
+                    <Clock size={20} color={colors.primary} />
+                  </View>
+                  <AppText variant="body" color={colors.onSurface} style={styles.previewMetaText}>
                     {startTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })} –{' '}
                     {endTime.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}
                   </AppText>
-                  <TouchableOpacity><Pencil size={18} color={colors.onSurface} /></TouchableOpacity>
                 </View>
-                <View style={styles.previewMetaRow}>
-                  <MapPin size={18} color={colors.onSurface} />
-                  <AppText variant="body">Lake Placid, NY</AppText>
-                  <TouchableOpacity><Pencil size={18} color={colors.onSurface} /></TouchableOpacity>
+                <View style={[styles.previewMetaRow, { borderBottomColor: colors.outlineVariant }]}>
+                  <View style={styles.previewIconSlot}>
+                    <MapPin size={20} color={colors.primary} />
+                  </View>
+                  <AppText variant="body" color={colors.onSurface} style={styles.previewMetaText}>
+                    {location.trim() || 'Lake Placid, NY'}
+                  </AppText>
+                </View>
+                <View style={[styles.previewMetaRow, styles.previewMetaRowLast]}>
+                  <View style={styles.previewLabelSlot}>
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>Days</AppText>
+                  </View>
+                  <AppText variant="body" color={colors.onSurface} style={styles.previewMetaText}>
+                    {selectedDays.length ? selectedDays.map((d) => DAYS_OF_WEEK[d]).join(', ') : '—'}
+                  </AppText>
                 </View>
               </View>
-              <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.previewYard}>
-                Yard: {yardType === 'fenced' ? 'Fenced yard' : yardType === 'high' ? 'High Fence' : 'No yard'}
-              </AppText>
+              <View style={styles.previewFooterMeta}>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {t('availability.yardLabel')}: {yardType === 'fenced' ? t('availability.yardFenced') : yardType === 'high' ? t('availability.yardHigh') : yardType === 'none' ? t('availability.yardNone') : '—'}
+                </AppText>
+                {notes.trim() ? (
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.previewNotes}>
+                    Notes: {notes.trim()}
+                  </AppText>
+                ) : null}
+              </View>
             </View>
           </>
         )}
@@ -247,9 +364,10 @@ export default function AvailabilityWizardScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={step === TOTAL_STEPS - 1 ? 'Save & Publish' : 'Next'}
+          label={step === TOTAL_STEPS - 1 ? t('availability.savePublish') : t('common.next')}
           onPress={goNext}
           style={styles.nextBtn}
+          disabled={step === 0 && careTypes.length === 0}
         />
       </View>
     </View>
@@ -259,27 +377,6 @@ export default function AvailabilityWizardScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-  },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
-    gap: 12,
-  },
-  backBtn: {
-    padding: 4,
-  },
-  progressTrack: {
-    flex: 1,
-    height: 12,
-    borderRadius: 6,
-    overflow: 'hidden',
-  },
-  progressFill: {
-    height: '100%',
-    borderRadius: 6,
   },
   scroll: {
     flex: 1,
@@ -295,10 +392,36 @@ const styles = StyleSheet.create({
   stepSubtitle: {
     marginBottom: 16,
   },
+  timeFieldsRow: {
+    gap: 16,
+  },
+  daysRow: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 10,
+  },
+  dayChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderRadius: 12,
+    borderWidth: 2,
+    minWidth: 40,
+    alignItems: 'center',
+  },
+  dayChipText: {
+    fontWeight: '600',
+  },
   chipRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 8,
+    gap: 12,
+  },
+  careChip: {
+    paddingHorizontal: 20,
+    paddingVertical: 14,
+    borderRadius: 16,
+    borderWidth: 2,
+    minWidth: '47%',
   },
   chip: {
     paddingHorizontal: 16,
@@ -338,6 +461,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     gap: 16,
+    borderWidth: 1,
+  },
+  previewCardTitle: {
+    marginBottom: 2,
   },
   previewProfileRow: {
     flexDirection: 'row',
@@ -348,7 +475,6 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#eee',
   },
   previewProfileInfo: {
     flex: 1,
@@ -357,12 +483,38 @@ const styles = StyleSheet.create({
   previewMeta: {
     padding: 12,
     borderRadius: 12,
-    gap: 8,
+    gap: 0,
+    overflow: 'hidden',
   },
   previewMetaRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+  },
+  previewMetaRowLast: {
+    borderBottomWidth: 0,
+  },
+  previewMetaText: {
+    flex: 1,
+  },
+  previewIconSlot: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewLabelSlot: {
+    width: 28,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  previewFooterMeta: {
+    marginTop: 4,
+    gap: 4,
+  },
+  previewNotes: {
+    marginTop: 2,
   },
   previewYard: {
     marginTop: 4,

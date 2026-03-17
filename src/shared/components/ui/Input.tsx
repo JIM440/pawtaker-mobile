@@ -1,23 +1,71 @@
-import { View, Text, TextInput, type TextInputProps } from 'react-native';
+import React from 'react';
+import {
+  View,
+  TextInput,
+  type TextInputProps,
+  type StyleProp,
+  type ViewStyle,
+  type TextStyle,
+} from 'react-native';
+import { useThemeStore } from '@/src/lib/store/theme.store';
+import { Colors } from '@/src/constants/colors';
+import { AppText } from '@/src/shared/components/ui/AppText';
 
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  containerStyle?: StyleProp<ViewStyle>;
+  inputStyle?: StyleProp<TextStyle>;
 }
 
-export function Input({ label, error, ...props }: InputProps) {
+export function Input({
+  label,
+  error,
+  containerStyle,
+  inputStyle,
+  placeholderTextColor,
+  ...props
+}: InputProps) {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+
   return (
-    <View className="mb-4">
-      {label && <Text className="text-sm font-medium text-text-primary mb-1">{label}</Text>}
+    <View style={[{ marginBottom: 16 }, containerStyle]}>
+      {label ? (
+        <AppText
+          variant="label"
+          color={colors.onSurfaceVariant}
+          style={{ marginBottom: 6, fontSize: 12 }}
+        >
+          {label}
+        </AppText>
+      ) : null}
       <TextInput
-        className={[
-          'bg-surface border rounded-xl px-4 py-3 text-text-primary text-base',
-          error ? 'border-danger' : 'border-border',
-        ].join(' ')}
-        placeholderTextColor="#6B7280"
+        style={[
+          {
+            backgroundColor: colors.surfaceContainer,
+            borderWidth: 1,
+            borderColor: error ? colors.error : colors.outlineVariant,
+            borderRadius: 12,
+            paddingHorizontal: 16,
+            paddingVertical: 12,
+            color: colors.onSurface,
+            fontSize: 14,
+          },
+          inputStyle,
+        ]}
+        placeholderTextColor={placeholderTextColor ?? colors.onSurfaceVariant}
         {...props}
       />
-      {error && <Text className="text-danger text-xs mt-1">{error}</Text>}
+      {error ? (
+        <AppText
+          variant="caption"
+          color={colors.error}
+          style={{ marginTop: 6 }}
+        >
+          {error}
+        </AppText>
+      ) : null}
     </View>
   );
 }

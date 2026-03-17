@@ -4,8 +4,8 @@ import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import React from "react";
-import { StyleSheet, View } from "react-native";
+import React, { useRef, useState } from "react";
+import { Modal, Pressable, StyleSheet, View } from "react-native";
 
 export type EditPet = {
   id: string;
@@ -29,6 +29,14 @@ type Props = {
 export function EditPetsTab({ pets, onAddPet, onEditPet, onDeletePet }: Props) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const [openMenuForId, setOpenMenuForId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const menuButtonRefs = useRef<Record<string, View | null>>({});
 
   return (
     <View style={styles.container}>
@@ -81,10 +89,77 @@ export function EditPetsTab({ pets, onAddPet, onEditPet, onDeletePet }: Props) {
                 seekingDateRange={pet.seekingDateRange}
                 seekingTime={pet.seekingTime}
                 onPress={() => onEditPet?.(pet.id)}
-                onMenuPress={() => onDeletePet?.(pet.id)}
+                onMenuPress={() => {
+                  const ref = menuButtonRefs.current[pet.id];
+                  ref?.measureInWindow((x, y, width, height) => {
+                    setMenuPosition({ x, y, width, height });
+                    setOpenMenuForId(pet.id);
+                  });
+                }}
+                menuButtonRef={(ref) => {
+                  menuButtonRefs.current[pet.id] = ref;
+                }}
               />
             ))}
           </View>
+
+          <Modal
+            transparent
+            visible={openMenuForId !== null && !!menuPosition}
+            animationType="fade"
+            onRequestClose={() => setOpenMenuForId(null)}
+          >
+            <Pressable
+              style={styles.menuBackdrop}
+              onPress={() => setOpenMenuForId(null)}
+            >
+              {menuPosition && openMenuForId && (
+                <View
+                  style={[
+                    styles.menuContainer,
+                    {
+                      top: menuPosition.y + menuPosition.height + 4,
+                      left: menuPosition.x - 160 + menuPosition.width,
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.outlineVariant,
+                    },
+                  ]}
+                >
+                  <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                      // TODO: wire delete request
+                      setOpenMenuForId(null);
+                    }}
+                  >
+                    <AppText variant="body">Delete Request</AppText>
+                  </Pressable>
+                  <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                      const id = openMenuForId;
+                      setOpenMenuForId(null);
+                      if (id) onEditPet?.(id);
+                    }}
+                  >
+                    <AppText variant="body">Edit</AppText>
+                  </Pressable>
+                  <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                      const id = openMenuForId;
+                      setOpenMenuForId(null);
+                      if (id) onDeletePet?.(id);
+                    }}
+                  >
+                    <AppText variant="body" color={colors.error}>
+                      Delete
+                    </AppText>
+                  </Pressable>
+                </View>
+              )}
+            </Pressable>
+          </Modal>
         </>
       )}
     </View>

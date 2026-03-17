@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { Tabs } from "expo-router";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Tabs, useRouter } from "expo-router";
 import {
   CircleUserRound,
   Home,
@@ -8,164 +9,264 @@ import {
   PlusCircle,
   TrendingUp,
 } from "lucide-react-native";
+import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform, View } from "react-native";
+import {
+  Modal,
+  Platform,
+  Pressable,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const ICON_SIZE = 18;
 const ICON_PILL = { width: 48, height: 28, borderRadius: 999 } as const;
-const ON_SURFACE_VARIANT = "#665459";
-const LIGHT_ACTIVE_PILL_BG = "#FFE0E8";
 
 export default function TabsLayout() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const activePillBg =
-    resolvedTheme === "light"
-      ? LIGHT_ACTIVE_PILL_BG
-      : colors.secondaryContainer;
+  const router = useRouter();
+  const [showPostModal, setShowPostModal] = useState(false);
+  const activePillBg = colors.primaryContainer;
 
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: colors.primary,
-        tabBarInactiveTintColor: ON_SURFACE_VARIANT,
-        tabBarStyle: {
-          backgroundColor: colors.surface,
-          borderTopColor: colors.border,
-          borderTopWidth: 1,
-          height: Platform.OS === "ios" ? 80 : 68,
-        },
-        tabBarLabelStyle: {
-          marginTop: 2,
-          fontSize: 11,
-          color: colors.onSecondaryContainer,
-        },
-        tabBarItemStyle: {
-          flex: 1,
-          height: Platform.OS === "ios" ? 80 : 68,
-          marginTop: 4,
-        },
-      }}
-    >
-      <Tabs.Screen
-        name="(no-label)"
-        options={{
-          href: null,
+    <>
+      <Tabs
+        screenOptions={{
           headerShown: false,
+          tabBarActiveTintColor: colors.primary,
+          tabBarInactiveTintColor: colors.onSurfaceVariant,
+          tabBarStyle: {
+            backgroundColor: colors.surface,
+            borderTopColor: colors.border,
+            borderTopWidth: 1,
+            height: Platform.OS === "ios" ? 80 : 68,
+          },
+          tabBarLabelStyle: {
+            marginTop: 2,
+            fontSize: 11,
+            color: colors.onSecondaryContainer,
+          },
+          tabBarItemStyle: {
+            flex: 1,
+            height: Platform.OS === "ios" ? 80 : 68,
+            marginTop: 4,
+          },
         }}
-      />
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: t("feed.title"),
-          tabBarIcon: ({ color, focused }) => (
+      >
+        <Tabs.Screen
+          name="(no-label)"
+          options={{
+            href: null,
+            headerShown: false,
+          }}
+        />
+        <Tabs.Screen
+          name="index"
+          options={{
+            title: t("feed.title"),
+            tabBarIcon: ({ color, focused }) => (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...ICON_PILL,
+                  backgroundColor: focused ? activePillBg : "transparent",
+                  overflow: "hidden",
+                }}
+              >
+                <Home
+                  size={ICON_SIZE}
+                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="my-care"
+          options={{
+            title: t("myCare.title"),
+            tabBarIcon: ({ color, focused }) => (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...ICON_PILL,
+                  backgroundColor: focused ? activePillBg : "transparent",
+                  overflow: "hidden",
+                }}
+              >
+                <TrendingUp
+                  size={ICON_SIZE}
+                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="post"
+          options={{
+            title: t("post.title"),
+            tabBarButton: ({ style }) => (
+              <TouchableOpacity
+                activeOpacity={0.8}
+                onPress={() => setShowPostModal(true)}
+                style={[
+                  style,
+                  { alignItems: "center", justifyContent: "center" },
+                ]}
+              >
+                <View
+                  style={{
+                    alignItems: "center",
+                    justifyContent: "center",
+                    ...ICON_PILL,
+                    backgroundColor: "transparent",
+                    overflow: "hidden",
+                  }}
+                >
+                  <PlusCircle
+                    size={ICON_SIZE + 2}
+                    color={colors.onSecondaryContainer}
+                  />
+                </View>
+                <View style={{ marginTop: 2 }}>
+                  <AppText
+                    variant="caption"
+                    color={colors.onSecondaryContainer}
+                    style={{ fontSize: 11, marginTop: -2 }}
+                  >
+                    {t("post.title")}
+                  </AppText>
+                </View>
+              </TouchableOpacity>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="messages"
+          options={{
+            title: t("messages.title"),
+            tabBarIcon: ({ color, focused }) => (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...ICON_PILL,
+                  backgroundColor: focused ? activePillBg : "transparent",
+                  overflow: "hidden",
+                }}
+              >
+                <MessageSquareText
+                  size={ICON_SIZE}
+                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                />
+              </View>
+            ),
+          }}
+        />
+        <Tabs.Screen
+          name="profile"
+          options={{
+            title: t("profile.title"),
+            tabBarIcon: ({ color, focused }) => (
+              <View
+                style={{
+                  alignItems: "center",
+                  justifyContent: "center",
+                  ...ICON_PILL,
+                  backgroundColor: focused ? activePillBg : "transparent",
+                  overflow: "hidden",
+                }}
+              >
+                <CircleUserRound
+                  size={ICON_SIZE}
+                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                />
+              </View>
+            ),
+          }}
+        />
+      </Tabs>
+
+      <Modal
+        visible={showPostModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowPostModal(false)}
+      >
+        <Pressable
+          style={{
+            flex: 1,
+            backgroundColor: "rgba(0,0,0,0.3)",
+            justifyContent: "flex-end",
+          }}
+          onPress={() => setShowPostModal(false)}
+        >
+          <View
+            style={{
+              position: "absolute",
+              left: 0,
+              right: 0,
+              bottom: Platform.OS === "ios" ? 50 : 38,
+              alignItems: "center",
+            }}
+            pointerEvents="box-none"
+          >
             <View
               style={{
-                alignItems: "center",
-                justifyContent: "center",
-                ...ICON_PILL,
-                backgroundColor: focused ? activePillBg : "transparent",
+                width: 220,
+                borderRadius: 8,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.outlineVariant,
+                shadowColor: "#000",
+                shadowOpacity: 0.16,
+                shadowRadius: 20,
+                shadowOffset: { width: 0, height: 10 },
+                elevation: 8,
                 overflow: "hidden",
+                padding: 8,
               }}
             >
-              <Home
-                size={ICON_SIZE}
-                color={focused ? colors.primary : colors.onSecondaryContainer}
+              <Pressable
+                android_ripple={{ color: colors.surfaceContainerHighest }}
+                style={{ paddingVertical: 16, paddingHorizontal: 12 }}
+                onPress={() => {
+                  setShowPostModal(false);
+                  router.push("/(private)/requests/create");
+                }}
+              >
+                <AppText variant="body" color={colors.onSurface}>
+                  {t("post.requestCare", "Launch Request")}
+                </AppText>
+              </Pressable>
+              <View
+                style={{
+                  height: 1,
+                  backgroundColor: colors.outlineVariant,
+                  opacity: 0.6,
+                }}
               />
+              <Pressable
+                android_ripple={{ color: colors.surfaceContainerHighest }}
+                style={{ paddingVertical: 16, paddingHorizontal: 12 }}
+                onPress={() => {
+                  setShowPostModal(false);
+                  router.push("/(private)/(tabs)/post/availability");
+                }}
+              >
+                <AppText variant="body" color={colors.onSurface}>
+                  {t("post.addAvailability", "Available to Care")}
+                </AppText>
+              </Pressable>
             </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="my-care"
-        options={{
-          title: t("myCare.title"),
-          tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                ...ICON_PILL,
-                backgroundColor: focused ? activePillBg : "transparent",
-                overflow: "hidden",
-              }}
-            >
-              <TrendingUp
-                size={ICON_SIZE}
-                color={focused ? colors.primary : colors.onSecondaryContainer}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="post"
-        options={{
-          title: t("post.title"),
-          tabBarIcon: ({ focused }) => (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                ...ICON_PILL,
-                backgroundColor: focused ? activePillBg : "transparent",
-                overflow: "hidden",
-              }}
-            >
-              <PlusCircle
-                size={ICON_SIZE + 2}
-                color={colors.onSecondaryContainer}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="messages"
-        options={{
-          title: t("messages.title"),
-          tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                ...ICON_PILL,
-                backgroundColor: focused ? activePillBg : "transparent",
-                overflow: "hidden",
-              }}
-            >
-              <MessageSquareText
-                size={ICON_SIZE}
-                color={focused ? colors.primary : colors.onSecondaryContainer}
-              />
-            </View>
-          ),
-        }}
-      />
-      <Tabs.Screen
-        name="profile"
-        options={{
-          title: t("profile.title"),
-          tabBarIcon: ({ color, focused }) => (
-            <View
-              style={{
-                alignItems: "center",
-                justifyContent: "center",
-                ...ICON_PILL,
-                backgroundColor: focused ? activePillBg : "transparent",
-                overflow: "hidden",
-              }}
-            >
-              <CircleUserRound
-                size={ICON_SIZE}
-                color={focused ? colors.primary : colors.onSecondaryContainer}
-              />
-            </View>
-          ),
-        }}
-      />
-    </Tabs>
+          </View>
+        </Pressable>
+      </Modal>
+    </>
   );
 }

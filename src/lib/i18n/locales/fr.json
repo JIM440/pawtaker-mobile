@@ -1,4 +1,7 @@
 {
+  "app": {
+    "name": "PawTaker"
+  },
   "common": {
     "loading": "Chargement...",
     "error": "Une erreur s'est produite",
@@ -15,7 +18,12 @@
     "search": "Rechercher",
     "filter": "Filtrer",
     "noResults": "Aucun résultat",
-    "points": "points"
+    "points": "points",
+    "goHome": "Retour à l'accueil"
+  },
+  "notFound": {
+    "title": "Oups !",
+    "message": "Cette page est introuvable. Elle a peut-être été déplacée ou n'existe plus."
   },
   "auth": {
     "welcome": {
@@ -26,8 +34,10 @@
     },
     "login": {
       "title": "Se connecter",
-      "email": "Adresse e-mail",
-      "password": "Mot de passe",
+      "emailLabel": "Adresse e-mail",
+      "emailPlaceholder": "Adresse e-mail",
+      "passwordLabel": "Mot de passe",
+      "passwordPlaceholder": "Mot de passe",
       "forgotPassword": "Mot de passe oublié ?",
       "submit": "Se connecter",
       "noAccount": "Pas de compte ? S'inscrire"
@@ -85,8 +95,16 @@
   },
   "feed": {
     "title": "Accueil",
-    "searchPlaceholder": "Rechercher des animaux ou des gardiens...",
+    "searchPlaceholder": "Lieu, type de garde, type d'animal...",
+    "searchPlaceholderShort": "Rechercher des animaux ou des gardiens...",
     "filters": "Filtres",
+    "requestsNearYou": "Demandes près de vous :",
+    "takersNearYou": "Gardiens près de vous :",
+    "petsInArea": "animaux dans votre zone",
+    "takersAvailable": "gardiens disponibles",
+    "filterAll": "Tout",
+    "filterRequests": "Demandes",
+    "filterTakers": "Gardiens",
     "nearYou": "Près de vous",
     "topTakers": "Meilleurs gardiens",
     "recentRequests": "Demandes récentes",
@@ -151,18 +169,129 @@
     }
   },
   "messages": {
+    "searchChats": "Rechercher dans les discussions",
     "title": "Messages",
     "noMessages": "Aucun message",
-    "typeMessage": "Écrire un message...",
+    "typeMessage": "Écrire un message",
     "send": "Envoyer",
     "proposal": "Proposition de soins",
-    "agreement": "Accord"
+    "agreement": "Accord",
+    "viewProfile": "Voir le profil",
+    "muteNotifications": "Désactiver les notifications",
+    "block": "Bloquer",
+    "blockConfirmTitle": "Bloquer cet utilisateur ?",
+    "blockConfirmDescription": "Il ou elle ne pourra plus vous envoyer de messages. Vous pourrez débloquer plus tard dans Paramètres."
+  },
+  "requestDetails": {
+    "title": "Détails de la demande",
+    "viewProfile": "Voir le profil",
+    "details": "Détails",
+    "yardType": "Type de jardin",
+    "careTypes": "Types de garde",
+    "petOwner": "Propriétaire",
+    "age": "Âge",
+    "energyLevel": "Niveau d'énergie",
+    "specialNeeds": "Besoins particuliers",
+    "applyNow": "Postuler"
+  },
+  "post": {
+    "request": {
+      "selectPet": "Choisir un animal",
+      "addPet": "Ajouter un animal",
+      "selectDate": "Choisir la date",
+      "date": "Date",
+      "selectDatePlaceholder": "Choisir une date",
+      "startTime": "Heure de début",
+      "endTime": "Heure de fin",
+      "start": "Début",
+      "end": "Fin",
+      "multiDay": "Plus d'un jour",
+      "detailsTitle": "Détails et besoins particuliers",
+      "detailsHint": "Type de jardin, niveau d'énergie, besoins particuliers (optionnel).",
+      "details": {
+        "startDate": "Choisir la date",
+        "endDate": "Choisir la date"
+      },
+      "emptyPetsTitle": "Oups !",
+      "emptyPetsSubtitle": "Vous n'avez pas encore ajouté d'animaux",
+      "addAPet": "+ Ajouter un animal"
+    }
+  },
+  "filters": {
+    "title": "Filtres",
+    "careType": "Type de garde",
+    "maxDistance": "Distance max",
+    "reset": "Réinitialiser",
+    "apply": "Appliquer",
+    "done": "Terminé"
+  },
+  "availability": {
+    "title": "Publier ma disponibilité",
+    "careTitle": "Quels soins pouvez-vous offrir ?",
+    "careSubtitle": "Sélectionnez les types de garde que vous proposez (ex. Journée, Promenade).",
+    "datesTitle": "Choisir les dates",
+    "datesSubtitle": "Quand êtes-vous disponible ? Définissez le début et la fin de votre période.",
+    "yardTitle": "Quel type de jardin avez-vous ?",
+    "yardSubtitle": "Cela aide les propriétaires à savoir si leur animal peut rester chez vous.",
+    "daysTitle": "Quels jours êtes-vous disponible ?",
+    "daysSubtitle": "Sélectionnez les jours où vous pouvez garder des animaux.",
+    "timeTitle": "Horaires de disponibilité",
+    "timeSubtitle": "Définissez l'heure de début et de fin pour les jours sélectionnés.",
+    "locationTitle": "Où êtes-vous disponible ?",
+    "locationSubtitle": "Indiquez votre ville ou secteur pour que les propriétaires vous trouvent. Vous pouvez ajouter des notes.",
+    "previewTitle": "Aperçu de la disponibilité",
+    "previewSubtitle": "Vérifiez les informations ci-dessous. Revenez en arrière pour modifier.",
+    "savePublish": "Enregistrer et publier",
+    "startDate": "Date de début",
+    "endDate": "Date de fin",
+    "selectStart": "Choisir le début",
+    "selectEnd": "Choisir la fin",
+    "startTime": "Début",
+    "endTime": "Fin",
+    "locationLabel": "Lieu (ville ou secteur)",
+    "locationPlaceholder": "ex. Paris, France",
+    "notesLabel": "Notes (optionnel)",
+    "notesPlaceholder": "Préférences ou détails pour les propriétaires",
+    "yardFenced": "Jardin clôturé",
+    "yardHigh": "Haute clôture",
+    "yardNone": "Pas de jardin",
+    "yardLabel": "Jardin"
+  },
+  "settings": {
+    "title": "Paramètres",
+    "language": "Langue",
+    "theme": "Thème",
+    "themeSystem": "Système",
+    "themeLight": "Clair",
+    "themeDark": "Sombre",
+    "languageEnglish": "English",
+    "languageFrench": "Français",
+    "notifications": "Notifications",
+    "privacy": "Confidentialité",
+    "editProfile": "Modifier le profil",
+    "help": "Aide et support",
+    "accountSection": "Compte",
+    "logout": "Se déconnecter",
+    "deactivateAccount": "Désactiver le compte",
+    "deleteAccount": "Supprimer le compte",
+    "contactUs": "Nous contacter",
+    "termsAndPolicies": "Mentions et politiques",
+    "preferencesSection": "Préférences",
+    "logoutTitle": "Se déconnecter ?",
+    "deactivateTitle": "Désactiver le compte ?",
+    "deleteTitle": "Supprimer le compte ?",
+    "logoutCta": "Se déconnecter",
+    "deactivateCta": "Désactiver",
+    "deleteCta": "Supprimer"
   },
   "profile": {
     "title": "Mon profil",
     "reviews": "Avis",
     "points": "Points",
     "pets": "Mes animaux",
+    "blockConfirmTitle": "Bloquer cet utilisateur ?",
+    "blockConfirmDescription": "Il ou elle ne pourra plus voir votre profil, vous envoyer des demandes ou des messages. Vous pourrez débloquer plus tard dans Paramètres.",
+    "blockUser": "Bloquer",
     "edit": {
       "title": "Modifier le profil",
       "save": "Enregistrer les modifications",
@@ -188,18 +317,9 @@
       "spent": "Dépensés"
     }
   },
-  "settings": {
-    "title": "Paramètres",
-    "language": "Langue",
-    "theme": "Thème",
-    "notifications": "Notifications",
-    "privacy": "Confidentialité",
-    "help": "Aide et support",
-    "logout": "Se déconnecter",
-    "deleteAccount": "Supprimer le compte"
-  },
   "notifications": {
     "title": "Notifications",
+    "searchPlaceholder": "Rechercher dans les notifications",
     "noNotifications": "Aucune notification",
     "markAllRead": "Tout marquer comme lu"
   },

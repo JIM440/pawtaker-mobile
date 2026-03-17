@@ -1,12 +1,15 @@
 import React, { useState } from 'react';
-import { View, TextInput, StyleSheet } from 'react-native';
+import { View, StyleSheet } from 'react-native';
 import { useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { Search, SlidersHorizontal } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
+import { SearchFilterStyles } from '@/src/constants/searchFilter';
 import { PageContainer } from '@/src/shared/components/layout';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { ChatRow, ChatRowSkeleton } from '@/src/shared/components/chat';
+import { SearchField } from '@/src/shared/components/forms/SearchField';
 
 const MOCK_CHATS = [
   {
@@ -52,6 +55,7 @@ const MOCK_CHATS = [
 ];
 
 export default function MessagesScreen() {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const router = useRouter();
@@ -74,18 +78,14 @@ export default function MessagesScreen() {
       ) : (
         <>
           <View style={styles.searchRow}>
-            <View style={[styles.searchBar, { backgroundColor: colors.surfaceContainer }]}>
-              <Search size={20} color={colors.onSurfaceVariant} />
-              <TextInput
-                style={[styles.searchInput, { color: colors.onSurface }]}
-                placeholder="Search chats"
-                placeholderTextColor={colors.onSurfaceVariant}
-                value={searchQuery}
-                onChangeText={setSearchQuery}
-              />
-            </View>
-            <View style={[styles.filterBtn, { backgroundColor: colors.surfaceContainer }]}>
-              <SlidersHorizontal size={18} color={colors.onSurface} />
+            <SearchField
+              containerStyle={styles.searchBar}
+              placeholder={t("messages.searchChats")}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+            />
+            <View style={[styles.filterBtn, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+              <SlidersHorizontal size={SearchFilterStyles.searchIconSize} color={colors.onSurface} />
             </View>
           </View>
 
@@ -116,36 +116,38 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   searchSkeleton: {
-    height: 48,
+    height: SearchFilterStyles.searchBarHeight,
     width: '100%',
-    borderRadius: 28,
+    borderRadius: SearchFilterStyles.searchBarBorderRadius,
     marginBottom: 8,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: SearchFilterStyles.searchBarGap,
     marginBottom: 8,
   },
   searchBar: {
     flex: 1,
-    height: 48,
-    borderRadius: 28,
+    height: SearchFilterStyles.searchBarHeight,
+    borderRadius: SearchFilterStyles.searchBarBorderRadius,
+    borderWidth: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    paddingLeft: 20,
-    paddingRight: 12,
-    gap: 8,
+    paddingLeft: SearchFilterStyles.searchBarPaddingHorizontal,
+    paddingRight: SearchFilterStyles.searchBarPaddingRight,
+    gap: SearchFilterStyles.searchBarGap,
   },
   searchInput: {
     flex: 1,
-    fontSize: 14,
+    fontSize: SearchFilterStyles.searchInputFontSize,
     paddingVertical: 12,
   },
   filterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 999,
+    width: SearchFilterStyles.filterButtonSize,
+    height: SearchFilterStyles.filterButtonSize,
+    borderRadius: SearchFilterStyles.filterButtonBorderRadius,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },

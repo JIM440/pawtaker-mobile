@@ -1,6 +1,7 @@
 import React from "react";
 import { View, TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
 import { Colors } from "@/src/constants/colors";
+import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "./AppText";
 
@@ -47,14 +48,12 @@ export function TabBar<Key extends string>({
             style={[
               styles.item,
               variant === "pill" && {
-                borderRadius: 999,
-                paddingHorizontal: 12,
-                paddingVertical: 6,
+                borderRadius: SearchFilterStyles.filterPillBorderRadius,
+                paddingHorizontal: SearchFilterStyles.filterPillPaddingHorizontal,
+                paddingVertical: SearchFilterStyles.filterPillPaddingVertical,
                 borderWidth: active ? 0 : 1,
                 borderColor: colors.outlineVariant,
-                backgroundColor: active
-                  ? colors.surfaceContainer
-                  : "transparent",
+                backgroundColor: active ? colors.primary : "transparent",
               },
             ]}
           >
@@ -63,7 +62,7 @@ export function TabBar<Key extends string>({
               color={
                 active
                   ? variant === "pill"
-                    ? colors.onSecondaryContainer
+                    ? colors.onPrimary
                     : colors.primary
                   : colors.onSurfaceVariant
               }

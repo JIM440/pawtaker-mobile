@@ -10,6 +10,7 @@ import { Handshake, PawPrint, Trophy } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { PageContainer } from '@/src/shared/components/layout';
+import { MyCareSkeleton } from '@/src/shared/components/skeletons';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { ProfilePetCard } from '@/src/shared/components/cards/ProfilePetCard';
@@ -66,6 +67,7 @@ const MOCK_LIKED_PETS = [
 export default function MyCareScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const [loading, setLoading] = useState(false);
   const [available, setAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('given');
   const [showSnackbar, setShowSnackbar] = useState(false);
@@ -80,6 +82,20 @@ export default function MyCareScreen() {
     { id: 'received', label: 'Care Received' },
     { id: 'liked', label: 'Liked' },
   ];
+
+  if (loading) {
+    return (
+      <PageContainer scrollable={false} contentStyle={styles.pageContent}>
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <MyCareSkeleton />
+        </ScrollView>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer scrollable={false} contentStyle={styles.pageContent}>
@@ -119,7 +135,7 @@ export default function MyCareScreen() {
             <View style={styles.caregiverRow}>
               <AppImage
                 source={{ uri: MOCK_IN_CARE.caregiverAvatar }}
-                style={styles.caregiverAvatar}
+                style={[styles.caregiverAvatar, { backgroundColor: colors.surfaceContainer }]}
                 contentFit="cover"
               />
               <AppText variant="body" color={colors.onSurface}>{MOCK_IN_CARE.caregiverName}</AppText>
@@ -225,7 +241,7 @@ function CareGivenTab({
       {rows.map((row) => (
         <View key={row.id} style={[styles.tableRow, { borderBottomColor: colors.outlineVariant }]}>
           <View style={styles.colOwner}>
-            <AppImage source={{ uri: row.ownerAvatar }} style={styles.rowAvatar} contentFit="cover" />
+            <AppImage source={{ uri: row.ownerAvatar }} style={[styles.rowAvatar, { backgroundColor: colors.surfaceContainer }]} contentFit="cover" />
             <View style={styles.rowOwnerInfo}>
               <AppText variant="caption" numberOfLines={1}>{row.ownerName}</AppText>
               <View style={styles.badgesRow}>
@@ -373,7 +389,6 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#eee',
   },
   statsRow: {
     flexDirection: 'row',
@@ -442,7 +457,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eee',
   },
   rowOwnerInfo: {
     flex: 1,

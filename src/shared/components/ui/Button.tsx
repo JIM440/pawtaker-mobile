@@ -11,11 +11,13 @@ import {
 import { AppText } from "./AppText";
 
 type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Size = "md" | "sm";
 
 type ButtonProps = {
   label: string;
   onPress?: () => void;
   variant?: Variant;
+  size?: Size;
   loading?: boolean;
   disabled?: boolean;
   fullWidth?: boolean;
@@ -49,6 +51,7 @@ export function Button({
   label,
   onPress,
   variant = "primary",
+  size = "md",
   loading = false,
   disabled = false,
   fullWidth = true,
@@ -73,6 +76,7 @@ export function Button({
       activeOpacity={0.8}
       style={[
         styles.button,
+        size === "sm" && styles.buttonSm,
         {
           backgroundColor,
           borderWidth,
@@ -96,7 +100,7 @@ export function Button({
       <AppText
         variant="label"
         color={variantTextColor[variant](colors)}
-        style={styles.label}
+        style={[styles.label, size === "sm" && styles.labelSm]}
       >
         {label}
       </AppText>
@@ -115,6 +119,11 @@ const styles = StyleSheet.create({
     gap: 8,
     borderRadius: 100,
   },
+  buttonSm: {
+    paddingVertical: 8,
+    paddingHorizontal: 14,
+    borderRadius: 999,
+  },
   label: {
     textAlign: "center",
     fontFamily: "Roboto_500Medium",
@@ -123,5 +132,9 @@ const styles = StyleSheet.create({
     fontWeight: "500",
     lineHeight: 20,
     letterSpacing: -0.2,
+  },
+  labelSm: {
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

@@ -15,6 +15,7 @@ import { I18nextProvider } from "react-i18next";
 import { Platform } from "react-native";
 import i18n from "../src/lib/i18n";
 import { useAuthStore } from "../src/lib/store/auth.store";
+import { useLanguageStore } from "../src/lib/store/language.store";
 import { useThemeStore } from "../src/lib/store/theme.store";
 import { supabase } from "../src/lib/supabase/client";
 
@@ -34,8 +35,13 @@ const queryClient = new QueryClient({
 
 export default function RootLayout() {
   const { resolvedTheme } = useThemeStore();
+  const { language } = useLanguageStore();
   const { session, isLoading, setSession, setLoading } = useAuthStore();
   const router = useRouter();
+
+  useEffect(() => {
+    i18n.changeLanguage(language);
+  }, [language]);
 
   const [fontsLoaded] = useFonts({
     Roboto_400Regular,

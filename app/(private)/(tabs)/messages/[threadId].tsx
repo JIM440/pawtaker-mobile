@@ -1,24 +1,28 @@
 import React, { useState } from 'react';
 import {
   View,
-  TextInput,
   TouchableOpacity,
   StyleSheet,
   KeyboardAvoidingView,
   Platform,
   ScrollView,
+  Modal,
+  Pressable,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Send, EllipsisVertical } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
-import { PageContainer } from '@/src/shared/components/layout';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
+import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
+import { Input } from '@/src/shared/components/ui/Input';
 
 type BubbleSide = 'left' | 'right';
 
 const MOCK_THREAD = {
+  userId: 't1',
   name: 'Bob Majors',
   subtitle: 'Caring for Emm...',
   avatarUri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
@@ -65,9 +69,12 @@ function MessageBubble({
 export default function ThreadScreen() {
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [input, setInput] = useState('');
+  const [actionsOpen, setActionsOpen] = useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const thread = MOCK_THREAD;
 
   return (
@@ -97,10 +104,66 @@ export default function ThreadScreen() {
               {thread.subtitle}
             </AppText>
           </View>
-          <TouchableOpacity style={styles.menuBtn} hitSlop={12}>
+          <TouchableOpacity
+            style={[styles.menuBtn, { backgroundColor: actionsOpen ? colors.surfaceContainer : 'transparent' }]}
+            hitSlop={12}
+            onPress={() => setActionsOpen(true)}
+          >
             <EllipsisVertical size={24} color={colors.onSurface} />
           </TouchableOpacity>
         </View>
+
+        {/* Chat actions menu (Figma 374-13745) */}
+        <Modal
+          transparent
+          visible={actionsOpen}
+          onRequestClose={() => setActionsOpen(false)}
+          animationType="fade"
+        >
+          <Pressable style={styles.actionsOverlay} onPress={() => setActionsOpen(false)}>
+            <View
+              style={[styles.actionsCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}
+              onStartShouldSetResponder={() => true}
+            >
+              <Pressable
+                style={({ pressed }) => [styles.actionItem, pressed && { opacity: 0.7 }]}
+                onPress={() => {
+                  setActionsOpen(false);
+                  router.push({ pathname: '/(private)/(tabs)/(no-label)/users/[id]', params: { id: thread.userId } });
+                }}
+              >
+                <AppText variant="body" color={colors.onSurface}>{t('messages.viewProfile')}</AppText>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.actionItem, pressed && { opacity: 0.7 }]}
+                onPress={() => setActionsOpen(false)}
+              >
+                <AppText variant="body" color={colors.onSurface}>{t('messages.muteNotifications')}</AppText>
+              </Pressable>
+              <Pressable
+                style={({ pressed }) => [styles.actionItem, styles.actionItemDanger, pressed && { opacity: 0.7 }]}
+                onPress={() => {
+                  setActionsOpen(false);
+                  setShowBlockConfirm(true);
+                }}
+              >
+                <AppText variant="body" color={colors.error}>{t('messages.block')}</AppText>
+              </Pressable>
+            </View>
+          </Pressable>
+        </Modal>
+
+        <FeedbackModal
+          visible={showBlockConfirm}
+          title={t('messages.blockConfirmTitle')}
+          description={t('messages.blockConfirmDescription')}
+          primaryLabel={t('messages.block')}
+          secondaryLabel={t('common.cancel')}
+          destructive
+          onPrimary={() => setShowBlockConfirm(false)}
+          onSecondary={() => setShowBlockConfirm(false)}
+          onRequestClose={() => setShowBlockConfirm(false)}
+        />
 
         {/* Messages */}
         <ScrollView
@@ -121,16 +184,16 @@ export default function ThreadScreen() {
 
         {/* Input */}
         <View style={[styles.inputRow, { borderTopColor: colors.outlineVariant }]}>
-          <TextInput
-            style={[
+          <Input
+            containerStyle={{ flex: 1, marginBottom: 0 }}
+            inputStyle={[
               styles.input,
               {
                 backgroundColor: colors.surfaceContainer,
-                color: colors.onSurface,
+                borderColor: colors.surfaceContainer,
               },
             ]}
-            placeholder="Type a message"
-            placeholderTextColor={colors.onSurfaceVariant}
+            placeholder={t('messages.typeMessage')}
             value={input}
             onChangeText={setInput}
             multiline
@@ -228,4 +291,28 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  actionsOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.3)',
+    alignItems: 'flex-end',
+    paddingTop: 56,
+    paddingRight: 12,
+  },
+  actionsCard: {
+    minWidth: 180,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 8,
+  },
+  actionItem: {
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+  },
+  actionItemDanger: {},
 });

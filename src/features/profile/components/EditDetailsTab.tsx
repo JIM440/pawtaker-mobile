@@ -2,8 +2,9 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { Input } from "@/src/shared/components/ui/Input";
 import React from "react";
-import { StyleSheet, TextInput, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 type EditDetailsTabProps = {
   avatarUri: string;
@@ -54,72 +55,41 @@ export function EditDetailsTab({
       </View>
 
       {/* Username */}
-      <View
-        style={[styles.field, { backgroundColor: colors.surfaceContainerHighest }]}
-      >
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.fieldLabel}>
-          Username
-        </AppText>
-        <TextInput
-          value={username}
-          onChangeText={onChangeUsername}
-          style={[styles.fieldInput, { color: colors.onSurface }]}
-          placeholderTextColor={colors.onSurfaceVariant}
-        />
-      </View>
+      <Input
+        label="Username"
+        value={username}
+        onChangeText={onChangeUsername}
+        containerStyle={styles.fieldWrap}
+        inputStyle={styles.fieldInput}
+      />
 
       {/* Short Bio */}
-      <View
-        style={[
-          styles.field,
-          styles.fieldMultiline,
-          {
-            backgroundColor: colors.surfaceContainerHighest,
-            borderColor: colors.outlineVariant,
-          },
-        ]}
-      >
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.fieldLabel}>
-          Short Bio
-        </AppText>
-        <TextInput
-          value={bio}
-          onChangeText={onChangeBio}
-          style={[styles.fieldInput, styles.textArea, { color: colors.onSurfaceVariant }]}
-          placeholderTextColor={colors.onSurfaceVariant}
-          multiline
-        />
-      </View>
+      <Input
+        label="Short Bio"
+        value={bio}
+        onChangeText={onChangeBio}
+        containerStyle={styles.fieldWrap}
+        inputStyle={[styles.fieldInput, styles.textArea]}
+        multiline
+      />
 
       {/* ZIP Code + Location row */}
       <View style={styles.row}>
-        <View
-          style={[styles.field, styles.zipField, { backgroundColor: colors.surfaceContainerHighest }]}
-        >
-          <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.fieldLabel}>
-            ZIP Code
-          </AppText>
-          <TextInput
-            value={zipCode}
-            onChangeText={onChangeZipCode}
-            style={[styles.fieldInput, { color: colors.onSurface }]}
-            placeholderTextColor={colors.onSurfaceVariant}
-            keyboardType="number-pad"
-          />
-        </View>
-        <View
-          style={[styles.field, styles.locationField, { backgroundColor: colors.surfaceContainerHighest }]}
-        >
-          <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.fieldLabel}>
-            Location
-          </AppText>
-          <TextInput
-            value={location}
-            onChangeText={onChangeLocation}
-            style={[styles.fieldInput, { color: colors.onSurface }]}
-            placeholderTextColor={colors.onSurfaceVariant}
-          />
-        </View>
+        <Input
+          label="ZIP Code"
+          value={zipCode}
+          onChangeText={onChangeZipCode}
+          containerStyle={[styles.fieldWrap, styles.zipField]}
+          inputStyle={styles.fieldInput}
+          keyboardType="number-pad"
+        />
+        <Input
+          label="Location"
+          value={location}
+          onChangeText={onChangeLocation}
+          containerStyle={[styles.fieldWrap, styles.locationField]}
+          inputStyle={styles.fieldInput}
+        />
       </View>
     </View>
   );
@@ -146,6 +116,9 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
     fontSize: 14,
   },
+  fieldWrap: {
+    marginBottom: 0,
+  },
   field: {
     borderRadius: 8,
     paddingHorizontal: 16,
@@ -160,15 +133,11 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   fieldInput: {
-    fontSize: 14,
-    padding: 0,
-    lineHeight: 20,
+    backgroundColor: "transparent",
   },
   textArea: {
-    minHeight: 48,
+    minHeight: 96,
     textAlignVertical: "top",
-    fontSize: 12,
-    lineHeight: 16,
   },
   row: {
     flexDirection: "row",

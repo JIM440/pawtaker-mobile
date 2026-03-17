@@ -9,7 +9,7 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 type Props = {
   mode: 'date' | 'time';
   label: string;
-  value: Date;
+  value: Date | null;
   onChange: (date: Date) => void;
   placeholder?: string;
 };
@@ -72,7 +72,7 @@ export function DateTimeField({ mode, label, value, onChange, placeholder }: Pro
         open={open}
         mode={mode as DatePickerProps['mode']}
         theme={isDark ? 'dark' : 'light'}
-        date={value || new Date()}
+        date={value ?? new Date()}
         onConfirm={(d) => {
           setOpen(false);
           onChange(d);

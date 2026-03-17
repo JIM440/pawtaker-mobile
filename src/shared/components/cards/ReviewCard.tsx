@@ -1,8 +1,8 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Handshake, PawPrint, Star } from "lucide-react-native";
+import { CaretakerInfo } from "@/src/shared/components/cards/CaretakerInfo";
+import { Star } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -15,6 +15,7 @@ type ReviewCardProps = {
   handshakes: number;
   paws: number;
   dateLabel: string;
+  reviewerAvatarFallback?: number | null;
   onPress?: () => void;
 };
 
@@ -63,42 +64,14 @@ export function ReviewCard({
       </AppText>
 
       <View style={styles.footer}>
-        <TouchableOpacity
+        <CaretakerInfo
+          name={reviewerName}
+          avatarUri={reviewerAvatar}
+          rating={rating}
+          reviewsCount={handshakes}
+          petsCount={paws}
           onPress={onPress}
-          style={{
-            ...styles.reviewerChip,
-            backgroundColor: colors.surfaceContainer,
-          }}
-        >
-          <AppImage
-            source={{ uri: reviewerAvatar }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-          <View style={styles.reviewerInfo}>
-            <AppText variant="label" style={styles.reviewerName}>
-              {reviewerName}
-            </AppText>
-            <View style={styles.reviewerStatsRow}>
-              <AppText variant="caption" color={colors.onSurfaceVariant}>
-                {rating.toFixed(1)}
-              </AppText>
-              <Star size={10} color={colors.tertiary} fill={colors.tertiary} />
-              <View style={[styles.reviewerStatPill]}>
-                <Handshake size={12} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurface}>
-                  {handshakes}
-                </AppText>
-              </View>
-              <View style={[styles.reviewerStatPill]}>
-                <PawPrint size={12} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurface}>
-                  {paws}
-                </AppText>
-              </View>
-            </View>
-          </View>
-        </TouchableOpacity>
+        />
         <AppText variant="caption" color={colors.onSurfaceVariant}>
           {dateLabel}
         </AppText>
@@ -131,40 +104,5 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "space-between",
     gap: 8,
-  },
-  reviewerChip: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-    minWidth: 0,
-    borderRadius: 999,
-    padding: 8,
-  },
-  avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: "#eee",
-  },
-  reviewerInfo: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  reviewerName: {
-    fontSize: 16,
-  },
-  reviewerStatsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  reviewerStatPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    borderRadius: 999,
   },
 });

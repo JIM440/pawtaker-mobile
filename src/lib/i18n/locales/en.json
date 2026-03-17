@@ -15,22 +15,32 @@
     "search": "Search",
     "filter": "Filter",
     "noResults": "No results found",
-    "points": "points"
+    "points": "points",
+    "goHome": "Go home"
+  },
+  "notFound": {
+    "title": "Oops!",
+    "message": "We couldn't find the page you were looking for. It may have been moved or no longer exists."
+  },
+  "app": {
+    "name": "PawTaker"
   },
   "auth": {
+    "login": {
+      "title": "Sign In",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "Email address",
+      "passwordLabel": "Password",
+      "passwordPlaceholder": "Password",
+      "forgotPassword": "Forgot password?",
+      "submit": "Sign In",
+      "noAccount": "Don't have an account? Sign up"
+    },
     "welcome": {
       "title": "Welcome to PawTaker",
       "subtitle": "The community pet-sitting app",
       "getStarted": "Get Started",
       "signIn": "Already have an account? Sign in"
-    },
-    "login": {
-      "title": "Sign In",
-      "email": "Email address",
-      "password": "Password",
-      "forgotPassword": "Forgot password?",
-      "submit": "Sign In",
-      "noAccount": "Don't have an account? Sign up"
     },
     "signup": {
       "credentials": {
@@ -85,8 +95,16 @@
   },
   "feed": {
     "title": "Home",
-    "searchPlaceholder": "Search pets or takers...",
+    "searchPlaceholder": "Search location, care type, pet type...",
+    "searchPlaceholderShort": "Search pets or takers...",
     "filters": "Filters",
+    "requestsNearYou": "Requests near you:",
+    "takersNearYou": "Takers near you:",
+    "petsInArea": "pets in your area",
+    "takersAvailable": "takers available",
+    "filterAll": "All",
+    "filterRequests": "Requests",
+    "filterTakers": "Takers",
     "nearYou": "Near You",
     "topTakers": "Top Takers",
     "recentRequests": "Recent Requests",
@@ -151,18 +169,129 @@
     }
   },
   "messages": {
+    "searchChats": "Search chats",
     "title": "Messages",
     "noMessages": "No messages yet",
-    "typeMessage": "Type a message...",
+    "typeMessage": "Type a message",
     "send": "Send",
     "proposal": "Care Proposal",
-    "agreement": "Agreement"
+    "agreement": "Agreement",
+    "viewProfile": "View profile",
+    "muteNotifications": "Mute notifications",
+    "block": "Block",
+    "blockConfirmTitle": "Block this user?",
+    "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings."
+  },
+  "requestDetails": {
+    "title": "Request details",
+    "viewProfile": "View Profile",
+    "details": "Details",
+    "yardType": "Yard type",
+    "careTypes": "Care types",
+    "petOwner": "Pet owner",
+    "age": "Age",
+    "energyLevel": "Energy level",
+    "specialNeeds": "Special needs",
+    "applyNow": "Apply Now"
+  },
+  "post": {
+    "request": {
+      "selectPet": "Select pet",
+      "addPet": "Add pet",
+      "selectDate": "Select date",
+      "date": "Date",
+      "selectDatePlaceholder": "Select a date",
+      "startTime": "Start time",
+      "endTime": "End time",
+      "start": "Start",
+      "end": "End",
+      "multiDay": "Need this service for more than 1 day",
+      "detailsTitle": "Details & special needs",
+      "detailsHint": "Yard type, energy level, special needs (optional).",
+      "details": {
+        "startDate": "Select date",
+        "endDate": "Select date"
+      },
+      "emptyPetsTitle": "Uh oh!",
+      "emptyPetsSubtitle": "You have not added any pets yet",
+      "addAPet": "+ Add a pet"
+    }
+  },
+  "filters": {
+    "title": "Filters",
+    "careType": "Care type",
+    "maxDistance": "Max distance",
+    "reset": "Reset",
+    "apply": "Apply",
+    "done": "Done"
+  },
+  "availability": {
+    "title": "Post availability",
+    "careTitle": "What care can you offer?",
+    "careSubtitle": "Select the types of care you're available to provide (e.g. Daytime, Play/walk).",
+    "datesTitle": "Choose your dates",
+    "datesSubtitle": "When are you available? Set the start and end of your availability period.",
+    "yardTitle": "What type of yard do you have?",
+    "yardSubtitle": "This helps pet owners know if their pet can stay with you.",
+    "daysTitle": "Which days are you available?",
+    "daysSubtitle": "Select the days of the week you can provide care.",
+    "timeTitle": "The time you will be available",
+    "timeSubtitle": "Set your daily start and end time for the selected dates.",
+    "locationTitle": "Where are you available?",
+    "locationSubtitle": "Add your city or area so pet owners can find you. You can add optional notes for them.",
+    "previewTitle": "Preview of availability",
+    "previewSubtitle": "Review your details below. Tap back to edit any step.",
+    "savePublish": "Save & Publish",
+    "startDate": "Start date",
+    "endDate": "End date",
+    "selectStart": "Select start",
+    "selectEnd": "Select end",
+    "startTime": "Start",
+    "endTime": "End",
+    "locationLabel": "Location (city or area)",
+    "locationPlaceholder": "e.g. Lake Placid, NY",
+    "notesLabel": "Additional notes (optional)",
+    "notesPlaceholder": "Any preferences or details for pet owners",
+    "yardFenced": "Fenced yard",
+    "yardHigh": "High Fence",
+    "yardNone": "No yard",
+    "yardLabel": "Yard"
+  },
+  "settings": {
+    "title": "Settings",
+    "language": "Language",
+    "theme": "Theme",
+    "themeSystem": "System Default",
+    "themeLight": "Light",
+    "themeDark": "Dark",
+    "languageEnglish": "English",
+    "languageFrench": "Français",
+    "notifications": "Notifications",
+    "privacy": "Privacy",
+    "editProfile": "Edit profile",
+    "help": "Help & Support",
+    "accountSection": "Account",
+    "logout": "Sign Out",
+    "deactivateAccount": "Deactivate account",
+    "deleteAccount": "Delete Account",
+    "contactUs": "Contact us",
+    "termsAndPolicies": "Terms and policies",
+    "preferencesSection": "Preferences",
+    "logoutTitle": "Sign out?",
+    "deactivateTitle": "Deactivate account?",
+    "deleteTitle": "Delete account?",
+    "logoutCta": "Sign Out",
+    "deactivateCta": "Deactivate",
+    "deleteCta": "Delete"
   },
   "profile": {
     "title": "My Profile",
     "reviews": "Reviews",
     "points": "Points",
     "pets": "My Pets",
+    "blockConfirmTitle": "Block this user?",
+    "blockConfirmDescription": "They won't be able to see your profile, send you requests, or message you. You can unblock them later in Settings.",
+    "blockUser": "Block user",
     "edit": {
       "title": "Edit Profile",
       "save": "Save changes",
@@ -188,18 +317,9 @@
       "spent": "Spent"
     }
   },
-  "settings": {
-    "title": "Settings",
-    "language": "Language",
-    "theme": "Theme",
-    "notifications": "Notifications",
-    "privacy": "Privacy",
-    "help": "Help & Support",
-    "logout": "Sign Out",
-    "deleteAccount": "Delete Account"
-  },
   "notifications": {
     "title": "Notifications",
+    "searchPlaceholder": "Search notifications",
     "noNotifications": "No notifications",
     "markAllRead": "Mark all as read"
   },

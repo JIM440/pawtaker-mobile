@@ -327,31 +327,47 @@ export default function SettingsScreen() {
               {openMenu === "theme" && (
                 <>
                   <Pressable
-                    className="px-4 py-3 border-b border-outline-variant bg-surface-container"
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.outlineVariant,
+                      backgroundColor: colors.surfaceContainer,
+                    }}
                     onPress={() => {
                       setTheme("system");
                       setOpenMenu(null);
                     }}
                   >
-                    <Text className="text-text-primary">System Default</Text>
+                    <Text style={{ color: colors.onSurface }}>{t("settings.themeSystem")}</Text>
                   </Pressable>
                   <Pressable
-                    className="px-4 py-3 border-b border-outline-variant bg-surface-container-lowest"
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.outlineVariant,
+                      backgroundColor: colors.surfaceContainerLowest,
+                    }}
                     onPress={() => {
                       setTheme("light");
                       setOpenMenu(null);
                     }}
                   >
-                    <Text className="text-text-primary">Light</Text>
+                    <Text style={{ color: colors.onSurface }}>{t("settings.themeLight")}</Text>
                   </Pressable>
                   <Pressable
-                    className="px-4 py-3 bg-surface-container-lowest"
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      backgroundColor: colors.surfaceContainerLowest,
+                    }}
                     onPress={() => {
                       setTheme("dark");
                       setOpenMenu(null);
                     }}
                   >
-                    <Text className="text-text-primary">Dark</Text>
+                    <Text style={{ color: colors.onSurface }}>{t("settings.themeDark")}</Text>
                   </Pressable>
                 </>
               )}
@@ -359,24 +375,34 @@ export default function SettingsScreen() {
               {openMenu === "language" && (
                 <>
                   <Pressable
-                    className="px-4 py-3 border-b border-outline-variant bg-surface-container"
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: 1,
+                      borderBottomColor: colors.outlineVariant,
+                      backgroundColor: colors.surfaceContainer,
+                    }}
                     onPress={() => {
                       setLanguage("en");
                       i18n.changeLanguage("en");
                       setOpenMenu(null);
                     }}
                   >
-                    <Text className="text-text-primary">English</Text>
+                    <Text style={{ color: colors.onSurface }}>{t("settings.languageEnglish")}</Text>
                   </Pressable>
                   <Pressable
-                    className="px-4 py-3 bg-surface-container-lowest"
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      backgroundColor: colors.surfaceContainerLowest,
+                    }}
                     onPress={() => {
                       setLanguage("fr");
                       i18n.changeLanguage("fr");
                       setOpenMenu(null);
                     }}
                   >
-                    <Text className="text-text-primary">Français</Text>
+                    <Text style={{ color: colors.onSurface }}>{t("settings.languageFrench")}</Text>
                   </Pressable>
                 </>
               )}

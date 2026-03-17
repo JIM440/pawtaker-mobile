@@ -1,14 +1,34 @@
 import { Colors } from "@/src/constants/colors";
+import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PetCard } from "@/src/shared/components/cards";
+import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { PageContainer } from "@/src/shared/components/layout";
+import { FeedSkeleton } from "@/src/shared/components/skeletons";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
+import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
-import { Bell, EllipsisVertical, MapPin, Search, SlidersHorizontal, Star } from "lucide-react-native";
-import React, { useRef, useState } from "react";
+import {
+  Bell,
+  EllipsisVertical,
+  MapPin,
+  SlidersHorizontal,
+  Star,
+} from "lucide-react-native";
+import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { FlatList, Modal, Pressable, TextInput, TouchableOpacity, View } from "react-native";
+import {
+  FlatList,
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const MOCK_REQUESTS = [
   {
@@ -105,6 +125,14 @@ const MOCK_REQUESTS = [
   },
 ];
 
+const CARE_TYPES = ["Daytime", "Play/walk", "Overnight", "Vacation"] as const;
+const MAX_DISTANCE_RANGE = { min: 1, max: 50 }; // km
+
+function parseDistanceKm(s: string): number {
+  const n = parseInt(s.replace(/\D/g, ""), 10);
+  return Number.isFinite(n) ? n : 0;
+}
+
 type FilterTab = "all" | "requests" | "takers";
 
 type Taker = {
@@ -123,7 +151,8 @@ const MOCK_TAKERS: Taker[] = [
   {
     id: "t1",
     name: "Bob Majors",
-    avatar: "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=400",
+    avatar:
+      "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=400",
     rating: 4.1,
     species: "Dogs",
     tags: ["Daytime", "Play/walk"],
@@ -134,7 +163,8 @@ const MOCK_TAKERS: Taker[] = [
   {
     id: "t2",
     name: "James Limeb...",
-    avatar: "https://images.unsplash.com/photo-1523419409543-3e4f83b9b4c9?w=400",
+    avatar:
+      "https://images.unsplash.com/photo-1523419409543-3e4f83b9b4c9?w=400",
     rating: 4.1,
     species: "Dogs • Cats",
     tags: ["Daytime", "Play/walk"],
@@ -173,12 +203,26 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const [loading, setLoading] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set(["2"]));
   const [openMenuTaker, setOpenMenuTaker] = useState<Taker | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
   const menuButtonRefs = useRef<Record<string, View | null>>({});
+
+  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [careTypeFilter, setCareTypeFilter] = useState<string[]>([]);
+  const [maxDistanceKm, setMaxDistanceKm] = useState(MAX_DISTANCE_RANGE.max);
+  const [filterDraft, setFilterDraft] = useState({
+    careTypes: [] as string[],
+    maxKm: MAX_DISTANCE_RANGE.max,
+  });
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => {
@@ -189,31 +233,60 @@ export default function HomeScreen() {
     });
   };
 
-  const filteredRequests = MOCK_REQUESTS.filter((item) => {
-    if (filter === "takers") return false;
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      item.petName.toLowerCase().includes(q) ||
-      item.breed.toLowerCase().includes(q) ||
-      item.petType.toLowerCase().includes(q) ||
-      item.location.toLowerCase().includes(q)
-    );
-  });
+  const filteredRequests = useMemo(() => {
+    return MOCK_REQUESTS.filter((item) => {
+      if (filter === "takers") return false;
+      if (careTypeFilter.length > 0 && !careTypeFilter.includes(item.careType))
+        return false;
+      const distKm = parseDistanceKm(item.distance);
+      if (distKm > maxDistanceKm) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        item.petName.toLowerCase().includes(q) ||
+        item.breed.toLowerCase().includes(q) ||
+        item.petType.toLowerCase().includes(q) ||
+        item.location.toLowerCase().includes(q)
+      );
+    });
+  }, [filter, searchQuery, careTypeFilter, maxDistanceKm]);
 
-  const filteredTakers = MOCK_TAKERS.filter((taker) => {
-    if (filter === "requests") return false;
-    if (!searchQuery.trim()) return true;
-    const q = searchQuery.toLowerCase();
-    return (
-      taker.name.toLowerCase().includes(q) ||
-      taker.species.toLowerCase().includes(q) ||
-      taker.location.toLowerCase().includes(q)
-    );
-  });
+  const filteredTakers = useMemo(() => {
+    return MOCK_TAKERS.filter((taker) => {
+      if (filter === "requests") return false;
+      if (
+        careTypeFilter.length > 0 &&
+        !taker.tags.some((tag) => careTypeFilter.includes(tag))
+      )
+        return false;
+      const distKm = parseDistanceKm(taker.distance);
+      if (distKm > maxDistanceKm) return false;
+      if (!searchQuery.trim()) return true;
+      const q = searchQuery.toLowerCase();
+      return (
+        taker.name.toLowerCase().includes(q) ||
+        taker.species.toLowerCase().includes(q) ||
+        taker.location.toLowerCase().includes(q)
+      );
+    });
+  }, [filter, searchQuery, careTypeFilter, maxDistanceKm]);
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <FeedSkeleton />
+        </ScrollView>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -228,7 +301,9 @@ export default function HomeScreen() {
         <TouchableOpacity
           className="relative pr-3"
           hitSlop={12}
-          onPress={() => router.push("/(private)/(tabs)/(no-label)/notifications")}
+          onPress={() =>
+            router.push("/(private)/(tabs)/(no-label)/notifications")
+          }
         >
           <Bell size={24} color={colors.onSurface} />
           <View
@@ -253,42 +328,49 @@ export default function HomeScreen() {
         showsVerticalScrollIndicator={false}
         ListHeaderComponent={
           <>
-            {/* Search + filter icon */}
-            <View className="flex-row items-center gap-2 mb-2.5">
-              <View
-                className="flex-1 h-12 rounded-full flex-row items-center pl-5 pr-3 gap-2"
-                style={{ backgroundColor: colors.surfaceContainer }}
-              >
-                <Search size={20} color={colors.onSurfaceVariant} />
-                <TextInput
-                  className="flex-1 text-xs py-3"
-                  style={{ color: colors.onSurface }}
-                  placeholder="Search location, care type, pet type..."
-                  placeholderTextColor={colors.onSurfaceVariant}
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                />
-              </View>
+            {/* Search + filter (Figma-aligned styles) */}
+            <View style={styles.searchFilterRow}>
+              <SearchField
+                containerStyle={styles.searchBar}
+                placeholder={t("feed.searchPlaceholder")}
+                value={searchQuery}
+                onChangeText={setSearchQuery}
+              />
               <TouchableOpacity
-                className="w-12 h-12 rounded-full items-center justify-center"
-                style={{ backgroundColor: colors.surfaceContainer }}
+                style={[
+                  styles.filterButton,
+                  {
+                    backgroundColor: colors.surfaceContainer,
+                    borderColor: colors.outlineVariant,
+                  },
+                ]}
                 hitSlop={8}
+                onPress={() => {
+                  setFilterDraft({
+                    careTypes: [...careTypeFilter],
+                    maxKm: maxDistanceKm,
+                  });
+                  setFilterModalOpen(true);
+                }}
               >
-                <SlidersHorizontal size={18} color={colors.onSurface} />
+                <SlidersHorizontal
+                  size={SearchFilterStyles.searchIconSize}
+                  color={colors.onSurface}
+                />
               </TouchableOpacity>
             </View>
 
             {/* Filter tabs */}
             <TabBar<FilterTab>
               tabs={[
-                { key: "all", label: "All" },
-                { key: "requests", label: "Requests" },
-                { key: "takers", label: "Takers" },
+                { key: "all", label: t("feed.filterAll") },
+                { key: "requests", label: t("feed.filterRequests") },
+                { key: "takers", label: t("feed.filterTakers") },
               ]}
               activeKey={filter}
               onChange={setFilter}
               variant="pill"
-              style={{ marginBottom: 8, paddingHorizontal: 0, justifyContent: "flex-start" }}
+              style={styles.filterTabs}
             />
 
             {showRequests && (
@@ -297,10 +379,10 @@ export default function HomeScreen() {
                   variant="title"
                   style={{ fontSize: 16, letterSpacing: -0.1 }}
                 >
-                  Requests near you:
+                  {t("feed.requestsNearYou")}
                 </AppText>
                 <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {filteredRequests.length} pets in your area
+                  {filteredRequests.length} {t("feed.petsInArea")}
                 </AppText>
               </View>
             )}
@@ -340,10 +422,10 @@ export default function HomeScreen() {
                   variant="title"
                   style={{ fontSize: 16, letterSpacing: -0.1 }}
                 >
-                  Takers near you:
+                  {t("feed.takersNearYou")}
                 </AppText>
                 <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {filteredTakers.length} takers available
+                  {filteredTakers.length} {t("feed.takersAvailable")}
                 </AppText>
               </View>
 
@@ -362,19 +444,41 @@ export default function HomeScreen() {
                     style={{ backgroundColor: colors.surfaceBright }}
                   >
                     <View className="mr-3">
-                      <View className="w-[64px] h-[64px] rounded-full overflow-hidden bg-surfaceVariant" />
+                      <AppImage
+                        source={{ uri: taker.avatar }}
+                        contentFit="cover"
+                        style={[
+                          styles.takerAvatar,
+                          { backgroundColor: colors.surfaceContainer },
+                        ]}
+                      />
                     </View>
                     <View className="flex-1">
                       <View className="flex-row items-center justify-between mb-1">
-                        <AppText variant="headline" style={{ fontSize: 16, letterSpacing: -0.1 }}>
+                        <AppText
+                          variant="headline"
+                          numberOfLines={1}
+                          style={{
+                            fontSize: 16,
+                            letterSpacing: -0.1,
+                            maxWidth: 180,
+                            flexShrink: 1,
+                            minWidth: 0,
+                          }}
+                        >
                           {taker.name}
                         </AppText>
                         <View className="flex-row items-center gap-1">
                           <View
                             className="px-2 py-0.5 rounded-full"
-                            style={{ backgroundColor: colors.secondaryContainer }}
+                            style={{
+                              backgroundColor: colors.secondaryContainer,
+                            }}
                           >
-                            <AppText variant="caption" color={colors.onSecondaryContainer}>
+                            <AppText
+                              variant="caption"
+                              color={colors.onSecondaryContainer}
+                            >
                               Available
                             </AppText>
                           </View>
@@ -392,7 +496,10 @@ export default function HomeScreen() {
                             hitSlop={8}
                             className="px-2 py-2"
                           >
-                            <EllipsisVertical size={18} color={colors.onSurface} />
+                            <EllipsisVertical
+                              size={18}
+                              color={colors.onSurface}
+                            />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -401,8 +508,15 @@ export default function HomeScreen() {
                         <AppText variant="caption" color={colors.onSurface}>
                           {taker.rating.toFixed(1)}
                         </AppText>
-                        <Star size={12} color={colors.onSurface} fill={colors.onSurface} />
-                        <AppText variant="caption" color={colors.onSurfaceVariant}>
+                        <Star
+                          size={12}
+                          color={colors.onSurface}
+                          fill={colors.onSurface}
+                        />
+                        <AppText
+                          variant="caption"
+                          color={colors.onSurfaceVariant}
+                        >
                           {taker.species}
                         </AppText>
                       </View>
@@ -414,24 +528,30 @@ export default function HomeScreen() {
                             className="px-2 py-1 rounded-full"
                             style={{ backgroundColor: colors.surfaceContainer }}
                           >
-                            <AppText variant="caption" color={colors.onSurfaceVariant}>
+                            <AppText
+                              variant="caption"
+                              color={colors.onSurfaceVariant}
+                            >
                               {tag}
                             </AppText>
                           </View>
                         ))}
                       </View>
 
-                      <View className="flex-row items-center gap-1">
+                      <View className="flex-row items-center gap-1 min-w-0">
                         <MapPin size={14} color={colors.onSurfaceVariant} />
                         <AppText
                           variant="caption"
                           color={colors.onSurfaceVariant}
                           numberOfLines={1}
-                          style={{ flex: 1 }}
+                          style={{ flexShrink: 1, minWidth: 0 }}
                         >
                           {taker.location}
                         </AppText>
-                        <AppText variant="caption" color={colors.onSurfaceVariant}>
+                        <AppText
+                          variant="caption"
+                          color={colors.onSurfaceVariant}
+                        >
                           • {taker.distance}
                         </AppText>
                       </View>
@@ -444,24 +564,178 @@ export default function HomeScreen() {
         }
       />
 
+      {/* Filter modal (Figma 1023-19359): care type + distance */}
+      <Modal
+        transparent
+        visible={filterModalOpen}
+        animationType="slide"
+        onRequestClose={() => setFilterModalOpen(false)}
+      >
+        <Pressable
+          style={styles.filterModalOverlay}
+          onPress={() => setFilterModalOpen(false)}
+        >
+          <Pressable
+            style={[
+              styles.filterModalCard,
+              { backgroundColor: colors.surfaceBright },
+            ]}
+            onPress={(e) => e.stopPropagation()}
+          >
+            <View
+              style={[
+                styles.filterModalHeader,
+                { borderBottomColor: colors.outlineVariant },
+              ]}
+            >
+              <AppText variant="title" color={colors.onSurface}>
+                {t("filters.title")}
+              </AppText>
+              <TouchableOpacity
+                onPress={() => setFilterModalOpen(false)}
+                hitSlop={12}
+                style={styles.filterModalClose}
+              >
+                <AppText variant="body" color={colors.primary}>
+                  {t("filters.done")}
+                </AppText>
+              </TouchableOpacity>
+            </View>
+            <ScrollView
+              style={styles.filterModalScroll}
+              showsVerticalScrollIndicator={false}
+            >
+              <AppText
+                variant="label"
+                color={colors.onSurfaceVariant}
+                style={styles.filterSectionLabel}
+              >
+                {t("filters.careType")}
+              </AppText>
+              <View style={styles.filterChipRow}>
+                {CARE_TYPES.map((label) => {
+                  const selected = filterDraft.careTypes.includes(label);
+                  return (
+                    <TouchableOpacity
+                      key={label}
+                      activeOpacity={0.9}
+                      onPress={() => {
+                        setFilterDraft((d) => ({
+                          ...d,
+                          careTypes: selected
+                            ? d.careTypes.filter((x) => x !== label)
+                            : [...d.careTypes, label],
+                        }));
+                      }}
+                      style={[
+                        styles.filterChip,
+                        {
+                          backgroundColor: selected
+                            ? colors.primary
+                            : colors.surfaceContainer,
+                          borderColor: selected
+                            ? colors.primary
+                            : colors.outlineVariant,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="body"
+                        color={selected ? colors.onPrimary : colors.onSurface}
+                      >
+                        {label}
+                      </AppText>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <AppText
+                variant="label"
+                color={colors.onSurfaceVariant}
+                style={styles.filterSectionLabel}
+              >
+                {t("filters.maxDistance")}
+              </AppText>
+              <View style={styles.filterDistanceRow}>
+                <Slider
+                  style={styles.filterSlider}
+                  minimumValue={MAX_DISTANCE_RANGE.min}
+                  maximumValue={MAX_DISTANCE_RANGE.max}
+                  step={1}
+                  value={filterDraft.maxKm}
+                  onValueChange={(v) =>
+                    setFilterDraft((d) => ({ ...d, maxKm: Math.round(v) }))
+                  }
+                  minimumTrackTintColor={colors.primary}
+                  maximumTrackTintColor={colors.outlineVariant}
+                  thumbTintColor={colors.primary}
+                />
+                <AppText
+                  variant="body"
+                  color={colors.onSurface}
+                  style={styles.filterDistanceValue}
+                >
+                  {filterDraft.maxKm} km
+                </AppText>
+              </View>
+            </ScrollView>
+            <View
+              style={[
+                styles.filterModalFooter,
+                { borderTopColor: colors.outlineVariant },
+              ]}
+            >
+              <Button
+                label={t("filters.reset")}
+                onPress={() => {
+                  setFilterDraft({
+                    careTypes: [],
+                    maxKm: MAX_DISTANCE_RANGE.max,
+                  });
+                  setCareTypeFilter([]);
+                  setMaxDistanceKm(MAX_DISTANCE_RANGE.max);
+                }}
+                variant="outline"
+                style={styles.filterFooterBtn}
+              />
+              <Button
+                label={t("filters.apply")}
+                onPress={() => {
+                  setCareTypeFilter(filterDraft.careTypes);
+                  setMaxDistanceKm(filterDraft.maxKm);
+                  setFilterModalOpen(false);
+                }}
+                style={styles.filterFooterBtn}
+              />
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
+
       <Modal
         transparent
         visible={openMenuTaker != null}
         animationType="fade"
         onRequestClose={() => setOpenMenuTaker(null)}
       >
-        <Pressable className="flex-1 bg-black/20" onPress={() => setOpenMenuTaker(null)}>
+        <Pressable
+          className="flex-1 bg-black/20"
+          onPress={() => setOpenMenuTaker(null)}
+        >
           {menuPosition && openMenuTaker && (
             <View
-              className="absolute rounded-xl bg-surface-container-lowest border border-outline-variant shadow-lg overflow-hidden"
+              className="absolute rounded-xl border shadow-lg overflow-hidden"
               style={{
                 top: menuPosition.y + menuPosition.height + 4,
                 left: menuPosition.x - 160,
                 width: 172,
+                backgroundColor: colors.surface,
+                borderColor: colors.outlineVariant,
               }}
             >
               <Pressable
-                className="px-4 py-3 bg-surface-container"
+                style={{ paddingHorizontal: 16, paddingVertical: 12 }}
                 onPress={() => {
                   setOpenMenuTaker(null);
                   router.push(`/takers/${openMenuTaker.id}`);
@@ -478,3 +752,115 @@ export default function HomeScreen() {
     </PageContainer>
   );
 }
+
+const styles = StyleSheet.create({
+  searchFilterRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 10,
+  },
+  searchBar: {
+    flex: 1,
+    height: SearchFilterStyles.searchBarHeight,
+    borderRadius: SearchFilterStyles.searchBarBorderRadius,
+    borderWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingLeft: SearchFilterStyles.searchBarPaddingHorizontal,
+    paddingRight: SearchFilterStyles.searchBarPaddingRight,
+    gap: SearchFilterStyles.searchBarGap,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: SearchFilterStyles.searchInputFontSize,
+    paddingVertical: 0,
+  },
+  filterButton: {
+    width: SearchFilterStyles.filterButtonSize,
+    height: SearchFilterStyles.filterButtonSize,
+    borderRadius: SearchFilterStyles.filterButtonBorderRadius,
+    borderWidth: 1,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  filterTabs: {
+    marginBottom: 8,
+    paddingHorizontal: 0,
+    justifyContent: "flex-start",
+    gap: 8,
+  },
+  filterModalOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+    justifyContent: "flex-end",
+  },
+  filterModalCard: {
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: "80%",
+  },
+  filterModalHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    borderBottomWidth: 1,
+  },
+  filterModalClose: {
+    padding: 4,
+  },
+  filterModalScroll: {
+    maxHeight: 320,
+    paddingHorizontal: 20,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  filterSectionLabel: {
+    marginBottom: 10,
+  },
+  filterChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 10,
+    marginBottom: 24,
+  },
+  filterChip: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  filterDistanceRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    marginBottom: 8,
+  },
+  filterSlider: {
+    flex: 1,
+    height: 40,
+  },
+  filterDistanceValue: {
+    minWidth: 48,
+    textAlign: "right",
+  },
+  filterModalFooter: {
+    flexDirection: "row",
+    gap: 12,
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+    paddingBottom: 32,
+    borderTopWidth: 1,
+  },
+  filterFooterBtn: {
+    flex: 1,
+  },
+  takerAvatar: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    overflow: "hidden",
+  },
+});

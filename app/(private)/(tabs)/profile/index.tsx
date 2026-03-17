@@ -7,6 +7,7 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router } from "expo-router";
 import {
@@ -20,6 +21,7 @@ import {
 } from "lucide-react-native";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 
 const PROFILE = {
   avatarUri:
@@ -93,8 +95,24 @@ type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 export default function ProfileScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const [loading, setLoading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const hasPets = MOCK_PETS.length > 0;
+  const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+
+  if (loading) {
+    return (
+      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+        <ScrollView
+          style={{ flex: 1 }}
+          contentContainerStyle={{ paddingBottom: 24 }}
+          showsVerticalScrollIndicator={false}
+        >
+          <ProfileSkeleton />
+        </ScrollView>
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
@@ -136,7 +154,11 @@ export default function ProfileScreen() {
       >
         {/* Profile head: avatar, Available, name, location, stats */}
         <View style={styles.profileHead}>
-          <View style={styles.avatarWrap}>
+          <TouchableOpacity
+            activeOpacity={0.8}
+            style={styles.avatarWrap}
+            onPress={() => setAvatarViewerOpen(true)}
+          >
             <AppImage
               source={{ uri: PROFILE.avatarUri }}
               style={styles.avatar}
@@ -145,7 +167,7 @@ export default function ProfileScreen() {
             <View
               style={[styles.onlineBadge, { backgroundColor: colors.primary }]}
             />
-          </View>
+          </TouchableOpacity>
           <View
             style={[
               styles.availablePill,
@@ -175,7 +197,7 @@ export default function ProfileScreen() {
                 { backgroundColor: colors.surfaceContainerHighest },
               ]}
             >
-              <Activity size={16} color={colors.onSurfaceVariant} />
+              <Activity size={12} color={colors.onSurfaceVariant} />
               <AppText
                 variant="caption"
                 color={colors.onSurfaceVariant}
@@ -283,6 +305,11 @@ export default function ProfileScreen() {
           />
         )}
       </ScrollView>
+      <ImageViewerModal
+        visible={avatarViewerOpen}
+        images={[{ uri: PROFILE.avatarUri }]}
+        onRequestClose={() => setAvatarViewerOpen(false)}
+      />
     </PageContainer>
   );
 }
@@ -346,6 +373,8 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   userName: {
+    maxWidth: 180,
+    flexShrink: 1,
     fontSize: 28,
     letterSpacing: -0.5,
     lineHeight: 36,

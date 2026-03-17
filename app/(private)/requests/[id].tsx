@@ -8,6 +8,7 @@ import {
   FlatList,
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useTranslation } from 'react-i18next';
 import {
   Heart,
   Calendar,
@@ -16,9 +17,11 @@ import {
 } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
+import { BackHeader } from '@/src/shared/components/layout/BackHeader';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { Button } from '@/src/shared/components/ui/Button';
+import { ImageViewerModal } from '@/src/shared/components/ui/ImageViewerModal';
 import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -63,10 +66,12 @@ const MOCK_REQUEST = {
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
+  const [galleryOpen, setGalleryOpen] = useState(false);
   const request = MOCK_REQUEST;
   const imageCount = request.images.length;
 
@@ -77,6 +82,7 @@ export default function RequestDetailScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <BackHeader title={t('requestDetails.title')} onBack={() => router.back()} />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -96,20 +102,27 @@ export default function RequestDetailScreen() {
               const i = Math.round(e.nativeEvent.contentOffset.x / SCREEN_WIDTH);
               setCurrentImageIndex(i);
             }}
-            renderItem={({ item }) => (
-              <View style={styles.carouselItem}>
+            renderItem={({ item, index }) => (
+              <TouchableOpacity
+                activeOpacity={0.9}
+                onPress={() => {
+                  setCurrentImageIndex(index);
+                  setGalleryOpen(true);
+                }}
+                style={styles.carouselItem}
+              >
                 <AppImage
                   source={{ uri: item }}
                   style={[styles.carouselImage, { width: IMAGE_WIDTH }]}
                   contentFit="cover"
                 />
-              </View>
+              </TouchableOpacity>
             )}
             keyExtractor={(_, i) => String(i)}
           />
           <View style={styles.slideIndicator}>
-            <View style={[styles.slideBadge, { backgroundColor: 'rgba(255,255,255,0.38)' }]}>
-              <AppText variant="caption" color="#fff">
+            <View style={[styles.slideBadge, { backgroundColor: colors.surfaceContainerHighest }]}>
+              <AppText variant="caption" color={colors.onSurface}>
                 {currentImageIndex + 1}/{imageCount}
               </AppText>
             </View>
@@ -132,11 +145,11 @@ export default function RequestDetailScreen() {
         {/* Pet name, breed, favorite */}
         <View style={styles.nameRow}>
           <View style={styles.nameBreedRow}>
-            <AppText variant="headline" style={styles.petName}>{request.petName}</AppText>
+            <AppText variant="headline" color={colors.onSurface} style={styles.petName}>{request.petName}</AppText>
             <View style={styles.breedRow}>
-              <AppText variant="caption">{request.breed}</AppText>
+              <AppText variant="caption" color={colors.onSurface}>{request.breed}</AppText>
               <AppText variant="caption" color={colors.onSurfaceVariant}> • </AppText>
-              <AppText variant="caption">{request.petType}</AppText>
+              <AppText variant="caption" color={colors.onSurfaceVariant}>{request.petType}</AppText>
             </View>
           </View>
           <TouchableOpacity
@@ -152,45 +165,45 @@ export default function RequestDetailScreen() {
         </View>
 
         {/* Date & time */}
-        <View style={styles.metaRow}>
+        <View style={[styles.metaRow, { marginBottom: 6 }]}>
           <View style={styles.metaItem}>
-            <Calendar size={16} color={colors.onSurface} />
-            <AppText variant="body" style={styles.metaText}>{request.dateRange}</AppText>
+            <Calendar size={18} color={colors.primary} />
+            <AppText variant="body" color={colors.onSurface} style={styles.metaText}>{request.dateRange}</AppText>
           </View>
           <AppText variant="caption" color={colors.onSurfaceVariant}> • </AppText>
           <View style={styles.metaItem}>
-            <Clock size={16} color={colors.onSurface} />
-            <AppText variant="body" style={styles.metaText}>{request.time}</AppText>
+            <Clock size={18} color={colors.primary} />
+            <AppText variant="body" color={colors.onSurface} style={styles.metaText}>{request.time}</AppText>
           </View>
           <AppText variant="caption" color={colors.onSurfaceVariant}> • </AppText>
-          <AppText variant="body" style={styles.metaText}>{request.careType}</AppText>
+          <AppText variant="body" color={colors.onSurface} style={styles.metaText}>{request.careType}</AppText>
         </View>
 
         {/* Location */}
         <View style={styles.metaRow}>
           <View style={styles.metaItem}>
-            <MapPin size={16} color={colors.onSurface} />
-            <AppText variant="body" style={styles.metaText}>{request.location}</AppText>
+            <MapPin size={18} color={colors.primary} />
+            <AppText variant="body" color={colors.onSurface} style={styles.metaText}>{request.location}</AppText>
           </View>
           <AppText variant="caption" color={colors.onSurfaceVariant}> • </AppText>
-          <AppText variant="body" style={styles.metaText}>{request.distance}</AppText>
+          <AppText variant="body" color={colors.onSurfaceVariant} style={styles.metaText}>{request.distance}</AppText>
         </View>
 
         {/* Description */}
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.description}>
+        <AppText variant="body" color={colors.onSurfaceVariant} style={styles.description}>
           {request.description}
         </AppText>
 
         {/* Pet owner card */}
-        <View style={[styles.ownerCard, { backgroundColor: colors.surfaceContainer }]}>
+        <View style={[styles.ownerCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}>
           <View style={styles.ownerLeft}>
-            <AppImage
-              source={{ uri: request.owner.avatar }}
-              style={styles.ownerAvatar}
-              contentFit="cover"
-            />
+<AppImage
+                  source={{ uri: request.owner.avatar }}
+                  style={[styles.ownerAvatar, { backgroundColor: colors.surfaceContainer }]}
+                  contentFit="cover"
+                />
             <View style={styles.ownerInfo}>
-              <AppText variant="title" style={styles.ownerName}>{request.owner.name}</AppText>
+              <AppText variant="title" color={colors.onSurface} style={styles.ownerName}>{request.owner.name}</AppText>
               <View style={styles.ownerStats}>
                 <RatingSummary
                   rating={request.owner.rating}
@@ -206,33 +219,42 @@ export default function RequestDetailScreen() {
                 `/(private)/(tabs)/(no-label)/users/${request.owner.id}`,
               )
             }
+            style={styles.viewProfileBtn}
           >
-            <AppText variant="title" color={colors.primary}>View Profile</AppText>
+            <AppText variant="label" color={colors.primary}>{t('requestDetails.viewProfile')}</AppText>
           </TouchableOpacity>
         </View>
 
-        {/* Details section */}
-        <AppText variant="title" style={styles.sectionTitle}>Details</AppText>
-        <View style={styles.detailPills}>
-          <DetailPill label="Yard Type" value={request.details.yardType} colors={colors} />
-          <DetailPill label="Age" value={request.details.age} colors={colors} />
-          <DetailPill label="Energy Level" value={request.details.energyLevel} colors={colors} />
+        {/* Details section (Figma apply details) */}
+        <AppText variant="title" color={colors.onSurface} style={styles.sectionTitle}>{t('requestDetails.details')}</AppText>
+        <View style={[styles.detailsCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}>
+          <View style={styles.detailPills}>
+            <DetailPill label={t('requestDetails.yardType')} value={request.details.yardType} colors={colors} />
+            <DetailPill label={t('requestDetails.age')} value={request.details.age} colors={colors} />
+            <DetailPill label={t('requestDetails.energyLevel')} value={request.details.energyLevel} colors={colors} />
+          </View>
         </View>
 
         {/* Special needs */}
-        <AppText variant="body" color={colors.onSurfaceVariant} style={styles.specialLabel}>
-          *Special needs
+        <AppText variant="label" color={colors.onSurfaceVariant} style={styles.specialLabel}>
+          {t('requestDetails.specialNeeds')}
         </AppText>
         <AppText variant="body" color={colors.onSurfaceVariant} style={styles.specialText}>
           {request.specialNeeds}
         </AppText>
 
         <Button
-          label="Apply Now"
+          label={t('requestDetails.applyNow')}
           onPress={onApplyNow}
           style={styles.applyBtn}
         />
       </ScrollView>
+      <ImageViewerModal
+        visible={galleryOpen}
+        images={request.images.map((uri) => ({ uri }))}
+        index={currentImageIndex}
+        onRequestClose={() => setGalleryOpen(false)}
+      />
     </View>
   );
 }
@@ -251,8 +273,8 @@ function DetailPill({
       <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.pillLabel}>
         {label}
       </AppText>
-      <View style={[styles.pillValue, { borderColor: colors.outlineVariant }]}>
-        <AppText variant="caption" color={colors.onSurfaceVariant}>{value}</AppText>
+      <View style={[styles.pillValue, { backgroundColor: colors.surfaceContainer }]}>
+        <AppText variant="body" color={colors.onSurface}>{value}</AppText>
       </View>
     </View>
   );
@@ -283,7 +305,6 @@ const styles = StyleSheet.create({
     width: IMAGE_WIDTH,
     height: IMAGE_HEIGHT,
     borderRadius: 16,
-    backgroundColor: '#eee',
   },
   slideIndicator: {
     position: 'absolute',
@@ -359,16 +380,22 @@ const styles = StyleSheet.create({
   },
   description: {
     marginTop: 8,
-    marginBottom: 16,
-    lineHeight: 16,
+    marginBottom: 20,
+    lineHeight: 20,
+    fontSize: 14,
   },
   ownerCard: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 8,
-    borderRadius: 999,
+    padding: 14,
+    borderRadius: 16,
     marginBottom: 24,
+    borderWidth: 1,
+  },
+  viewProfileBtn: {
+    paddingVertical: 6,
+    paddingHorizontal: 4,
   },
   ownerLeft: {
     flexDirection: 'row',
@@ -381,7 +408,6 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#eee',
   },
   ownerInfo: {
     flex: 1,
@@ -408,35 +434,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     marginBottom: 12,
   },
+  detailsCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 20,
+  },
   detailPills: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 24,
-    marginBottom: 16,
+    gap: 20,
   },
   detailPillGroup: {
-    gap: 4,
+    gap: 6,
   },
   pillLabel: {
     fontSize: 12,
   },
   pillValue: {
     alignSelf: 'flex-start',
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 12,
   },
   specialLabel: {
     marginBottom: 8,
-    fontSize: 12,
+    fontSize: 14,
   },
   specialText: {
-    lineHeight: 16,
-    marginBottom: 24,
-    fontSize: 12,
+    lineHeight: 20,
+    marginBottom: 28,
+    fontSize: 14,
   },
   applyBtn: {
     alignSelf: 'stretch',
+    paddingVertical: 14,
   },
 });
