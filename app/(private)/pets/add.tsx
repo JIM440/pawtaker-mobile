@@ -255,15 +255,6 @@ export default function AddPetScreen() {
             ]}
           >
             <Input
-              containerStyle={{ marginBottom: 0 }}
-              inputStyle={[
-                styles.searchInput,
-                {
-                  borderColor: "transparent",
-                  paddingHorizontal: 0,
-                  paddingVertical: 0,
-                },
-              ]}
               placeholder={t("common.search", "Search")}
               value={breedQuery}
               onChangeText={setBreedQuery}
@@ -389,14 +380,10 @@ export default function AddPetScreen() {
 
           <View style={styles.field}>
             <Input
-              label="Pet name"
+              label={t("pets.add.name", "Pet name")}
               value={petName}
               onChangeText={setPetName}
-              containerStyle={{ marginBottom: 0 }}
-              inputStyle={[
-                styles.fieldInput,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
+              maxLength={50}
             />
             <AppText
               variant="caption"
@@ -409,18 +396,12 @@ export default function AddPetScreen() {
 
           <View style={styles.field}>
             <Input
-              label="Pet Short Bio"
+              label={t("pets.add.bio", "Pet Short Bio")}
               value={petBio}
               onChangeText={setPetBio}
-              containerStyle={{ marginBottom: 0 }}
-              inputStyle={[
-                styles.textArea,
-                {
-                  backgroundColor: colors.surfaceContainerHighest,
-                  borderColor: colors.outlineVariant,
-                },
-              ]}
+              inputStyle={styles.textArea}
               multiline
+              maxLength={300}
             />
             <AppText
               variant="caption"
@@ -718,22 +699,23 @@ const styles = StyleSheet.create({
     fontWeight: "500",
   },
   fieldInput: {
-    borderRadius: 12,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    borderWidth: 1,
+    borderRadius: 16,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    borderWidth: 1.5,
   },
   dateLikeInput: {
+    minHeight: 56,
     justifyContent: "center",
   },
   textArea: {
-    borderRadius: 12,
-    borderWidth: 1,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 14,
-    minHeight: 96,
+    borderRadius: 16,
+    borderWidth: 1.5,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    fontSize: 16,
+    minHeight: 120,
     textAlignVertical: "top",
   },
   sectionTitle: {

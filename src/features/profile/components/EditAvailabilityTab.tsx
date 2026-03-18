@@ -1,5 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { AvailabilityPreviewCard } from "@/src/shared/components/cards";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
@@ -7,18 +8,20 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { Input } from "@/src/shared/components/ui/Input";
 import {
   Briefcase,
-  Ellipsis,
-  Handshake,
-  MapPin,
   Moon,
   PawPrint,
-  Star,
-  Sun,
+  Sun
 } from "lucide-react-native";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
 
-export function EditAvailabilityTab() {
+type Props = {
+  onSave?: () => void;
+};
+
+export function EditAvailabilityTab({ onSave }: Props) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [available, setAvailable] = useState(true);
@@ -65,7 +68,7 @@ export function EditAvailabilityTab() {
     <View style={styles.container}>
       <View style={styles.row}>
         <AppText variant="body" color={colors.onSurface}>
-          Available
+          {t("availability.available", "Available")}
         </AppText>
         <Switch
           value={available}
@@ -366,117 +369,28 @@ export function EditAvailabilityTab() {
       </View>
 
       {/* Preview card, mirroring availability preview design */}
-      <View
-        style={[
-          styles.previewCard,
-          {
-            backgroundColor: colors.surface,
-          },
-        ]}
-      >
-        <View style={styles.previewHeaderRow}>
-          <AppImage
-            source={{
-              uri: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200",
-            }}
-            style={styles.previewAvatar}
-            contentFit="cover"
-          />
-          <View style={styles.previewTitleCol}>
-            <View style={styles.previewNameRow}>
-              <AppText
-                variant="title"
-                color={colors.onSurface}
-                style={styles.previewName}
-                numberOfLines={1}
-              >
-                Bob Majors
-              </AppText>
-              {available && (
-                <View
-                  style={[
-                    styles.previewBadge,
-                    { backgroundColor: colors.tertiaryContainer },
-                  ]}
-                >
-                  <AppText variant="caption" color={colors.onTertiaryContainer}>
-                    Available
-                  </AppText>
-                </View>
-              )}
-            </View>
-            <View style={styles.previewMetaRow}>
-              <View style={styles.previewMetaRowItem}>
-                <AppText variant="caption" color={colors.onSurface}>
-                  4.1
-                </AppText>
-                <Star
-                  size={12}
-                  color={colors.tertiary}
-                  fill={colors.tertiary}
-                />
-              </View>
-              <View style={styles.previewMetaRowItem}>
-                <Handshake size={12} color={colors.tertiary} />
-                <AppText variant="caption" color={colors.tertiary}>
-                  12
-                </AppText>
-              </View>
-              <View style={styles.previewMetaRowItem}>
-                <PawPrint size={12} color={colors.tertiary} />
-                <AppText variant="caption" color={colors.tertiary}>
-                  17
-                </AppText>
-              </View>
-            </View>
-            <View style={styles.previewTagsRow}>
-              <AppText
-                variant="caption"
-                style={{
-                  ...styles.previewTags,
-                  backgroundColor: colors.surfaceContainer,
-                }}
-              >
-                Cats • Dog • Bird
-              </AppText>
-              <AppText
-                variant="caption"
-                style={{
-                  ...styles.previewTags,
-                  backgroundColor: colors.surfaceContainer,
-                }}
-                numberOfLines={1}
-              >
-                {[
-                  services.includes("daytime") ? "Daytime" : null,
-                  services.includes("playwalk") ? "Play/walk" : null,
-                  services.includes("overnight") ? "Overnight" : null,
-                  services.includes("vacation") ? "Vacation" : null,
-                ]
-                  .filter(Boolean)
-                  .join(" • ")}
-              </AppText>
-              <View
-                style={{
-                  ...styles.previewLocationRow,
-                  gap: 4,
-                  backgroundColor: colors.surfaceContainer,
-                }}
-              >
-                <MapPin size={16} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" numberOfLines={1}>
-                  Syracuse, New York, US
-                </AppText>
-              </View>
-            </View>
-          </View>
-          <TouchableOpacity style={styles.previewMenuBtn} hitSlop={8}>
-            <Ellipsis size={20} color={colors.onSurfaceVariant} />
-          </TouchableOpacity>
-        </View>
-      </View>
+      <AvailabilityPreviewCard
+        avatarUri="https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200"
+        name="Bob Majors"
+        rating={4.1}
+        handshakes={12}
+        paws={17}
+        isAvailable={available}
+        petTypes={["Cats", "Dog", "Bird"]}
+        services={[
+          services.includes("daytime") ? "Daytime" : null,
+          services.includes("playwalk") ? "Play/walk" : null,
+          services.includes("overnight") ? "Overnight" : null,
+          services.includes("vacation") ? "Vacation" : null,
+        ].filter(Boolean) as string[]}
+        location="Syracuse, New York, US"
+      />
 
-      <Button label="Save" fullWidth />
+      <Button
+        label={t("common.save", "Save")}
+        onPress={onSave}
+        fullWidth
+      />
     </View>
   );
 }
@@ -602,73 +516,6 @@ const styles = StyleSheet.create({
   },
   dayLabel: {
     fontSize: 14,
-  },
-  previewCard: {
-    marginTop: 16,
-    borderRadius: 20,
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-  },
-  previewHeaderRow: {
-    flexDirection: "row",
-    gap: 12,
-  },
-  previewAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 80,
-  },
-  previewTitleCol: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  previewNameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  previewName: {
-    fontSize: 16,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  previewBadge: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  previewMetaRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-    gap: 8,
-  },
-  previewTagsRow: {
-    gap: 4,
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  previewTags: {
-    marginTop: 2,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    width: "auto",
-    flexShrink: 1,
-    minWidth: 0,
-  },
-  previewLocationRow: {
-    flexDirection: "row",
-    marginTop: 4,
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 999,
-    width: "auto",
-    flexShrink: 1,
-    minWidth: 0,
   },
   previewMenuBtn: {
     padding: 6,

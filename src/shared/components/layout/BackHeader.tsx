@@ -34,8 +34,7 @@ export function BackHeader({ title = "", onBack, rightSlot }: BackHeaderProps) {
         className="mr-3"
       >
         <ArrowLeft
-          size={20}
-          strokeWidth={2.2}
+          size={24}
           color={colors.onSurfaceVariant}
         />
       </TouchableOpacity>

@@ -2,8 +2,10 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
 import { Input } from "@/src/shared/components/ui/Input";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 type EditDetailsTabProps = {
@@ -17,6 +19,7 @@ type EditDetailsTabProps = {
   onChangeZipCode: (v: string) => void;
   onChangeLocation: (v: string) => void;
   onChooseImage?: () => void;
+  onSave?: () => void;
 };
 
 export function EditDetailsTab({
@@ -30,7 +33,9 @@ export function EditDetailsTab({
   onChangeZipCode,
   onChangeLocation,
   onChooseImage,
+  onSave,
 }: EditDetailsTabProps) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -49,48 +54,50 @@ export function EditDetailsTab({
             color={colors.onSurface}
             style={styles.chooseImageText}
           >
-            Choose an image
+            {t("profile.edit.chooseImage", "Choose an image")}
           </AppText>
         </TouchableOpacity>
       </View>
 
       {/* Username */}
       <Input
-        label="Username"
+        label={t("auth.signup.profile.firstName", "Username")}
         value={username}
         onChangeText={onChangeUsername}
-        containerStyle={styles.fieldWrap}
-        inputStyle={styles.fieldInput}
       />
 
       {/* Short Bio */}
       <Input
-        label="Short Bio"
+        label={t("auth.signup.profile.bio", "Short Bio")}
         value={bio}
         onChangeText={onChangeBio}
-        containerStyle={styles.fieldWrap}
-        inputStyle={[styles.fieldInput, styles.textArea]}
+        inputStyle={styles.textArea}
         multiline
       />
 
       {/* ZIP Code + Location row */}
       <View style={styles.row}>
         <Input
-          label="ZIP Code"
+          label={t("auth.signup.profile.zipCode", "ZIP Code")}
           value={zipCode}
           onChangeText={onChangeZipCode}
-          containerStyle={[styles.fieldWrap, styles.zipField]}
-          inputStyle={styles.fieldInput}
+          containerStyle={styles.zipField}
           keyboardType="number-pad"
         />
         <Input
-          label="Location"
+          label={t("auth.signup.profile.city", "Location")}
           value={location}
           onChangeText={onChangeLocation}
-          containerStyle={[styles.fieldWrap, styles.locationField]}
-          inputStyle={styles.fieldInput}
+          containerStyle={styles.locationField}
         />
       </View>
+
+      <Button
+        label={t("common.save", "Save")}
+        onPress={onSave}
+        style={styles.saveBtn}
+        fullWidth
+      />
     </View>
   );
 }
@@ -99,7 +106,7 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
     paddingTop: 24,
-    gap: 12,
+    gap: 8,
   },
   avatarRow: {
     flexDirection: "row",
@@ -116,27 +123,8 @@ const styles = StyleSheet.create({
     textDecorationLine: "underline",
     fontSize: 14,
   },
-  fieldWrap: {
-    marginBottom: 0,
-  },
-  field: {
-    borderRadius: 8,
-    paddingHorizontal: 16,
-    paddingTop: 8,
-    paddingBottom: 12,
-  },
-  fieldMultiline: {
-    borderWidth: 1,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    marginBottom: 4,
-  },
-  fieldInput: {
-    backgroundColor: "transparent",
-  },
   textArea: {
-    minHeight: 96,
+    minHeight: 80,
     textAlignVertical: "top",
   },
   row: {
@@ -144,9 +132,12 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   zipField: {
-    width: 80,
+    width: 100,
   },
   locationField: {
     flex: 1,
+  },
+  saveBtn: {
+    marginVertical: 12,
   },
 });

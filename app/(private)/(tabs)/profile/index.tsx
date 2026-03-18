@@ -8,7 +8,7 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal.native";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router } from "expo-router";
 import {
@@ -21,6 +21,7 @@ import {
   Star,
 } from "lucide-react-native";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 const PROFILE = {
@@ -93,6 +94,7 @@ const MOCK_PETS = [
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function ProfileScreen() {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [loading, setLoading] = useState(false);
@@ -123,7 +125,7 @@ export default function ProfileScreen() {
           style={styles.title}
           color={colors.onSurface}
         >
-          Profile
+          {t("profile.title", "Profile")}
         </AppText>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -135,7 +137,7 @@ export default function ProfileScreen() {
               color={colors.onSurface}
               style={styles.editLink}
             >
-              Edit Profile
+              {t("settings.editProfile", "Edit Profile")}
             </AppText>
           </TouchableOpacity>
           <TouchableOpacity
@@ -175,7 +177,7 @@ export default function ProfileScreen() {
             ]}
           >
             <AppText variant="caption" color={colors.onTertiaryContainer}>
-              Available
+              {t("availability.available", "Available")}
             </AppText>
           </View>
           <View style={styles.nameRow}>
@@ -280,10 +282,13 @@ export default function ProfileScreen() {
         {/* Tabs */}
         <TabBar<ProfileTab>
           tabs={[
-            { key: "pets", label: "Your Pets" },
-            { key: "availability", label: "Availability" },
-            { key: "bio", label: "Short Bio" },
-            { key: "reviews", label: "Reviews" },
+            { key: "pets", label: t("profile.edit.petsTab", "Your Pets") },
+            {
+              key: "availability",
+              label: t("profile.edit.availabilityTab", "Availability"),
+            },
+            { key: "bio", label: t("auth.signup.profile.bio", "Short Bio") },
+            { key: "reviews", label: t("profile.reviews", "Reviews") },
           ]}
           activeKey={activeTab}
           onChange={setActiveTab}

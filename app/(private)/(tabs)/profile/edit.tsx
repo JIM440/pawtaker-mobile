@@ -3,15 +3,15 @@ import { EditAvailabilityTab } from "@/src/features/profile/components/EditAvail
 import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab";
 import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { AppText } from "@/src/shared/components/ui/AppText";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
 import { CircleAlert } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, View } from "react-native";
 
 type EditTab = "details" | "pets" | "availability";
 
@@ -82,21 +82,10 @@ export default function EditProfileScreen() {
   };
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <PageContainer contentStyle={{ paddingHorizontal: 0, paddingVertical: 0 }}>
       <BackHeader
         onBack={handleBack}
         title={t("profile.edit.title", "Edit Profile")}
-        rightSlot={
-          <TouchableOpacity onPress={handleSave} activeOpacity={0.7}>
-            <AppText
-              variant="body"
-              color={colors.onSurface}
-              style={styles.saveText}
-            >
-              {t("common.save", "Save")}
-            </AppText>
-          </TouchableOpacity>
-        }
       />
 
       <View style={{ marginBottom: -16 }}>
@@ -138,6 +127,7 @@ export default function EditProfileScreen() {
             onChooseImage={() => {
               // TODO: image picker
             }}
+            onSave={handleSave}
           />
         )}
         {activeTab === "pets" && (
@@ -150,16 +140,19 @@ export default function EditProfileScreen() {
                 params: { id },
               })
             }
-            onDeletePet={() => {}}
+            onDeletePet={() => { }}
             onLaunchPetRequest={(id) =>
               router.push({
                 pathname: "/(private)/requests/create",
                 params: { petId: id },
               })
             }
+            onSave={handleSave}
           />
         )}
-        {activeTab === "availability" && <EditAvailabilityTab />}
+        {activeTab === "availability" && (
+          <EditAvailabilityTab onSave={handleSave} />
+        )}
       </ScrollView>
 
       <FeedbackModal
@@ -179,14 +172,11 @@ export default function EditProfileScreen() {
         }}
         onRequestClose={() => setShowDiscard(false)}
       />
-    </View>
+    </PageContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-  },
   saveText: {
     textDecorationLine: "underline",
     fontSize: 16,

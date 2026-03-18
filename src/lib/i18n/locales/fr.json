@@ -55,7 +55,7 @@
         "firstName": "Prénom",
         "lastName": "Nom de famille",
         "city": "Ville",
-        "bio": "Bio (optionnel)",
+        "bio": "Bio courte",
         "submit": "Continuer"
       },
       "declaration": {
@@ -160,11 +160,32 @@
       "publish": {
         "title": "Vérifier et publier",
         "publish": "Publier la demande"
-      }
+      },
+      "selectPet": "Choisir un animal",
+      "addPet": "Ajouter un animal",
+      "selectDate": "Choisir la date",
+      "date": "Date",
+      "selectDatePlaceholder": "Choisir une date",
+      "startTime": "Heure de début",
+      "endTime": "Heure de fin",
+      "start": "Début",
+      "end": "Fin",
+      "multiDay": "Plus d'un jour",
+      "detailsTitle": "Détails et besoins particuliers",
+      "detailsHint": "Type de jardin, niveau d'énergie, besoins particuliers (optionnel).",
+      "emptyPetsTitle": "Oups !",
+      "emptyPetsSubtitle": "Vous n'avez pas encore ajouté d'animaux",
+      "addAPet": "+ Ajouter un animal"
     },
     "availability": {
       "title": "Ma disponibilité",
-      "subtitle": "Définissez quand vous êtes disponible pour garder des animaux",
+      "subtitle": "Indiquez quand vous êtes disponible pour garder des animaux",
+      "available": "Disponible",
+      "timeOnly": "Heures",
+      "daysOnly": "Jours",
+      "yardType": "Type de terrain",
+      "petOwner": "Propriétaire d'animaux",
+      "note": "Note courte",
       "save": "Enregistrer la disponibilité"
     }
   },
@@ -194,29 +215,6 @@
     "specialNeeds": "Besoins particuliers",
     "applyNow": "Postuler"
   },
-  "post": {
-    "request": {
-      "selectPet": "Choisir un animal",
-      "addPet": "Ajouter un animal",
-      "selectDate": "Choisir la date",
-      "date": "Date",
-      "selectDatePlaceholder": "Choisir une date",
-      "startTime": "Heure de début",
-      "endTime": "Heure de fin",
-      "start": "Début",
-      "end": "Fin",
-      "multiDay": "Plus d'un jour",
-      "detailsTitle": "Détails et besoins particuliers",
-      "detailsHint": "Type de jardin, niveau d'énergie, besoins particuliers (optionnel).",
-      "details": {
-        "startDate": "Choisir la date",
-        "endDate": "Choisir la date"
-      },
-      "emptyPetsTitle": "Oups !",
-      "emptyPetsSubtitle": "Vous n'avez pas encore ajouté d'animaux",
-      "addAPet": "+ Ajouter un animal"
-    }
-  },
   "filters": {
     "title": "Filtres",
     "careType": "Type de garde",
@@ -227,6 +225,7 @@
   },
   "availability": {
     "title": "Publier ma disponibilité",
+    "available": "Disponible",
     "careTitle": "Quels soins pouvez-vous offrir ?",
     "careSubtitle": "Sélectionnez les types de garde que vous proposez (ex. Journée, Promenade).",
     "datesTitle": "Choisir les dates",
@@ -288,7 +287,10 @@
     "title": "Mon profil",
     "reviews": "Avis",
     "points": "Points",
-    "pets": "Mes animaux",
+    "pets": {
+      "title": "Mes animaux",
+      "launchRequest": "Lancer une demande"
+    },
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
     "blockConfirmDescription": "Il ou elle ne pourra plus voir votre profil, vous envoyer des demandes ou des messages. Vous pourrez débloquer plus tard dans Paramètres.",
     "blockUser": "Bloquer",
@@ -298,6 +300,7 @@
       "detailsTab": "Vos informations",
       "petsTab": "Vos animaux",
       "availabilityTab": "Disponibilité",
+      "chooseImage": "Choisir une image",
       "discardTitle": "Annuler les modifications ?",
       "discardDescription": "Si vous revenez en arrière, votre progression sera perdue.",
       "keepEditing": "Continuer",

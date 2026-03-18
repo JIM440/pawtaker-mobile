@@ -5,6 +5,7 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 
 export type EditPet = {
@@ -25,6 +26,7 @@ type Props = {
   onEditPet?: (id: string) => void;
   onDeletePet?: (id: string) => void;
   onLaunchPetRequest?: (id: string) => void;
+  onSave?: () => void;
 };
 
 export function EditPetsTab({
@@ -33,10 +35,20 @@ export function EditPetsTab({
   onEditPet,
   onDeletePet,
   onLaunchPetRequest,
+  onSave,
 }: Props) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [openMenuForId, setOpenMenuForId] = useState<string | null>(null);
+  const [menuPosition, setMenuPosition] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const menuButtonRefs = React.useRef<Record<string, View | null>>({});
 
   return (
     <View style={styles.container}>
@@ -53,17 +65,17 @@ export function EditPetsTab({
             color={colors.onSurface}
             style={styles.emptyTitle}
           >
-            Uh oh!
+            {t("post.request.emptyPetsTitle", "Uh oh!")}
           </AppText>
           <AppText
             variant="caption"
             color={colors.onSurfaceVariant}
             style={styles.emptySubtitle}
           >
-            You have not uploaded any pets yet
+            {t("post.request.emptyPetsSubtitle", "You have not added any pets yet")}
           </AppText>
           <Button
-            label="+ Add a pet"
+            label={t("post.request.addAPet", "+ Add a pet")}
             variant="outline"
             onPress={onAddPet}
             style={styles.addBtn}
@@ -71,16 +83,21 @@ export function EditPetsTab({
         </View>
       ) : (
         <>
-          <Button
-            label="+ Add a pet"
-            variant="outline"
-            onPress={onAddPet}
-            style={styles.addBtn}
-          />
+          <View style={styles.topRow}>
+            <Button
+              label={t("post.request.addAPet", "+ Add a pet")}
+              variant="outline"
+              onPress={onAddPet}
+              style={[styles.addBtn, { flex: 1 }]}
+            />
+          </View>
           <View style={styles.list}>
             {pets.map((pet) => (
               <ProfilePetCard
                 key={pet.id}
+                menuButtonRef={(el) => {
+                  menuButtonRefs.current[pet.id] = el;
+                }}
                 imageSource={pet.imageSource}
                 petName={pet.petName}
                 breed={pet.breed}
@@ -91,7 +108,11 @@ export function EditPetsTab({
                 seekingTime={pet.seekingTime}
                 onPress={() => onEditPet?.(pet.id)}
                 onMenuPress={() => {
-                  setOpenMenuForId(pet.id);
+                  const btn = menuButtonRefs.current[pet.id];
+                  btn?.measureInWindow((x, y, width, height) => {
+                    setMenuPosition({ x, y, width, height });
+                    setOpenMenuForId(pet.id);
+                  });
                 }}
               />
             ))}
@@ -101,60 +122,79 @@ export function EditPetsTab({
             transparent
             visible={openMenuForId !== null}
             animationType="fade"
-            onRequestClose={() => setOpenMenuForId(null)}
+            onRequestClose={() => {
+              setOpenMenuForId(null);
+              setMenuPosition(null);
+            }}
           >
             <Pressable
               style={styles.menuBackdrop}
-              onPress={() => setOpenMenuForId(null)}
+              onPress={() => {
+                setOpenMenuForId(null);
+                setMenuPosition(null);
+              }}
             >
-              {openMenuForId && (
-                <View style={styles.menuOverlay}>
-                  <View
-                    style={[
-                      styles.menuContainer,
-                      {
-                        backgroundColor: colors.surfaceContainerLowest,
-                        borderColor: colors.outlineVariant,
-                      },
-                    ]}
+              {openMenuForId && menuPosition && (
+                <View
+                  style={[
+                    styles.menuContainer,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.outlineVariant,
+                      position: "absolute",
+                      top: menuPosition.y + menuPosition.height + 4,
+                      left: menuPosition.x - 180,
+                    },
+                  ]}
+                >
+                  <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                      const id = openMenuForId;
+                      setOpenMenuForId(null);
+                      setMenuPosition(null);
+                      if (id) onLaunchPetRequest?.(id);
+                    }}
                   >
-                    <Pressable
-                      style={styles.menuItem}
-                      onPress={() => {
-                        const id = openMenuForId;
-                        setOpenMenuForId(null);
-                        if (id) onLaunchPetRequest?.(id);
-                      }}
-                    >
-                      <AppText variant="body">Launch pet request</AppText>
-                    </Pressable>
-                    <Pressable
-                      style={styles.menuItem}
-                      onPress={() => {
-                        const id = openMenuForId;
-                        setOpenMenuForId(null);
-                        if (id) onEditPet?.(id);
-                      }}
-                    >
-                      <AppText variant="body">Edit</AppText>
-                    </Pressable>
-                    <Pressable
-                      style={styles.menuItem}
-                      onPress={() => {
-                        const id = openMenuForId;
-                        setOpenMenuForId(null);
-                        if (id) onDeletePet?.(id);
-                      }}
-                    >
-                      <AppText variant="body" color={colors.error}>
-                        Delete
-                      </AppText>
-                    </Pressable>
-                  </View>
+                    <AppText variant="body">
+                      {t("profile.pets.launchRequest", "Launch pet request")}
+                    </AppText>
+                  </Pressable>
+                  <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                      const id = openMenuForId;
+                      setOpenMenuForId(null);
+                      setMenuPosition(null);
+                      if (id) onEditPet?.(id);
+                    }}
+                  >
+                    <AppText variant="body">{t("common.edit", "Edit")}</AppText>
+                  </Pressable>
+                  <Pressable
+                    style={styles.menuItem}
+                    onPress={() => {
+                      const id = openMenuForId;
+                      setOpenMenuForId(null);
+                      setMenuPosition(null);
+                      if (id) onDeletePet?.(id);
+                    }}
+                  >
+                    <AppText variant="body" color={colors.error}>
+                      {t("common.delete", "Delete")}
+                    </AppText>
+                  </Pressable>
                 </View>
               )}
             </Pressable>
           </Modal>
+
+          <Button
+            label={t("common.save", "Save")}
+            onPress={onSave}
+            style={styles.saveBtn}
+            fullWidth
+          />
         </>
       )}
     </View>
@@ -169,6 +209,15 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addBtn: {
+    marginBottom: 0,
+  },
+  topRow: {
+    flexDirection: "row",
+    gap: 12,
+    marginBottom: 16,
+  },
+  saveBtn: {
+    marginTop: 24,
     marginBottom: 16,
   },
   list: {
@@ -191,20 +240,19 @@ const styles = StyleSheet.create({
   },
   menuBackdrop: {
     flex: 1,
-  },
-  menuOverlay: {
-    flex: 1,
-    justifyContent: "flex-start",
-    alignItems: "flex-end",
-    paddingTop: 56,
-    paddingRight: 16,
+    backgroundColor: "rgba(0,0,0,0.12)",
   },
   menuContainer: {
     minWidth: 200,
     borderRadius: 12,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 6,
+    overflow: "hidden",
     paddingVertical: 4,
-    paddingHorizontal: 4,
-    borderWidth: StyleSheet.hairlineWidth,
   },
   menuItem: {
     paddingHorizontal: 12,

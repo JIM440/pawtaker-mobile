@@ -55,7 +55,7 @@
         "firstName": "First name",
         "lastName": "Last name",
         "city": "City",
-        "bio": "Bio (optional)",
+        "bio": "Short Bio",
         "submit": "Continue"
       },
       "declaration": {
@@ -160,11 +160,32 @@
       "publish": {
         "title": "Review & Publish",
         "publish": "Publish request"
-      }
+      },
+      "selectPet": "Select pet",
+      "addPet": "Add pet",
+      "selectDate": "Select date",
+      "date": "Date",
+      "selectDatePlaceholder": "Select a date",
+      "startTime": "Start time",
+      "endTime": "End time",
+      "start": "Start",
+      "end": "End",
+      "multiDay": "Need this service for more than 1 day",
+      "detailsTitle": "Details & special needs",
+      "detailsHint": "Yard type, energy level, special needs (optional).",
+      "emptyPetsTitle": "Uh oh!",
+      "emptyPetsSubtitle": "You have not added any pets yet",
+      "addAPet": "+ Add a pet"
     },
     "availability": {
       "title": "My Availability",
       "subtitle": "Set when you're available to take care of pets",
+      "available": "Available",
+      "timeOnly": "Time",
+      "daysOnly": "Days",
+      "yardType": "Yard Type",
+      "petOwner": "Pet Owner",
+      "note": "Short note",
       "save": "Save availability"
     }
   },
@@ -194,29 +215,6 @@
     "specialNeeds": "Special needs",
     "applyNow": "Apply Now"
   },
-  "post": {
-    "request": {
-      "selectPet": "Select pet",
-      "addPet": "Add pet",
-      "selectDate": "Select date",
-      "date": "Date",
-      "selectDatePlaceholder": "Select a date",
-      "startTime": "Start time",
-      "endTime": "End time",
-      "start": "Start",
-      "end": "End",
-      "multiDay": "Need this service for more than 1 day",
-      "detailsTitle": "Details & special needs",
-      "detailsHint": "Yard type, energy level, special needs (optional).",
-      "details": {
-        "startDate": "Select date",
-        "endDate": "Select date"
-      },
-      "emptyPetsTitle": "Uh oh!",
-      "emptyPetsSubtitle": "You have not added any pets yet",
-      "addAPet": "+ Add a pet"
-    }
-  },
   "filters": {
     "title": "Filters",
     "careType": "Care type",
@@ -227,6 +225,7 @@
   },
   "availability": {
     "title": "Post availability",
+    "available": "Available",
     "careTitle": "What care can you offer?",
     "careSubtitle": "Select the types of care you're available to provide (e.g. Daytime, Play/walk).",
     "datesTitle": "Choose your dates",
@@ -288,7 +287,10 @@
     "title": "My Profile",
     "reviews": "Reviews",
     "points": "Points",
-    "pets": "My Pets",
+    "pets": {
+      "title": "My Pets",
+      "launchRequest": "Launch pet request"
+    },
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "They won't be able to see your profile, send you requests, or message you. You can unblock them later in Settings.",
     "blockUser": "Block user",
@@ -298,6 +300,7 @@
       "detailsTab": "Your Details",
       "petsTab": "Your Pets",
       "availabilityTab": "Availability",
+      "chooseImage": "Choose an image",
       "discardTitle": "Discard changes?",
       "discardDescription": "If you go back now, your progress will be lost.",
       "keepEditing": "Keep Editing",
