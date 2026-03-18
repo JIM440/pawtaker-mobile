@@ -1,38 +1,44 @@
-import React, { useState } from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import DatePicker, { DatePickerProps } from 'react-native-date-picker';
-import { Calendar, Clock } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { AppText } from '@/src/shared/components/ui/AppText';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { CalendarDays, Clock } from "lucide-react-native";
+import React, { useState } from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
+import DatePicker, { DatePickerProps } from "react-native-date-picker";
 
 type Props = {
-  mode: 'date' | 'time';
+  mode: "date" | "time";
   label: string;
   value: Date | null;
   onChange: (date: Date) => void;
   placeholder?: string;
 };
 
-export function DateTimeField({ mode, label, value, onChange, placeholder }: Props) {
+export function DateTimeField({
+  mode,
+  label,
+  value,
+  onChange,
+  placeholder,
+}: Props) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [open, setOpen] = useState(false);
 
-  const isDark = resolvedTheme === 'dark';
+  const isDark = resolvedTheme === "dark";
 
   const formatValue = () => {
-    if (!value) return '';
-    if (mode === 'date') {
+    if (!value) return "";
+    if (mode === "date") {
       return value.toLocaleDateString(undefined, {
-        month: 'short',
-        day: 'numeric',
-        year: 'numeric',
+        month: "short",
+        day: "numeric",
+        year: "numeric",
       });
     }
     return value.toLocaleTimeString(undefined, {
-      hour: 'numeric',
-      minute: '2-digit',
+      hour: "numeric",
+      minute: "2-digit",
     });
   };
 
@@ -40,7 +46,11 @@ export function DateTimeField({ mode, label, value, onChange, placeholder }: Pro
 
   return (
     <View style={styles.wrapper}>
-      <AppText variant="label" color={colors.onSurfaceVariant} style={styles.label}>
+      <AppText
+        variant="label"
+        color={colors.onSurfaceVariant}
+        style={styles.label}
+      >
         {label}
       </AppText>
       <TouchableOpacity
@@ -58,10 +68,10 @@ export function DateTimeField({ mode, label, value, onChange, placeholder }: Pro
           color={display ? colors.onSurface : colors.onSurfaceVariant}
           style={styles.value}
         >
-          {display || placeholder || '—'}
+          {display || placeholder || "—"}
         </AppText>
-        {mode === 'date' ? (
-          <Calendar size={18} color={colors.onSurfaceVariant} />
+        {mode === "date" ? (
+          <CalendarDays size={18} color={colors.onSurfaceVariant} />
         ) : (
           <Clock size={18} color={colors.onSurfaceVariant} />
         )}
@@ -70,8 +80,8 @@ export function DateTimeField({ mode, label, value, onChange, placeholder }: Pro
       <DatePicker
         modal
         open={open}
-        mode={mode as DatePickerProps['mode']}
-        theme={isDark ? 'dark' : 'light'}
+        mode={mode as DatePickerProps["mode"]}
+        theme={isDark ? "dark" : "light"}
         date={value ?? new Date()}
         onConfirm={(d) => {
           setOpen(false);
@@ -92,9 +102,9 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   field: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingHorizontal: 12,
     paddingVertical: 10,
     borderRadius: 12,
@@ -104,4 +114,3 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
 });
-

@@ -1,15 +1,15 @@
-import React from 'react';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import React from "react";
 import {
-  View,
   TextInput,
-  type TextInputProps,
+  View,
   type StyleProp,
-  type ViewStyle,
+  type TextInputProps,
   type TextStyle,
-} from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { AppText } from '@/src/shared/components/ui/AppText';
+  type ViewStyle,
+} from "react-native";
 
 interface InputProps extends TextInputProps {
   label?: string;
@@ -30,12 +30,24 @@ export function Input({
   const colors = Colors[resolvedTheme];
 
   return (
-    <View style={[{ marginBottom: 16 }, containerStyle]}>
+    <View
+      style={[
+        {
+          marginBottom: 16,
+          borderWidth: 1,
+          borderColor: error ? colors.error : colors.outlineVariant,
+          borderRadius: 12,
+          paddingHorizontal: 16,
+          paddingVertical: 12,
+        },
+        containerStyle,
+      ]}
+    >
       {label ? (
         <AppText
           variant="label"
           color={colors.onSurfaceVariant}
-          style={{ marginBottom: 6, fontSize: 12 }}
+          style={{ fontSize: 12 }}
         >
           {label}
         </AppText>
@@ -44,11 +56,6 @@ export function Input({
         style={[
           {
             backgroundColor: colors.surfaceContainer,
-            borderWidth: 1,
-            borderColor: error ? colors.error : colors.outlineVariant,
-            borderRadius: 12,
-            paddingHorizontal: 16,
-            paddingVertical: 12,
             color: colors.onSurface,
             fontSize: 14,
           },

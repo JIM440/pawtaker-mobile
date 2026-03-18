@@ -209,7 +209,8 @@ export default function NotificationsScreen() {
         ) : (
           <View style={styles.emptyState}>
             <AppImage
-              source={require("@/assets/illustrations/no-notification-graphic.png")}
+              source={require("@/assets/illustrations/no-notification-graphic.svg")}
+              type="svg"
               style={styles.emptyIllustration}
               height={145}
             />

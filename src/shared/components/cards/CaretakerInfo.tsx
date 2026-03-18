@@ -119,13 +119,12 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   name: {
-    fontSize: 16,
+    fontSize: 14,
   },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
-    marginTop: 2,
   },
   statPill: {
     flexDirection: "row",

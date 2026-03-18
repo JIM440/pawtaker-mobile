@@ -39,7 +39,8 @@ export function ProfilePetsTab({
       <View style={styles.emptyState}>
         <View style={styles.emptyIllustration} />
         <AppImage
-          source={require("@/assets/illustrations/empty-state.png")}
+          source={require("@/assets/illustrations/no-pet.svg")}
+          type="svg"
           style={styles.emptyIllustration}
           height={145}
         />
@@ -80,8 +81,6 @@ export function ProfilePetsTab({
             tags={pet.tags}
             seekingDateRange={pet.seekingDateRange}
             seekingTime={pet.seekingTime}
-            onPress={() => {}}
-            onMenuPress={() => {}}
           />
         ))}
       </View>

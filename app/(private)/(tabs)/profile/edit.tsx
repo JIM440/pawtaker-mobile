@@ -99,16 +99,24 @@ export default function EditProfileScreen() {
         }
       />
 
-      <TabBar<EditTab>
-        tabs={[
-          { key: "details", label: t("profile.edit.detailsTab", "Your Details") },
-          { key: "pets", label: t("profile.edit.petsTab", "Your Pets") },
-          { key: "availability", label: t("profile.edit.availabilityTab", "Availability") },
-        ]}
-        activeKey={activeTab}
-        onChange={setActiveTab}
-        variant="underline"
-      />
+      <View style={{ marginBottom: -16 }}>
+        <TabBar<EditTab>
+          tabs={[
+            {
+              key: "details",
+              label: t("profile.edit.detailsTab", "Your Details"),
+            },
+            { key: "pets", label: t("profile.edit.petsTab", "Your Pets") },
+            {
+              key: "availability",
+              label: t("profile.edit.availabilityTab", "Availability"),
+            },
+          ]}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          variant="underline"
+        />
+      </View>
 
       <ScrollView
         style={styles.scroll}
@@ -136,8 +144,19 @@ export default function EditProfileScreen() {
           <EditPetsTab
             pets={MOCK_PETS}
             onAddPet={() => router.push("/(private)/pets/add")}
-            onEditPet={() => {}}
+            onEditPet={(id) =>
+              router.push({
+                pathname: "/(private)/pets/[id]/edit",
+                params: { id },
+              })
+            }
             onDeletePet={() => {}}
+            onLaunchPetRequest={(id) =>
+              router.push({
+                pathname: "/(private)/requests/create",
+                params: { petId: id },
+              })
+            }
           />
         )}
         {activeTab === "availability" && <EditAvailabilityTab />}
@@ -147,7 +166,10 @@ export default function EditProfileScreen() {
         visible={showDiscard}
         icon={<CircleAlert size={24} color={colors.primary} />}
         title={t("profile.edit.discardTitle", "Discard changes?")}
-        description={t("profile.edit.discardDescription", "If you go back now, your progress will be lost.")}
+        description={t(
+          "profile.edit.discardDescription",
+          "If you go back now, your progress will be lost.",
+        )}
         primaryLabel={t("profile.edit.keepEditing", "Keep Editing")}
         secondaryLabel={t("profile.edit.discard", "Discard")}
         onPrimary={() => setShowDiscard(false)}

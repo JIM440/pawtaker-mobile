@@ -4,7 +4,7 @@ import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import React, { useRef, useState } from "react";
+import React, { useState } from "react";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 
 export type EditPet = {
@@ -24,26 +24,27 @@ type Props = {
   onAddPet?: () => void;
   onEditPet?: (id: string) => void;
   onDeletePet?: (id: string) => void;
+  onLaunchPetRequest?: (id: string) => void;
 };
 
-export function EditPetsTab({ pets, onAddPet, onEditPet, onDeletePet }: Props) {
+export function EditPetsTab({
+  pets,
+  onAddPet,
+  onEditPet,
+  onDeletePet,
+  onLaunchPetRequest,
+}: Props) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [openMenuForId, setOpenMenuForId] = useState<string | null>(null);
-  const [menuPosition, setMenuPosition] = useState<{
-    x: number;
-    y: number;
-    width: number;
-    height: number;
-  } | null>(null);
-  const menuButtonRefs = useRef<Record<string, View | null>>({});
 
   return (
     <View style={styles.container}>
       {pets.length === 0 ? (
         <View style={styles.empty}>
           <AppImage
-            source={require("@/assets/illustrations/empty-state.png")}
+            source={require("@/assets/illustrations/no-pet.svg")}
+            type="svg"
             style={styles.emptyIllustration}
             height={145}
           />
@@ -90,14 +91,7 @@ export function EditPetsTab({ pets, onAddPet, onEditPet, onDeletePet }: Props) {
                 seekingTime={pet.seekingTime}
                 onPress={() => onEditPet?.(pet.id)}
                 onMenuPress={() => {
-                  const ref = menuButtonRefs.current[pet.id];
-                  ref?.measureInWindow((x, y, width, height) => {
-                    setMenuPosition({ x, y, width, height });
-                    setOpenMenuForId(pet.id);
-                  });
-                }}
-                menuButtonRef={(ref) => {
-                  menuButtonRefs.current[pet.id] = ref;
+                  setOpenMenuForId(pet.id);
                 }}
               />
             ))}
@@ -105,7 +99,7 @@ export function EditPetsTab({ pets, onAddPet, onEditPet, onDeletePet }: Props) {
 
           <Modal
             transparent
-            visible={openMenuForId !== null && !!menuPosition}
+            visible={openMenuForId !== null}
             animationType="fade"
             onRequestClose={() => setOpenMenuForId(null)}
           >
@@ -113,49 +107,50 @@ export function EditPetsTab({ pets, onAddPet, onEditPet, onDeletePet }: Props) {
               style={styles.menuBackdrop}
               onPress={() => setOpenMenuForId(null)}
             >
-              {menuPosition && openMenuForId && (
-                <View
-                  style={[
-                    styles.menuContainer,
-                    {
-                      top: menuPosition.y + menuPosition.height + 4,
-                      left: menuPosition.x - 160 + menuPosition.width,
-                      backgroundColor: colors.surfaceContainerLowest,
-                      borderColor: colors.outlineVariant,
-                    },
-                  ]}
-                >
-                  <Pressable
-                    style={styles.menuItem}
-                    onPress={() => {
-                      // TODO: wire delete request
-                      setOpenMenuForId(null);
-                    }}
+              {openMenuForId && (
+                <View style={styles.menuOverlay}>
+                  <View
+                    style={[
+                      styles.menuContainer,
+                      {
+                        backgroundColor: colors.surfaceContainerLowest,
+                        borderColor: colors.outlineVariant,
+                      },
+                    ]}
                   >
-                    <AppText variant="body">Delete Request</AppText>
-                  </Pressable>
-                  <Pressable
-                    style={styles.menuItem}
-                    onPress={() => {
-                      const id = openMenuForId;
-                      setOpenMenuForId(null);
-                      if (id) onEditPet?.(id);
-                    }}
-                  >
-                    <AppText variant="body">Edit</AppText>
-                  </Pressable>
-                  <Pressable
-                    style={styles.menuItem}
-                    onPress={() => {
-                      const id = openMenuForId;
-                      setOpenMenuForId(null);
-                      if (id) onDeletePet?.(id);
-                    }}
-                  >
-                    <AppText variant="body" color={colors.error}>
-                      Delete
-                    </AppText>
-                  </Pressable>
+                    <Pressable
+                      style={styles.menuItem}
+                      onPress={() => {
+                        const id = openMenuForId;
+                        setOpenMenuForId(null);
+                        if (id) onLaunchPetRequest?.(id);
+                      }}
+                    >
+                      <AppText variant="body">Launch pet request</AppText>
+                    </Pressable>
+                    <Pressable
+                      style={styles.menuItem}
+                      onPress={() => {
+                        const id = openMenuForId;
+                        setOpenMenuForId(null);
+                        if (id) onEditPet?.(id);
+                      }}
+                    >
+                      <AppText variant="body">Edit</AppText>
+                    </Pressable>
+                    <Pressable
+                      style={styles.menuItem}
+                      onPress={() => {
+                        const id = openMenuForId;
+                        setOpenMenuForId(null);
+                        if (id) onDeletePet?.(id);
+                      }}
+                    >
+                      <AppText variant="body" color={colors.error}>
+                        Delete
+                      </AppText>
+                    </Pressable>
+                  </View>
                 </View>
               )}
             </Pressable>
@@ -174,7 +169,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   addBtn: {
-    marginTop: 16,
+    marginBottom: 16,
   },
   list: {
     gap: 12,
@@ -193,5 +188,26 @@ const styles = StyleSheet.create({
   },
   emptySubtitle: {
     textAlign: "center",
+  },
+  menuBackdrop: {
+    flex: 1,
+  },
+  menuOverlay: {
+    flex: 1,
+    justifyContent: "flex-start",
+    alignItems: "flex-end",
+    paddingTop: 56,
+    paddingRight: 16,
+  },
+  menuContainer: {
+    minWidth: 200,
+    borderRadius: 12,
+    paddingVertical: 4,
+    paddingHorizontal: 4,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  menuItem: {
+    paddingHorizontal: 12,
+    paddingVertical: 10,
   },
 });

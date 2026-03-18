@@ -18,6 +18,7 @@ export default function PrivateLayout() {
     <SafeAreaView
       className={`flex-1`}
       style={{ backgroundColor: colors.background }}
+      edges={["top", "bottom"]}
     >
       <StatusBar style={resolvedTheme === "light" ? "dark" : "light"} />
       <Stack

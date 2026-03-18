@@ -1,12 +1,19 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { Input } from "@/src/shared/components/ui/Input";
 import {
-  CalendarDays,
-  Clock3,
-  Edit3,
+  Briefcase,
+  Ellipsis,
+  Handshake,
+  MapPin,
+  Moon,
   PawPrint,
+  Star,
+  Sun,
 } from "lucide-react-native";
 import React, { useState } from "react";
 import { StyleSheet, Switch, TouchableOpacity, View } from "react-native";
@@ -15,11 +22,44 @@ export function EditAvailabilityTab() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [available, setAvailable] = useState(true);
-  const [service, setService] = useState<"daytime" | "playwalk">("daytime");
-  const [days, setDays] = useState<string[]>(["Sat", "Sun"]);
-  const [timeRange, setTimeRange] = useState("8 AM - 9 PM");
+  const [services, setServices] = useState<string[]>(["daytime", "playwalk"]);
+  const [days, setDays] = useState<string[]>(["Sa", "Su"]);
+  const [startDate, setStartDate] = useState<Date>(new Date());
+  const [endDate, setEndDate] = useState<Date>(new Date());
+  const [startTime, setStartTime] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(8, 0, 0, 0);
+    return d;
+  });
+  const [endTime, setEndTime] = useState<Date>(() => {
+    const d = new Date();
+    d.setHours(21, 0, 0, 0);
+    return d;
+  });
   const [petOwner, setPetOwner] = useState<"yes" | "no">("yes");
   const [yardType, setYardType] = useState("fenced yard");
+  const [petKinds, setPetKinds] = useState<string[]>(["dog", "cat"]);
+  const [note, setNote] = useState(
+    "Hi there! I'm Bob, a lifelong pet lover with years of experience caring for energetic pups and senior cats alike.",
+  );
+
+  const toggleService = (key: string) => {
+    setServices((prev) =>
+      prev.includes(key) ? prev.filter((s) => s !== key) : [...prev, key],
+    );
+  };
+
+  const toggleDay = (label: string) => {
+    setDays((prev) =>
+      prev.includes(label) ? prev.filter((d) => d !== label) : [...prev, label],
+    );
+  };
+
+  const togglePetKind = (key: string) => {
+    setPetKinds((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    );
+  };
 
   return (
     <View style={styles.container}>
@@ -39,191 +79,401 @@ export function EditAvailabilityTab() {
       </View>
 
       <View style={styles.section}>
-        <View style={styles.serviceRow}>
-          <TouchableOpacity
-            style={[
-              styles.servicePill,
-              {
-                backgroundColor:
-                  service === "daytime"
-                    ? colors.primary
-                    : colors.surfaceContainerHighest,
-              },
-            ]}
-            activeOpacity={0.9}
-            onPress={() => setService("daytime")}
-          >
-            <PawPrint
-              size={18}
-              color={service === "daytime" ? colors.onPrimary : colors.primary}
-            />
-            <AppText
-              variant="caption"
-              color={
-                service === "daytime" ? colors.onPrimary : colors.onSurface
-              }
-              style={styles.serviceLabel}
-            >
-              Daytime
-            </AppText>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={[
-              styles.servicePill,
-              {
-                backgroundColor:
-                  service === "playwalk"
-                    ? colors.primary
-                    : colors.surfaceContainerHighest,
-              },
-            ]}
-            activeOpacity={0.9}
-            onPress={() => setService("playwalk")}
-          >
-            <PawPrint
-              size={18}
-              color={service === "playwalk" ? colors.onPrimary : colors.primary}
-            />
-            <AppText
-              variant="caption"
-              color={
-                service === "playwalk" ? colors.onPrimary : colors.onSurface
-              }
-              style={styles.serviceLabel}
-            >
-              Play/walk
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
-        <TouchableOpacity style={styles.fieldRow} activeOpacity={0.9}>
-          <View style={styles.fieldLeft}>
-            <CalendarDays size={18} color={colors.onSurfaceVariant} />
-            <AppText
-              variant="body"
-              color={colors.onSurface}
-              style={styles.fieldText}
-            >
-              Every {days.join(", ")}
-            </AppText>
-          </View>
-          <Edit3 size={16} color={colors.onSurfaceVariant} />
-        </TouchableOpacity>
-
-        <TouchableOpacity style={styles.fieldRow} activeOpacity={0.9}>
-          <View style={styles.fieldLeft}>
-            <Clock3 size={18} color={colors.onSurfaceVariant} />
-            <AppText
-              variant="body"
-              color={colors.onSurface}
-              style={styles.fieldText}
-            >
-              {timeRange}
-            </AppText>
-          </View>
-          <Edit3 size={16} color={colors.onSurfaceVariant} />
-        </TouchableOpacity>
-
-        <View style={styles.inlineRow}>
-          <View style={styles.inlineCol}>
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={{ marginBottom: 4 }}
-            >
-              Pet owner
-            </AppText>
-            <View style={styles.inlineChips}>
-              {(["yes", "no"] as const).map((opt) => {
-                const active = petOwner === opt;
-                return (
-                  <TouchableOpacity
-                    key={opt}
+        <View style={styles.inlineCol}>
+          {/* 1. Care you will provide */}
+          <AppText variant="caption" style={{ marginBottom: 4 }}>
+            Care you will provide:
+          </AppText>
+          <View style={styles.serviceRow}>
+            {(
+              [
+                { key: "daytime", label: "Daytime", Icon: Sun },
+                { key: "playwalk", label: "Play/walk", Icon: PawPrint },
+                { key: "overnight", label: "Overnight", Icon: Moon },
+                { key: "vacation", label: "Vacation", Icon: Briefcase },
+              ] as const
+            ).map(({ key, label, Icon }) => {
+              const active = services.includes(key);
+              return (
+                <TouchableOpacity
+                  key={key}
+                  activeOpacity={0.9}
+                  onPress={() => toggleService(key)}
+                  style={styles.serviceOption}
+                >
+                  <View
                     style={[
-                      styles.smallPill,
+                      styles.serviceCircle,
                       {
-                        backgroundColor: active
-                          ? colors.primary
-                          : colors.surfaceContainerHighest,
+                        backgroundColor: colors.surfaceContainerHighest,
+                        borderColor: active ? colors.primary : "transparent",
                       },
                     ]}
-                    onPress={() => setPetOwner(opt)}
                   >
-                    <AppText
-                      variant="caption"
-                      color={
-                        active ? colors.onPrimary : colors.onSurfaceVariant
-                      }
-                    >
-                      {opt === "yes" ? "Yes" : "No"}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
-            </View>
+                    <Icon
+                      size={20}
+                      color={active ? colors.primary : colors.onSurfaceVariant}
+                    />
+                  </View>
+                  <AppText
+                    variant="caption"
+                    color={active ? colors.primary : colors.onSurfaceVariant}
+                    style={styles.serviceOptionLabel}
+                  >
+                    {label}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
           </View>
+        </View>
 
-          <View style={styles.inlineCol}>
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={{ marginBottom: 4 }}
-            >
-              Yard type
-            </AppText>
-            <View style={styles.inlineChips}>
-              {["none needed", "fenced yard"].map((opt) => {
-                const active = yardType === opt;
-                return (
-                  <TouchableOpacity
-                    key={opt}
+        {/* 2. Kind of pet */}
+        <View style={styles.inlineCol}>
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={{ marginBottom: 4 }}
+          >
+            Pet type:
+          </AppText>
+          <View style={styles.petKindsRow}>
+            {(
+              [
+                {
+                  key: "dog",
+                  label: "Dog",
+                  asset: require("@/assets/illustrations/dog.svg") as number,
+                },
+                {
+                  key: "cat",
+                  label: "Cat",
+                  asset: require("@/assets/illustrations/cat.svg") as number,
+                },
+                {
+                  key: "small-furries",
+                  label: "Small furries",
+                  asset: require("@/assets/illustrations/furry.svg") as number,
+                },
+                {
+                  key: "bird",
+                  label: "Bird",
+                  asset: require("@/assets/illustrations/bird.svg") as number,
+                },
+                {
+                  key: "reptile",
+                  label: "Reptile",
+                  asset:
+                    require("@/assets/illustrations/reptile.svg") as number,
+                },
+                {
+                  key: "other",
+                  label: "Other",
+                  asset: require("@/assets/illustrations/other.svg") as number,
+                },
+              ] as const
+            ).map(({ key, label, asset }) => {
+              const active = petKinds.includes(key);
+              return (
+                <TouchableOpacity
+                  key={key}
+                  activeOpacity={0.9}
+                  onPress={() => togglePetKind(key)}
+                  style={styles.petKindOption}
+                >
+                  <View
                     style={[
-                      styles.smallPill,
+                      styles.petKindCircle,
                       {
-                        backgroundColor: active
-                          ? colors.primary
-                          : colors.surfaceContainerHighest,
+                        backgroundColor: colors.surfaceContainerHighest,
+                        borderColor: active ? colors.primary : "transparent",
                       },
                     ]}
-                    onPress={() => setYardType(opt)}
                   >
-                    <AppText
-                      variant="caption"
-                      color={
-                        active ? colors.onPrimary : colors.onSurfaceVariant
-                      }
-                    >
-                      {opt}
-                    </AppText>
-                  </TouchableOpacity>
-                );
-              })}
+                    <AppImage
+                      source={asset}
+                      type="svg"
+                      width={60}
+                      height={60}
+                      style={{ backgroundColor: "transparent" }}
+                    />
+                  </View>
+                  <AppText
+                    variant="caption"
+                    color={active ? colors.primary : colors.onSurfaceVariant}
+                    style={styles.petKindLabel}
+                    numberOfLines={1}
+                  >
+                    {label}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 3. Fence type (yard) */}
+        <View style={styles.inlineCol}>
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={{ marginBottom: 4 }}
+          >
+            Yard type:
+          </AppText>
+          <View style={styles.inlineChips}>
+            {["fenced yard", "high fence", "no yard"].map((opt) => {
+              const active = yardType === opt;
+              return (
+                <TouchableOpacity
+                  key={opt}
+                  style={[
+                    styles.smallPill,
+                    {
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.surfaceContainerHighest,
+                    },
+                  ]}
+                  onPress={() => setYardType(opt)}
+                >
+                  <AppText
+                    variant="caption"
+                    color={active ? colors.onPrimary : colors.onSurfaceVariant}
+                  >
+                    {opt}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 4. Do you have any pets (pet owner) */}
+        <View style={styles.inlineCol}>
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={{ marginBottom: 4 }}
+          >
+            Pet owner:
+          </AppText>
+          <View style={styles.inlineChips}>
+            {(["yes", "no"] as const).map((opt) => {
+              const active = petOwner === opt;
+              return (
+                <TouchableOpacity
+                  key={opt}
+                  style={[
+                    styles.smallPill,
+                    {
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.surfaceContainerHighest,
+                    },
+                  ]}
+                  onPress={() => setPetOwner(opt)}
+                >
+                  <AppText
+                    variant="caption"
+                    color={active ? colors.onPrimary : colors.onSurfaceVariant}
+                  >
+                    {opt === "yes" ? "Yes" : "No"}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 6. Days of week chips */}
+        <View style={styles.inlineCol}>
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={{ marginBottom: 4 }}
+          >
+            Days:
+          </AppText>
+          <View style={styles.daysRow}>
+            {["M", "Tu", "W", "Th", "F", "Sa", "Su"].map((label) => {
+              const active = days.includes(label);
+              return (
+                <TouchableOpacity
+                  key={label}
+                  style={[
+                    styles.dayCircle,
+                    {
+                      backgroundColor: active
+                        ? colors.primary
+                        : colors.surfaceContainerHighest,
+                      borderColor: active ? colors.primary : "transparent",
+                    },
+                  ]}
+                  onPress={() => toggleDay(label)}
+                >
+                  <AppText
+                    variant="caption"
+                    color={active ? colors.onPrimary : colors.onSurfaceVariant}
+                    style={styles.dayLabel}
+                  >
+                    {label}
+                  </AppText>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        </View>
+
+        {/* 7. Time range pickers (start / end) */}
+        <View style={styles.inlineCol}>
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={{ marginBottom: 4 }}
+          >
+            Time:
+          </AppText>
+          <View style={styles.timeRow}>
+            <View style={styles.timeField}>
+              <DateTimeField
+                mode="time"
+                label="Start time"
+                value={startTime}
+                onChange={setStartTime}
+              />
+            </View>
+            <View style={styles.timeField}>
+              <DateTimeField
+                mode="time"
+                label="End time"
+                value={endTime}
+                onChange={setEndTime}
+              />
             </View>
           </View>
         </View>
+        <Input
+          label="Short note"
+          value={note}
+          onChangeText={setNote}
+          multiline
+          containerStyle={{
+            marginBottom: 0,
+          }}
+          inputStyle={[styles.noteInput]}
+        />
       </View>
 
+      {/* Preview card, mirroring availability preview design */}
       <View
         style={[
-          styles.noteCard,
+          styles.previewCard,
           {
-            backgroundColor: colors.surfaceContainerLowest,
-            borderColor: colors.outlineVariant,
+            backgroundColor: colors.surface,
           },
         ]}
       >
-        <AppText
-          variant="caption"
-          color={colors.onSurfaceVariant}
-          style={{ marginBottom: 8 }}
-        >
-          Short note
-        </AppText>
-        <AppText variant="body" color={colors.onSurfaceVariant}>
-          Hi there! I'm Bob, a lifelong pet lover with years of experience
-          caring for energetic pups and senior cats alike.
-        </AppText>
+        <View style={styles.previewHeaderRow}>
+          <AppImage
+            source={{
+              uri: "https://images.unsplash.com/photo-1548199973-03cce0bbc87b?w=200",
+            }}
+            style={styles.previewAvatar}
+            contentFit="cover"
+          />
+          <View style={styles.previewTitleCol}>
+            <View style={styles.previewNameRow}>
+              <AppText
+                variant="title"
+                color={colors.onSurface}
+                style={styles.previewName}
+                numberOfLines={1}
+              >
+                Bob Majors
+              </AppText>
+              {available && (
+                <View
+                  style={[
+                    styles.previewBadge,
+                    { backgroundColor: colors.tertiaryContainer },
+                  ]}
+                >
+                  <AppText variant="caption" color={colors.onTertiaryContainer}>
+                    Available
+                  </AppText>
+                </View>
+              )}
+            </View>
+            <View style={styles.previewMetaRow}>
+              <View style={styles.previewMetaRowItem}>
+                <AppText variant="caption" color={colors.onSurface}>
+                  4.1
+                </AppText>
+                <Star
+                  size={12}
+                  color={colors.tertiary}
+                  fill={colors.tertiary}
+                />
+              </View>
+              <View style={styles.previewMetaRowItem}>
+                <Handshake size={12} color={colors.tertiary} />
+                <AppText variant="caption" color={colors.tertiary}>
+                  12
+                </AppText>
+              </View>
+              <View style={styles.previewMetaRowItem}>
+                <PawPrint size={12} color={colors.tertiary} />
+                <AppText variant="caption" color={colors.tertiary}>
+                  17
+                </AppText>
+              </View>
+            </View>
+            <View style={styles.previewTagsRow}>
+              <AppText
+                variant="caption"
+                style={{
+                  ...styles.previewTags,
+                  backgroundColor: colors.surfaceContainer,
+                }}
+              >
+                Cats • Dog • Bird
+              </AppText>
+              <AppText
+                variant="caption"
+                style={{
+                  ...styles.previewTags,
+                  backgroundColor: colors.surfaceContainer,
+                }}
+                numberOfLines={1}
+              >
+                {[
+                  services.includes("daytime") ? "Daytime" : null,
+                  services.includes("playwalk") ? "Play/walk" : null,
+                  services.includes("overnight") ? "Overnight" : null,
+                  services.includes("vacation") ? "Vacation" : null,
+                ]
+                  .filter(Boolean)
+                  .join(" • ")}
+              </AppText>
+              <View
+                style={{
+                  ...styles.previewLocationRow,
+                  gap: 4,
+                  backgroundColor: colors.surfaceContainer,
+                }}
+              >
+                <MapPin size={16} color={colors.onSurfaceVariant} />
+                <AppText variant="caption" numberOfLines={1}>
+                  Syracuse, New York, US
+                </AppText>
+              </View>
+            </View>
+          </View>
+          <TouchableOpacity style={styles.previewMenuBtn} hitSlop={8}>
+            <Ellipsis size={20} color={colors.onSurfaceVariant} />
+          </TouchableOpacity>
+        </View>
       </View>
 
       <Button label="Save" fullWidth />
@@ -234,9 +484,8 @@ export function EditAvailabilityTab() {
 const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
-    paddingTop: 24,
-    paddingBottom: 32,
-    gap: 20,
+    paddingVertical: 0,
+    gap: 24,
   },
   row: {
     flexDirection: "row",
@@ -244,23 +493,27 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
   },
   section: {
-    marginTop: 24,
-    gap: 16,
+    gap: 20,
   },
   serviceRow: {
     flexDirection: "row",
-    gap: 12,
+    gap: 18,
+    marginBottom: 8,
   },
-  servicePill: {
-    flexDirection: "row",
+  serviceOption: {
     alignItems: "center",
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    gap: 8,
+    gap: 4,
   },
-  serviceLabel: {
-    fontSize: 13,
+  serviceCircle: {
+    width: 60,
+    height: 60,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  serviceOptionLabel: {
+    fontSize: 12,
   },
   fieldRow: {
     flexDirection: "row",
@@ -289,15 +542,141 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 8,
   },
+  petKindsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+    marginTop: 6,
+  },
+  petKindOption: {
+    alignItems: "center",
+    gap: 4,
+  },
+  petKindCircle: {
+    width: 70,
+    height: 70,
+    borderRadius: 8,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  petKindLabel: {
+    fontSize: 12,
+    textAlign: "center",
+  },
   smallPill: {
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
   },
   noteCard: {
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
     paddingHorizontal: 16,
     paddingVertical: 12,
+  },
+  noteInput: {
+    minHeight: 70,
+    textAlignVertical: "top",
+    borderRadius: 12,
+  },
+  timeRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  timeField: {
+    flex: 1,
+  },
+  daysRow: {
+    flexDirection: "row",
+    gap: 8,
+    flexWrap: "wrap",
+  },
+  dayCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 999,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  dayLabel: {
+    fontSize: 14,
+  },
+  previewCard: {
+    marginTop: 16,
+    borderRadius: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+  },
+  previewHeaderRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  previewAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 80,
+  },
+  previewTitleCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  previewNameRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  previewName: {
+    fontSize: 16,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  previewBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 999,
+  },
+  previewMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    alignSelf: "flex-start",
+    gap: 8,
+  },
+  previewTagsRow: {
+    gap: 4,
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  previewTags: {
+    marginTop: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    width: "auto",
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  previewLocationRow: {
+    flexDirection: "row",
+    marginTop: 4,
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    width: "auto",
+    flexShrink: 1,
+    minWidth: 0,
+  },
+  previewMenuBtn: {
+    padding: 6,
+    borderRadius: 999,
+  },
+  previewMetaRowItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
 });

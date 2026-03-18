@@ -5,6 +5,7 @@ import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
+import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
@@ -21,7 +22,6 @@ import {
 } from "lucide-react-native";
 import React, { useState } from "react";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 
 const PROFILE = {
   avatarUri:
@@ -182,7 +182,11 @@ export default function ProfileScreen() {
             <AppText variant="headline" style={styles.userName}>
               {PROFILE.name}
             </AppText>
-            <BadgeCheck size={20} color={colors.primary} />
+            <BadgeCheck
+              size={20}
+              color={colors.surfaceContainerLowest}
+              fill={colors.primary}
+            />
           </View>
           <View style={styles.locationRow}>
             <MapPin size={20} color={colors.onSurfaceVariant} />
@@ -261,7 +265,12 @@ export default function ProfileScreen() {
               <Star size={12} color={colors.primary} fill={colors.primary} />
             </View>
           </View>
-          <View style={[styles.currentTaskPill]}>
+          <View
+            style={[
+              styles.currentTaskPill,
+              { backgroundColor: colors.surfaceContainerHighest },
+            ]}
+          >
             <AppText variant="label" color={colors.onSurfaceVariant}>
               {PROFILE.currentTask}
             </AppText>
@@ -417,7 +426,7 @@ const styles = StyleSheet.create({
   currentTaskPill: {
     paddingHorizontal: 8,
     paddingVertical: 2,
-    borderRadius: 999,
+    borderRadius: 99,
   },
   tabs: {
     flexDirection: "row",

@@ -219,7 +219,8 @@ export default function CreateRequestScreen() {
           {(MOCK_PETS as readonly { id: string; name: string; image: string }[]).length === 0 ? (
             <View style={styles.emptyPets}>
               <AppImage
-                source={require("@/assets/illustrations/empty-state.png")}
+                source={require("@/assets/illustrations/no-pet.svg")}
+                type="svg"
                 style={styles.emptyIllustration}
                 contentFit="contain"
               />

@@ -1,7 +1,7 @@
-import React from 'react';
-import ImageViewing, { ImageSource } from 'react-native-image-viewing';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
+import React from "react";
+import ImageViewing, { ImageSource } from "react-native-image-viewing";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { Colors } from "@/src/constants/colors";
 
 type ImageViewerModalProps = {
   visible: boolean;

@@ -5,6 +5,7 @@ import {
   Modal,
   Pressable,
   StyleSheet,
+  useWindowDimensions,
   View,
   type StyleProp,
   type ViewStyle,
@@ -51,14 +52,17 @@ export function FeedbackModal({
     if (onRequestClose) onRequestClose();
   };
 
+  const height = useWindowDimensions().height;
+
   return (
     <Modal
       visible={visible}
       transparent
       animationType="fade"
       onRequestClose={handleClose}
+      style={{ height, backgroundColor: colors.error }}
     >
-      <Pressable style={styles.backdrop} onPress={handleClose}>
+      <Pressable style={{...styles.backdrop, height}} onPress={handleClose}>
         <Pressable
           style={[
             styles.card,
@@ -115,11 +119,11 @@ const styles = StyleSheet.create({
     backgroundColor: "rgba(0,0,0,0.4)",
     justifyContent: "center",
     alignItems: "center",
-    padding: 24,
   },
   card: {
     maxWidth: 360,
     width: "100%",
+    marginHorizontal: 24,
     borderRadius: 16,
     paddingHorizontal: 20,
     paddingTop: 20,

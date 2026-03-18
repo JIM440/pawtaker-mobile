@@ -1,12 +1,14 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { Input } from "@/src/shared/components/ui/Input";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
-import { useRouter } from "expo-router";
 import * as ImagePicker from "expo-image-picker";
+import { useRouter } from "expo-router";
 import { Camera } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -18,8 +20,6 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
-import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
-import { Input } from "@/src/shared/components/ui/Input";
 
 type Step = "kind" | "breed" | "details";
 
@@ -33,12 +33,12 @@ const PET_KINDS = [
 ] as const;
 
 const PET_KIND_ILLUSTRATIONS: Record<(typeof PET_KINDS)[number], number> = {
-  Dog: require("@/assets/illustrations/dog.png") as number,
-  Cat: require("@/assets/illustrations/cat.png") as number,
-  "Small Furries": require("@/assets/illustrations/furry.png") as number,
-  Bird: require("@/assets/illustrations/bird.png") as number,
-  Reptile: require("@/assets/illustrations/reptile.png") as number,
-  Other: require("@/assets/illustrations/other.png") as number,
+  Dog: require("@/assets/illustrations/dog.svg") as number,
+  Cat: require("@/assets/illustrations/cat.svg") as number,
+  "Small Furries": require("@/assets/illustrations/furry.svg") as number,
+  Bird: require("@/assets/illustrations/bird.svg") as number,
+  Reptile: require("@/assets/illustrations/reptile.svg") as number,
+  Other: require("@/assets/illustrations/other.svg") as number,
 };
 
 const BREEDS_BY_KIND: Record<(typeof PET_KINDS)[number], string[]> = {
@@ -146,10 +146,8 @@ export default function AddPetScreen() {
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
       <BackHeader
-        title={t("pets.add.title", "Add Pet")}
-        rightSlot={
-          <StepProgress progress={progress} width={120} />
-        }
+        title=""
+        rightSlot={<StepProgress progress={progress} width={120} />}
       />
 
       {step === "kind" && (
@@ -193,6 +191,7 @@ export default function AddPetScreen() {
                     <View style={styles.kindIllustrationWrapper}>
                       <AppImage
                         source={PET_KIND_ILLUSTRATIONS[k]}
+                        type="svg"
                         style={{ backgroundColor: "transparent" }}
                         contentFit="contain"
                         height={98}
@@ -257,7 +256,14 @@ export default function AddPetScreen() {
           >
             <Input
               containerStyle={{ marginBottom: 0 }}
-              inputStyle={[styles.searchInput, { borderColor: "transparent", paddingHorizontal: 0, paddingVertical: 0 }]}
+              inputStyle={[
+                styles.searchInput,
+                {
+                  borderColor: "transparent",
+                  paddingHorizontal: 0,
+                  paddingVertical: 0,
+                },
+              ]}
               placeholder={t("common.search", "Search")}
               value={breedQuery}
               onChangeText={setBreedQuery}
@@ -387,7 +393,10 @@ export default function AddPetScreen() {
               value={petName}
               onChangeText={setPetName}
               containerStyle={{ marginBottom: 0 }}
-              inputStyle={[styles.fieldInput, { backgroundColor: colors.surfaceContainerHighest }]}
+              inputStyle={[
+                styles.fieldInput,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
             />
             <AppText
               variant="caption"
@@ -493,9 +502,7 @@ export default function AddPetScreen() {
             >
               <AppText
                 variant="body"
-                color={
-                  dob ? colors.onSurface : colors.onSurfaceVariant
-                }
+                color={dob ? colors.onSurface : colors.onSurfaceVariant}
               >
                 {dobDisplay}
               </AppText>

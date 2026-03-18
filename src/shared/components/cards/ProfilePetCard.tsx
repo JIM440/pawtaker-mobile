@@ -2,7 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Calendar, Clock, EllipsisVertical } from "lucide-react-native";
+import { Calendar, Clock, Ellipsis } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
@@ -16,6 +16,9 @@ export type ProfilePetCardProps = {
   /** When set, show "Seeking" marker and date/time row */
   seekingDateRange?: string;
   seekingTime?: string;
+  /** Optional display labels for DOB / age / time meta */
+  dobLabel?: string;
+  timeLabel?: string;
   onPress?: () => void;
   onMenuPress?: () => void;
   menuButtonRef?: (ref: View | null) => void;
@@ -30,6 +33,8 @@ export function ProfilePetCard({
   tags = [],
   seekingDateRange,
   seekingTime,
+  dobLabel,
+  timeLabel,
   onPress,
   onMenuPress,
   menuButtonRef,
@@ -69,15 +74,37 @@ export function ProfilePetCard({
               </View>
             )}
           </View>
-          <TouchableOpacity
-            onPress={onMenuPress}
-            hitSlop={8}
-            style={styles.menuBtn}
-            ref={menuButtonRef}
-          >
-            <EllipsisVertical size={20} color={colors.onSurface} />
-          </TouchableOpacity>
+          {onMenuPress && (
+            <TouchableOpacity
+              onPress={onMenuPress}
+              hitSlop={8}
+              style={styles.menuBtn}
+              ref={menuButtonRef}
+            >
+              <Ellipsis size={20} color={colors.onSurface} />
+            </TouchableOpacity>
+          )}
         </View>
+        {(dobLabel || timeLabel) && (
+          <View style={styles.dateRow}>
+            {dobLabel && (
+              <AppText variant="caption" style={styles.metaText}>
+                {dobLabel}
+              </AppText>
+            )}
+            {dobLabel && timeLabel && (
+              <AppText variant="caption" color={colors.onSurfaceVariant}>
+                {" "}
+                •{" "}
+              </AppText>
+            )}
+            {timeLabel && (
+              <AppText variant="caption" style={styles.metaText}>
+                {timeLabel}
+              </AppText>
+            )}
+          </View>
+        )}
         <View style={styles.breedRow}>
           <AppText variant="caption" style={styles.breed}>
             {breed}

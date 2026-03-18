@@ -37,6 +37,8 @@ export function ProfileReviewsTab({
       handshakes: 12,
       paws: 17,
       date: "12 Mar 26’",
+      review:
+        "Jane was fantastic! I received regular photo updates and could tell Polo was in great hands. The house was exactly as I left it, and I came home to a very happy dog. Highly recommend!",
     },
     {
       id: "2",
@@ -47,6 +49,8 @@ export function ProfileReviewsTab({
       handshakes: 8,
       paws: 9,
       date: "03 Feb 26’",
+      review:
+        "Excellent experience. Jane communicated clearly and made sure Bella got all her meds and exercise. Couldn’t ask for better help!",
     },
     {
       id: "3",
@@ -56,6 +60,8 @@ export function ProfileReviewsTab({
       handshakes: 20,
       paws: 24,
       date: "18 Jan 26’",
+      review:
+        "Very happy with Jane’s care for our cats. She sent updates, kept the litter clean, and they were relaxed when we got home. Will book again.",
     },
     {
       id: "4",
@@ -66,6 +72,8 @@ export function ProfileReviewsTab({
       handshakes: 6,
       paws: 10,
       date: "05 Dec 25’",
+      review:
+        "Jane was prompt, friendly, and took great care of Max. I appreciated the detailed daily notes and photos. Highly recommend.",
     },
     {
       id: "5",
@@ -76,6 +84,8 @@ export function ProfileReviewsTab({
       handshakes: 15,
       paws: 19,
       date: "21 Nov 25’",
+      review:
+        "Our dog can be shy, but Jane quickly won him over! We got daily pics and he seemed super happy on walks. Would trust her anytime.",
     },
   ];
 
@@ -86,7 +96,7 @@ export function ProfileReviewsTab({
       renderItem={({ item }) => (
         <ReviewCard
           rating={item.rating}
-          text="Jane was fantastic! I received regular photo updates and could tell Polo was in great hands. The house was exactly as I left it, and I came home to a very happy dog. Highly recommend!"
+          text={item.review}
           reviewerName={item.name}
           reviewerAvatar={item.avatar}
           handshakes={item.handshakes}

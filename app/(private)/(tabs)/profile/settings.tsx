@@ -59,7 +59,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <BackHeader title={t("settings.title")} />
+      <BackHeader title="" />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -185,9 +185,7 @@ export default function SettingsScreen() {
 
         <TouchableOpacity
           style={{
-            paddingVertical: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
+            paddingVertical: 8,
           }}
         >
           <Text style={{ color: colors.onSurface }}>
@@ -197,8 +195,6 @@ export default function SettingsScreen() {
         <TouchableOpacity
           style={{
             paddingVertical: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
           }}
         >
           <Text style={{ color: colors.onSurface }}>
@@ -208,8 +204,6 @@ export default function SettingsScreen() {
         <TouchableOpacity
           style={{
             paddingVertical: 16,
-            borderBottomWidth: 1,
-            borderBottomColor: colors.border,
           }}
         >
           <Text style={{ color: colors.onSurface }}>{t("settings.help")}</Text>
@@ -310,9 +304,11 @@ export default function SettingsScreen() {
             <View
               style={{
                 position: "absolute",
-                top: menuPosition.y + menuPosition.height + 4,
-                left: menuPosition.x,
-                width: Math.max(menuPosition.width, 200),
+                top: menuPosition.y + menuPosition.height - 20,
+                // Shift slightly right but keep within screen by using width and horizontal padding
+                left: Math.max(menuPosition.x - 40, 16),
+                right: 16,
+                width: undefined,
                 borderRadius: 12,
                 backgroundColor: colors.surfaceContainerLowest,
                 borderWidth: 1,
@@ -339,7 +335,9 @@ export default function SettingsScreen() {
                       setOpenMenu(null);
                     }}
                   >
-                    <Text style={{ color: colors.onSurface }}>{t("settings.themeSystem")}</Text>
+                    <Text style={{ color: colors.onSurface }}>
+                      {t("settings.themeSystem")}
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={{
@@ -354,7 +352,9 @@ export default function SettingsScreen() {
                       setOpenMenu(null);
                     }}
                   >
-                    <Text style={{ color: colors.onSurface }}>{t("settings.themeLight")}</Text>
+                    <Text style={{ color: colors.onSurface }}>
+                      {t("settings.themeLight")}
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={{
@@ -367,7 +367,9 @@ export default function SettingsScreen() {
                       setOpenMenu(null);
                     }}
                   >
-                    <Text style={{ color: colors.onSurface }}>{t("settings.themeDark")}</Text>
+                    <Text style={{ color: colors.onSurface }}>
+                      {t("settings.themeDark")}
+                    </Text>
                   </Pressable>
                 </>
               )}
@@ -388,7 +390,9 @@ export default function SettingsScreen() {
                       setOpenMenu(null);
                     }}
                   >
-                    <Text style={{ color: colors.onSurface }}>{t("settings.languageEnglish")}</Text>
+                    <Text style={{ color: colors.onSurface }}>
+                      {t("settings.languageEnglish")}
+                    </Text>
                   </Pressable>
                   <Pressable
                     style={{
@@ -402,7 +406,9 @@ export default function SettingsScreen() {
                       setOpenMenu(null);
                     }}
                   >
-                    <Text style={{ color: colors.onSurface }}>{t("settings.languageFrench")}</Text>
+                    <Text style={{ color: colors.onSurface }}>
+                      {t("settings.languageFrench")}
+                    </Text>
                   </Pressable>
                 </>
               )}

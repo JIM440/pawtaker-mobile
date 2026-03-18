@@ -1,8 +1,8 @@
-import React from "react";
-import { View, TouchableOpacity, StyleSheet, ViewStyle } from "react-native";
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View, ViewStyle } from "react-native";
 import { AppText } from "./AppText";
 
 export type TabOption<Key extends string> = {
@@ -49,9 +49,10 @@ export function TabBar<Key extends string>({
               styles.item,
               variant === "pill" && {
                 borderRadius: SearchFilterStyles.filterPillBorderRadius,
-                paddingHorizontal: SearchFilterStyles.filterPillPaddingHorizontal,
+                paddingHorizontal:
+                  SearchFilterStyles.filterPillPaddingHorizontal,
                 paddingVertical: SearchFilterStyles.filterPillPaddingVertical,
-                borderWidth: active ? 0 : 1,
+                borderWidth: active ? 0 : 3,
                 borderColor: colors.outlineVariant,
                 backgroundColor: active ? colors.primary : "transparent",
               },
@@ -69,11 +70,17 @@ export function TabBar<Key extends string>({
             >
               {tab.label}
             </AppText>
+
             {variant === "underline" && active && (
               <View
                 style={[
                   styles.indicator,
-                  { backgroundColor: colors.primary },
+                  {
+                    backgroundColor: colors.primary,
+                    height: 3,
+                    borderTopLeftRadius: 22,
+                    borderTopRightRadius: 22,
+                  },
                 ]}
               />
             )}
@@ -94,14 +101,12 @@ const styles = StyleSheet.create({
   item: {
     paddingVertical: 12,
     paddingHorizontal: 8,
+    position: "relative",
   },
   indicator: {
     position: "absolute",
     bottom: 0,
     left: 8,
     right: 8,
-    height: 2,
-    borderRadius: 1,
   },
 });
-
