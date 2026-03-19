@@ -8,7 +8,7 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal.native";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router } from "expo-router";
 import {

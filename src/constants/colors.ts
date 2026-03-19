@@ -88,3 +88,4 @@ export const Colors = {
 
 export type ColorScheme = keyof typeof Colors;
 export type ColorToken = keyof typeof Colors.light;
+export type ColorValues = (typeof Colors)[ColorScheme];

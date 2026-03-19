@@ -1,5 +1,5 @@
 import React from 'react';
-import { View, StyleSheet, ViewStyle } from 'react-native';
+import { View, StyleSheet, ViewStyle, DimensionValue } from 'react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 
@@ -27,8 +27,8 @@ export function Skeleton({
     <View
       style={[
         { backgroundColor: bg, borderRadius },
-        width != null && { width },
-        height != null && { height },
+        width != null && { width: width as DimensionValue },
+        height != null && { height: height as DimensionValue },
         style,
       ]}
     />

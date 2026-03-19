@@ -8,7 +8,7 @@ import {
   MapPin,
 } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
+import { Colors, ColorValues } from '@/src/constants/colors';
 import { PageContainer } from '@/src/shared/components/layout';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
@@ -149,7 +149,7 @@ function DetailRow({
 }: {
   label: string;
   value: string;
-  colors: typeof Colors.light;
+  colors: ColorValues;
 }) {
   return (
     <View style={styles.detailRow}>

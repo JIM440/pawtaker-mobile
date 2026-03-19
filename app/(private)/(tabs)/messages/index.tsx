@@ -63,7 +63,7 @@ export default function MessagesScreen() {
   const [searchQuery, setSearchQuery] = useState('');
 
   return (
-    <PageContainer scrollable edges={['top', 'left', 'right']}>
+    <PageContainer scrollable>
       <AppText variant="headline" style={styles.title}>
         Chats
       </AppText>

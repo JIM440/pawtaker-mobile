@@ -36,7 +36,7 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const { resolvedTheme } = useThemeStore();
   const { language } = useLanguageStore();
-  const { session, isLoading, setSession, setLoading } = useAuthStore();
+  const { session, isLoading, setSession, setLoading, fetchProfile } = useAuthStore();
   const router = useRouter();
 
   useEffect(() => {
@@ -70,12 +70,39 @@ export default function RootLayout() {
   useEffect(() => {
     if (!ready) return;
     if (Platform.OS !== "web") SplashScreen.hideAsync();
-    if (session) {
-      router.replace("/(private)/(tabs)");
-    } else {
-      // router.replace('/(auth)/welcome');
-      router.replace("/(private)/(tabs)");
+
+    if (!session) {
+      router.replace("/(auth)/welcome");
+      return;
     }
+
+    // Session exists — fetch profile to determine where to send the user
+    fetchProfile(session.user.id).then(() => {
+      const profile = useAuthStore.getState().profile;
+
+      // Email not yet verified (check Supabase auth + optional DB field)
+      const emailVerified =
+        !!session.user.email_confirmed_at || !!profile?.is_email_verified;
+
+      if (!emailVerified) {
+        router.replace("/(auth)/signup/verify");
+      } else if (!profile?.city) {
+        // Profile not complete
+        router.replace("/(auth)/signup/profile");
+      } else if (
+        !profile?.kyc_status ||
+        profile.kyc_status === "not_submitted"
+      ) {
+        // KYC not started
+        router.replace("/(auth)/kyc/submit");
+      } else if (profile.kyc_status === "pending" || profile.kyc_status === "submitted") {
+        // KYC waiting for admin
+        router.replace("/(auth)/kyc/pending");
+      } else {
+        // Fully onboarded
+        router.replace("/(private)/(tabs)");
+      }
+    });
   }, [ready, session]);
 
   return (

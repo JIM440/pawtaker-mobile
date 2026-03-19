@@ -185,7 +185,7 @@ export default function CreateRequestScreen() {
               <AppText variant="caption" color={colors.onSurfaceVariant}>
                 Daytime:
               </AppText>{" "}
-              Full-day care while you're away{"\n"}
+              Full-day care while you&apos;re away{"\n"}
               <AppText variant="caption" color={colors.onSurfaceVariant}>
                 Play/walk:
               </AppText>{" "}

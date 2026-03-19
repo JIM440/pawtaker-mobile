@@ -16,7 +16,7 @@ import {
   MapPin,
 } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
+import { Colors, ColorValues } from '@/src/constants/colors';
 import { BackHeader } from '@/src/shared/components/layout/BackHeader';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
@@ -266,7 +266,7 @@ function DetailPill({
 }: {
   label: string;
   value: string;
-  colors: typeof Colors.light;
+  colors: ColorValues;
 }) {
   return (
     <View style={styles.detailPillGroup}>
