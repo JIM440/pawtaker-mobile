@@ -12,6 +12,7 @@ export default function AuthLayout() {
       <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
       <Stack.Screen name="signup/credentials" />
+      <Stack.Screen name="signup/verify" />
       <Stack.Screen name="signup/profile" />
       <Stack.Screen name="signup/declaration" />
       <Stack.Screen name="kyc/submit" />

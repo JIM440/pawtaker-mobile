@@ -8,21 +8,54 @@ export interface Database {
           id: string;
           email: string;
           full_name: string | null;
+          display_name: string | null;
           avatar_url: string | null;
           bio: string | null;
           city: string | null;
           latitude: number | null;
           longitude: number | null;
-          points_balance: number;
+          auth_type: string;
+          has_had_pet: boolean;
           is_verified: boolean;
-          kyc_status: 'pending' | 'submitted' | 'approved' | 'rejected';
           is_admin: boolean;
-          language: 'en' | 'fr';
+          is_email_verified: boolean;
+          is_deactivated: boolean;
+          kyc_status: 'not_submitted' | 'pending' | 'submitted' | 'approved' | 'rejected';
+          points_balance: number;
+          points_alltime_high: number;
+          care_given_count: number;
+          care_received_count: number;
+          language: string;
+          theme_pref: string;
           created_at: string;
           updated_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['users']['Row'], 'id' | 'created_at' | 'updated_at'>;
+        Insert: {
+          id?: string;
+          email: string;
+          full_name?: string | null;
+          display_name?: string | null;
+          avatar_url?: string | null;
+          bio?: string | null;
+          city?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          auth_type?: string;
+          has_had_pet?: boolean;
+          is_verified?: boolean;
+          is_admin?: boolean;
+          is_email_verified?: boolean;
+          is_deactivated?: boolean;
+          kyc_status?: 'not_submitted' | 'pending' | 'submitted' | 'approved' | 'rejected';
+          points_balance?: number;
+          points_alltime_high?: number;
+          care_given_count?: number;
+          care_received_count?: number;
+          language?: string;
+          theme_pref?: string;
+        };
         Update: Partial<Database['public']['Tables']['users']['Insert']>;
+        Relationships: never[];
       };
       pets: {
         Row: {
@@ -39,6 +72,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['pets']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['pets']['Insert']>;
+        Relationships: never[];
       };
       care_requests: {
         Row: {
@@ -56,6 +90,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['care_requests']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['care_requests']['Insert']>;
+        Relationships: never[];
       };
       contracts: {
         Row: {
@@ -70,6 +105,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['contracts']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['contracts']['Insert']>;
+        Relationships: never[];
       };
       check_ins: {
         Row: {
@@ -82,6 +118,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['check_ins']['Row'], 'id'>;
         Update: Partial<Database['public']['Tables']['check_ins']['Insert']>;
+        Relationships: never[];
       };
       reviews: {
         Row: {
@@ -95,6 +132,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['reviews']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['reviews']['Insert']>;
+        Relationships: never[];
       };
       messages: {
         Row: {
@@ -109,6 +147,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['messages']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['messages']['Insert']>;
+        Relationships: never[];
       };
       threads: {
         Row: {
@@ -120,6 +159,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['threads']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['threads']['Insert']>;
+        Relationships: never[];
       };
       taker_profiles: {
         Row: {
@@ -134,6 +174,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['taker_profiles']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['taker_profiles']['Insert']>;
+        Relationships: never[];
       };
       notifications: {
         Row: {
@@ -148,6 +189,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>;
+        Relationships: never[];
       };
       emergency_contacts: {
         Row: {
@@ -160,6 +202,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['emergency_contacts']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['emergency_contacts']['Insert']>;
+        Relationships: never[];
       };
       kyc_submissions: {
         Row: {
@@ -174,8 +217,19 @@ export interface Database {
           submitted_at: string;
           reviewed_at: string | null;
         };
-        Insert: Omit<Database['public']['Tables']['kyc_submissions']['Row'], 'id'>;
+        Insert: {
+          user_id: string;
+          document_type: 'passport' | 'drivers_license' | 'national_id';
+          front_url: string;
+          back_url?: string | null;
+          selfie_url?: string | null;
+          status?: 'pending' | 'approved' | 'rejected';
+          reviewer_notes?: string | null;
+          submitted_at?: string;
+          reviewed_at?: string | null;
+        };
         Update: Partial<Database['public']['Tables']['kyc_submissions']['Insert']>;
+        Relationships: never[];
       };
       point_transactions: {
         Row: {
@@ -189,6 +243,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['point_transactions']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['point_transactions']['Insert']>;
+        Relationships: never[];
       };
       reports: {
         Row: {
@@ -202,6 +257,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['reports']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['reports']['Insert']>;
+        Relationships: never[];
       };
       push_tokens: {
         Row: {
@@ -213,6 +269,7 @@ export interface Database {
         };
         Insert: Omit<Database['public']['Tables']['push_tokens']['Row'], 'id' | 'created_at'>;
         Update: Partial<Database['public']['Tables']['push_tokens']['Insert']>;
+        Relationships: never[];
       };
     };
     Views: Record<string, never>;

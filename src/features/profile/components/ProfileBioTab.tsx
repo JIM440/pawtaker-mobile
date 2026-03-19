@@ -13,8 +13,8 @@ export function ProfileBioTab() {
   return (
     <View style={styles.container}>
       <AppText variant="body" style={styles.content}>
-        Hi! I'm a passionate pet owner who loves connecting with fellow animal
-        lovers in the community. I'm always happy to help care for your furry
+        Hi! I&apos;m a passionate pet owner who loves connecting with fellow animal
+        lovers in the community. I&apos;m always happy to help care for your furry
         friends and believe every pet deserves kindness and fun adventures!
       </AppText>
     </View>
