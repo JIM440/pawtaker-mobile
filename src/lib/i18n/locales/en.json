@@ -34,7 +34,8 @@
       "passwordPlaceholder": "Password",
       "forgotPassword": "Forgot password?",
       "submit": "Sign In",
-      "noAccount": "Don't have an account? Sign up"
+      "noAccount": "Don't have an account? Sign up",
+      "invalidCredentials": "Invalid email or password."
     },
     "welcome": {
       "title": "Welcome to PawTaker",
@@ -48,7 +49,27 @@
         "email": "Email address",
         "password": "Password",
         "confirmPassword": "Confirm password",
-        "submit": "Continue"
+        "submit": "Continue",
+        "nameLabel": "Full name",
+        "namePlaceholder": "Your full name",
+        "emailLabel": "Email address",
+        "emailPlaceholder": "Enter your email",
+        "passwordLabel": "Password",
+        "passwordPlaceholder": "At least 8 characters",
+        "confirmPasswordLabel": "Confirm password",
+        "confirmPasswordPlaceholder": "Repeat your password",
+        "alreadyHaveAccount": "Already have an account? Sign in"
+      },
+      "verify": {
+        "title": "Check your email",
+        "subtitle": "We sent a 6-digit code to",
+        "codePlaceholder": "6-digit code",
+        "submit": "Verify Email",
+        "verifying": "Verifying...",
+        "resend": "Resend code",
+        "resending": "Sending...",
+        "invalidCode": "Invalid or expired code. Please try again.",
+        "resendSuccess": "A new code has been sent."
       },
       "profile": {
         "title": "Your Profile",
@@ -56,13 +77,23 @@
         "lastName": "Last name",
         "city": "City",
         "bio": "Short Bio",
-        "submit": "Continue"
+        "submit": "Continue",
+        "displayNameLabel": "Display name",
+        "displayNamePlaceholder": "How others will see you",
+        "locationLabel": "City",
+        "locationPlaceholder": "Your city",
+        "bioLabel": "About you",
+        "bioPlaceholder": "A few words about yourself"
       },
       "declaration": {
         "title": "Community Agreement",
         "subtitle": "Please read and agree to our community standards",
         "agreeAll": "I agree to all terms",
-        "submit": "Join PawTaker"
+        "submit": "Join PawTaker",
+        "point1": "I will treat all pets and their owners with respect.",
+        "point2": "I will honor all care commitments I accept.",
+        "point3": "I will communicate openly and honestly at all times.",
+        "hasHadPet": "I have had a pet before"
       }
     },
     "kyc": {

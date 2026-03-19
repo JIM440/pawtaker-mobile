@@ -304,7 +304,7 @@ export default function AvailabilityWizardScreen() {
                 />
                 <View style={styles.previewProfileInfo}>
                   <AppText variant="title" color={colors.onSurface} style={styles.previewCardTitle}>
-                    You're available to care
+                    You&apos;re available to care
                   </AppText>
                   <AppText variant="body" color={colors.onSurfaceVariant} numberOfLines={2}>
                     {careTypes.length ? careTypes.join(', ') : 'Daytime, Play/walk'}

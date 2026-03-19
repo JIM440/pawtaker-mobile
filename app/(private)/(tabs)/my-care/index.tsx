@@ -8,7 +8,7 @@ import {
 } from 'react-native';
 import { Handshake, PawPrint, Trophy } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
+import { Colors, ColorValues } from '@/src/constants/colors';
 import { PageContainer } from '@/src/shared/components/layout';
 import { MyCareSkeleton } from '@/src/shared/components/skeletons';
 import { AppText } from '@/src/shared/components/ui/AppText';
@@ -216,7 +216,7 @@ function CareGivenTab({
   colors,
   rows,
 }: {
-  colors: typeof Colors.light;
+  colors: ColorValues;
   rows: typeof MOCK_CARE_GIVEN_ROWS;
 }) {
   if (rows.length === 0) {
@@ -261,7 +261,7 @@ function CareGivenTab({
   );
 }
 
-function CareReceivedTab({ colors }: { colors: typeof Colors.light }) {
+function CareReceivedTab({ colors }: { colors: ColorValues }) {
   return (
     <View style={styles.emptyState}>
       <AppText variant="body" color={colors.onSurfaceVariant}>Nothing to show yet</AppText>
@@ -276,7 +276,7 @@ function LikedTab({
   colors,
   pets,
 }: {
-  colors: typeof Colors.light;
+  colors: ColorValues;
   pets: Array<{
     id: string;
     imageSource: string;

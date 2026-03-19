@@ -40,7 +40,8 @@
       "passwordPlaceholder": "Mot de passe",
       "forgotPassword": "Mot de passe oublié ?",
       "submit": "Se connecter",
-      "noAccount": "Pas de compte ? S'inscrire"
+      "noAccount": "Pas de compte ? S'inscrire",
+      "invalidCredentials": "E-mail ou mot de passe invalide."
     },
     "signup": {
       "credentials": {
@@ -48,7 +49,27 @@
         "email": "Adresse e-mail",
         "password": "Mot de passe",
         "confirmPassword": "Confirmer le mot de passe",
-        "submit": "Continuer"
+        "submit": "Continuer",
+        "nameLabel": "Nom complet",
+        "namePlaceholder": "Votre nom complet",
+        "emailLabel": "Adresse e-mail",
+        "emailPlaceholder": "Entrez votre e-mail",
+        "passwordLabel": "Mot de passe",
+        "passwordPlaceholder": "Au moins 8 caractères",
+        "confirmPasswordLabel": "Confirmer le mot de passe",
+        "confirmPasswordPlaceholder": "Répétez votre mot de passe",
+        "alreadyHaveAccount": "Déjà un compte ? Se connecter"
+      },
+      "verify": {
+        "title": "Vérifiez votre e-mail",
+        "subtitle": "Nous avons envoyé un code à 6 chiffres à",
+        "codePlaceholder": "Code à 6 chiffres",
+        "submit": "Vérifier l'e-mail",
+        "verifying": "Vérification...",
+        "resend": "Renvoyer le code",
+        "resending": "Envoi...",
+        "invalidCode": "Code invalide ou expiré. Veuillez réessayer.",
+        "resendSuccess": "Un nouveau code a été envoyé."
       },
       "profile": {
         "title": "Votre profil",
@@ -56,13 +77,23 @@
         "lastName": "Nom de famille",
         "city": "Ville",
         "bio": "Bio courte",
-        "submit": "Continuer"
+        "submit": "Continuer",
+        "displayNameLabel": "Nom d'affichage",
+        "displayNamePlaceholder": "Comment les autres vous verront",
+        "locationLabel": "Ville",
+        "locationPlaceholder": "Votre ville",
+        "bioLabel": "À votre sujet",
+        "bioPlaceholder": "Quelques mots sur vous"
       },
       "declaration": {
         "title": "Accord communautaire",
         "subtitle": "Veuillez lire et accepter nos règles communautaires",
         "agreeAll": "J'accepte toutes les conditions",
-        "submit": "Rejoindre PawTaker"
+        "submit": "Rejoindre PawTaker",
+        "point1": "Je traiterai tous les animaux et leurs propriétaires avec respect.",
+        "point2": "J'honorerai tous les engagements de soins que j'accepte.",
+        "point3": "Je communiquerai ouvertement et honnêtement en tout temps.",
+        "hasHadPet": "J'ai déjà eu un animal de compagnie"
       }
     },
     "kyc": {

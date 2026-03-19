@@ -274,12 +274,12 @@ export default function LaunchRequestWizardScreen() {
             </View>
             <View style={styles.previewDateRow}>
               <Calendar size={18} color={colors.onSurface} />
-              <AppText variant="body">{dateText} – Mar 18</AppText>
+              <AppText variant="body">{date.toLocaleDateString()} – Mar 18</AppText>
               <TouchableOpacity><Pencil size={18} color={colors.onSurface} /></TouchableOpacity>
             </View>
             <View style={styles.previewDateRow}>
               <Clock size={18} color={colors.onSurface} />
-              <AppText variant="body">{timeStart} – {timeEnd}</AppText>
+              <AppText variant="body">{timeStart.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })} – {timeEnd.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</AppText>
               <TouchableOpacity><Pencil size={18} color={colors.onSurface} /></TouchableOpacity>
             </View>
             <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.disclaimer}>
