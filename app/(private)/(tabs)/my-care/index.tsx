@@ -1,68 +1,42 @@
-import React, { useState } from 'react';
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Switch,
-} from 'react-native';
-import { Handshake, PawPrint, Trophy } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
+import { useThemeStore } from '@/src/lib/store/theme.store';
 import { PageContainer } from '@/src/shared/components/layout';
 import { MyCareSkeleton } from '@/src/shared/components/skeletons';
-import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { ProfilePetCard } from '@/src/shared/components/cards/ProfilePetCard';
+import { AppSwitch } from '@/src/shared/components/ui/AppSwitch';
+import { AppText } from '@/src/shared/components/ui/AppText';
+import { TabBar } from '@/src/shared/components/ui/TabBar';
+import {
+  Handshake,
+  MoreHorizontal,
+  PawPrint,
+  Sun,
+  TrendingUp
+} from 'lucide-react-native';
+import React, { useState } from 'react';
+import {
+  Modal,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View
+} from 'react-native';
+
+// Feature Components
+import { CareGivenTab } from '@/src/features/my-care/components/CareGivenTab';
+import { CareReceivedTab } from '@/src/features/my-care/components/CareReceivedTab';
+import { LikedTab } from '@/src/features/my-care/components/LikedTab';
+import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
+
+// Constants
+import {
+  MOCK_CARE_GIVEN_ROWS,
+  MOCK_IN_CARE,
+  MOCK_LIKED_PETS,
+} from '@/src/features/my-care/constants';
 
 type TabId = 'given' | 'received' | 'liked';
-
-const MOCK_IN_CARE = {
-  petName: 'Polo',
-  careType: 'Daytime',
-  dayLabel: 'Day 1/5',
-  caregiverName: 'Jane Ambers',
-  caregiverAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
-  endsIn: '2h 15m',
-};
-
-const MOCK_STATS = { points: 58, careGiven: 12, careReceived: 17 };
-
-const MOCK_CARE_GIVEN_ROWS: Array<{
-  id: string;
-  ownerName: string;
-  ownerAvatar: string;
-  handshakes: number;
-  paws: number;
-  pet: string;
-  careType: string;
-  date: string;
-}> = [
-  {
-    id: '1',
-    ownerName: 'Jane Ambers',
-    ownerAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
-    handshakes: 12,
-    paws: 17,
-    pet: 'Polo',
-    careType: 'Daytime',
-    date: 'Mar 15, 2025',
-  },
-];
-
-const MOCK_LIKED_PETS = [
-  {
-    id: '1',
-    imageSource: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
-    petName: 'Polo',
-    breed: 'Golden Retriever',
-    petType: 'Dog',
-    bio: 'Friendly and loves long walks.',
-    tags: ['Daytime', 'Play/walk'],
-    seekingDateRange: 'Mar 20 – Mar 25',
-    seekingTime: '8AM – 4PM',
-  },
-];
 
 export default function MyCareScreen() {
   const { resolvedTheme } = useThemeStore();
@@ -71,6 +45,9 @@ export default function MyCareScreen() {
   const [available, setAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('given');
   const [showSnackbar, setShowSnackbar] = useState(false);
+  const [menuVisible, setMenuVisible] = useState(false);
+  const [applyModalVisible, setApplyModalVisible] = useState(false);
+  const [hasActiveCare, setHasActiveCare] = useState(true); // Demo mode
 
   const onAvailableChange = (value: boolean) => {
     setAvailable(value);
@@ -89,6 +66,7 @@ export default function MyCareScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <MyCareSkeleton />
@@ -99,288 +77,298 @@ export default function MyCareScreen() {
 
   return (
     <PageContainer scrollable={false} contentStyle={styles.pageContent}>
+      <View style={styles.header}>
+        <AppText variant="headline" style={{ fontSize: 22 }}>My Care</AppText>
+        <View style={styles.availableRow}>
+          <AppText variant="body" color={colors.onSurfaceVariant}>Available</AppText>
+          <AppSwitch
+            value={available}
+            onValueChange={onAvailableChange}
+          />
+        </View>
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <AppText variant="title" style={styles.title}>My Care</AppText>
-          <View style={styles.availableRow}>
-            <AppText variant="body" color={colors.onSurface}>Available</AppText>
-            <Switch
-              value={available}
-              onValueChange={onAvailableChange}
-              trackColor={{ false: colors.surfaceContainer, true: colors.primaryContainer }}
-              thumbColor={available ? colors.primary : colors.surfaceContainerLowest}
-            />
-          </View>
-        </View>
 
-        {/* In care card */}
-        <View style={[styles.inCareCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-          <View style={styles.inCareLabelRow}>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>In care</AppText>
-          </View>
-          <View style={styles.inCareMain}>
-            <AppText variant="title" style={styles.inCarePetName}>{MOCK_IN_CARE.petName}</AppText>
-            <View style={styles.inCareTags}>
-              <View style={[styles.tag, { backgroundColor: colors.surfaceContainer }]}>
-                <AppText variant="caption" color={colors.onSecondaryContainer}>{MOCK_IN_CARE.careType}</AppText>
+        {/* Active Care Section */}
+        {hasActiveCare && (
+          <View style={[styles.inCareCard, { backgroundColor: colors.surfaceContainerLow }]}>
+            <View style={styles.cardHeader}>
+              <View style={styles.cardHeaderTitleGroup}>
+                <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.inCareLabel}>In care</AppText>
+                <AppText variant="bodyLarge" style={styles.inCarePetName}>{MOCK_IN_CARE.petName}</AppText>
               </View>
-              <View style={[styles.tag, { backgroundColor: colors.surfaceContainer }]}>
-                <AppText variant="caption" color={colors.onSecondaryContainer}>{MOCK_IN_CARE.dayLabel}</AppText>
+              <TouchableOpacity onPress={() => setMenuVisible(true)}>
+                <MoreHorizontal size={24} color={colors.onSurface} strokeWidth={2.5} />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.inCareBody}>
+              <View style={styles.metaPills}>
+                <View style={[styles.metaPill, { backgroundColor: colors.surfaceContainerHighest }]}>
+                  <Sun size={14} color={colors.onSurfaceVariant} />
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>{MOCK_IN_CARE.careType}</AppText>
+                </View>
+                <View style={[styles.metaPill, { backgroundColor: colors.surfaceContainerHighest }]}>
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>{MOCK_IN_CARE.dayLabel}</AppText>
+                </View>
+              </View>
+
+              <View style={styles.caregiverAndTimerRow}>
+                <View style={styles.caregiverMain}>
+                  <AppImage
+                    source={{ uri: MOCK_IN_CARE.caregiverAvatar }}
+                    style={styles.caregiverAvatar}
+                    contentFit="cover"
+                  />
+                  <AppText variant="body" color={colors.onSurfaceVariant}>{MOCK_IN_CARE.caregiverName}</AppText>
+                </View>
+                <View style={styles.timerRow}>
+                  <AppText variant="caption" color={colors.primary} style={{ fontWeight: 600 }}>
+                    • {" "} Ends in {MOCK_IN_CARE.endsIn}
+                  </AppText>
+                </View>
               </View>
             </View>
-            <View style={styles.caregiverRow}>
-              <AppImage
-                source={{ uri: MOCK_IN_CARE.caregiverAvatar }}
-                style={[styles.caregiverAvatar, { backgroundColor: colors.surfaceContainer }]}
-                contentFit="cover"
-              />
-              <AppText variant="body" color={colors.onSurface}>{MOCK_IN_CARE.caregiverName}</AppText>
-            </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              Ends in {MOCK_IN_CARE.endsIn}
-            </AppText>
           </View>
-        </View>
+        )}
 
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={[styles.statCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-            <Trophy size={20} color={colors.primary} />
-            <AppText variant="title" color={colors.primary}>{String(MOCK_STATS.points).padStart(3, '0')}</AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>Points</AppText>
+        {/* In Care Actions Modal */}
+        <Modal
+          visible={menuVisible}
+          transparent
+          animationType="fade"
+          onRequestClose={() => setMenuVisible(false)}
+        >
+          <Pressable
+            style={styles.menuModalOverlay}
+            onPress={() => setMenuVisible(false)}
+          >
+            <View style={[styles.menuModalContent, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
+              <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
+                <AppText variant="body">Go to Chat</AppText>
+              </TouchableOpacity>
+              <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
+              <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
+                <AppText variant="body">View Agreement</AppText>
+              </TouchableOpacity>
+            </View>
+          </Pressable>
+        </Modal>
+
+        {/* Dynamic Stats Row (Compact vs Full) */}
+        {!hasActiveCare || activeTab === 'liked' ? (
+          <View style={styles.summaryGrid}>
+            <View style={[styles.primaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
+              <View className="flex-row items-center gap-4">
+                <View style={[styles.statIconCircle, { backgroundColor: colors.surfaceContainerHighest }]}>
+                  <TrendingUp size={36} color={colors.onSurfaceVariant} />
+                </View>
+                <View style={{}}>
+                  <AppText variant="headline" style={styles.statLargeValue} color={colors.onSurfaceVariant} >058</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabel}>Points</AppText>
+                </View>
+              </View>
+              <View style={styles.athContainer} className='self-end mb-2'>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  All time high <AppText variant="caption" style={{ fontWeight: '700' }}>1200</AppText>
+                </AppText>
+              </View>
+            </View>
+
+            <View className="flex-row gap-3">
+              <View style={[styles.secondaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
+                <View style={[styles.statIconCircleSmall, { backgroundColor: colors.tertiaryContainer }]}>
+                  <Handshake size={28} color={colors.onTertiaryContainer} />
+                </View>
+                <View>
+                  <AppText variant="headline" style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}>012</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>Care Given</AppText>
+                </View>
+              </View>
+              <View style={[styles.secondaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
+                <View style={[styles.statIconCircleSmall, { backgroundColor: colors.primaryContainer }]}>
+                  <PawPrint size={28} color={colors.onPrimaryContainer} />
+                </View>
+                <View>
+                  <AppText variant="headline" style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}>017</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>Care Received</AppText>
+                </View>
+              </View>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-            <Handshake size={20} color={colors.onSurface} />
-            <AppText variant="title">{String(MOCK_STATS.careGiven).padStart(2, '0')}</AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>Care Given</AppText>
+        ) : (
+          <View style={styles.compactStatsRow}>
+            <View style={[styles.compactStatsPill, { backgroundColor: colors.surfaceContainerHighest }]}>
+              <TrendingUp size={16} color={colors.onSurfaceVariant} />
+              <AppText variant="caption" style={{ fontWeight: '600' }}>58 Points</AppText>
+            </View>
+            <View style={[styles.compactStatsPill, { backgroundColor: colors.tertiaryContainer, borderColor: colors.outlineVariant }]}>
+              <Handshake size={16} color={colors.tertiary} />
+              <AppText variant="caption" style={{ color: colors.tertiary, fontWeight: '600' }}>12</AppText>
+            </View>
+            <View style={[styles.compactStatsPill, { backgroundColor: colors.primaryContainer, borderColor: colors.outlineVariant }]}>
+              <PawPrint size={16} color={colors.onPrimaryContainer} />
+              <AppText variant="caption" style={{ color: colors.onPrimaryContainer, fontWeight: '600' }}>17</AppText>
+            </View>
           </View>
-          <View style={[styles.statCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-            <PawPrint size={20} color={colors.onSurface} />
-            <AppText variant="title">{String(MOCK_STATS.careReceived).padStart(2, '0')}</AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>Care Received</AppText>
-          </View>
-        </View>
+        )}
 
         {/* Tabs */}
-        <View style={[styles.tabBar, { borderBottomColor: colors.outlineVariant }]}>
-          {tabs.map((tab) => (
-            <TouchableOpacity
-              key={tab.id}
-              onPress={() => setActiveTab(tab.id)}
-              style={[
-                styles.tab,
-                activeTab === tab.id && {
-                  borderBottomColor: colors.primary,
-                  borderBottomWidth: 2,
-                },
-              ]}
-            >
-              <AppText
-                variant="body"
-                color={activeTab === tab.id ? colors.primary : colors.onSurfaceVariant}
-              >
-                {tab.label}
-              </AppText>
-            </TouchableOpacity>
-          ))}
-        </View>
+        <TabBar
+          tabs={tabs.map(t => ({ key: t.id, label: t.label }))}
+          activeKey={activeTab}
+          onChange={setActiveTab}
+          variant="underline"
+          style={styles.tabBarCustom}
+        />
 
         {/* Tab content */}
         {activeTab === 'given' && (
-          <CareGivenTab colors={colors} rows={MOCK_CARE_GIVEN_ROWS} />
+          <CareGivenTab colors={colors as any} rows={MOCK_CARE_GIVEN_ROWS} />
         )}
         {activeTab === 'received' && (
-          <CareReceivedTab colors={colors} />
+          <CareReceivedTab colors={colors as any} />
         )}
         {activeTab === 'liked' && (
-          <LikedTab colors={colors} pets={MOCK_LIKED_PETS} />
+          <LikedTab
+            colors={colors as any}
+            pets={MOCK_LIKED_PETS}
+            onApply={() => setApplyModalVisible(true)}
+          />
         )}
       </ScrollView>
 
+      {/* Applying Modal */}
+      <FeedbackModal
+        visible={applyModalVisible}
+        title="Applying for this pet?"
+        description="A message with your availability details will be sent to this pet’s owner"
+        icon={<PawPrint size={32} color={colors.primary} />}
+        primaryLabel="Continue"
+        onPrimary={() => {
+          setApplyModalVisible(false);
+          setShowSnackbar(true);
+        }}
+        secondaryLabel="Cancel"
+        onSecondary={() => setApplyModalVisible(false)}
+        onRequestClose={() => setApplyModalVisible(false)}
+      />
+
       {showSnackbar && (
-        <View style={[styles.snackbar, { backgroundColor: colors.primary }]}>
-          <AppText variant="body" color={colors.onPrimary}>
-            You are now tagged available
-          </AppText>
+        <View style={[styles.snackbarShadow, { bottom: 100 }]}>
+          <View style={[styles.snackbar, { backgroundColor: colors.onSurfaceVariant }]}>
+            <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '600' }}>
+              You are now tagged <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '800' }}>available</AppText>
+            </AppText>
+          </View>
         </View>
       )}
     </PageContainer>
   );
 }
 
-function CareGivenTab({
-  colors,
-  rows,
-}: {
-  colors: typeof Colors.light;
-  rows: typeof MOCK_CARE_GIVEN_ROWS;
-}) {
-  if (rows.length === 0) {
-    return (
-      <View style={styles.emptyState}>
-        <AppText variant="body" color={colors.onSurfaceVariant}>Nothing to show yet</AppText>
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.emptySub}>
-          Start giving care to see your history here
-        </AppText>
-      </View>
-    );
-  }
-
-  return (
-    <View style={styles.table}>
-      <View style={[styles.tableHeader, { borderBottomColor: colors.outlineVariant }]}>
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.colOwner}>Pet owner</AppText>
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.colPet}>Pet</AppText>
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.colType}>Care type</AppText>
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.colDate}>Date</AppText>
-      </View>
-      {rows.map((row) => (
-        <View key={row.id} style={[styles.tableRow, { borderBottomColor: colors.outlineVariant }]}>
-          <View style={styles.colOwner}>
-            <AppImage source={{ uri: row.ownerAvatar }} style={[styles.rowAvatar, { backgroundColor: colors.surfaceContainer }]} contentFit="cover" />
-            <View style={styles.rowOwnerInfo}>
-              <AppText variant="caption" numberOfLines={1}>{row.ownerName}</AppText>
-              <View style={styles.badgesRow}>
-                <Handshake size={10} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{row.handshakes}</AppText>
-                <PawPrint size={10} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{row.paws}</AppText>
-              </View>
-            </View>
-          </View>
-          <AppText variant="caption" style={styles.colPet} numberOfLines={1}>{row.pet}</AppText>
-          <AppText variant="caption" style={styles.colType} numberOfLines={1}>{row.careType}</AppText>
-          <AppText variant="caption" style={styles.colDate} numberOfLines={1}>{row.date}</AppText>
-        </View>
-      ))}
-    </View>
-  );
-}
-
-function CareReceivedTab({ colors }: { colors: typeof Colors.light }) {
-  return (
-    <View style={styles.emptyState}>
-      <AppText variant="body" color={colors.onSurfaceVariant}>Nothing to show yet</AppText>
-      <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.emptySub}>
-        Care you received will appear here
-      </AppText>
-    </View>
-  );
-}
-
-function LikedTab({
-  colors,
-  pets,
-}: {
-  colors: typeof Colors.light;
-  pets: Array<{
-    id: string;
-    imageSource: string;
-    petName: string;
-    breed: string;
-    petType: string;
-    bio: string;
-    tags: string[];
-    seekingDateRange: string;
-    seekingTime: string;
-  }>;
-}) {
-  return (
-    <View style={styles.likedContent}>
-      <View style={styles.summaryCards}>
-        <View style={[styles.summaryCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-          <AppText variant="title" color={colors.primary}>058</AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>Points</AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>All time high 1200</AppText>
-        </View>
-        <View style={[styles.summaryCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-          <AppText variant="title">012</AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>Care Given</AppText>
-        </View>
-        <View style={[styles.summaryCard, { backgroundColor: colors.surfaceContainerLowest }]}>
-          <AppText variant="title">017</AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>Care Received</AppText>
-        </View>
-      </View>
-      {pets.length === 0 ? (
-        <View style={styles.emptyState}>
-          <AppText variant="body" color={colors.onSurfaceVariant}>No liked pets yet</AppText>
-        </View>
-      ) : (
-        <View style={styles.likedList}>
-          {pets.map((pet) => (
-            <ProfilePetCard
-              key={pet.id}
-              imageSource={pet.imageSource}
-              petName={pet.petName}
-              breed={pet.breed}
-              petType={pet.petType}
-              bio={pet.bio}
-              tags={pet.tags}
-              seekingDateRange={pet.seekingDateRange}
-              seekingTime={pet.seekingTime}
-              onPress={() => {}}
-              onMenuPress={() => {}}
-            />
-          ))}
-        </View>
-      )}
-    </View>
-  );
-}
-
 const styles = StyleSheet.create({
   pageContent: {
     flex: 1,
-    paddingHorizontal: 16,
+    paddingHorizontal: 0,
   },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    paddingBottom: 32,
+    paddingBottom: 120,
+    paddingHorizontal: 16,
   },
   header: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 16,
-  },
-  title: {
-    fontSize: 24,
+    marginBottom: 4,
+    paddingHorizontal: 16,
   },
   availableRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 12,
   },
   inCareCard: {
     padding: 16,
     borderRadius: 16,
     marginBottom: 16,
+    position: 'relative',
+  },
+  cardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
+  },
+  cardHeaderTitleGroup: {
+    alignItems: 'center',
     gap: 8,
   },
-  inCareLabelRow: {},
-  inCareMain: {
-    gap: 6,
+  inCareLabel: {
+    fontSize: 13,
+    marginBottom: -2,
+  },
+  menuModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+  },
+  menuModalContent: {
+    position: 'absolute',
+    top: 140,
+    right: 16,
+    width: 160,
+    borderRadius: 12,
+    borderWidth: 1,
+    paddingVertical: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 5,
+  },
+  menuItem: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+  },
+  menuDivider: {
+    height: 1,
+    marginVertical: 4,
+  },
+  inCareBody: {
+    gap: 12,
   },
   inCarePetName: {
-    fontSize: 18,
+    fontWeight: '700',
+    fontSize: 22,
   },
-  inCareTags: {
+  metaPills: {
     flexDirection: 'row',
     gap: 8,
+    justifyContent: 'flex-end'
   },
-  tag: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  metaPill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
     borderRadius: 999,
   },
-  caregiverRow: {
+  caregiverAndTimerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 4,
+  },
+  caregiverMain: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
@@ -390,107 +378,97 @@ const styles = StyleSheet.create({
     height: 24,
     borderRadius: 12,
   },
-  statsRow: {
+  timerRow: {
     flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    padding: 12,
-    borderRadius: 12,
     alignItems: 'center',
-    gap: 4,
   },
-  tabBar: {
+  compactStatsRow: {
     flexDirection: 'row',
-    borderBottomWidth: 1,
-    marginBottom: 16,
-  },
-  tab: {
-    paddingVertical: 12,
-    paddingHorizontal: 16,
-    marginBottom: -1,
-  },
-  emptyState: {
-    alignItems: 'center',
-    paddingVertical: 32,
-    gap: 4,
-  },
-  emptySub: {
-    textAlign: 'center',
-  },
-  table: {
+    gap: 10,
     marginBottom: 24,
   },
-  tableHeader: {
-    flexDirection: 'row',
-    paddingVertical: 8,
-    borderBottomWidth: 1,
-  },
-  tableRow: {
+  compactStatsPill: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 12,
-    borderBottomWidth: 1,
+    gap: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    borderRadius: 99,
   },
-  colOwner: {
-    flex: 1.4,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    minWidth: 0,
+  summaryGrid: {
+    marginBottom: 24,
+    gap: 12,
   },
-  colPet: {
-    flex: 0.7,
-    minWidth: 0,
-  },
-  colType: {
-    flex: 0.8,
-    minWidth: 0,
-  },
-  colDate: {
-    flex: 0.8,
-    minWidth: 0,
-  },
-  rowAvatar: {
-    width: 32,
-    height: 32,
+  primaryStat: {
+    padding: 20,
     borderRadius: 16,
-  },
-  rowOwnerInfo: {
-    flex: 1,
-    minWidth: 0,
-    gap: 2,
-  },
-  badgesRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 2,
+    justifyContent: 'space-between',
+    paddingBottom: 20,
   },
-  likedContent: {
-    gap: 16,
-  },
-  summaryCards: {
-    flexDirection: 'row',
-    gap: 12,
-  },
-  summaryCard: {
+  secondaryStat: {
     flex: 1,
-    padding: 12,
-    borderRadius: 12,
-    gap: 2,
-  },
-  likedList: {
+    padding: 20,
+    borderRadius: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 12,
   },
-  snackbar: {
+  statIconCircle: {
+    width: 72,
+    height: 72,
+    borderRadius: 36,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statIconCircleSmall: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statLargeValue: {
+    fontSize: 36,
+    fontWeight: '800',
+    lineHeight: 36,
+  },
+  statSmallValue: {
+    fontSize: 28,
+    fontWeight: '800',
+    lineHeight: 36,
+  },
+  statLabel: {
+    lineHeight: 14,
+    fontWeight: '500',
+  },
+  statLabelSmall: {
+    fontSize: 12,
+    fontWeight: '500',
+    lineHeight: 12,
+  },
+  athContainer: {
+    alignItems: 'flex-end',
+    justifyContent: 'flex-end',
+  },
+  tabBarCustom: {
+  },
+  snackbarShadow: {
     position: 'absolute',
-    bottom: 24,
     left: 16,
     right: 16,
-    padding: 12,
-    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.3,
+    shadowRadius: 20,
+    elevation: 10,
+    zIndex: 1000,
+  },
+  snackbar: {
+    paddingVertical: 14,
+    paddingHorizontal: 20,
+    borderRadius: 12,
     alignItems: 'center',
   },
 });

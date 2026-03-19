@@ -1,8 +1,10 @@
 export { AppImage } from './AppImage';
 export { AppText } from './AppText';
+export { Badge } from './Badge';
 export { Button } from './Button';
 export { Card } from './Card';
+export { ImageViewerModal } from './ImageViewerModal.native';
 export { Input } from './Input';
-export { Badge } from './Badge';
+export { ProfileAvatar } from './ProfileAvatar';
 export { Skeleton } from './Skeleton';
-export { ImageViewerModal } from './ImageViewerModal';
+

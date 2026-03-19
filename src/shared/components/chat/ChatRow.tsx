@@ -30,18 +30,22 @@ export function ChatRow({
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={onPress}
-      style={styles.row}
+      style={[styles.row, { borderBottomColor: colors.outlineVariant }]}
     >
       <View style={styles.avatarWrap}>
         {avatarUri ? (
           <AppImage source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
         ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceContainer }]} />
+          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceDim }]}>
+            <AppText variant="label" color={colors.onSurfaceVariant}>
+              {name.charAt(0).toUpperCase()}
+            </AppText>
+          </View>
         )}
       </View>
       <View style={styles.content}>
         <AppText variant="label" numberOfLines={1} style={styles.name}>{name}</AppText>
-        <AppText variant="caption" color={colors.onSurfaceVariant} numberOfLines={1} style={styles.preview}>
+        <AppText variant="body" color={colors.onSurfaceVariant} numberOfLines={1} style={styles.preview}>
           {lastMessagePreview}
         </AppText>
       </View>
@@ -50,8 +54,8 @@ export function ChatRow({
           {timestamp}
         </AppText>
         {unreadCount > 0 && (
-          <View style={[styles.badge, { backgroundColor: colors.error }]}>
-            <AppText variant="caption" color={colors.onError} style={styles.badgeText}>
+          <View style={[styles.badge, { backgroundColor: colors.primary }]}>
+            <AppText variant="caption" color={colors.onPrimary} style={styles.badgeText}>
               {unreadCount > 99 ? '99+' : unreadCount}
             </AppText>
           </View>
@@ -66,38 +70,42 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     paddingVertical: 16,
+    borderBottomWidth: 1,
     gap: 12,
   },
   avatarWrap: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    borderRadius: 28,
     overflow: 'hidden',
   },
   avatar: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
   },
   avatarPlaceholder: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 56,
+    height: 56,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   content: {
     flex: 1,
+    gap: 4,
     minWidth: 0,
   },
   name: {
-    marginBottom: 2,
+    fontSize: 15,
+    fontWeight: '600',
   },
   preview: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   right: {
     alignItems: 'flex-end',
-    gap: 4,
+    minWidth: 40,
+    gap: 6,
   },
   time: {
     fontSize: 11,
@@ -112,6 +120,6 @@ const styles = StyleSheet.create({
   },
   badgeText: {
     fontSize: 10,
-    fontWeight: '600',
+    fontWeight: '700',
   },
 });

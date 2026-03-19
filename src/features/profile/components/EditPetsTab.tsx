@@ -139,16 +139,16 @@ export function EditPetsTab({
                   style={[
                     styles.menuContainer,
                     {
-                      backgroundColor: colors.surfaceContainerLowest,
+                      backgroundColor: colors.surfaceBright,
                       borderColor: colors.outlineVariant,
                       position: "absolute",
-                      top: menuPosition.y + menuPosition.height + 4,
+                      top: menuPosition.y + menuPosition.height + 30,
                       left: menuPosition.x - 180,
                     },
                   ]}
                 >
                   <Pressable
-                    style={styles.menuItem}
+                    style={{ ...styles.menuItem, borderBottomColor: colors.outlineVariant }}
                     onPress={() => {
                       const id = openMenuForId;
                       setOpenMenuForId(null);
@@ -161,7 +161,7 @@ export function EditPetsTab({
                     </AppText>
                   </Pressable>
                   <Pressable
-                    style={styles.menuItem}
+                    style={{ ...styles.menuItem, borderBottomColor: colors.outlineVariant }}
                     onPress={() => {
                       const id = openMenuForId;
                       setOpenMenuForId(null);
@@ -172,7 +172,7 @@ export function EditPetsTab({
                     <AppText variant="body">{t("common.edit", "Edit")}</AppText>
                   </Pressable>
                   <Pressable
-                    style={styles.menuItem}
+                    style={{ ...styles.menuItem, borderBottomWidth: 0 }}
                     onPress={() => {
                       const id = openMenuForId;
                       setOpenMenuForId(null);
@@ -188,13 +188,6 @@ export function EditPetsTab({
               )}
             </Pressable>
           </Modal>
-
-          <Button
-            label={t("common.save", "Save")}
-            onPress={onSave}
-            style={styles.saveBtn}
-            fullWidth
-          />
         </>
       )}
     </View>
@@ -210,6 +203,7 @@ const styles = StyleSheet.create({
   },
   addBtn: {
     marginBottom: 0,
+    marginTop: 16,
   },
   topRow: {
     flexDirection: "row",
@@ -257,5 +251,6 @@ const styles = StyleSheet.create({
   menuItem: {
     paddingHorizontal: 12,
     paddingVertical: 10,
+    borderBottomWidth: 1,
   },
 });

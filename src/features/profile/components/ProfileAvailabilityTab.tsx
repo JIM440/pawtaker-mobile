@@ -91,32 +91,32 @@ export function ProfileAvailabilityTab() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.bio}>
-        {/* Bio / Short note directly below card */}
-        <DisplayField
-          label={t("availability.note", "Short note")}
-          value={MOCK_AVAILABILITY.note}
-        />
-      </View>
-
       <AvailabilityPreviewCard {...MOCK_AVAILABILITY} />
 
       <View style={styles.details}>
+        <View style={styles.bio}>
+          {/* Bio / Short note directly below card */}
+          <DisplayField
+            label={t("availability.note", "Short note")}
+            value={MOCK_AVAILABILITY.note}
+          />
+        </View>
 
-
-        {/* Time */}
-        <DisplayField
-          label={t("availability.timeOnly", "Time")}
-          value={MOCK_AVAILABILITY.time}
-          icon={<Clock size={16} color={colors.primary} />}
-        />
-
-        {/* Days */}
-        <DisplayField
-          label={t("availability.daysOnly", "Days")}
-          value={MOCK_AVAILABILITY.days}
-          icon={<CalendarDays size={16} color={colors.primary} />}
-        />
+        {/* Time & Days in one line */}
+        <View style={styles.row}>
+          <DisplayField
+            label={t("availability.timeOnly", "Time")}
+            value={MOCK_AVAILABILITY.time}
+            icon={<Clock size={16} color={colors.primary} />}
+            style={{ flex: 1.2 }}
+          />
+          <DisplayField
+            label={t("availability.daysOnly", "Days")}
+            value={MOCK_AVAILABILITY.days}
+            icon={<CalendarDays size={16} color={colors.primary} />}
+            style={{ flex: 1 }}
+          />
+        </View>
 
         {/* Yard Type and Pet Owner in one line */}
         <View style={styles.row}>

@@ -29,8 +29,6 @@ export default function PrivateLayout() {
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
-        <Stack.Screen name="requests/[id]" options={{ title: "Request" }} />
-        <Stack.Screen name="offers/[id]" options={{ headerShown: false }} />
         <Stack.Screen name="takers/[id]" options={{ title: "Taker" }} />
         <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />
         <Stack.Screen name="pets/[id]" options={{ title: "Pet Profile" }} />

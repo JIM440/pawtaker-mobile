@@ -2,22 +2,24 @@ import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { NotificationCard } from "@/src/shared/components/cards";
+import { SearchField } from "@/src/shared/components/forms/SearchField";
+import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { NotificationsSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useRouter } from "expo-router";
 import {
   Modal,
   Pressable,
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
-import { NotificationsSkeleton } from "@/src/shared/components/skeletons";
-import { SearchField } from "@/src/shared/components/forms/SearchField";
 
 type NotificationItem = {
   id: string;
@@ -25,15 +27,18 @@ type NotificationItem = {
   body: string;
   time: string;
   unread?: boolean;
+  type?: string;
+  image?: string;
 };
 
-const MOCK_NOTIFICATIONS: NotificationItem[] = [
+const MOCK_NOTIFICATIONS: (NotificationItem & { type: string; image?: string })[] = [
   {
     id: "1",
     title: "Care ending soon",
     body: "Care for Polo with Bob Majors ends at 6PM",
     time: "1m",
     unread: true,
+    type: "care_given",
   },
   {
     id: "2",
@@ -41,18 +46,37 @@ const MOCK_NOTIFICATIONS: NotificationItem[] = [
     body: "“can we conclude”",
     time: "1h",
     unread: true,
+    type: "chat",
+    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
   },
   {
     id: "3",
-    title: "Check your match!",
-    body: "Bob Majors applied for Polo",
-    time: "5h",
+    title: "Checking Verification",
+    body: "Your verification is complete. You can now take jobs",
+    time: "3h",
+    type: "verification_complete",
   },
   {
     id: "4",
+    title: "Match Found!",
+    body: "Bob Majors applied for Polo",
+    time: "5h",
+    type: "applied",
+    image: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
+  },
+  {
+    id: "5",
     title: "+5 new points in!",
     body: "You completed care for Polo for Jane Ambers",
     time: "2d",
+    type: "points_gained",
+  },
+  {
+    id: "6",
+    title: "Care Successful!",
+    body: "You gave care to Polo",
+    time: "3d",
+    type: "paws_given",
   },
 ] as const;
 
@@ -75,6 +99,11 @@ export default function NotificationsScreen() {
 
   const menuButtonRefs = useRef<Record<string, View | null>>({});
 
+  // Sync items if MOCK_NOTIFICATIONS changes (handles hot reload stale state)
+  React.useEffect(() => {
+    setItems(MOCK_NOTIFICATIONS as NotificationItem[]);
+  }, []);
+
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
     const q = query.toLowerCase();
@@ -91,6 +120,30 @@ export default function NotificationsScreen() {
     setMenuPosition(null);
   };
 
+  const handleNotificationPress = (id: string) => {
+    const item = items.find(n => n.id === id);
+    if (!item) return;
+
+    switch (item.type) {
+      case "chat":
+        router.push("/(private)/(tabs)/messages");
+        break;
+      case "applied":
+      case "care_given":
+      case "paws_given":
+        // Assuming there's a task or pet detail page
+        router.push("/(private)/(tabs)/profile");
+        break;
+      case "verification_complete":
+        router.push("/(private)/(tabs)/profile");
+        break;
+      default:
+        // Generic fallback
+        router.push("/(private)/(tabs)/profile");
+        break;
+    }
+  };
+
   const hasNotifications = filtered.length > 0;
   const badgeCount = items.length;
 
@@ -100,6 +153,7 @@ export default function NotificationsScreen() {
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
           <NotificationsSkeleton />
@@ -109,101 +163,79 @@ export default function NotificationsScreen() {
   }
 
   return (
-    <View style={[styles.screen, { backgroundColor: colors.background }]}>
+    <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+      {/* Header with back button and notification title/badge */}
+      <BackHeader
+        title={
+          <View style={styles.titleRow}>
+            <AppText
+              variant="headline"
+              style={styles.title}
+              color={colors.onSurface}
+            >
+              {t("notifications.title", "Notifications")}
+            </AppText>
+            {badgeCount > 0 && (
+              <View
+                style={[
+                  styles.badge,
+                  { backgroundColor: colors.primary },
+                ]}
+              >
+                <AppText
+                  variant="caption"
+                  color={colors.onPrimary}
+                  style={styles.badgeText}
+                >
+                  {badgeCount}
+                </AppText>
+              </View>
+            )}
+          </View>
+        }
+      />
+
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        {/* Top header with shared BackHeader component */}
-        <View
-          style={[
-            styles.header,
-            {
-              backgroundColor: colors.surfaceBright,
-              borderBottomColor: colors.outlineVariant,
-            },
-          ]}
-        >
-          <BackHeader
-            onBack={() => router.push("/(private)/(tabs)")}
-            title={
-              <View style={styles.titleRow}>
-                <AppText
-                  variant="headline"
-                  style={styles.title}
-                  color={colors.onSurface}
-                >
-                  {t("notifications.title", "Notifications")}
-                </AppText>
-                {badgeCount > 0 && (
-                  <View
-                    style={[
-                      styles.badge,
-                      { backgroundColor: colors.primaryContainer },
-                    ]}
-                  >
-                    <AppText
-                      variant="caption"
-                      color={colors.onPrimaryContainer}
-                      style={styles.badgeText}
-                    >
-                      {badgeCount}
-                    </AppText>
-                  </View>
-                )}
-              </View>
-            }
-          />
-
-          {/* Search bar (Figma-aligned) */}
+        <View style={styles.header}>
           <SearchField
             containerStyle={styles.searchBar}
             placeholder={t("notifications.searchPlaceholder", "Search notifications")}
             value={query}
             onChangeText={setQuery}
+            rightSlot={<Search size={SearchFilterStyles.searchIconSize} color={colors.onSurfaceVariant} />}
           />
         </View>
 
         {hasNotifications ? (
           <View style={styles.list}>
             {filtered.map((n, index) => (
-              <View
+              <NotificationCard
                 key={n.id}
-                style={[
-                  styles.itemOuter,
-                  {
-                    backgroundColor: colors.surface,
-                  },
-                  index !== filtered.length - 1 && {
-                    borderBottomColor: colors.outlineVariant,
-                    borderBottomWidth: StyleSheet.hairlineWidth,
-                  },
-                ]}
-              >
-                <NotificationCard
-                  ref={(el) => {
-                    // store ref for menu positioning
-                    menuButtonRefs.current[n.id] = el;
-                  }}
-                  id={n.id}
-                  title={n.title}
-                  body={n.body}
-                  time={n.time}
-                  unread={n.unread}
-                  colors={{
-                    onSurface: colors.onSurface,
-                    onSurfaceVariant: colors.onSurfaceVariant,
-                  }}
-                  onPressMenu={(id) => {
-                    const btn = menuButtonRefs.current[id];
-                    btn?.measureInWindow((x, y, width, height) => {
-                      setMenuPosition({ x, y, width, height });
-                      setMenuForId(id);
-                    });
-                  }}
-                />
-              </View>
+                ref={(el) => {
+                  menuButtonRefs.current[n.id] = el;
+                }}
+                id={n.id}
+                title={n.title}
+                body={n.body}
+                time={n.time}
+                unread={n.unread}
+                type={n.type as any}
+                image={n.image}
+                isLast={index === filtered.length - 1}
+                onPress={handleNotificationPress}
+                onPressMenu={(id) => {
+                  const btn = menuButtonRefs.current[id];
+                  btn?.measureInWindow((x, y, width, height) => {
+                    setMenuPosition({ x, y, width, height });
+                    setMenuForId(id);
+                  });
+                }}
+              />
             ))}
           </View>
         ) : (
@@ -259,21 +291,25 @@ export default function NotificationsScreen() {
                 {
                   backgroundColor: colors.surfaceContainerLowest,
                   borderColor: colors.outlineVariant,
-                  top: menuPosition.y + menuPosition.height + 4,
-                  left: menuPosition.x - 180,
+                  top: menuPosition.y + menuPosition.height + 28,
+                  left: menuPosition.x - 160,
                 },
               ]}
             >
-              <Pressable style={styles.menuItem} onPress={handleDelete}>
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={handleDelete}
+              >
                 <AppText variant="body" color={colors.onSurface}>
                   {t("notifications.deleteOne", "Delete this notification")}
                 </AppText>
-              </Pressable>
+              </TouchableOpacity>
+              {/* If more items were here, we'd add separators */}
             </View>
           )}
         </Pressable>
       </Modal>
-    </View>
+    </PageContainer>
   );
 }
 
@@ -289,7 +325,6 @@ const styles = StyleSheet.create({
   },
   header: {
     paddingBottom: 16,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   titleRow: {
     flexDirection: "row",
@@ -316,21 +351,12 @@ const styles = StyleSheet.create({
     marginHorizontal: 16,
     height: SearchFilterStyles.searchBarHeight,
     borderRadius: SearchFilterStyles.searchBarBorderRadius,
-    borderWidth: 1,
     flexDirection: "row",
     alignItems: "center",
     gap: SearchFilterStyles.searchBarGap,
     paddingHorizontal: SearchFilterStyles.searchBarPaddingHorizontal,
   },
-  searchInput: {
-    flex: 1,
-    paddingVertical: 14,
-    fontSize: SearchFilterStyles.searchInputFontSize,
-  },
   list: {},
-  itemOuter: {
-    width: "100%",
-  },
   emptyState: {
     alignItems: "center",
     justifyContent: "center",
@@ -351,13 +377,12 @@ const styles = StyleSheet.create({
   },
   menuOverlay: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.12)",
   },
   menuCard: {
     position: "absolute",
-    width: 196,
     borderRadius: 12,
     borderWidth: 1,
+    minWidth: 220,
     shadowColor: "#000",
     shadowOpacity: 0.15,
     shadowRadius: 16,

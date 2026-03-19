@@ -1,19 +1,18 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet, ScrollView } from 'react-native';
+import { Colors } from '@/src/constants/colors';
+import { useThemeStore } from '@/src/lib/store/theme.store';
+import { AppImage } from '@/src/shared/components/ui/AppImage';
+import { AppText } from '@/src/shared/components/ui/AppText';
+import { Button } from '@/src/shared/components/ui/Button';
+import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import {
   ChevronLeft,
   EllipsisVertical,
   MapPin,
 } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { PageContainer } from '@/src/shared/components/layout';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { Button } from '@/src/shared/components/ui/Button';
-import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
 
 const MOCK_OFFER = {
   petName: 'Polo',
@@ -131,7 +130,7 @@ export default function ViewOfferScreen() {
 
         <Button
           label="Accept Offer"
-          onPress={() => {}}
+          onPress={() => { }}
           style={styles.acceptBtn}
         />
         <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.disclaimer}>
@@ -149,7 +148,7 @@ function DetailRow({
 }: {
   label: string;
   value: string;
-  colors: typeof Colors.light;
+  colors: typeof Colors.light | typeof Colors.dark;
 }) {
   return (
     <View style={styles.detailRow}>

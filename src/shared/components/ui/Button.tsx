@@ -22,6 +22,7 @@ type ButtonProps = {
   disabled?: boolean;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
+  leftIcon?: React.ReactNode;
 };
 
 const variantBg: Record<Variant, (colors: (typeof Colors)[keyof typeof Colors]) => string> = {
@@ -56,6 +57,7 @@ export function Button({
   disabled = false,
   fullWidth = true,
   style,
+  leftIcon,
 }: ButtonProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -97,6 +99,7 @@ export function Button({
           }
         />
       )}
+      {!loading && leftIcon}
       <AppText
         variant="label"
         color={variantTextColor[variant](colors)}
@@ -107,6 +110,7 @@ export function Button({
     </TouchableOpacity>
   );
 }
+
 
 const styles = StyleSheet.create({
   button: {

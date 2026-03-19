@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, StyleSheet } from 'react-native';
+import { View, StyleSheet, TouchableOpacity } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { Search, SlidersHorizontal } from 'lucide-react-native';
@@ -59,99 +59,92 @@ export default function MessagesScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const router = useRouter();
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
 
+  // Simulate premium loading state
+  React.useEffect(() => {
+    setLoading(true);
+    const timer = setTimeout(() => setLoading(false), 800);
+    return () => clearTimeout(timer);
+  }, []);
+
   return (
-    <PageContainer scrollable edges={['top', 'left', 'right']}>
-      <AppText variant="headline" style={styles.title}>
-        Chats
-      </AppText>
+    <PageContainer scrollable={!loading}>
+      <View style={styles.header}>
+        <AppText variant="headline" style={styles.title}>
+          Chats
+        </AppText>
+      </View>
+
+      <View style={styles.searchRow}>
+        <SearchField
+          containerStyle={styles.searchBar}
+          placeholder={t("messages.searchChats")}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
+        />
+        <TouchableOpacity
+          style={[styles.filterBtn, { backgroundColor: colors.surfaceContainerHighest }]}
+          hitSlop={8}
+        >
+          <SlidersHorizontal size={SearchFilterStyles.searchIconSize} color={colors.onSurface} />
+        </TouchableOpacity>
+      </View>
 
       {loading ? (
-        <>
-          <View style={[styles.searchSkeleton, { backgroundColor: colors.surfaceContainer }]} />
+        <View style={styles.list}>
           {[1, 2, 3, 4, 5, 6].map((i) => (
             <ChatRowSkeleton key={i} />
           ))}
-        </>
+        </View>
       ) : (
-        <>
-          <View style={styles.searchRow}>
-            <SearchField
-              containerStyle={styles.searchBar}
-              placeholder={t("messages.searchChats")}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
+        <View style={styles.list}>
+          {MOCK_CHATS.map((chat) => (
+            <ChatRow
+              key={chat.threadId}
+              threadId={chat.threadId}
+              name={chat.name}
+              avatarUri={chat.avatarUri ?? undefined}
+              lastMessagePreview={chat.lastMessagePreview}
+              timestamp={chat.timestamp}
+              unreadCount={chat.unreadCount}
+              onPress={() => router.push(`/(private)/(tabs)/messages/${chat.threadId}`)}
             />
-            <View style={[styles.filterBtn, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
-              <SlidersHorizontal size={SearchFilterStyles.searchIconSize} color={colors.onSurface} />
-            </View>
-          </View>
-
-          <View style={styles.list}>
-            {MOCK_CHATS.map((chat) => (
-              <ChatRow
-                key={chat.threadId}
-                threadId={chat.threadId}
-                name={chat.name}
-                avatarUri={chat.avatarUri ?? undefined}
-                lastMessagePreview={chat.lastMessagePreview}
-                timestamp={chat.timestamp}
-                unreadCount={chat.unreadCount}
-                onPress={() => router.push(`/(private)/(tabs)/messages/${chat.threadId}`)}
-              />
-            ))}
-          </View>
-        </>
+          ))}
+        </View>
       )}
     </PageContainer>
   );
 }
 
 const styles = StyleSheet.create({
-  title: {
-    fontSize: 22,
-    letterSpacing: -0.1,
-    marginBottom: 16,
+  header: {
+    paddingVertical: 8,
   },
-  searchSkeleton: {
-    height: SearchFilterStyles.searchBarHeight,
-    width: '100%',
-    borderRadius: SearchFilterStyles.searchBarBorderRadius,
-    marginBottom: 8,
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    letterSpacing: -0.5,
   },
   searchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: SearchFilterStyles.searchBarGap,
-    marginBottom: 8,
+    gap: 12,
+    marginVertical: 12,
   },
   searchBar: {
     flex: 1,
-    height: SearchFilterStyles.searchBarHeight,
-    borderRadius: SearchFilterStyles.searchBarBorderRadius,
-    borderWidth: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingLeft: SearchFilterStyles.searchBarPaddingHorizontal,
-    paddingRight: SearchFilterStyles.searchBarPaddingRight,
-    gap: SearchFilterStyles.searchBarGap,
-  },
-  searchInput: {
-    flex: 1,
-    fontSize: SearchFilterStyles.searchInputFontSize,
-    paddingVertical: 12,
   },
   filterBtn: {
     width: SearchFilterStyles.filterButtonSize,
     height: SearchFilterStyles.filterButtonSize,
     borderRadius: SearchFilterStyles.filterButtonBorderRadius,
-    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
   list: {
-    paddingBottom: 24,
+    paddingBottom: 40,
   },
 });

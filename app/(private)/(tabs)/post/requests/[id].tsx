@@ -1,28 +1,27 @@
-import React, { useState } from 'react';
-import {
-  View,
-  ScrollView,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  FlatList,
-} from 'react-native';
+import { Colors } from '@/src/constants/colors';
+import { useThemeStore } from '@/src/lib/store/theme.store';
+import { BackHeader } from '@/src/shared/components/layout/BackHeader';
+import { AppImage } from '@/src/shared/components/ui/AppImage';
+import { AppText } from '@/src/shared/components/ui/AppText';
+import { Button } from '@/src/shared/components/ui/Button';
+import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
 import {
-  Heart,
   Calendar,
   Clock,
+  Heart,
   MapPin,
 } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { BackHeader } from '@/src/shared/components/layout/BackHeader';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { Button } from '@/src/shared/components/ui/Button';
-import { ImageViewerModal } from '@/src/shared/components/ui/ImageViewerModal';
-import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import {
+  Dimensions,
+  FlatList,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const H_PADDING = 16;
@@ -77,7 +76,7 @@ export default function RequestDetailScreen() {
 
   const onApplyNow = () => {
     // Navigate to offer flow or submit application
-    router.push(`/offers/${id ?? '1'}`);
+    router.push(`/(private)/(tabs)/post/availability/${id ?? '1'}` as any);
   };
 
   return (
@@ -197,11 +196,11 @@ export default function RequestDetailScreen() {
         {/* Pet owner card */}
         <View style={[styles.ownerCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}>
           <View style={styles.ownerLeft}>
-<AppImage
-                  source={{ uri: request.owner.avatar }}
-                  style={[styles.ownerAvatar, { backgroundColor: colors.surfaceContainer }]}
-                  contentFit="cover"
-                />
+            <AppImage
+              source={{ uri: request.owner.avatar }}
+              style={[styles.ownerAvatar, { backgroundColor: colors.surfaceContainer }]}
+              contentFit="cover"
+            />
             <View style={styles.ownerInfo}>
               <AppText variant="title" color={colors.onSurface} style={styles.ownerName}>{request.owner.name}</AppText>
               <View style={styles.ownerStats}>
@@ -249,12 +248,6 @@ export default function RequestDetailScreen() {
           style={styles.applyBtn}
         />
       </ScrollView>
-      <ImageViewerModal
-        visible={galleryOpen}
-        images={request.images.map((uri) => ({ uri }))}
-        index={currentImageIndex}
-        onRequestClose={() => setGalleryOpen(false)}
-      />
     </View>
   );
 }
@@ -266,7 +259,7 @@ function DetailPill({
 }: {
   label: string;
   value: string;
-  colors: typeof Colors.light;
+  colors: typeof Colors.light | typeof Colors.dark;
 }) {
   return (
     <View style={styles.detailPillGroup}>

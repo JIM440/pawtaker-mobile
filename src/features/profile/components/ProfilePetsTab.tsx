@@ -23,12 +23,14 @@ type Props = {
   pets: ProfilePet[];
   onAddPet?: () => void;
   showAddPetButton?: boolean;
+  onPetPress?: (petId: string) => void;
 };
 
 export function ProfilePetsTab({
   pets,
   onAddPet,
   showAddPetButton = true,
+  onPetPress,
 }: Props) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -81,6 +83,7 @@ export function ProfilePetsTab({
             tags={pet.tags}
             seekingDateRange={pet.seekingDateRange}
             seekingTime={pet.seekingTime}
+            onPress={() => onPetPress?.(pet.id)}
           />
         ))}
       </View>

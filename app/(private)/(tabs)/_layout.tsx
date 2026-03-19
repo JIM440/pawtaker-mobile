@@ -126,6 +126,7 @@ export default function TabsLayout() {
                     ...ICON_PILL,
                     backgroundColor: "transparent",
                     overflow: "hidden",
+                    marginTop: -10
                   }}
                 >
                   <PlusCircle
@@ -137,7 +138,7 @@ export default function TabsLayout() {
                   <AppText
                     variant="caption"
                     color={colors.onSecondaryContainer}
-                    style={{ fontSize: 11, marginTop: -2 }}
+                    style={{ fontSize: 11, fontWeight: 600 }}
                   >
                     {t("post.title")}
                   </AppText>
@@ -201,7 +202,7 @@ export default function TabsLayout() {
         <Pressable
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.3)",
+            backgroundColor: "rgba(0,0,0,0.2)",
             justifyContent: "flex-end",
           }}
           onPress={() => setShowPostModal(false)}
@@ -211,7 +212,7 @@ export default function TabsLayout() {
               position: "absolute",
               left: 0,
               right: 0,
-              bottom: Platform.OS === "ios" ? 50 : 38,
+              bottom: Platform.OS === "ios" ? 140 : 128,
               alignItems: "center",
             }}
             pointerEvents="box-none"
@@ -220,14 +221,10 @@ export default function TabsLayout() {
               style={{
                 width: 220,
                 borderRadius: 8,
+
                 backgroundColor: colors.surface,
                 borderWidth: 1,
                 borderColor: colors.outlineVariant,
-                shadowColor: "#000",
-                shadowOpacity: 0.16,
-                shadowRadius: 20,
-                shadowOffset: { width: 0, height: 10 },
-                elevation: 8,
                 overflow: "hidden",
                 padding: 8,
               }}
@@ -237,10 +234,10 @@ export default function TabsLayout() {
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
                 onPress={() => {
                   setShowPostModal(false);
-                  router.push("/(private)/requests/create");
+                  router.push("/(private)/(tabs)/post/requests" as any);
                 }}
               >
-                <AppText variant="body" color={colors.onSurface}>
+                <AppText variant="body" color={colors.onSurface} style={{ fontWeight: 600 }}>
                   {t("post.requestCare", "Launch Request")}
                 </AppText>
               </Pressable>
@@ -256,17 +253,17 @@ export default function TabsLayout() {
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
                 onPress={() => {
                   setShowPostModal(false);
-                  router.push("/(private)/(tabs)/post/availability");
+                  router.push("/(private)/(tabs)/post/availability" as any);
                 }}
               >
-                <AppText variant="body" color={colors.onSurface}>
+                <AppText variant="body" color={colors.onSurface} style={{ fontWeight: 600 }}>
                   {t("post.addAvailability", "Available to Care")}
                 </AppText>
               </Pressable>
             </View>
           </View>
         </Pressable>
-      </Modal>
+      </Modal >
     </>
   );
 }

@@ -47,7 +47,7 @@ export function Input({
   };
 
   return (
-    <View style={[{ marginBottom: 20 }, containerStyle]}>
+    <View style={{ marginBottom: 20 }}>
       <View
         style={[
           {
@@ -59,17 +59,21 @@ export function Input({
                 : colors.outlineVariant,
             borderRadius: 16,
             backgroundColor: colors.surfaceContainerHighest,
-            paddingHorizontal: 8,
-            paddingTop: 12,
-            paddingBottom: 4,
+            paddingHorizontal: 16,
+            paddingVertical: label ? 0 : 12,
+            paddingTop: label ? 12 : 12,
+            paddingBottom: label ? 4 : 12,
             minHeight: 48,
+            justifyContent: "center",
           },
+          containerStyle,
         ]}
       >
         {label ? (
           <AppText
             variant="caption"
             color={isFocused ? colors.primary : colors.onSurfaceVariant}
+            style={{ lineHeight: 12 }}
           >
             {label}
           </AppText>
@@ -81,6 +85,7 @@ export function Input({
               {
                 color: colors.onSurface,
                 fontSize: 14,
+                flex: 1,
               },
               inputStyle,
             ]}

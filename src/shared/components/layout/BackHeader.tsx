@@ -3,7 +3,8 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React, { ReactNode } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { TouchableOpacity, View } from "react-native";
+import { AppText } from "../ui";
 
 type BackHeaderProps = {
   /**
@@ -40,9 +41,9 @@ export function BackHeader({ title = "", onBack, rightSlot }: BackHeaderProps) {
       </TouchableOpacity>
       <View className="flex-1 flex-row items-center justify-between">
         {typeof title === "string" ? (
-          <Text className="text-[22px] font-semibold text-on-surface tracking-tight">
+          <AppText variant="headline" style={{ fontSize: 22, fontWeight: "600", color: colors.onSurface }}>
             {title}
-          </Text>
+          </AppText>
         ) : (
           // Custom title node (e.g., title + badge row)
           title

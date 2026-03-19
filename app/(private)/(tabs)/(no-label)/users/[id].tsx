@@ -1,26 +1,18 @@
 import { Colors } from "@/src/constants/colors";
 import { ProfileAvailabilityTab } from "@/src/features/profile/components/ProfileAvailabilityTab";
 import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
+import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal.native";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Activity,
-  BadgeCheck,
-  Handshake,
-  MapPin,
-  MoreHorizontal,
-  PawPrint,
-  Star,
-} from "lucide-react-native";
+import { MoreHorizontal } from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -74,139 +66,44 @@ export default function PublicProfileScreen() {
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
       <View style={styles.header}>
-        <BackHeader />
-        <TouchableOpacity
-          onPress={() => setOptionsVisible(true)}
-          hitSlop={8}
-          style={{
-            ...styles.headerIconButton,
-            backgroundColor: colors.surfaceContainer,
-          }}
-        >
-          <MoreHorizontal size={24} color={colors.onSurface} />
-        </TouchableOpacity>
-      </View>
-
-      <ScrollView style={styles.scroll}>
-        <View style={styles.profileHead}>
+        <BackHeader rightSlot={
           <TouchableOpacity
-            activeOpacity={0.8}
-            style={styles.avatarWrap}
-            onPress={() => setAvatarViewerOpen(true)}
-          >
-            <AppImage
-              source={{ uri: PUBLIC_PROFILE.avatarUri }}
-              style={styles.avatar}
-              contentFit="cover"
-            />
-          </TouchableOpacity>
-          <View
+            onPress={() => setOptionsVisible(true)}
+            hitSlop={8}
             style={[
-              styles.availablePill,
-              { backgroundColor: colors.tertiaryContainer },
+              styles.headerIconButton,
+              { backgroundColor: colors.surfaceContainerHighest },
             ]}
           >
-            <AppText variant="caption" color={colors.onTertiaryContainer}>
-              Available
-            </AppText>
-          </View>
-          <View style={styles.nameRow}>
-            <AppText variant="headline" style={styles.userName}>
-              {PUBLIC_PROFILE.name}
-            </AppText>
-            <BadgeCheck size={20} color={colors.primary} />
-          </View>
-          <View style={styles.locationRow}>
-            <MapPin size={20} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {PUBLIC_PROFILE.location}
-            </AppText>
-          </View>
-          <View style={styles.statsRow}>
-            <View
-              style={[
-                styles.statPill,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <Activity size={12} color={colors.onSurfaceVariant} />
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.statText}
-              >
-                {PUBLIC_PROFILE.points} Points
-              </AppText>
-            </View>
-            <View
-              style={[
-                styles.statPill,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <View
-                style={[
-                  styles.statInner,
-                  {
-                    backgroundColor: colors.tertiaryContainer,
-                    borderColor: colors.outlineVariant,
-                  },
-                ]}
-              >
-                <Handshake size={12} color={colors.tertiary} />
-                <AppText
-                  variant="caption"
-                  color={colors.tertiary}
-                  style={styles.statText}
-                >
-                  {PUBLIC_PROFILE.handshakes}
-                </AppText>
-              </View>
-              <View
-                style={[
-                  styles.statInner,
-                  {
-                    backgroundColor: colors.secondaryContainer,
-                    borderColor: colors.outlineVariant,
-                  },
-                ]}
-              >
-                <PawPrint size={12} color={colors.onSurfaceVariant} />
-                <AppText
-                  variant="caption"
-                  color={colors.onSecondaryContainer}
-                  style={styles.statText}
-                >
-                  {PUBLIC_PROFILE.paws}
-                </AppText>
-              </View>
-            </View>
-            <View
-              style={[
-                styles.statPill,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <AppText variant="caption" color={colors.onSurfaceVariant}>
-                {PUBLIC_PROFILE.rating.toFixed(1)}
-              </AppText>
-              <Star size={12} color={colors.primary} fill={colors.primary} />
-            </View>
-          </View>
-          <View style={styles.currentTaskPill}>
-            <AppText variant="label" color={colors.onSurfaceVariant}>
-              {PUBLIC_PROFILE.currentTask}
-            </AppText>
-          </View>
-        </View>
+            <MoreHorizontal size={24} color={colors.onSurface} />
+          </TouchableOpacity>
+        } />
+      </View>
+
+      <ScrollView
+        style={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <ProfileHeader
+          name={PUBLIC_PROFILE.name}
+          avatarUri={PUBLIC_PROFILE.avatarUri}
+          location={PUBLIC_PROFILE.location}
+          points={PUBLIC_PROFILE.points}
+          handshakes={PUBLIC_PROFILE.handshakes}
+          paws={PUBLIC_PROFILE.paws}
+          rating={PUBLIC_PROFILE.rating}
+          currentTask={PUBLIC_PROFILE.currentTask}
+          onAvatarPress={() => setAvatarViewerOpen(true)}
+        />
 
         {/* Tabs */}
         <TabBar<ProfileTab>
           tabs={[
-            { key: "pets", label: "Your Pets" },
-            { key: "availability", label: "Availability" },
-            { key: "bio", label: "Short Bio" },
-            { key: "reviews", label: "Reviews" },
+            { key: "pets", label: t("profile.pets.tab", "Pets") },
+            { key: "availability", label: t("profile.edit.availabilityTab", "Availability") },
+            { key: "bio", label: t("auth.signup.profile.bio", "Short Bio") },
+            { key: "reviews", label: t("profile.reviews", "Reviews") },
           ]}
           activeKey={activeTab}
           onChange={setActiveTab}
@@ -215,7 +112,7 @@ export default function PublicProfileScreen() {
 
         {/* Tab content */}
         {activeTab === "pets" && (
-          <ProfilePetsTab pets={PUBLIC_PETS} onAddPet={() => {}} />
+          <ProfilePetsTab pets={PUBLIC_PETS} showAddPetButton={false} />
         )}
         {activeTab === "availability" && <ProfileAvailabilityTab />}
         {activeTab === "bio" && <ProfileBioTab />}
@@ -229,43 +126,44 @@ export default function PublicProfileScreen() {
             }
           />
         )}
+      </ScrollView>
 
-        {optionsVisible && (
-          <Pressable
-            style={styles.menuOverlay}
-            onPress={() => setOptionsVisible(false)}
+      {optionsVisible && (
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setOptionsVisible(false)}
+        >
+          <View
+            style={[
+              styles.menuContainer,
+              { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.outlineVariant },
+            ]}
           >
-            <View
-              style={[
-                styles.menuContainer,
-                { backgroundColor: colors.surface, shadowColor: "#000" },
-              ]}
-            >
-              <Pressable
-                style={styles.menuItem}
-                onPress={() => setOptionsVisible(false)}
-              >
-                <AppText variant="body" color={colors.onSurface}>Send request</AppText>
-              </Pressable>
-              <Pressable
-                style={styles.menuItem}
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }]}
               onPress={() => setOptionsVisible(false)}
-              >
-                <AppText variant="body" color={colors.onSurface}>Go to chat</AppText>
-              </Pressable>
-              <Pressable
-                style={styles.menuItem}
+            >
+              <AppText variant="body" color={colors.onSurface}>Send request</AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.menuItem, { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }]}
+              onPress={() => setOptionsVisible(false)}
+            >
+              <AppText variant="body" color={colors.onSurface}>Go to chat</AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={styles.menuItem}
               onPress={() => {
                 setOptionsVisible(false);
                 setShowBlockConfirm(true);
               }}
-              >
-                <AppText variant="body" color={colors.error}>
-                  Block this user
-                </AppText>
-              </Pressable>
-            </View>
-          </Pressable>
+            >
+              <AppText variant="body" color={colors.error}>
+                Block this user
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
       )}
 
       <FeedbackModal
@@ -282,7 +180,6 @@ export default function PublicProfileScreen() {
         onSecondary={() => setShowBlockConfirm(false)}
         onRequestClose={() => setShowBlockConfirm(false)}
       />
-      </ScrollView>
       <ImageViewerModal
         visible={avatarViewerOpen}
         images={[{ uri: PUBLIC_PROFILE.avatarUri }]}
@@ -294,91 +191,10 @@ export default function PublicProfileScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    paddingHorizontal: 16,
-    paddingBottom: 12,
-  },
-  headerTitle: {
-    flex: 1,
-    textAlign: "center",
+    paddingHorizontal: 0,
   },
   headerIconButton: {
-    padding: 4,
-    borderRadius: 999,
-  },
-  profileHead: {
-    alignItems: "center",
-    marginBottom: 16,
-    paddingHorizontal: 16,
-  },
-  avatarWrap: {
-    position: "relative",
-    marginBottom: 8,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-  },
-  availablePill: {
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 4,
-    marginBottom: 6,
-  },
-  nameRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 6,
-    marginBottom: 4,
-  },
-  userName: {
-    maxWidth: 180,
-    flexShrink: 1,
-    fontSize: 28,
-    letterSpacing: -0.5,
-    lineHeight: 36,
-  },
-  locationRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    marginBottom: 8,
-  },
-  statsRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flexWrap: "wrap",
-    justifyContent: "center",
-    gap: 16,
-    marginBottom: 8,
-  },
-  statText: {
-    fontSize: 9,
-    lineHeight: 16,
-  },
-  statPill: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-    paddingHorizontal: 8,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  statInner: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  currentTaskPill: {
-    paddingHorizontal: 8,
-    paddingVertical: 2,
+    padding: 6,
     borderRadius: 999,
   },
   menuOverlay: {
@@ -388,20 +204,24 @@ const styles = StyleSheet.create({
     left: 0,
     bottom: 0,
     alignItems: "flex-end",
-    paddingRight: 12,
+    paddingTop: 60,
+    paddingRight: 16,
+    backgroundColor: "transparent",
   },
   menuContainer: {
     borderRadius: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
-    gap: 4,
-    shadowOpacity: 0.18,
-    shadowOffset: { width: 0, height: 4 },
-    shadowRadius: 8,
-    elevation: 4,
+    borderWidth: 1,
+    minWidth: 180,
+    shadowColor: "#000",
+    shadowOpacity: 0.12,
+    shadowOffset: { width: 0, height: 8 },
+    shadowRadius: 12,
+    elevation: 5,
+    overflow: "hidden",
   },
   menuItem: {
-    paddingVertical: 6,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
   },
   scroll: {
     flex: 1,

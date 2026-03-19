@@ -11,47 +11,101 @@ import {
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
-import { ChevronLeft, Send, EllipsisVertical } from 'lucide-react-native';
+import { ChevronLeft, Send, EllipsisVertical, Plus, Calendar, Clock } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
 import { Input } from '@/src/shared/components/ui/Input';
+import { Button } from '@/src/shared/components/ui/Button';
 
 type BubbleSide = 'left' | 'right';
+type MessageType = 'text' | 'image' | 'request';
 
 const MOCK_THREAD = {
   userId: 't1',
   name: 'Bob Majors',
-  subtitle: 'Caring for Emm...',
+  subtitle: 'Caring for Emma',
   avatarUri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
   messages: [
-    { id: '1', side: 'right' as BubbleSide, text: 'How are you?' },
-    { id: '2', side: 'left' as BubbleSide, text: 'hello 🔥' },
-    { id: '3', side: 'left' as BubbleSide, text: 'I am well, and you?' },
-    { id: '4', side: 'right' as BubbleSide, text: 'well' },
+    { id: 'date-1', type: 'date' as any, text: 'Monday, March 14' },
+    { id: '1', side: 'right' as BubbleSide, type: 'text' as MessageType, text: 'Hi Bob! Are you still available for the daytime care next week?' },
+    { id: '2', side: 'left' as BubbleSide, type: 'text' as MessageType, text: 'Yes, i\'ll be available. I just saw your request!' },
+    { 
+      id: '3', 
+      side: 'left' as BubbleSide, 
+      type: 'request' as MessageType, 
+      requestData: {
+        petName: 'Emma',
+        breed: 'Golden Retriever',
+        date: 'Mar 14-18',
+        time: '8am-4pm',
+        price: '$25/hr'
+      }
+    },
+    { id: 'date-2', type: 'date' as any, text: 'Today' },
+    { id: '4', side: 'right' as BubbleSide, type: 'text' as MessageType, text: 'Great! I\'ll confirm the booking now.' },
   ],
 };
 
 function MessageBubble({
-  text,
-  side,
+  message,
   colors,
 }: {
-  text: string;
-  side: BubbleSide;
-  colors: typeof Colors.light;
+  message: any;
+  colors: any;
 }) {
-  const isRight = side === 'right';
+  const isRight = message.side === 'right';
+  
+  if (message.type === 'date') {
+    return (
+      <View style={styles.dateLabel}>
+        <AppText variant="caption" color={colors.onSurfaceVariant}>{message.text}</AppText>
+      </View>
+    );
+  }
+
+  if (message.type === 'request') {
+    return (
+      <View style={[styles.bubbleWrap, styles.bubbleWrapLeft]}>
+        <View style={[styles.requestCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
+          <AppText variant="label" style={{ marginBottom: 8 }}>Service Request</AppText>
+          <View style={styles.requestInfo}>
+            <View style={styles.requestHeader}>
+              <View style={[styles.petCircle, { backgroundColor: colors.surfaceDim }]}>
+                 <AppText variant="caption">E</AppText>
+              </View>
+              <View>
+                <AppText variant="body" style={{ fontWeight: '600' }}>{message.requestData.petName}</AppText>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>{message.requestData.breed}</AppText>
+              </View>
+            </View>
+            <View style={styles.requestMeta}>
+               <View style={styles.metaItem}>
+                  <Calendar size={14} color={colors.primary} />
+                  <AppText variant="caption">{message.requestData.date}</AppText>
+               </View>
+               <View style={styles.metaItem}>
+                  <Clock size={14} color={colors.primary} />
+                  <AppText variant="caption">{message.requestData.time}</AppText>
+               </View>
+            </View>
+          </View>
+          <Button label="View Request" size="sm" style={{ marginTop: 12 }} />
+        </View>
+      </View>
+    );
+  }
+
   return (
     <View style={[styles.bubbleWrap, isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft]}>
       <View
         style={[
           styles.bubble,
           isRight
-            ? { backgroundColor: colors.primary }
-            : { backgroundColor: colors.surfaceContainer },
+            ? { backgroundColor: colors.primary, borderBottomRightRadius: 4 }
+            : { backgroundColor: colors.surfaceContainer, borderBottomLeftRadius: 4 },
         ]}
       >
         <AppText
@@ -59,9 +113,12 @@ function MessageBubble({
           color={isRight ? colors.onPrimary : colors.onSurface}
           style={styles.bubbleText}
         >
-          {text}
+          {message.text}
         </AppText>
       </View>
+      <AppText variant="caption" color={colors.onSurfaceVariant} style={{ fontSize: 10, marginTop: 2, alignSelf: isRight ? 'flex-end' : 'flex-start' }}>
+        10:45 AM
+      </AppText>
     </View>
   );
 }
@@ -175,15 +232,20 @@ export default function ThreadScreen() {
           {thread.messages.map((msg) => (
             <MessageBubble
               key={msg.id}
-              text={msg.text}
-              side={msg.side}
+              message={msg}
               colors={colors}
             />
           ))}
         </ScrollView>
 
         {/* Input */}
-        <View style={[styles.inputRow, { borderTopColor: colors.outlineVariant }]}>
+        <View style={[styles.inputRow, { borderTopColor: colors.outlineVariant, backgroundColor: colors.surfaceBright }]}>
+          <TouchableOpacity
+            style={[styles.attachBtn, { backgroundColor: colors.surfaceContainerHighest }]}
+            hitSlop={8}
+          >
+            <Plus size={24} color={colors.onSurface} />
+          </TouchableOpacity>
           <Input
             containerStyle={{ flex: 1, marginBottom: 0 }}
             inputStyle={[
@@ -191,6 +253,7 @@ export default function ThreadScreen() {
               {
                 backgroundColor: colors.surfaceContainer,
                 borderColor: colors.surfaceContainer,
+                borderRadius: 24,
               },
             ]}
             placeholder={t('messages.typeMessage')}
@@ -248,9 +311,13 @@ const styles = StyleSheet.create({
     padding: 16,
     paddingBottom: 24,
   },
+  dateLabel: {
+    alignItems: 'center',
+    marginVertical: 16,
+  },
   bubbleWrap: {
-    marginBottom: 8,
-    maxWidth: '80%',
+    marginBottom: 12,
+    maxWidth: '85%',
   },
   bubbleWrapLeft: {
     alignSelf: 'flex-start',
@@ -261,33 +328,69 @@ const styles = StyleSheet.create({
   bubble: {
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 16,
+    borderRadius: 20,
   },
   bubbleText: {
-    fontSize: 14,
-    lineHeight: 20,
+    fontSize: 15,
+    lineHeight: 22,
+  },
+  requestCard: {
+    padding: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+    width: 280,
+  },
+  requestInfo: {
+    gap: 12,
+  },
+  requestHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  petCircle: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  requestMeta: {
+    flexDirection: 'row',
+    gap: 16,
+  },
+  metaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
   },
   inputRow: {
     flexDirection: 'row',
-    alignItems: 'flex-end',
-    paddingHorizontal: 16,
+    alignItems: 'center',
+    paddingHorizontal: 12,
     paddingVertical: 12,
     gap: 8,
     borderTopWidth: 1,
   },
+  attachBtn: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   input: {
     flex: 1,
-    minHeight: 40,
-    maxHeight: 100,
-    borderRadius: 20,
+    minHeight: 44,
+    maxHeight: 120,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 14,
+    fontSize: 15,
   },
   sendBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
     alignItems: 'center',
     justifyContent: 'center',
   },

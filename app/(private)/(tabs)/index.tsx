@@ -9,12 +9,14 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
+import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import Slider from "@react-native-community/slider";
 import { useRouter } from "expo-router";
 import {
   Bell,
   EllipsisVertical,
   MapPin,
+  Search,
   SlidersHorizontal,
   Star,
 } from "lucide-react-native";
@@ -218,9 +220,10 @@ export default function HomeScreen() {
 
   const [filterModalOpen, setFilterModalOpen] = useState(false);
   const [careTypeFilter, setCareTypeFilter] = useState<string[]>([]);
-  const [maxDistanceKm, setMaxDistanceKm] = useState(MAX_DISTANCE_RANGE.max);
+  const [distanceRange, setDistanceRange] = useState({ min: 0, max: MAX_DISTANCE_RANGE.max });
   const [filterDraft, setFilterDraft] = useState({
     careTypes: [] as string[],
+    minKm: 0,
     maxKm: MAX_DISTANCE_RANGE.max,
   });
 
@@ -239,7 +242,7 @@ export default function HomeScreen() {
       if (careTypeFilter.length > 0 && !careTypeFilter.includes(item.careType))
         return false;
       const distKm = parseDistanceKm(item.distance);
-      if (distKm > maxDistanceKm) return false;
+      if (distKm < distanceRange.min || distKm > distanceRange.max) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -249,7 +252,7 @@ export default function HomeScreen() {
         item.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, maxDistanceKm]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange]);
 
   const filteredTakers = useMemo(() => {
     return MOCK_TAKERS.filter((taker) => {
@@ -260,7 +263,7 @@ export default function HomeScreen() {
       )
         return false;
       const distKm = parseDistanceKm(taker.distance);
-      if (distKm > maxDistanceKm) return false;
+      if (distKm < distanceRange.min || distKm > distanceRange.max) return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -269,7 +272,7 @@ export default function HomeScreen() {
         taker.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, maxDistanceKm]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange]);
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
@@ -278,9 +281,10 @@ export default function HomeScreen() {
     return (
       <PageContainer>
         <ScrollView
-          style={{ flex: 1 }}
-          contentContainerStyle={{ paddingBottom: 24 }}
+          className="flex-1"
+          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
           showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
         >
           <FeedSkeleton />
         </ScrollView>
@@ -307,7 +311,7 @@ export default function HomeScreen() {
         >
           <Bell size={24} color={colors.onSurface} />
           <View
-            className="absolute -top-0.5 right-1 min-w-[12px] h-[12px] rounded-full items-center justify-center px-1"
+            className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
             style={{ backgroundColor: colors.primary }}
           >
             <AppText
@@ -326,6 +330,7 @@ export default function HomeScreen() {
         keyExtractor={(item) => item.id}
         contentContainerStyle={{ paddingBottom: 24, gap: 8 }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
         ListHeaderComponent={
           <>
             {/* Search + filter (Figma-aligned styles) */}
@@ -335,20 +340,23 @@ export default function HomeScreen() {
                 placeholder={t("feed.searchPlaceholder")}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
+                rightSlot={
+                  <Search size={20} color={colors.onSurfaceVariant} />
+                }
               />
               <TouchableOpacity
                 style={[
                   styles.filterButton,
                   {
-                    backgroundColor: colors.surfaceContainer,
-                    borderColor: colors.outlineVariant,
+                    backgroundColor: colors.surfaceContainerHighest,
                   },
                 ]}
                 hitSlop={8}
                 onPress={() => {
                   setFilterDraft({
                     careTypes: [...careTypeFilter],
-                    maxKm: maxDistanceKm,
+                    minKm: distanceRange.min,
+                    maxKm: distanceRange.max,
                   });
                   setFilterModalOpen(true);
                 }}
@@ -374,16 +382,30 @@ export default function HomeScreen() {
             />
 
             {showRequests && (
-              <View className="flex-row items-center gap-2 mb-2">
-                <AppText
-                  variant="title"
-                  style={{ fontSize: 16, letterSpacing: -0.1 }}
-                >
-                  {t("feed.requestsNearYou")}
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {filteredRequests.length} {t("feed.petsInArea")}
-                </AppText>
+              <View style={styles.resultsHeader}>
+                {careTypeFilter.length > 0 || distanceRange.min > 0 || distanceRange.max < MAX_DISTANCE_RANGE.max ? (
+                  <View style={styles.resultsRow}>
+                    <AppText variant="title" style={{ fontSize: 16 }}>results: </AppText>
+                    <AppText variant="body" color={colors.primary} style={{ fontWeight: '600' }}>
+                      {[
+                        ...careTypeFilter,
+                        `${distanceRange.min}km-${distanceRange.max}km`
+                      ].join(', ')}
+                    </AppText>
+                  </View>
+                ) : (
+                  <View className="flex-row items-center gap-2">
+                    <AppText
+                      variant="title"
+                      style={{ fontSize: 16, letterSpacing: -0.1 }}
+                    >
+                      {t("feed.requestsNearYou")}
+                    </AppText>
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {filteredRequests.length} {t("feed.petsInArea")}
+                    </AppText>
+                  </View>
+                )}
               </View>
             )}
           </>
@@ -404,7 +426,8 @@ export default function HomeScreen() {
               caretaker={item.caretaker}
               isFavorite={favorites.has(item.id)}
               onFavorite={() => toggleFavorite(item.id)}
-              onApply={() => router.push(`/requests/${item.id}`)}
+              onApply={() => router.push(`/post/requests/${item.id}` as any)}
+              onPress={() => router.push(`/(private)/pets/${item.id}` as any)}
               onCaretakerPress={() =>
                 router.push({
                   pathname: "/(private)/(tabs)/(no-label)/users/[id]",
@@ -568,7 +591,7 @@ export default function HomeScreen() {
       <Modal
         transparent
         visible={filterModalOpen}
-        animationType="slide"
+        animationType="fade"
         onRequestClose={() => setFilterModalOpen(false)}
       >
         <Pressable
@@ -655,30 +678,20 @@ export default function HomeScreen() {
                 color={colors.onSurfaceVariant}
                 style={styles.filterSectionLabel}
               >
-                {t("filters.maxDistance")}
+                {t("filters.distanceRange", "Distance Range")}
               </AppText>
-              <View style={styles.filterDistanceRow}>
-                <Slider
-                  style={styles.filterSlider}
-                  minimumValue={MAX_DISTANCE_RANGE.min}
-                  maximumValue={MAX_DISTANCE_RANGE.max}
-                  step={1}
-                  value={filterDraft.maxKm}
-                  onValueChange={(v) =>
-                    setFilterDraft((d) => ({ ...d, maxKm: Math.round(v) }))
-                  }
-                  minimumTrackTintColor={colors.primary}
-                  maximumTrackTintColor={colors.outlineVariant}
-                  thumbTintColor={colors.primary}
-                />
-                <AppText
-                  variant="body"
-                  color={colors.onSurface}
-                  style={styles.filterDistanceValue}
-                >
-                  {filterDraft.maxKm} km
-                </AppText>
+              
+              <View style={styles.rangeLabels}>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>{t("common.min", "Min")}: {filterDraft.minKm}km</AppText>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>{t("common.max", "Max")}: {filterDraft.maxKm}km</AppText>
               </View>
+
+              <RangeSlider
+                min={MAX_DISTANCE_RANGE.min}
+                max={MAX_DISTANCE_RANGE.max}
+                values={[filterDraft.minKm, filterDraft.maxKm]}
+                onValuesChange={([minv, maxv]: [number, number]) => setFilterDraft((d) => ({ ...d, minKm: minv, maxKm: maxv }))}
+              />
             </ScrollView>
             <View
               style={[
@@ -689,12 +702,14 @@ export default function HomeScreen() {
               <Button
                 label={t("filters.reset")}
                 onPress={() => {
-                  setFilterDraft({
+                  const resetValue = {
                     careTypes: [],
+                    minKm: 0,
                     maxKm: MAX_DISTANCE_RANGE.max,
-                  });
-                  setCareTypeFilter([]);
-                  setMaxDistanceKm(MAX_DISTANCE_RANGE.max);
+                  };
+                  setFilterDraft(resetValue);
+                  setCareTypeFilter(resetValue.careTypes);
+                  setDistanceRange({ min: resetValue.minKm, max: resetValue.maxKm });
                 }}
                 variant="outline"
                 style={styles.filterFooterBtn}
@@ -703,7 +718,7 @@ export default function HomeScreen() {
                 label={t("filters.apply")}
                 onPress={() => {
                   setCareTypeFilter(filterDraft.careTypes);
-                  setMaxDistanceKm(filterDraft.maxKm);
+                  setDistanceRange({ min: Math.min(filterDraft.minKm, filterDraft.maxKm), max: Math.max(filterDraft.minKm, filterDraft.maxKm) });
                   setFilterModalOpen(false);
                 }}
                 style={styles.filterFooterBtn}
@@ -725,24 +740,45 @@ export default function HomeScreen() {
         >
           {menuPosition && openMenuTaker && (
             <View
-              className="absolute rounded-xl border shadow-lg overflow-hidden"
               style={{
                 top: menuPosition.y + menuPosition.height + 4,
                 left: menuPosition.x - 160,
                 width: 172,
-                backgroundColor: colors.surface,
+                backgroundColor: colors.surfaceContainerLowest,
                 borderColor: colors.outlineVariant,
+                borderRadius: 12,
+                borderWidth: 1,
+                overflow: "hidden",
+                elevation: 4,
+                shadowColor: "#000",
+                shadowOpacity: 0.1,
+                shadowOffset: { width: 0, height: 4 },
+                shadowRadius: 8
               }}
             >
+              <Pressable
+                style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
+                onPress={() => {
+                  setOpenMenuTaker(null);
+                  router.push({
+                    pathname: "/(private)/(tabs)/(no-label)/users/[id]",
+                    params: { id: openMenuTaker.id }
+                  });
+                }}
+              >
+                <AppText variant="body" color={colors.onSurface}>
+                  {t("common.viewProfile", "View Profile")}
+                </AppText>
+              </Pressable>
               <Pressable
                 style={{ paddingHorizontal: 16, paddingVertical: 12 }}
                 onPress={() => {
                   setOpenMenuTaker(null);
-                  router.push(`/takers/${openMenuTaker.id}`);
+                  // Logic for send request
                 }}
               >
                 <AppText variant="body" color={colors.onSurface}>
-                  Send Request
+                  {t("common.sendRequest", "Send Request")}
                 </AppText>
               </Pressable>
             </View>
@@ -762,25 +798,14 @@ const styles = StyleSheet.create({
   },
   searchBar: {
     flex: 1,
-    height: SearchFilterStyles.searchBarHeight,
-    borderRadius: SearchFilterStyles.searchBarBorderRadius,
-    borderWidth: 1,
-    flexDirection: "row",
-    alignItems: "center",
-    paddingLeft: SearchFilterStyles.searchBarPaddingHorizontal,
-    paddingRight: SearchFilterStyles.searchBarPaddingRight,
-    gap: SearchFilterStyles.searchBarGap,
   },
   searchInput: {
     flex: 1,
-    fontSize: SearchFilterStyles.searchInputFontSize,
-    paddingVertical: 0,
   },
   filterButton: {
     width: SearchFilterStyles.filterButtonSize,
     height: SearchFilterStyles.filterButtonSize,
     borderRadius: SearchFilterStyles.filterButtonBorderRadius,
-    borderWidth: 1,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -789,6 +814,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
     justifyContent: "flex-start",
     gap: 8,
+  },
+  resultsHeader: {
+    marginBottom: 8,
+  },
+  resultsRow: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  rangeLabels: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 4,
   },
   filterModalOverlay: {
     flex: 1,

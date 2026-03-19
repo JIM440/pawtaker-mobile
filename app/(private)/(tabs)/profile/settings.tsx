@@ -68,6 +68,7 @@ export default function SettingsScreen() {
           paddingTop: 16,
         }}
         showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
       >
         <View
           style={{
@@ -107,7 +108,7 @@ export default function SettingsScreen() {
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 borderRadius: 4,
-                backgroundColor: colors.surfaceBright,
+                backgroundColor: colors.surfaceContainerHighest,
               }}
               activeOpacity={0.8}
               onPress={() => {
@@ -151,7 +152,7 @@ export default function SettingsScreen() {
                 paddingHorizontal: 12,
                 paddingVertical: 8,
                 borderRadius: 4,
-                backgroundColor: colors.surfaceBright,
+                backgroundColor: colors.surfaceContainerHighest,
               }}
               activeOpacity={0.8}
               onPress={() => {
@@ -297,26 +298,22 @@ export default function SettingsScreen() {
         onRequestClose={() => setOpenMenu(null)}
       >
         <Pressable
-          className="flex-1 bg-black/20"
+          className="flex-1"
           onPress={() => setOpenMenu(null)}
         >
           {menuPosition && (
             <View
               style={{
                 position: "absolute",
-                top: menuPosition.y + menuPosition.height - 20,
+                top: menuPosition.y + menuPosition.height + 36,
                 // Shift slightly right but keep within screen by using width and horizontal padding
-                left: Math.max(menuPosition.x - 40, 16),
-                right: 16,
-                width: undefined,
+                // left: Math.max(menuPosition.x - 40, 16),
+                right: 24,
+                width: 150,
                 borderRadius: 12,
                 backgroundColor: colors.surfaceContainerLowest,
                 borderWidth: 1,
                 borderColor: colors.outlineVariant,
-                shadowColor: "#000",
-                shadowOpacity: 0.12,
-                shadowOffset: { width: 0, height: 12 },
-                shadowRadius: 16,
                 overflow: "hidden",
               }}
             >
@@ -328,7 +325,6 @@ export default function SettingsScreen() {
                       paddingVertical: 12,
                       borderBottomWidth: 1,
                       borderBottomColor: colors.outlineVariant,
-                      backgroundColor: colors.surfaceContainer,
                     }}
                     onPress={() => {
                       setTheme("system");
@@ -345,7 +341,6 @@ export default function SettingsScreen() {
                       paddingVertical: 12,
                       borderBottomWidth: 1,
                       borderBottomColor: colors.outlineVariant,
-                      backgroundColor: colors.surfaceContainerLowest,
                     }}
                     onPress={() => {
                       setTheme("light");
@@ -360,7 +355,6 @@ export default function SettingsScreen() {
                     style={{
                       paddingHorizontal: 16,
                       paddingVertical: 12,
-                      backgroundColor: colors.surfaceContainerLowest,
                     }}
                     onPress={() => {
                       setTheme("dark");
@@ -382,7 +376,6 @@ export default function SettingsScreen() {
                       paddingVertical: 12,
                       borderBottomWidth: 1,
                       borderBottomColor: colors.outlineVariant,
-                      backgroundColor: colors.surfaceContainer,
                     }}
                     onPress={() => {
                       setLanguage("en");
@@ -398,7 +391,6 @@ export default function SettingsScreen() {
                     style={{
                       paddingHorizontal: 16,
                       paddingVertical: 12,
-                      backgroundColor: colors.surfaceContainerLowest,
                     }}
                     onPress={() => {
                       setLanguage("fr");
@@ -440,19 +432,19 @@ export default function SettingsScreen() {
         description={
           confirmAction === "logout"
             ? t(
-                "settings.logoutConfirm",
-                "You will need to sign back in to view your messages and manage your profile.",
-              )
+              "settings.logoutConfirm",
+              "You will need to sign back in to view your messages and manage your profile.",
+            )
             : confirmAction === "deactivate"
               ? t(
-                  "settings.deactivateConfirm",
-                  "Your account will be paused. You will not appear in searches or receive new messages.",
-                )
+                "settings.deactivateConfirm",
+                "Your account will be paused. You will not appear in searches or receive new messages.",
+              )
               : confirmAction === "delete"
                 ? t(
-                    "settings.deleteConfirm",
-                    "This will permanently delete your account and all related data. This action cannot be undone.",
-                  )
+                  "settings.deleteConfirm",
+                  "This will permanently delete your account and all related data. This action cannot be undone.",
+                )
                 : ""
         }
         primaryLabel={

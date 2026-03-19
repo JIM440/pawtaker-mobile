@@ -6,7 +6,7 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { Input } from "@/src/shared/components/ui/Input";
 import React from "react";
 import { useTranslation } from "react-i18next";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 type EditDetailsTabProps = {
   avatarUri: string;
@@ -40,7 +40,7 @@ export function EditDetailsTab({
   const colors = Colors[resolvedTheme];
 
   return (
-    <View style={styles.container}>
+    <ScrollView contentContainerStyle={styles.container}>
       {/* Avatar + Choose image */}
       <View style={styles.avatarRow}>
         <AppImage
@@ -77,19 +77,22 @@ export function EditDetailsTab({
 
       {/* ZIP Code + Location row */}
       <View style={styles.row}>
-        <Input
-          label={t("auth.signup.profile.zipCode", "ZIP Code")}
-          value={zipCode}
-          onChangeText={onChangeZipCode}
-          containerStyle={styles.zipField}
-          keyboardType="number-pad"
-        />
-        <Input
-          label={t("auth.signup.profile.city", "Location")}
-          value={location}
-          onChangeText={onChangeLocation}
-          containerStyle={styles.locationField}
-        />
+        <View style={styles.zipWrapper}>
+          <Input
+            label={t("auth.signup.profile.zipCode", "ZIP Code")}
+            value={zipCode}
+            onChangeText={onChangeZipCode}
+            keyboardType="number-pad"
+          />
+        </View>
+
+        <View style={styles.locationWrapper}>
+          <Input
+            label={t("auth.signup.profile.city", "Location")}
+            value={location}
+            onChangeText={onChangeLocation}
+          />
+        </View>
       </View>
 
       <Button
@@ -98,7 +101,7 @@ export function EditDetailsTab({
         style={styles.saveBtn}
         fullWidth
       />
-    </View>
+    </ScrollView>
   );
 }
 
@@ -131,10 +134,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
-  zipField: {
+  zipWrapper: {
     width: 100,
   },
-  locationField: {
+
+  locationWrapper: {
     flex: 1,
   },
   saveBtn: {

@@ -28,8 +28,10 @@ const materialLight = {
   outline: "#837377",
   outlineVariant: "#d5c2c6",
   surfaceContainer: "#faf2f4",
+  surfaceContainerLow: "#fff7f8",
   surfaceContainerLowest: "#ffffff",
   surfaceContainerHighest: "#EDE6E7",
+  surfaceDim: "#ebdddf",
 } as const;
 
 const materialDark = {
@@ -59,8 +61,10 @@ const materialDark = {
   outline: "#9e8c90",
   outlineVariant: "#514347",
   surfaceContainer: "#0d0c0c",
+  surfaceContainerLow: "#121011",
   surfaceContainerLowest: "#0a090a",
   surfaceContainerHighest: "#383435",
+  surfaceDim: "#191113",
 } as const;
 
 export const Colors = {

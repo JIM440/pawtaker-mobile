@@ -16,7 +16,11 @@
     "filter": "Filter",
     "noResults": "No results found",
     "points": "points",
-    "goHome": "Go home"
+    "goHome": "Go home",
+    "min": "Min",
+    "max": "Max",
+    "viewProfile": "View Profile",
+    "sendRequest": "Send Request"
   },
   "notFound": {
     "title": "Oops!",
@@ -159,7 +163,7 @@
       },
       "publish": {
         "title": "Review & Publish",
-        "publish": "Publish request"
+        "publish": "Save and Launch Care Request"
       },
       "selectPet": "Select pet",
       "addPet": "Add pet",
@@ -221,7 +225,8 @@
     "maxDistance": "Max distance",
     "reset": "Reset",
     "apply": "Apply",
-    "done": "Done"
+    "done": "Done",
+    "distanceRange": "Distance Range"
   },
   "availability": {
     "title": "Post availability",
@@ -284,7 +289,7 @@
     "deleteCta": "Delete"
   },
   "profile": {
-    "title": "My Profile",
+    "title": "Profile",
     "reviews": "Reviews",
     "points": "Points",
     "pets": {
@@ -341,7 +346,10 @@
       "age": "Age (years)",
       "weight": "Weight (kg)",
       "notes": "Special notes",
-      "submit": "Add pet"
+      "submit": "Add pet",
+      "yardType": "Yard Type",
+      "energyLevel": "Energy Level",
+      "specialNeedsPlaceholder": "e.g., Needs insulin shots twice a day or is very shy around loud noises."
     },
     "profile": {
       "title": "Pet Profile",
@@ -349,7 +357,11 @@
       "info": "Information"
     },
     "edit": {
-      "title": "Edit Pet"
+      "title": "Edit Pet",
+      "kind": "Pet kind",
+      "breed": "Breed",
+      "specialNeeds": "Does your pet have special needs?",
+      "details": "Details"
     }
   },
   "errors": {

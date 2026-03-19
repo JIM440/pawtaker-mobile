@@ -23,7 +23,7 @@ export default function PostChooseScreen() {
 
   const openRequest = () => {
     setModalVisible(false);
-    router.replace('/(private)/(tabs)/post/request');
+    router.replace('/(private)/(tabs)/post/requests');
   };
 
   const openAvailability = () => {

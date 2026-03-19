@@ -8,8 +8,9 @@ import {
   useWindowDimensions,
   View,
   type StyleProp,
-  type ViewStyle,
+  type ViewStyle
 } from "react-native";
+import Animated, { FadeInUp } from "react-native-reanimated";
 import { AppText } from "./AppText";
 import { Button } from "./Button";
 
@@ -60,24 +61,26 @@ export function FeedbackModal({
       transparent
       animationType="fade"
       onRequestClose={handleClose}
-      style={{ height, backgroundColor: colors.error }}
     >
-      <Pressable style={{...styles.backdrop, height}} onPress={handleClose}>
-        <Pressable
+      <Pressable style={[styles.backdrop, { backgroundColor: 'rgba(0,0,0,0.4)' }]} onPress={handleClose}>
+        <Animated.View
+          entering={FadeInUp}
           style={[
             styles.card,
-            { backgroundColor: colors.surfaceContainer },
+            {
+              backgroundColor: colors.surfaceContainer,
+              borderColor: colors.outlineVariant,
+              borderWidth: 1,
+            },
             containerStyle,
           ]}
-          onPress={(e) => e.stopPropagation()}
         >
           {icon && (
             <View style={styles.iconWrap}>
-              {/* Ensure icon uses 24 size & primary fill when possible */}
               {icon}
             </View>
           )}
-          <AppText variant="title" style={[styles.title, { fontSize: 16 }]}>
+          <AppText variant="headline" style={styles.title} color={colors.onSurface}>
             {title}
           </AppText>
           {description ? (
@@ -93,7 +96,7 @@ export function FeedbackModal({
             {secondaryLabel && onSecondary && (
               <Button
                 label={secondaryLabel}
-                variant="secondary"
+                variant="outline"
                 fullWidth
                 onPress={onSecondary}
                 style={styles.button}
@@ -107,7 +110,7 @@ export function FeedbackModal({
               style={styles.button}
             />
           </View>
-        </Pressable>
+        </Animated.View>
       </Pressable>
     </Modal>
   );
@@ -116,7 +119,7 @@ export function FeedbackModal({
 const styles = StyleSheet.create({
   backdrop: {
     flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
+    backgroundColor: "rgba(0,0,0,0.7)",
     justifyContent: "center",
     alignItems: "center",
   },
@@ -141,12 +144,13 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: "center",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   description: {
     textAlign: "center",
     marginBottom: 16,
     fontSize: 12,
+    lineHeight: 18
   },
   buttons: {
     flexDirection: "row",

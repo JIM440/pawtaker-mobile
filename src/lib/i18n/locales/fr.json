@@ -159,7 +159,7 @@
       },
       "publish": {
         "title": "Vérifier et publier",
-        "publish": "Publier la demande"
+        "publish": "Enregistrer et lancer la demande de soins"
       },
       "selectPet": "Choisir un animal",
       "addPet": "Ajouter un animal",
@@ -284,7 +284,7 @@
     "deleteCta": "Supprimer"
   },
   "profile": {
-    "title": "Mon profil",
+    "title": "profil",
     "reviews": "Avis",
     "points": "Points",
     "pets": {

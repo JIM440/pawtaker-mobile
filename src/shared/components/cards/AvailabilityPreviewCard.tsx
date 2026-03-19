@@ -1,13 +1,13 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { ProfileAvatar } from "@/src/shared/components/ui/ProfileAvatar";
 import { Handshake, MapPin, PawPrint, Star } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
 export type AvailabilityPreviewCardProps = {
-    avatarUri: string;
+    avatarUri: string | null;
     name: string;
     rating: number;
     handshakes: number;
@@ -43,10 +43,10 @@ export function AvailabilityPreviewCard({
             ]}
         >
             <View style={styles.header}>
-                <AppImage
-                    source={{ uri: avatarUri }}
-                    style={styles.avatar}
-                    contentFit="cover"
+                <ProfileAvatar
+                    uri={avatarUri}
+                    name={name}
+                    size={80}
                 />
                 <View style={styles.titleCol}>
                     <View style={styles.nameRow}>

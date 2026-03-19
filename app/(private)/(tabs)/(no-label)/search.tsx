@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
-import { View, ScrollView, StyleSheet } from 'react-native';
-import { useTranslation } from 'react-i18next';
 import { Colors } from '@/src/constants/colors';
 import { useThemeStore } from '@/src/lib/store/theme.store';
-import { AppText } from '@/src/shared/components/ui/AppText';
 import { SearchField } from '@/src/shared/components/forms/SearchField';
+import { AppText } from '@/src/shared/components/ui/AppText';
+import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 export default function SearchScreen() {
   const { t } = useTranslation();
@@ -25,7 +25,11 @@ export default function SearchScreen() {
           onChangeText={setQuery}
         />
       </View>
-      <ScrollView style={styles.scroll} contentContainerStyle={styles.scrollContent}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
+        keyboardShouldPersistTaps="handled"
+      >
         {/* TODO: Search results with useDebounce hook */}
       </ScrollView>
     </View>
