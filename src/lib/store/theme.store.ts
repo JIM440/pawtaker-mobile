@@ -32,6 +32,8 @@ export const useThemeStore = create<ThemeState>()(
         const { theme } = get();
         if (theme === 'system') {
           set({ resolvedTheme: getSystemTheme() });
+        } else {
+          set({ resolvedTheme: theme });
         }
       },
       setHasHydrated: (state) => set({ _hasHydrated: state }),
@@ -41,8 +43,9 @@ export const useThemeStore = create<ThemeState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({ theme: state.theme }),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        // Apply persisted theme → resolvedTheme before marking hydrated (splash waits on this).
         state?.syncResolvedTheme();
+        state?.setHasHydrated(true);
       },
     }
   )

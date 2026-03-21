@@ -13,7 +13,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Send, EllipsisVertical, Plus, Calendar, Clock } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors, ColorValues } from '@/src/constants/colors';
+import { Colors } from '@/src/constants/colors';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
@@ -56,6 +56,7 @@ function MessageBubble({
   message: any;
   colors: any;
 }) {
+  const { t } = useTranslation();
   const isRight = message.side === 'right';
   
   if (message.type === 'date') {
@@ -70,7 +71,7 @@ function MessageBubble({
     return (
       <View style={[styles.bubbleWrap, styles.bubbleWrapLeft]}>
         <View style={[styles.requestCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
-          <AppText variant="label" style={{ marginBottom: 8 }}>Service Request</AppText>
+          <AppText variant="label" style={{ marginBottom: 8 }}>{t("messages.serviceRequest")}</AppText>
           <View style={styles.requestInfo}>
             <View style={styles.requestHeader}>
               <View style={[styles.petCircle, { backgroundColor: colors.surfaceDim }]}>
@@ -92,7 +93,7 @@ function MessageBubble({
                </View>
             </View>
           </View>
-          <Button label="View Request" size="sm" style={{ marginTop: 12 }} />
+          <Button label={t("messages.viewRequest")} size="sm" style={{ marginTop: 12 }} />
         </View>
       </View>
     );
@@ -124,7 +125,7 @@ function MessageBubble({
 }
 
 export default function ThreadScreen() {
-  const { threadId } = useLocalSearchParams<{ threadId: string }>();
+  const { threadId: _threadId } = useLocalSearchParams<{ threadId: string }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -186,7 +187,7 @@ export default function ThreadScreen() {
                 style={({ pressed }) => [styles.actionItem, pressed && { opacity: 0.7 }]}
                 onPress={() => {
                   setActionsOpen(false);
-                  router.push({ pathname: '/(private)/(tabs)/(no-label)/users/[id]', params: { id: thread.userId } });
+                  router.push({ pathname: '/(private)/(tabs)/profile/users/[id]', params: { id: thread.userId } });
                 }}
               >
                 <AppText variant="body" color={colors.onSurface}>{t('messages.viewProfile')}</AppText>

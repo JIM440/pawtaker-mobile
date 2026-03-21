@@ -34,9 +34,9 @@ export function AppImage({
 
     return (
       <LocalSvg
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         asset={asset as any}
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+         
         style={[
           {
             backgroundColor: colors.surfaceContainer,

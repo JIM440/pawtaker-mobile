@@ -28,19 +28,23 @@ export default function PrivateLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
+        <Stack.Screen name="kyc" options={{ headerShown: false }} />
         <Stack.Screen name="takers/[id]" options={{ title: "Taker" }} />
         <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />
         <Stack.Screen name="pets/[id]" options={{ title: "Pet Profile" }} />
         <Stack.Screen name="pets/[id]/edit" options={{ title: "Edit Pet" }} />
-        {/* Nested utility screens live under (tabs)/(no-label) */}
+        {/* Home stack: (tabs)/(home)/notifications, search — nested in (tabs) */}
         <Stack.Screen
-          name="(tabs)/(no-label)/notifications"
+          name="(tabs)/(home)/notifications"
           options={{ title: "Notifications" }}
         />
         <Stack.Screen
-          name="(tabs)/(no-label)/search"
+          name="(tabs)/(home)/search"
           options={{ title: "Search" }}
+        />
+        <Stack.Screen
+          name="(tabs)/profile/users/[id]"
+          options={{ title: "Profile" }}
         />
       </Stack>
     </SafeAreaView>

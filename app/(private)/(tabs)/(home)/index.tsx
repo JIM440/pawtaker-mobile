@@ -1,5 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PetCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -8,9 +9,9 @@ import { FeedSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { TabBar } from "@/src/shared/components/ui/TabBar";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
-import Slider from "@react-native-community/slider";
+import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
 import {
   Bell,
@@ -19,6 +20,7 @@ import {
   Search,
   SlidersHorizontal,
   Star,
+  Verified,
 } from "lucide-react-native";
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -32,6 +34,14 @@ import {
   View,
 } from "react-native";
 
+const CARE_TYPE_KEYS = [
+  "daytime",
+  "play_walk",
+  "overnight",
+  "vacation",
+] as const;
+type CareTypeKey = (typeof CARE_TYPE_KEYS)[number];
+
 const MOCK_REQUESTS = [
   {
     id: "1",
@@ -42,7 +52,7 @@ const MOCK_REQUESTS = [
     petType: "Dog",
     dateRange: "Mar 14-18",
     time: "8am-4pm",
-    careType: "Daytime",
+    careTypeKey: "daytime" as CareTypeKey,
     location: "B-871 13th Ave, Campbell River, BC",
     distance: "10km",
     description:
@@ -65,7 +75,7 @@ const MOCK_REQUESTS = [
     petType: "Dog",
     dateRange: "Mar 14-18",
     time: "8am-4pm",
-    careType: "Daytime",
+    careTypeKey: "daytime" as CareTypeKey,
     location: "B-871 13th Ave, Campbell River, BC",
     distance: "10km",
     description:
@@ -88,7 +98,7 @@ const MOCK_REQUESTS = [
     petType: "Cat",
     dateRange: "Mar 21-22",
     time: "10am-2pm",
-    careType: "Play/walk",
+    careTypeKey: "play_walk" as CareTypeKey,
     location: "Downtown Vancouver, BC",
     distance: "4km",
     description:
@@ -111,7 +121,7 @@ const MOCK_REQUESTS = [
     petType: "Dog",
     dateRange: "Apr 01-05",
     time: "7am-6pm",
-    careType: "Daytime",
+    careTypeKey: "daytime" as CareTypeKey,
     location: "Burnaby, BC",
     distance: "12km",
     description:
@@ -127,7 +137,6 @@ const MOCK_REQUESTS = [
   },
 ];
 
-const CARE_TYPES = ["Daytime", "Play/walk", "Overnight", "Vacation"] as const;
 const MAX_DISTANCE_RANGE = { min: 1, max: 50 }; // km
 
 function parseDistanceKm(s: string): number {
@@ -143,7 +152,7 @@ type Taker = {
   avatar: string;
   rating: number;
   species: string;
-  tags: string[];
+  tags: CareTypeKey[];
   location: string;
   distance: string;
   status: "available" | "unavailable";
@@ -157,7 +166,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=400",
     rating: 4.1,
     species: "Dogs",
-    tags: ["Daytime", "Play/walk"],
+    tags: ["daytime", "play_walk"],
     location: "Syracuse, New York, US",
     distance: "25km",
     status: "available",
@@ -169,7 +178,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1523419409543-3e4f83b9b4c9?w=400",
     rating: 4.1,
     species: "Dogs • Cats",
-    tags: ["Daytime", "Play/walk"],
+    tags: ["daytime", "play_walk"],
     location: "Syracuse, New York, US",
     distance: "25km",
     status: "available",
@@ -181,7 +190,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
     rating: 4.8,
     species: "Cats",
-    tags: ["Overnight", "Medication"],
+    tags: ["overnight", "daytime"],
     location: "Vancouver, BC, CA",
     distance: "6km",
     status: "available",
@@ -193,7 +202,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
     rating: 4.5,
     species: "Dogs • Cats",
-    tags: ["Daytime", "Overnight", "Play/walk"],
+    tags: ["daytime", "overnight", "play_walk"],
     location: "Burnaby, BC, CA",
     distance: "12km",
     status: "available",
@@ -204,8 +213,9 @@ export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
+  const { profile } = useAuthStore();
   const colors = Colors[resolvedTheme];
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set(["2"]));
@@ -219,13 +229,26 @@ export default function HomeScreen() {
   const menuButtonRefs = useRef<Record<string, View | null>>({});
 
   const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [showKycPrompt, setShowKycPrompt] = useState(false);
   const [careTypeFilter, setCareTypeFilter] = useState<string[]>([]);
-  const [distanceRange, setDistanceRange] = useState({ min: 0, max: MAX_DISTANCE_RANGE.max });
+  const [distanceRange, setDistanceRange] = useState({
+    min: 0,
+    max: MAX_DISTANCE_RANGE.max,
+  });
   const [filterDraft, setFilterDraft] = useState({
     careTypes: [] as string[],
     minKm: 0,
     maxKm: MAX_DISTANCE_RANGE.max,
   });
+
+  React.useEffect(() => {
+    if (!profile) return;
+    if (profile.kyc_status !== "approved") {
+      setShowKycPrompt(true);
+    } else {
+      setShowKycPrompt(false);
+    }
+  }, [profile]);
 
   const toggleFavorite = (id: string) => {
     setFavorites((prev) => {
@@ -239,10 +262,14 @@ export default function HomeScreen() {
   const filteredRequests = useMemo(() => {
     return MOCK_REQUESTS.filter((item) => {
       if (filter === "takers") return false;
-      if (careTypeFilter.length > 0 && !careTypeFilter.includes(item.careType))
+      if (
+        careTypeFilter.length > 0 &&
+        !careTypeFilter.includes(item.careTypeKey)
+      )
         return false;
       const distKm = parseDistanceKm(item.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max) return false;
+      if (distKm < distanceRange.min || distKm > distanceRange.max)
+        return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -263,7 +290,8 @@ export default function HomeScreen() {
       )
         return false;
       const distKm = parseDistanceKm(taker.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max) return false;
+      if (distKm < distanceRange.min || distKm > distanceRange.max)
+        return false;
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -306,7 +334,7 @@ export default function HomeScreen() {
           className="relative pr-3"
           hitSlop={12}
           onPress={() =>
-            router.push("/(private)/(tabs)/(no-label)/notifications")
+            router.push("/(private)/(tabs)/(home)/notifications")
           }
         >
           <Bell size={24} color={colors.onSurface} />
@@ -340,9 +368,7 @@ export default function HomeScreen() {
                 placeholder={t("feed.searchPlaceholder")}
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                rightSlot={
-                  <Search size={20} color={colors.onSurfaceVariant} />
-                }
+                rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
               />
               <TouchableOpacity
                 style={[
@@ -383,14 +409,25 @@ export default function HomeScreen() {
 
             {showRequests && (
               <View style={styles.resultsHeader}>
-                {careTypeFilter.length > 0 || distanceRange.min > 0 || distanceRange.max < MAX_DISTANCE_RANGE.max ? (
+                {careTypeFilter.length > 0 ||
+                distanceRange.min > 0 ||
+                distanceRange.max < MAX_DISTANCE_RANGE.max ? (
                   <View style={styles.resultsRow}>
-                    <AppText variant="title" style={{ fontSize: 16 }}>results: </AppText>
-                    <AppText variant="body" color={colors.primary} style={{ fontWeight: '600' }}>
+                    <AppText variant="title" style={{ fontSize: 16 }}>
+                      {t("feed.resultsLabel")}:{" "}
+                    </AppText>
+                    <AppText
+                      variant="body"
+                      color={colors.primary}
+                      style={{ fontWeight: "600" }}
+                    >
                       {[
-                        ...careTypeFilter,
-                        `${distanceRange.min}km-${distanceRange.max}km`
-                      ].join(', ')}
+                        ...careTypeFilter.map((k) => t(`feed.careTypes.${k}`)),
+                        t("feed.distanceKmRange", {
+                          min: distanceRange.min,
+                          max: distanceRange.max,
+                        }),
+                      ].join(", ")}
                     </AppText>
                   </View>
                 ) : (
@@ -419,7 +456,7 @@ export default function HomeScreen() {
               petType={item.petType}
               dateRange={item.dateRange}
               time={item.time}
-              careType={item.careType}
+              careType={t(`feed.careTypes.${item.careTypeKey}`)}
               location={item.location}
               distance={item.distance}
               description={item.description}
@@ -430,7 +467,7 @@ export default function HomeScreen() {
               onPress={() => router.push(`/(private)/pets/${item.id}` as any)}
               onCaretakerPress={() =>
                 router.push({
-                  pathname: "/(private)/(tabs)/(no-label)/users/[id]",
+                  pathname: "/(private)/(tabs)/profile/users/[id]",
                   params: { id: item.caretaker.id ?? "1" },
                 })
               }
@@ -459,7 +496,7 @@ export default function HomeScreen() {
                     activeOpacity={0.9}
                     onPress={() =>
                       router.push({
-                        pathname: "/(private)/(tabs)/(no-label)/users/[id]",
+                        pathname: "/(private)/(tabs)/profile/users/[id]",
                         params: { id: taker.id },
                       })
                     }
@@ -502,7 +539,7 @@ export default function HomeScreen() {
                               variant="caption"
                               color={colors.onSecondaryContainer}
                             >
-                              Available
+                              {t("feed.takerAvailable")}
                             </AppText>
                           </View>
                           <TouchableOpacity
@@ -555,7 +592,7 @@ export default function HomeScreen() {
                               variant="caption"
                               color={colors.onSurfaceVariant}
                             >
-                              {tag}
+                              {t(`feed.careTypes.${tag}`)}
                             </AppText>
                           </View>
                         ))}
@@ -636,18 +673,19 @@ export default function HomeScreen() {
                 {t("filters.careType")}
               </AppText>
               <View style={styles.filterChipRow}>
-                {CARE_TYPES.map((label) => {
-                  const selected = filterDraft.careTypes.includes(label);
+                {CARE_TYPE_KEYS.map((key) => {
+                  const label = t(`feed.careTypes.${key}`);
+                  const selected = filterDraft.careTypes.includes(key);
                   return (
                     <TouchableOpacity
-                      key={label}
+                      key={key}
                       activeOpacity={0.9}
                       onPress={() => {
                         setFilterDraft((d) => ({
                           ...d,
                           careTypes: selected
-                            ? d.careTypes.filter((x) => x !== label)
-                            : [...d.careTypes, label],
+                            ? d.careTypes.filter((x) => x !== key)
+                            : [...d.careTypes, key],
                         }));
                       }}
                       style={[
@@ -680,17 +718,23 @@ export default function HomeScreen() {
               >
                 {t("filters.distanceRange", "Distance Range")}
               </AppText>
-              
+
               <View style={styles.rangeLabels}>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{t("common.min", "Min")}: {filterDraft.minKm}km</AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{t("common.max", "Max")}: {filterDraft.maxKm}km</AppText>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {t("common.min", "Min")}: {filterDraft.minKm}km
+                </AppText>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {t("common.max", "Max")}: {filterDraft.maxKm}km
+                </AppText>
               </View>
 
               <RangeSlider
                 min={MAX_DISTANCE_RANGE.min}
                 max={MAX_DISTANCE_RANGE.max}
                 values={[filterDraft.minKm, filterDraft.maxKm]}
-                onValuesChange={([minv, maxv]: [number, number]) => setFilterDraft((d) => ({ ...d, minKm: minv, maxKm: maxv }))}
+                onValuesChange={([minv, maxv]: [number, number]) =>
+                  setFilterDraft((d) => ({ ...d, minKm: minv, maxKm: maxv }))
+                }
               />
             </ScrollView>
             <View
@@ -709,7 +753,10 @@ export default function HomeScreen() {
                   };
                   setFilterDraft(resetValue);
                   setCareTypeFilter(resetValue.careTypes);
-                  setDistanceRange({ min: resetValue.minKm, max: resetValue.maxKm });
+                  setDistanceRange({
+                    min: resetValue.minKm,
+                    max: resetValue.maxKm,
+                  });
                 }}
                 variant="outline"
                 style={styles.filterFooterBtn}
@@ -718,7 +765,10 @@ export default function HomeScreen() {
                 label={t("filters.apply")}
                 onPress={() => {
                   setCareTypeFilter(filterDraft.careTypes);
-                  setDistanceRange({ min: Math.min(filterDraft.minKm, filterDraft.maxKm), max: Math.max(filterDraft.minKm, filterDraft.maxKm) });
+                  setDistanceRange({
+                    min: Math.min(filterDraft.minKm, filterDraft.maxKm),
+                    max: Math.max(filterDraft.minKm, filterDraft.maxKm),
+                  });
                   setFilterModalOpen(false);
                 }}
                 style={styles.filterFooterBtn}
@@ -727,6 +777,21 @@ export default function HomeScreen() {
           </Pressable>
         </Pressable>
       </Modal>
+
+      <FeedbackModal
+        visible={showKycPrompt}
+        title={t("feed.kycModal.title")}
+        description={t("feed.kycModal.description")}
+        icon={<Verified size={40} color={colors.primary} />}
+        secondaryLabel={t("feed.kycModal.maybeLater")}
+        onSecondary={() => setShowKycPrompt(false)}
+        primaryLabel={t("feed.kycModal.getVerified")}
+        onPrimary={() => {
+          setShowKycPrompt(false);
+          router.push("/(private)/kyc");
+        }}
+        onRequestClose={() => setShowKycPrompt(false)}
+      />
 
       <Modal
         transparent
@@ -753,16 +818,21 @@ export default function HomeScreen() {
                 shadowColor: "#000",
                 shadowOpacity: 0.1,
                 shadowOffset: { width: 0, height: 4 },
-                shadowRadius: 8
+                shadowRadius: 8,
               }}
             >
               <Pressable
-                style={{ paddingHorizontal: 16, paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }}
+                style={{
+                  paddingHorizontal: 16,
+                  paddingVertical: 12,
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.outlineVariant,
+                }}
                 onPress={() => {
                   setOpenMenuTaker(null);
                   router.push({
-                    pathname: "/(private)/(tabs)/(no-label)/users/[id]",
-                    params: { id: openMenuTaker.id }
+                    pathname: "/(private)/(tabs)/profile/users/[id]",
+                    params: { id: openMenuTaker.id },
                   });
                 }}
               >
@@ -819,13 +889,13 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   resultsRow: {
-    flexDirection: 'row',
-    alignItems: 'baseline',
+    flexDirection: "row",
+    alignItems: "baseline",
     gap: 4,
   },
   rangeLabels: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    justifyContent: "space-between",
     marginBottom: 4,
   },
   filterModalOverlay: {

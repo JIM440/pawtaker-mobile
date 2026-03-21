@@ -56,14 +56,7 @@ export default function TabsLayout() {
         }}
       >
         <Tabs.Screen
-          name="(no-label)"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="index"
+          name="(home)"
           options={{
             title: t("feed.title"),
             tabBarIcon: ({ color, focused }) => (

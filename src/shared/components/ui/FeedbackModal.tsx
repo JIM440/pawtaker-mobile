@@ -5,7 +5,6 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  useWindowDimensions,
   View,
   type StyleProp,
   type ViewStyle
@@ -52,8 +51,6 @@ export function FeedbackModal({
   const handleClose = () => {
     if (onRequestClose) onRequestClose();
   };
-
-  const height = useWindowDimensions().height;
 
   return (
     <Modal

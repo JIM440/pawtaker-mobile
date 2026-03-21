@@ -1,16 +1,18 @@
 import "../global.css";
 import "../src/lib/i18n";
 
+import { supabase } from "@/src/lib/supabase/client";
 import {
   Roboto_400Regular,
   Roboto_500Medium,
-  Roboto_700Bold, useFonts
+  Roboto_700Bold,
+  useFonts,
 } from "@expo-google-fonts/roboto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { router, Stack, useSegments } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useEffect, useLayoutEffect } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -18,9 +20,9 @@ import i18n from "../src/lib/i18n";
 import { useAuthStore } from "../src/lib/store/auth.store";
 import { useLanguageStore } from "../src/lib/store/language.store";
 import { useThemeStore } from "../src/lib/store/theme.store";
-import { supabase } from "../src/lib/supabase/client";
 
-// Keep native splash visible until auth, fonts, and store hydration are ready
+// Keep native splash visible until fonts load, theme + language are rehydrated from AsyncStorage
+// and applied, auth store is rehydrated, and session bootstrap finishes (see `ready`).
 if (Platform.OS !== "web") {
   SplashScreen.preventAutoHideAsync();
 }
@@ -37,13 +39,22 @@ const queryClient = new QueryClient({
 export default function RootLayout() {
   const { resolvedTheme, _hasHydrated: themeHydrated } = useThemeStore();
   const { language, _hasHydrated: langHydrated } = useLanguageStore();
-  const { session, isLoading, setSession, setLoading } = useAuthStore();
-  const router = useRouter();
+  const {
+    isLoading,
+    session,
+    onboardingSeen,
+    setSession,
+    setProfile,
+    setLoading,
+    fetchProfile,
+    _hasHydrated: authHydrated,
+  } = useAuthStore();
+  const segments = useSegments();
 
+  // Keep i18n in sync when user changes language after startup (persist middleware also hydrates on launch).
   useEffect(() => {
-    if (langHydrated) {
-      i18n.changeLanguage(language);
-    }
+    if (!langHydrated) return;
+    void i18n.changeLanguage(language);
   }, [language, langHydrated]);
 
   const [fontsLoaded] = useFonts({
@@ -56,6 +67,11 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user?.id) {
+        void fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
 
@@ -63,25 +79,49 @@ export default function RootLayout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user?.id) {
+        void fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const ready = fontsLoaded && !isLoading && themeHydrated && langHydrated;
+  const ready =
+    fontsLoaded && !isLoading && themeHydrated && langHydrated && authHydrated;
+
+  // Hide splash only after persisted theme/language are applied (see stores) and other gates pass.
+  useLayoutEffect(() => {
+    if (!ready) return;
+    if (Platform.OS !== "web") void SplashScreen.hideAsync();
+  }, [ready]);
 
   useEffect(() => {
     if (!ready) return;
-    if (Platform.OS !== "web") SplashScreen.hideAsync();
 
-    // Auth redirect logic
-    if (session) {
-      router.replace("/(private)/(tabs)");
-    } else {
-      // router.replace('/(auth)/welcome');
+    const currentGroup = segments[0];
+    const inAuth = currentGroup === "(auth)";
+    const inPrivate = currentGroup === "(private)";
+
+    if (!session) {
+      if (!onboardingSeen) {
+        if (!inAuth || segments[1] !== "onboarding") {
+          router.replace("/(auth)/onboarding");
+        }
+        return;
+      }
+      if (inPrivate) {
+        router.replace("/(private)/(tabs)");
+      }
+      return;
+    }
+
+    if (inAuth) {
       router.replace("/(private)/(tabs)");
     }
-  }, [ready]);
+  }, [ready, session, onboardingSeen, segments]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

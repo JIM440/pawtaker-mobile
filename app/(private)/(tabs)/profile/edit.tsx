@@ -143,7 +143,7 @@ export default function EditProfileScreen() {
             onDeletePet={() => { }}
             onLaunchPetRequest={(id) =>
               router.push({
-                pathname: "/(private)/requests/create",
+                pathname: "/(private)/requests/create" as any,
                 params: { petId: id },
               })
             }

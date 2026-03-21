@@ -35,7 +35,7 @@ const MOCK_PET = {
 };
 
 export default function PetDetailScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: _petId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -72,7 +72,7 @@ export default function PetDetailScreen() {
               <AppText variant="body" color={colors.onSurfaceVariant}>{pet.breed} • {pet.type}</AppText>
             </View>
             <View style={[styles.seekingPill, { backgroundColor: colors.tertiaryContainer }]}>
-              <AppText variant="caption" color={colors.onTertiaryContainer}>Seeking</AppText>
+              <AppText variant="caption" color={colors.onTertiaryContainer}>{t("pet.detail.seeking")}</AppText>
             </View>
           </View>
 
@@ -93,14 +93,14 @@ export default function PetDetailScreen() {
           </View>
 
           <View style={styles.section}>
-            <AppText variant="title" style={styles.sectionTitle}>About {pet.name}</AppText>
+            <AppText variant="title" style={styles.sectionTitle}>{t("pet.detail.about", { name: pet.name })}</AppText>
             <AppText variant="body" color={colors.onSurfaceVariant} style={styles.bio}>
               {pet.bio}
             </AppText>
           </View>
 
           <View style={styles.section}>
-            <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>Attributes</AppText>
+            <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>{t("pet.detail.attributes")}</AppText>
             <View style={styles.tagsContainer}>
               {pet.tags.map(tag => (
                 <View key={tag} style={[styles.tag, { backgroundColor: colors.surfaceContainerHighest }]}>
@@ -111,7 +111,7 @@ export default function PetDetailScreen() {
           </View>
 
           <View style={styles.section}>
-            <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>Special Needs</AppText>
+            <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>{t("pet.detail.specialNeeds")}</AppText>
             <AppText variant="body" color={colors.onSurfaceVariant}>{pet.specialNeeds}</AppText>
           </View>
 
@@ -119,21 +119,26 @@ export default function PetDetailScreen() {
           <View style={[styles.caretakerCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}>
             <AppImage source={{ uri: pet.caretaker.avatar }} style={styles.caretakerAvatar} />
             <View style={{ flex: 1 }}>
-              <AppText variant="caption" color={colors.onSurfaceVariant}>Pet Owner</AppText>
+              <AppText variant="caption" color={colors.onSurfaceVariant}>{t("pet.detail.petOwner")}</AppText>
               <AppText variant="body" style={{ fontWeight: '600' }}>{pet.caretaker.name}</AppText>
             </View>
             <Button
-              label="View Profile"
+              label={t("common.viewProfile")}
               variant="outline"
               size="sm"
-              onPress={() => router.push(`/(private)/(tabs)/(no-label)/users/${pet.caretaker.id}`)}
+              onPress={() =>
+                router.push({
+                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                  params: { id: pet.caretaker.id },
+                })
+              }
             />
           </View>
         </View>
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button label="Help with this pet" fullWidth onPress={() => { }} />
+        <Button label={t("pet.detail.helpWithPet")} fullWidth onPress={() => { }} />
       </View>
     </PageContainer>
   );

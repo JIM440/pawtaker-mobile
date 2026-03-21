@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AvailabilityPreviewCard } from "@/src/shared/components/cards";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { CalendarDays, Clock } from "lucide-react-native";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
@@ -23,8 +24,6 @@ const MOCK_AVAILABILITY = {
   time: "08:00 AM - 09:00 PM",
   days: "Sat • Sun",
 };
-
-import { CalendarDays, Clock } from "lucide-react-native";
 
 export function ProfileAvailabilityTab() {
   const { t } = useTranslation();

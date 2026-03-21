@@ -1,76 +1,129 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity, ScrollView } from 'react-native';
-import { router } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { useSignupStore } from '@/src/lib/store/signup.store';
-import { TextField } from '@/src/shared/components/forms/TextField';
+import { Colors } from "@/src/constants/colors";
+import { supabase } from "@/src/lib/supabase/client";
+import { useSignupStore } from "@/src/lib/store/signup.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { TextField } from "@/src/shared/components/forms/TextField";
+import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { PageContainer } from "@/src/shared/components/layout/PageContainer";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
+import { validateRequired } from "@/src/shared/utils/auth-validation";
+import { router } from "expo-router";
+import { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ScrollView, View } from "react-native";
 
 export default function SignupProfileScreen() {
   const { t } = useTranslation();
-  const { setProfile } = useSignupStore();
+  const { setProfile, clearSignup } = useSignupStore();
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
 
-  const [displayName, setDisplayName] = useState('');
-  const [location, setLocation] = useState('');
-  const [bio, setBio] = useState('');
+  const [displayName, setDisplayName] = useState("");
+  const [location, setLocation] = useState("");
+  const [bio, setBio] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleNext = () => {
+  const handleNext = async () => {
     setError(null);
 
-    if (!displayName.trim() || !location.trim()) {
-      setError(t('errors.required'));
+    if (!validateRequired(displayName) || !validateRequired(location)) {
+      setError(t("errors.required"));
       return;
     }
 
     // Save to Zustand only — no Supabase call here
     setProfile(displayName.trim(), location.trim(), bio.trim());
-    router.push('/(auth)/signup/declaration');
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+
+    const userId = session?.user?.id;
+    if (!userId) {
+      setError(t("common.error"));
+      return;
+    }
+
+    setLoading(true);
+    const { error: updateError } = await supabase
+      .from("users")
+      .update({
+        full_name: displayName.trim(),
+        bio: bio.trim() || null,
+        city: location.trim(),
+      })
+      .eq("id", userId);
+    setLoading(false);
+
+    if (updateError) {
+      setError(t("common.error"));
+      return;
+    }
+
+    clearSignup();
+    router.push("/(private)/kyc" as any);
   };
 
   return (
-    <ScrollView
-      className="flex-1 bg-background"
-      contentContainerClassName="px-6 justify-center flex-grow"
-      keyboardShouldPersistTaps="handled"
-    >
-      <Text className="text-2xl font-bold text-text-primary mb-8">
-        {t('auth.signup.profile.title')}
-      </Text>
-
-      <TextField
-        label={t('auth.signup.profile.displayNameLabel')}
-        value={displayName}
-        onChangeText={setDisplayName}
-        placeholder={t('auth.signup.profile.displayNamePlaceholder')}
-        autoCapitalize="words"
-      />
-      <TextField
-        label={t('auth.signup.profile.locationLabel')}
-        value={location}
-        onChangeText={setLocation}
-        placeholder={t('auth.signup.profile.locationPlaceholder')}
-        autoCapitalize="words"
-      />
-      <TextField
-        label={t('auth.signup.profile.bioLabel')}
-        value={bio}
-        onChangeText={setBio}
-        placeholder={t('auth.signup.profile.bioPlaceholder')}
-        multiline
-      />
-
-      {error && (
-        <Text className="text-danger text-sm mb-4">{error}</Text>
-      )}
-
-      <TouchableOpacity
-        className="bg-primary w-full py-4 rounded-xl items-center mt-2"
-        onPress={handleNext}
+    <PageContainer>
+      <BackHeader className="px-0" />
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, paddingTop: 16 }}
       >
-        <Text className="text-white font-semibold text-base">
-          {t('auth.signup.profile.submit')}
-        </Text>
-      </TouchableOpacity>
-    </ScrollView>
+        <AppText
+          variant="title"
+          color={colors.textPrimary}
+          style={{ marginBottom: 32, textAlign: "left" }}
+        >
+          {t("auth.signup.profile.title")}
+        </AppText>
+
+        <TextField
+          label={t("auth.signup.profile.displayNameLabel")}
+          value={displayName}
+          onChangeText={setDisplayName}
+          placeholder={t("auth.signup.profile.displayNamePlaceholder")}
+          autoCapitalize="words"
+        />
+        <TextField
+          label={t("auth.signup.profile.locationLabel")}
+          value={location}
+          onChangeText={setLocation}
+          placeholder={t("auth.signup.profile.locationPlaceholder")}
+          autoCapitalize="words"
+        />
+        <TextField
+          label={t("auth.signup.profile.bioLabel")}
+          value={bio}
+          onChangeText={setBio}
+          placeholder={t("auth.signup.profile.bioPlaceholder")}
+          multiline
+        />
+
+        {error && (
+          <AppText
+            variant="caption"
+            color={colors.error}
+            style={{ marginTop: 8, marginBottom: 16 }}
+          >
+            {error}
+          </AppText>
+        )}
+
+        <View style={{ marginTop: 8, marginBottom: 12 }}>
+          <Button
+            label={loading ? t("common.loading") : t("auth.signup.profile.submit")}
+            onPress={handleNext}
+            variant="primary"
+            fullWidth
+            loading={loading}
+            disabled={loading}
+          />
+        </View>
+      </ScrollView>
+    </PageContainer>
   );
 }

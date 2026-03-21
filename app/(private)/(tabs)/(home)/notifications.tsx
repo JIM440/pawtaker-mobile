@@ -86,7 +86,7 @@ export default function NotificationsScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [query, setQuery] = useState("");
   const [items, setItems] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
   const [menuForId, setMenuForId] = useState<string | null>(null);

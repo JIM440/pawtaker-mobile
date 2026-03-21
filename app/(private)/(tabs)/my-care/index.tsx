@@ -14,6 +14,7 @@ import {
   TrendingUp
 } from 'lucide-react-native';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Modal,
   Pressable,
@@ -39,15 +40,16 @@ import {
 type TabId = 'given' | 'received' | 'liked';
 
 export default function MyCareScreen() {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [available, setAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('given');
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [applyModalVisible, setApplyModalVisible] = useState(false);
-  const [hasActiveCare, setHasActiveCare] = useState(true); // Demo mode
+  const [hasActiveCare] = useState(true); // Demo mode
 
   const onAvailableChange = (value: boolean) => {
     setAvailable(value);
@@ -55,9 +57,9 @@ export default function MyCareScreen() {
   };
 
   const tabs: { id: TabId; label: string }[] = [
-    { id: 'given', label: 'Care Given' },
-    { id: 'received', label: 'Care Received' },
-    { id: 'liked', label: 'Liked' },
+    { id: 'given', label: t('myCare.tabs.careGiven') },
+    { id: 'received', label: t('myCare.tabs.careReceived') },
+    { id: 'liked', label: t('myCare.tabs.liked') },
   ];
 
   if (loading) {
@@ -78,9 +80,9 @@ export default function MyCareScreen() {
   return (
     <PageContainer scrollable={false} contentStyle={styles.pageContent}>
       <View style={styles.header}>
-        <AppText variant="headline" style={{ fontSize: 22 }}>My Care</AppText>
+        <AppText variant="headline" style={{ fontSize: 22 }}>{t('myCare.title')}</AppText>
         <View style={styles.availableRow}>
-          <AppText variant="body" color={colors.onSurfaceVariant}>Available</AppText>
+          <AppText variant="body" color={colors.onSurfaceVariant}>{t('myCare.available')}</AppText>
           <AppSwitch
             value={available}
             onValueChange={onAvailableChange}
@@ -99,7 +101,7 @@ export default function MyCareScreen() {
           <View style={[styles.inCareCard, { backgroundColor: colors.surfaceContainerLow }]}>
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderTitleGroup}>
-                <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.inCareLabel}>In care</AppText>
+                <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.inCareLabel}>{t('myCare.inCare')}</AppText>
                 <AppText variant="bodyLarge" style={styles.inCarePetName}>{MOCK_IN_CARE.petName}</AppText>
               </View>
               <TouchableOpacity onPress={() => setMenuVisible(true)}>
@@ -129,7 +131,7 @@ export default function MyCareScreen() {
                 </View>
                 <View style={styles.timerRow}>
                   <AppText variant="caption" color={colors.primary} style={{ fontWeight: 600 }}>
-                    • {" "} Ends in {MOCK_IN_CARE.endsIn}
+                    • {t('myCare.endsIn', { time: MOCK_IN_CARE.endsIn })}
                   </AppText>
                 </View>
               </View>
@@ -150,11 +152,11 @@ export default function MyCareScreen() {
           >
             <View style={[styles.menuModalContent, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
               <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
-                <AppText variant="body">Go to Chat</AppText>
+                <AppText variant="body">{t('myCare.goToChat')}</AppText>
               </TouchableOpacity>
               <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
               <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
-                <AppText variant="body">View Agreement</AppText>
+                <AppText variant="body">{t('myCare.viewAgreement')}</AppText>
               </TouchableOpacity>
             </View>
           </Pressable>
@@ -170,12 +172,12 @@ export default function MyCareScreen() {
                 </View>
                 <View style={{}}>
                   <AppText variant="headline" style={styles.statLargeValue} color={colors.onSurfaceVariant} >058</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabel}>Points</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabel}>{t('myCare.points')}</AppText>
                 </View>
               </View>
               <View style={styles.athContainer} className='self-end mb-2'>
                 <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  All time high <AppText variant="caption" style={{ fontWeight: '700' }}>1200</AppText>
+                  {t('myCare.allTimeHigh')} <AppText variant="caption" style={{ fontWeight: '700' }}>1200</AppText>
                 </AppText>
               </View>
             </View>
@@ -187,7 +189,7 @@ export default function MyCareScreen() {
                 </View>
                 <View>
                   <AppText variant="headline" style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}>012</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>Care Given</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>{t('myCare.careGivenShort')}</AppText>
                 </View>
               </View>
               <View style={[styles.secondaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
@@ -196,7 +198,7 @@ export default function MyCareScreen() {
                 </View>
                 <View>
                   <AppText variant="headline" style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}>017</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>Care Received</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>{t('myCare.careReceivedShort')}</AppText>
                 </View>
               </View>
             </View>
@@ -205,7 +207,7 @@ export default function MyCareScreen() {
           <View style={styles.compactStatsRow}>
             <View style={[styles.compactStatsPill, { backgroundColor: colors.surfaceContainerHighest }]}>
               <TrendingUp size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" style={{ fontWeight: '600' }}>58 Points</AppText>
+              <AppText variant="caption" style={{ fontWeight: '600' }}>{t('myCare.pointsCount', { count: 58 })}</AppText>
             </View>
             <View style={[styles.compactStatsPill, { backgroundColor: colors.tertiaryContainer, borderColor: colors.outlineVariant }]}>
               <Handshake size={16} color={colors.tertiary} />
@@ -246,15 +248,15 @@ export default function MyCareScreen() {
       {/* Applying Modal */}
       <FeedbackModal
         visible={applyModalVisible}
-        title="Applying for this pet?"
-        description="A message with your availability details will be sent to this pet’s owner"
+        title={t("myCare.applyingForPet")}
+        description={t("myCare.applyingDescription")}
         icon={<PawPrint size={32} color={colors.primary} />}
-        primaryLabel="Continue"
+        primaryLabel={t("common.continue")}
         onPrimary={() => {
           setApplyModalVisible(false);
           setShowSnackbar(true);
         }}
-        secondaryLabel="Cancel"
+        secondaryLabel={t("common.cancel")}
         onSecondary={() => setApplyModalVisible(false)}
         onRequestClose={() => setApplyModalVisible(false)}
       />
@@ -263,7 +265,10 @@ export default function MyCareScreen() {
         <View style={[styles.snackbarShadow, { bottom: 100 }]}>
           <View style={[styles.snackbar, { backgroundColor: colors.onSurfaceVariant }]}>
             <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '600' }}>
-              You are now tagged <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '800' }}>available</AppText>
+              {t('myCare.nowAvailableSnackbar')}{' '}
+              <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '800' }}>
+                {t('myCare.availableHighlight')}
+              </AppText>
             </AppText>
           </View>
         </View>

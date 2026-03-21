@@ -84,7 +84,8 @@ export function Button({
           borderWidth,
           borderColor,
           alignSelf: fullWidth ? "stretch" : "flex-start",
-          opacity: isDisabled ? 0.5 : 1,
+          // Keep visual emphasis while showing loading activity.
+          opacity: disabled && !loading ? 0.5 : 1,
         },
         style,
       ]}

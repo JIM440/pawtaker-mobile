@@ -70,7 +70,10 @@ export default function ViewOfferScreen() {
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() =>
-            router.push(`/(private)/(tabs)/(no-label)/users/${id ?? "t1"}`)
+            router.push({
+              pathname: "/(private)/(tabs)/profile/users/[id]",
+              params: { id: id ?? "t1" },
+            })
           }
           style={[styles.takerCard, { backgroundColor: colors.surfaceContainerLowest }]}
         >

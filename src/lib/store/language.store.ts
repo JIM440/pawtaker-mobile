@@ -2,6 +2,8 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
 import { createJSONStorage, persist } from 'zustand/middleware';
 
+import i18n from '../i18n';
+
 type Language = 'en' | 'fr';
 
 interface LanguageState {
@@ -23,7 +25,16 @@ export const useLanguageStore = create<LanguageState>()(
       name: 'pawtaker-language',
       storage: createJSONStorage(() => AsyncStorage),
       onRehydrateStorage: () => (state) => {
-        state?.setHasHydrated(true);
+        const markHydrated = () => {
+          if (state) state.setHasHydrated(true);
+          else useLanguageStore.getState().setHasHydrated(true);
+        };
+        if (!state) {
+          markHydrated();
+          return;
+        }
+        // Wait for i18n to apply persisted language before marking hydrated (splash waits on this).
+        void i18n.changeLanguage(state.language).finally(markHydrated);
       },
     }
   )

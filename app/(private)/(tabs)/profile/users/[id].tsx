@@ -9,7 +9,7 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
-import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal.native";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MoreHorizontal } from "lucide-react-native";
@@ -53,7 +53,7 @@ const PUBLIC_PETS = [
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function PublicProfileScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: _profileId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -66,18 +66,20 @@ export default function PublicProfileScreen() {
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
       <View style={styles.header}>
-        <BackHeader rightSlot={
-          <TouchableOpacity
-            onPress={() => setOptionsVisible(true)}
-            hitSlop={8}
-            style={[
-              styles.headerIconButton,
-              { backgroundColor: colors.surfaceContainerHighest },
-            ]}
-          >
-            <MoreHorizontal size={24} color={colors.onSurface} />
-          </TouchableOpacity>
-        } />
+        <BackHeader
+          rightSlot={
+            <TouchableOpacity
+              onPress={() => setOptionsVisible(true)}
+              hitSlop={8}
+              style={[
+                styles.headerIconButton,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
+              <MoreHorizontal size={24} color={colors.onSurface} />
+            </TouchableOpacity>
+          }
+        />
       </View>
 
       <ScrollView
@@ -101,7 +103,10 @@ export default function PublicProfileScreen() {
         <TabBar<ProfileTab>
           tabs={[
             { key: "pets", label: t("profile.pets.tab", "Pets") },
-            { key: "availability", label: t("profile.edit.availabilityTab", "Availability") },
+            {
+              key: "availability",
+              label: t("profile.edit.availabilityTab", "Availability"),
+            },
             { key: "bio", label: t("auth.signup.profile.bio", "Short Bio") },
             { key: "reviews", label: t("profile.reviews", "Reviews") },
           ]}
@@ -122,7 +127,10 @@ export default function PublicProfileScreen() {
             handshakes={PUBLIC_PROFILE.handshakes}
             paws={PUBLIC_PROFILE.paws}
             onReviewerPress={(reviewerId) =>
-              router.push(`/(private)/(tabs)/(no-label)/users/${reviewerId}`)
+              router.push({
+                pathname: "/(private)/(tabs)/profile/users/[id]",
+                params: { id: reviewerId },
+              })
             }
           />
         )}
@@ -136,20 +144,39 @@ export default function PublicProfileScreen() {
           <View
             style={[
               styles.menuContainer,
-              { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.outlineVariant },
+              {
+                backgroundColor: colors.surfaceContainerLowest,
+                borderColor: colors.outlineVariant,
+              },
             ]}
           >
             <TouchableOpacity
-              style={[styles.menuItem, { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }]}
+              style={[
+                styles.menuItem,
+                {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.outlineVariant,
+                },
+              ]}
               onPress={() => setOptionsVisible(false)}
             >
-              <AppText variant="body" color={colors.onSurface}>Send request</AppText>
+              <AppText variant="body" color={colors.onSurface}>
+                Send request
+              </AppText>
             </TouchableOpacity>
             <TouchableOpacity
-              style={[styles.menuItem, { borderBottomWidth: 1, borderBottomColor: colors.outlineVariant }]}
+              style={[
+                styles.menuItem,
+                {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.outlineVariant,
+                },
+              ]}
               onPress={() => setOptionsVisible(false)}
             >
-              <AppText variant="body" color={colors.onSurface}>Go to chat</AppText>
+              <AppText variant="body" color={colors.onSurface}>
+                Go to chat
+              </AppText>
             </TouchableOpacity>
             <TouchableOpacity
               style={styles.menuItem}

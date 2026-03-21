@@ -8,7 +8,7 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 import { AppText } from "@/src/shared/components/ui";
-import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal.native";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router } from "expo-router";
 import { Settings } from "lucide-react-native";
@@ -89,9 +89,8 @@ export default function ProfileScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [loading, setLoading] = useState(false);
+  const [loading] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
-  const hasPets = MOCK_PETS.length > 0;
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
 
   if (loading) {
@@ -194,7 +193,7 @@ export default function ProfileScreen() {
             paws={PROFILE.paws}
             onReviewerPress={(id) =>
               router.push({
-                pathname: "/(private)/(tabs)/(no-label)/users/[id]",
+                pathname: "/(private)/(tabs)/profile/users/[id]",
                 params: { id },
               })
             }

@@ -13,52 +13,90 @@
     "edit": "Modifier",
     "back": "Retour",
     "next": "Suivant",
+    "continue": "Continuer",
     "done": "Terminé",
     "close": "Fermer",
     "search": "Rechercher",
     "filter": "Filtrer",
     "noResults": "Aucun résultat",
     "points": "points",
-    "goHome": "Retour à l'accueil"
+    "goHome": "Retour à l'accueil",
+    "min": "Min",
+    "max": "Max",
+    "or": "ou",
+    "previous": "Précédent",
+    "submit": "Envoyer",
+    "viewProfile": "Voir le profil",
+    "sendRequest": "Envoyer une demande"
+  },
+  "pet": {
+    "detail": {
+      "seeking": "Recherche",
+      "about": "À propos de {{name}}",
+      "attributes": "Attributs",
+      "specialNeeds": "Besoins particuliers",
+      "petOwner": "Propriétaire",
+      "helpWithPet": "Aider cet animal"
+    }
   },
   "notFound": {
     "title": "Oups !",
     "message": "Cette page est introuvable. Elle a peut-être été déplacée ou n'existe plus."
   },
   "auth": {
+    "orContinueWith": "ou continuer avec",
+    "termsOfService": "Conditions d'utilisation",
+    "privacyPolicy": "Politique de confidentialité",
+    "legalPrefix": "En appuyant sur S'inscrire ou Se connecter, vous acceptez nos",
+    "legalMiddle": " et ",
+    "legalPagesUnavailable": "Les pages légales ne sont pas encore configurées.",
+    "socialSignInComingSoon": "La connexion Google ou Apple sera bientôt disponible.",
+    "showPassword": "Afficher le mot de passe",
+    "hidePassword": "Masquer le mot de passe",
     "welcome": {
-      "title": "Bienvenue sur PawTaker",
+      "title": "Bienvenue,\nceci est PawTaker",
       "subtitle": "L'application communautaire de garde d'animaux",
-      "getStarted": "Commencer",
-      "signIn": "Déjà un compte ? Se connecter"
+      "getStarted": "S'inscrire",
+      "signIn": "Se connecter",
+      "continueWithoutSigningIn": "Continuer sans se connecter"
     },
     "login": {
       "title": "Se connecter",
+      "subtitle": "Entrez votre e-mail et votre mot de passe pour accéder à votre compte.",
       "emailLabel": "Adresse e-mail",
-      "emailPlaceholder": "Adresse e-mail",
+      "emailPlaceholder": "ex. nom@mail.com",
       "passwordLabel": "Mot de passe",
-      "passwordPlaceholder": "Mot de passe",
-      "forgotPassword": "Mot de passe oublié ?",
+      "passwordPlaceholder": "ex. Wi45%gfe",
+      "forgotPassword": "Mot de passe oublié?",
       "submit": "Se connecter",
+      "signingIn": "Connexion en cours...",
       "noAccount": "Pas de compte ? S'inscrire",
+      "noAccountPrefix": "Pas de compte ?",
+      "signUpLink": "S'inscrire",
       "invalidCredentials": "E-mail ou mot de passe invalide."
     },
     "signup": {
       "credentials": {
-        "title": "Créer un compte",
+        "title": "S'inscrire",
+        "subtitle": "Entrez votre e-mail et créez un mot de passe sécurisé pour votre nouveau compte.",
         "email": "Adresse e-mail",
         "password": "Mot de passe",
         "confirmPassword": "Confirmer le mot de passe",
-        "submit": "Continuer",
+        "submit": "S'inscrire",
+        "signingUp": "Inscription en cours...",
         "nameLabel": "Nom complet",
         "namePlaceholder": "Votre nom complet",
         "emailLabel": "Adresse e-mail",
-        "emailPlaceholder": "Entrez votre e-mail",
+        "emailPlaceholder": "ex. nom@mail.com",
         "passwordLabel": "Mot de passe",
-        "passwordPlaceholder": "Au moins 8 caractères",
+        "passwordPlaceholder": "ex. Wi45%gfe",
         "confirmPasswordLabel": "Confirmer le mot de passe",
         "confirmPasswordPlaceholder": "Répétez votre mot de passe",
-        "alreadyHaveAccount": "Déjà un compte ? Se connecter"
+        "usernameLabel": "Nom d'utilisateur",
+        "usernamePlaceholder": "ex. John Paw",
+        "alreadyHaveAccount": "Déjà un compte ? Se connecter",
+        "alreadyPrefix": "Déjà un compte ?",
+        "signInLink": "Se connecter"
       },
       "verify": {
         "title": "Vérifiez votre e-mail",
@@ -90,6 +128,7 @@
         "subtitle": "Veuillez lire et accepter nos règles communautaires",
         "agreeAll": "J'accepte toutes les conditions",
         "submit": "Rejoindre PawTaker",
+        "submitting": "Soumission...",
         "point1": "Je traiterai tous les animaux et leurs propriétaires avec respect.",
         "point2": "J'honorerai tous les engagements de soins que j'accepte.",
         "point3": "Je communiquerai ouvertement et honnêtement en tout temps.",
@@ -104,9 +143,26 @@
         "passport": "Passeport",
         "driversLicense": "Permis de conduire",
         "nationalId": "Carte nationale d'identité",
+        "nationalIdSubtitle": "Téléchargez une photo ou un scan de votre document",
+        "driversLicenseSubtitle": "Téléchargez une photo ou un scan de votre permis",
+        "passportSubtitle": "Téléchargez une photo ou un scan de la page d'identité du passeport",
         "uploadFront": "Télécharger le recto",
         "uploadBack": "Télécharger le verso",
+        "uploadPassport": "Télécharger la page du passeport",
         "uploadSelfie": "Prendre un selfie",
+        "selfieInstructions": "Centrez votre visage dans le cadre et suivez les instructions.",
+        "requiredImagesTwo": "Images requises : 2 photos du document",
+        "requiredImagesOne": "Images requises : 1 photo du document",
+        "pickSourceTitle": "Choisir la source de l'image",
+        "useCamera": "Utiliser l'appareil photo",
+        "useGallery": "Choisir dans la galerie",
+        "retakeSelfie": "Reprendre le selfie",
+        "progressUploadingDocs": "Téléversement des documents…",
+        "progressUploadingBack": "Téléversement du verso…",
+        "progressUploadingSelfie": "Téléversement du selfie…",
+        "progressSubmitting": "Envoi…",
+        "cameraPermissionRequired": "Autorisation de la caméra requise",
+        "submissionFailed": "Échec de l'envoi de la vérification",
         "submit": "Soumettre pour vérification"
       },
       "pending": {
@@ -118,10 +174,35 @@
     },
     "forgotPassword": {
       "title": "Réinitialiser le mot de passe",
-      "subtitle": "Entrez votre e-mail pour recevoir un lien de réinitialisation",
+      "subtitle": "Entrez l'adresse e-mail associee a votre compte et nous vous enverrons un code a saisir pour reinitialiser votre mot de passe",
       "email": "Adresse e-mail",
-      "submit": "Envoyer le lien",
-      "success": "Vérifiez votre e-mail pour le lien de réinitialisation"
+      "submit": "Envoyer le code",
+      "resetting": "Reinitialisation...",
+      "success": "Code envoyé à votre e-mail !",
+      "emailNotFound": "E-mail introuvable. Reessayez ou inscrivez-vous",
+
+      "codeTitle": "Entrez le code",
+      "codeSubtitlePrefix": "Entrez le code à 6 chiffres que nous avons envoyé à",
+      "codePlaceholder": "Code à 6 chiffres",
+      "verify": "Vérifier",
+      "verifyingCode": "Verification du code...",
+      "resendPrefix": "Vous n'avez pas reçu le code ?",
+      "resend": "Renvoyer",
+      "resending": "Envoi...",
+      "invalidCode": "Code incorrect. Veuillez vérifier votre e-mail et réessayer.",
+
+      "newPasswordTitle": "Nouveau mot de passe",
+      "newPasswordSubtitle": "Créez un mot de passe solide.",
+      "newPasswordLabel": "Mot de passe",
+      "newPasswordPlaceholder": "ex. Wi45%gfe",
+      "newPasswordSubmit": "Continuer",
+      "continuing": "Continuation...",
+
+      "confirmPasswordLabel": "Re-saisissez le mot de passe",
+      "confirmPasswordSubtitle": "Assurez-vous que cela correspond.",
+      "confirmPasswordPlaceholder": "Répétez votre mot de passe",
+      "confirmPasswordSubmit": "Mettre à jour le mot de passe",
+      "updatingPassword": "Mise a jour du mot de passe..."
     }
   },
   "feed": {
@@ -140,12 +221,46 @@
     "topTakers": "Meilleurs gardiens",
     "recentRequests": "Demandes récentes",
     "noTakers": "Aucun gardien trouvé à proximité",
-    "noPets": "Aucun animal n'a besoin de soins pour l'instant"
+    "noPets": "Aucun animal n'a besoin de soins pour l'instant",
+    "kycModal": {
+      "title": "Vérifions votre identité",
+      "description": "Pour protéger la communauté et débloquer la réservation ou le rôle de gardien, nous devons confirmer rapidement votre identité. Cela ne prend que 2 minutes !",
+      "maybeLater": "Plus tard",
+      "getVerified": "Me faire vérifier"
+    },
+    "resultsLabel": "Résultats",
+    "distanceKmRange": "{{min}}km–{{max}}km",
+    "takerAvailable": "Disponible",
+    "careTypes": {
+      "daytime": "Journée",
+      "play_walk": "Jeu / promenade",
+      "overnight": "Nuit",
+      "vacation": "Vacances"
+    }
   },
   "myCare": {
     "title": "Mes soins",
     "noCare": "Aucune session de soins active",
     "startCare": "Parcourir les demandes",
+    "applyingForPet": "Candidature pour cet animal ?",
+    "applyingDescription": "Un message avec vos disponibilités sera envoyé au propriétaire de cet animal.",
+    "tabs": {
+      "careGiven": "Soins donnés",
+      "careReceived": "Soins reçus",
+      "liked": "Favoris"
+    },
+    "available": "Disponible",
+    "inCare": "En cours",
+    "goToChat": "Aller au chat",
+    "viewAgreement": "Voir l'accord",
+    "points": "Points",
+    "allTimeHigh": "Record",
+    "careGivenShort": "Soins donnés",
+    "careReceivedShort": "Soins reçus",
+    "endsIn": "Se termine dans {{time}}",
+    "nowAvailableSnackbar": "Vous êtes maintenant marqué·e",
+    "availableHighlight": "disponible",
+    "pointsCount": "{{count}} pts",
     "contract": {
       "title": "Contrat",
       "sign": "Signer le contrat",
@@ -222,6 +337,8 @@
   },
   "messages": {
     "searchChats": "Rechercher dans les discussions",
+    "viewRequest": "Voir la demande",
+    "serviceRequest": "Demande de service",
     "title": "Messages",
     "noMessages": "Aucun message",
     "typeMessage": "Écrire un message",
@@ -244,6 +361,7 @@
     "age": "Âge",
     "energyLevel": "Niveau d'énergie",
     "specialNeeds": "Besoins particuliers",
+    "apply": "Postuler",
     "applyNow": "Postuler"
   },
   "filters": {

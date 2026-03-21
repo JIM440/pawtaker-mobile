@@ -70,7 +70,6 @@ export default function RequestDetailScreen() {
   const colors = Colors[resolvedTheme];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
-  const [galleryOpen, setGalleryOpen] = useState(false);
   const request = MOCK_REQUEST;
   const imageCount = request.images.length;
 
@@ -106,7 +105,6 @@ export default function RequestDetailScreen() {
                 activeOpacity={0.9}
                 onPress={() => {
                   setCurrentImageIndex(index);
-                  setGalleryOpen(true);
                 }}
                 style={styles.carouselItem}
               >
@@ -214,9 +212,10 @@ export default function RequestDetailScreen() {
           </View>
           <TouchableOpacity
             onPress={() =>
-              router.push(
-                `/(private)/(tabs)/(no-label)/users/${request.owner.id}`,
-              )
+              router.push({
+                pathname: "/(private)/(tabs)/profile/users/[id]",
+                params: { id: request.owner.id },
+              })
             }
             style={styles.viewProfileBtn}
           >

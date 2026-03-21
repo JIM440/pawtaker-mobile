@@ -7,7 +7,6 @@ import { Skeleton } from '@/src/shared/components/ui/Skeleton';
 export function MyCareSkeleton() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const bg = colors.surfaceContainer;
 
   return (
     <View style={styles.container}>

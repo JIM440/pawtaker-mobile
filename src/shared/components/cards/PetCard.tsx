@@ -6,6 +6,7 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { Calendar, Clock, Heart, MapPin } from "lucide-react-native";
 import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   LayoutChangeEvent,
   NativeScrollEvent,
@@ -68,6 +69,7 @@ export function PetCard({
   onApply,
   onCaretakerPress,
 }: PetCardProps) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -241,9 +243,14 @@ export function PetCard({
             {tags.map((tag, index) => (
               <View
                 key={index}
-                style={[styles.tagPill, { backgroundColor: colors.surfaceContainer }]}
+                style={[
+                  styles.tagPill,
+                  { backgroundColor: colors.surfaceContainer },
+                ]}
               >
-                <AppText variant="caption" style={styles.tagText}>{tag}</AppText>
+                <AppText variant="caption" style={styles.tagText}>
+                  {tag}
+                </AppText>
               </View>
             ))}
           </View>
@@ -259,7 +266,7 @@ export function PetCard({
             onPress={onCaretakerPress}
           />
           <Button
-            label="Apply"
+            label={t("requestDetails.apply")}
             onPress={onApply}
             style={styles.applyBtn}
           />
@@ -379,7 +386,7 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     minWidth: 72,
-    width: 100
+    width: 115,
   },
   caretakerName: {
     fontSize: 16,

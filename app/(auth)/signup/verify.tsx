@@ -1,13 +1,22 @@
 import { useState } from 'react';
-import { View, Text, TouchableOpacity, TextInput } from 'react-native';
+import { ScrollView, TouchableOpacity, View } from 'react-native';
 import { router } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/src/lib/supabase/client';
 import { useSignupStore } from '@/src/lib/store/signup.store';
+import { useThemeStore } from '@/src/lib/store/theme.store';
+import { Colors } from '@/src/constants/colors';
+import { PageContainer } from '@/src/shared/components/layout/PageContainer';
+import { BackHeader } from '@/src/shared/components/layout/BackHeader';
+import { AppText } from '@/src/shared/components/ui/AppText';
+import { Button } from '@/src/shared/components/ui/Button';
+import { OtpInput } from '@/src/shared/components/forms/OtpInput';
 
 export default function VerifyScreen() {
   const { t } = useTranslation();
-  const { email } = useSignupStore();
+  const { email, clearSignup } = useSignupStore();
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
 
   const [otp, setOtp] = useState('');
   const [loading, setLoading] = useState(false);
@@ -36,8 +45,8 @@ export default function VerifyScreen() {
       return;
     }
 
-    // Trigger fires server-side to set is_email_verified = true
-    router.push('/(auth)/signup/profile');
+    clearSignup();
+    router.replace('/(private)/(tabs)');
   };
 
   const handleResend = async () => {
@@ -60,48 +69,86 @@ export default function VerifyScreen() {
   };
 
   return (
-    <View className="flex-1 bg-background px-6 justify-center">
-      <Text className="text-2xl font-bold text-text-primary mb-2">
-        {t('auth.signup.verify.title')}
-      </Text>
-      <Text className="text-text-secondary mb-8">
-        {t('auth.signup.verify.subtitle')} {email}
-      </Text>
-
-      {/* 6-digit OTP input */}
-      <View className="mb-6">
-        <TextInput
-          className="border border-border rounded-xl px-4 py-4 bg-surface text-text-primary text-2xl text-center font-bold tracking-widest"
-          value={otp}
-          onChangeText={(v) => {
-            setError(null);
-            setOtp(v.replace(/[^0-9]/g, ''));
-          }}
-          keyboardType="number-pad"
-          maxLength={8}
-          placeholder={t('auth.signup.verify.codePlaceholder')}
-          placeholderTextColor="#6B7280"
-        />
-      </View>
-
-      {error && <Text className="text-danger text-sm mb-4 text-center">{error}</Text>}
-      {successMsg && <Text className="text-success text-sm mb-4 text-center">{successMsg}</Text>}
-
-      <TouchableOpacity
-        className="bg-primary w-full py-4 rounded-xl items-center mb-4"
-        onPress={handleVerify}
-        disabled={loading}
+    <PageContainer>
+      <BackHeader className="px-0" />
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, paddingTop: 16 }}
       >
-        <Text className="text-white font-semibold text-base">
-          {loading ? t('auth.signup.verify.verifying') : t('auth.signup.verify.submit')}
-        </Text>
-      </TouchableOpacity>
+        <AppText
+          variant="title"
+          color={colors.onSurface}
+          style={{ marginBottom: 8, fontSize: 32 }}
+        >
+          {t('auth.signup.verify.title')}
+        </AppText>
+        <AppText
+          variant="body"
+          color={colors.onSurfaceVariant}
+          style={{ marginBottom: 8 }}
+        >
+          {t('auth.signup.verify.subtitle')}
+        </AppText>
+        <AppText
+          variant="body"
+          color={colors.onSurface}
+          style={{ fontWeight: '700', marginBottom: 24 }}
+        >
+          {email}
+        </AppText>
 
-      <TouchableOpacity onPress={handleResend} disabled={resending}>
-        <Text className="text-primary-light text-center text-base">
-          {resending ? t('auth.signup.verify.resending') : t('auth.signup.verify.resend')}
-        </Text>
-      </TouchableOpacity>
-    </View>
+        <View style={{ width: '100%' }}>
+          <OtpInput
+            value={otp}
+            onChangeText={(v) => {
+              setError(null);
+              setSuccessMsg(null);
+              setOtp(v);
+            }}
+            error={error ?? undefined}
+          />
+        </View>
+
+        {successMsg ? (
+          <AppText
+            variant="caption"
+            color={colors.primary}
+            style={{
+              marginTop: 10,
+              marginBottom: 16,
+              textAlign: 'center',
+              fontWeight: '600',
+            }}
+          >
+            {successMsg}
+          </AppText>
+        ) : null}
+
+        <View style={{ width: '100%', marginTop: 12 }}>
+          <Button
+            label={loading ? t('auth.signup.verify.verifying') : t('auth.signup.verify.submit')}
+            onPress={handleVerify}
+            loading={loading}
+            disabled={loading || resending}
+          />
+        </View>
+
+        <View style={{ flexDirection: 'row', justifyContent: 'center', alignItems: 'center', marginTop: 22 }}>
+          <AppText variant="body" color={colors.onSurfaceVariant} style={{ marginRight: 4 }}>
+            {t('auth.forgotPassword.resendPrefix')}
+          </AppText>
+          <TouchableOpacity onPress={handleResend} disabled={resending || loading}>
+            <AppText
+              variant="body"
+              color={colors.onSurface}
+              style={{ fontWeight: '700', opacity: resending || loading ? 0.6 : 1 }}
+            >
+              {resending ? t('auth.signup.verify.resending') : t('auth.signup.verify.resend')}
+            </AppText>
+          </TouchableOpacity>
+        </View>
+      </ScrollView>
+    </PageContainer>
   );
 }

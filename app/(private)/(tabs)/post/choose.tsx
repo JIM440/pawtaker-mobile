@@ -1,11 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Modal,
   TouchableOpacity,
   StyleSheet,
   Pressable,
-  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
@@ -16,7 +15,6 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 export default function PostChooseScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { width } = useWindowDimensions();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [modalVisible, setModalVisible] = useState(true);

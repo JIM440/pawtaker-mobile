@@ -1,5 +1,3 @@
-import { Colors } from "@/src/constants/colors";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
@@ -32,8 +30,6 @@ export function ProfilePetsTab({
   showAddPetButton = true,
   onPetPress,
 }: Props) {
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
   const hasPets = pets.length > 0;
 
   if (!hasPets) {

@@ -1,7 +1,6 @@
 import { Colors } from '@/src/constants/colors';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { DateTimeField } from '@/src/shared/components/forms/DateTimeField';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppSwitch } from '@/src/shared/components/ui/AppSwitch';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { Button } from '@/src/shared/components/ui/Button';
@@ -32,7 +31,6 @@ const TOTAL_STEPS = 8;
 
 export default function AvailabilityWizardScreen() {
   const router = useRouter();
-  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);

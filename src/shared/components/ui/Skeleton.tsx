@@ -1,7 +1,7 @@
 import { Colors } from '@/src/constants/colors';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import React, { useEffect } from 'react';
-import { DimensionValue, StyleSheet, ViewStyle } from 'react-native';
+import { DimensionValue, ViewStyle } from 'react-native';
 import Animated, {
   useAnimatedStyle,
   useSharedValue,
@@ -61,6 +61,3 @@ export function Skeleton({
     />
   );
 }
-
-
-const styles = StyleSheet.create({});

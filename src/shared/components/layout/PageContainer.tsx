@@ -1,7 +1,14 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import React from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
 type PageContainerProps = {
   children: React.ReactNode;
@@ -37,10 +44,11 @@ export function PageContainer({
     <KeyboardAvoidingView
       style={{ flex: 1 }}
       behavior={Platform.OS === "ios" ? "padding" : "height"}
+      keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
     >
       <View
         style={[styles.safe, { backgroundColor }, style]}
-      // edges={edges}
+        // edges={edges}
       >
         <View style={[styles.content, contentPadding, contentStyle]}>
           {children}

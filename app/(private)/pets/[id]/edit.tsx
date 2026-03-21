@@ -5,24 +5,42 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { Button } from "@/src/shared/components/ui/Button";
-import { router, useLocalSearchParams } from "expo-router";
-import React, { useState } from "react";
-import { useTranslation } from "react-i18next";
 import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
-import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
+import { router, useLocalSearchParams } from "expo-router";
 import { Search } from "lucide-react-native";
-import { Input as AppInput } from "@/src/shared/components/ui/Input";
-import { AppText } from "@/src/shared/components/ui/AppText";
-import { useMemo } from "react";
-import { TouchableOpacity } from "react-native";
+import React, { useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   ScrollView,
   StyleSheet,
+  TouchableOpacity,
   View,
 } from "react-native";
 
+import { Input as AppInput } from "@/src/shared/components/ui/Input";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
+
+const BREEDS_BY_KIND: Record<string, string[]> = {
+  Dog: [
+    "Afghan Hound",
+    "Africanis",
+    "Barbet",
+    "Basenji",
+    "Cesky Terrier",
+    "Golden Retriever",
+    "Beagle",
+    "Poodle",
+  ],
+  Cat: ["Tabby", "Siamese", "Persian", "Maine Coon", "Sphynx"],
+  "Small Furries": ["Rabbit", "Guinea Pig", "Hamster", "Ferret"],
+  Bird: ["Parakeet", "Cockatiel", "Parrot", "Canary"],
+  Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle"],
+  Other: ["Mixed", "Unknown"],
+};
+
 export default function EditPetScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: _petId } = useLocalSearchParams<{ id: string }>();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const { t } = useTranslation();
@@ -49,15 +67,6 @@ export default function EditPetScreen() {
   const [breed, setBreed] = useState<string>("Golden Retriever");
   const [breedQuery, setBreedQuery] = useState("");
   const [showBreedList, setShowBreedList] = useState(false);
-
-  const BREEDS_BY_KIND: Record<string, string[]> = {
-    Dog: ["Afghan Hound", "Africanis", "Barbet", "Basenji", "Cesky Terrier", "Golden Retriever", "Beagle", "Poodle"],
-    Cat: ["Tabby", "Siamese", "Persian", "Maine Coon", "Sphynx"],
-    "Small Furries": ["Rabbit", "Guinea Pig", "Hamster", "Ferret"],
-    Bird: ["Parakeet", "Cockatiel", "Parrot", "Canary"],
-    Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle"],
-    Other: ["Mixed", "Unknown"],
-  };
 
   const filteredBreeds = useMemo(() => {
     const baseBreeds = BREEDS_BY_KIND[kind] ?? [];

@@ -5,7 +5,7 @@ import { Colors } from "@/src/constants/colors";
 
 type ImageViewerModalProps = {
   visible: boolean;
-  images: Array<{ uri: string } | number>;
+  images: ({ uri: string } | number)[];
   index?: number;
   onRequestClose: () => void;
 };
@@ -35,7 +35,7 @@ export function ImageViewerModal({
         {current != null ? (
           <View style={{ width: "100%", height: "100%", padding: 16 }}>
             <Image
-              // eslint-disable-next-line @typescript-eslint/no-explicit-any
+               
               source={current as any}
               resizeMode="contain"
               style={{ width: "100%", height: "100%" }}
