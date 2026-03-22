@@ -15,17 +15,10 @@ export default function AuthLayout() {
   const isLoading = useAuthStore((s) => s.isLoading);
   const pathname = usePathname();
 
-  /**
-   * Route protection belongs here (not root): this layout only mounts for (auth) screens,
-   * so navigating welcome → login never races with (private) segment/pathname.
-   */
+  /** Onboarding gate only — auth vs app is handled by Stack.Protected in root `_layout`. */
   useEffect(() => {
     if (!authHydrated || isLoading) return;
-
-    if (session) {
-      router.replace("/(private)/(tabs)" as Parameters<typeof router.replace>[0]);
-      return;
-    }
+    if (session) return;
 
     if (!onboardingSeen) {
       const path = pathname.split("?")[0] ?? "";

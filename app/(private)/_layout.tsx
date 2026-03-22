@@ -1,35 +1,19 @@
 import { Colors } from "@/src/constants/colors";
 import { stackPerfScreenOptions } from "@/src/constants/navigation";
-import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { KycGlobalPrompt } from "@/src/shared/components/kyc/KycGlobalPrompt";
-import { router, Stack } from "expo-router";
+import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
 import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
  * Private (authenticated) app shell: tabs + detail screens.
- * Native: slide_from_right so tab → detail feels like a push, not a full reload.
- * Web: navigation will still feel like page loads (Expo Router web limitation).
+ * Access is gated by `Stack.Protected` in root `app/_layout.tsx`.
  */
 export default function PrivateLayout() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-
-  const session = useAuthStore((s) => s.session);
-  const guestMode = useAuthStore((s) => s.guestMode);
-  const authHydrated = useAuthStore((s) => s._hasHydrated);
-  const isLoading = useAuthStore((s) => s.isLoading);
-
-  /** Only runs while this layout is mounted — not during welcome → login navigation. */
-  useEffect(() => {
-    if (!authHydrated || isLoading) return;
-    if (!session && !guestMode) {
-      router.replace("/welcome");
-    }
-  }, [session, guestMode, authHydrated, isLoading]);
 
   return (
     <SafeAreaView

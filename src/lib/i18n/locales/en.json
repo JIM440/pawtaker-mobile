@@ -75,9 +75,7 @@
       "getStarted": "Sign Up",
       "signIn": "Sign In",
       "continueWithoutSigningIn": "Continue without signing in",
-      "languageHint": "Opens a menu to choose English or French",
-      "clearSavedSession": "Clear saved session data",
-      "clearSavedSessionHint": "If sign-in or sign-out gets stuck, this removes stored login data from this device."
+      "languageHint": "Opens a menu to choose English or French"
     },
     "onboarding": {
       "slide1Title": "Find your pet's new buddy",

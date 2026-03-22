@@ -1,10 +1,8 @@
 import i18n from "@/src/lib/i18n";
-import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
   Modal,
   Pressable,
   StyleSheet,
@@ -14,7 +12,6 @@ import {
 } from "react-native";
 
 import { Colors } from "@/src/constants/colors";
-import { wipeAuthStorageAndClientState } from "@/src/lib/auth/perform-sign-out";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -32,14 +29,12 @@ const PRIMARY_LOGO = require("@/assets/icons/logos/svg/narrow_variant.svg");
 
 export default function WelcomeScreen() {
   const router = useRouter();
-  const queryClient = useQueryClient();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const setGuestMode = useAuthStore((s) => s.setGuestMode);
 
   const { language, setLanguage } = useLanguageStore();
-  const [wipeBusy, setWipeBusy] = useState(false);
 
   const languageButtonRef = useRef<View | null>(null);
   const [openMenu, setOpenMenu] = useState(false);
@@ -118,7 +113,6 @@ export default function WelcomeScreen() {
           width: "100%",
           gap: 24,
           paddingTop: 32,
-          // justifyContent: "center",
         }}
       >
         <LocalSvg
@@ -199,42 +193,6 @@ export default function WelcomeScreen() {
           >
             {t("auth.welcome.continueWithoutSigningIn")}
           </AppText>
-        </TouchableOpacity>
-
-        <TouchableOpacity
-          disabled={wipeBusy}
-          onPress={async () => {
-            try {
-              setWipeBusy(true);
-              await wipeAuthStorageAndClientState();
-              queryClient.clear();
-              router.replace("/welcome");
-            } finally {
-              setWipeBusy(false);
-            }
-          }}
-          style={{ marginTop: 28, paddingVertical: 8 }}
-        >
-          {wipeBusy ? (
-            <ActivityIndicator color={colors.onSurfaceVariant} />
-          ) : (
-            <>
-              <AppText
-                variant="caption"
-                color={colors.primary}
-                style={{ textAlign: "center", textDecorationLine: "underline" }}
-              >
-                {t("auth.welcome.clearSavedSession")}
-              </AppText>
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={{ textAlign: "center", marginTop: 6, paddingHorizontal: 12 }}
-              >
-                {t("auth.welcome.clearSavedSessionHint")}
-              </AppText>
-            </>
-          )}
         </TouchableOpacity>
       </View>
 

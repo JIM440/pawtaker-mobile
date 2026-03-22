@@ -45,6 +45,8 @@ export default function RootLayout() {
   const { language, _hasHydrated: langHydrated } = useLanguageStore();
   const {
     isLoading,
+    session,
+    guestMode,
     setSession,
     setProfile,
     setLoading,
@@ -105,13 +107,33 @@ export default function RootLayout() {
     if (Platform.OS !== "web") void SplashScreen.hideAsync();
   }, [ready]);
 
+  /** Expo Router: Stack.Protected — only one branch mounts; avoids flashing (private) before redirect. */
+  const canAccessPrivate = !!session || guestMode;
+  const canAccessAuth = !session && !guestMode;
+
+  if (!ready) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryClientProvider client={queryClient}>
+          <I18nextProvider i18n={i18n}>
+            <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
+          </I18nextProvider>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
+    );
+  }
+
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <I18nextProvider i18n={i18n}>
           <Stack screenOptions={{ headerShown: false }}>
-            <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-            <Stack.Screen name="(private)" options={{ headerShown: false }} />
+            <Stack.Protected guard={canAccessAuth}>
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            </Stack.Protected>
+            <Stack.Protected guard={canAccessPrivate}>
+              <Stack.Screen name="(private)" options={{ headerShown: false }} />
+            </Stack.Protected>
           </Stack>
           <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
         </I18nextProvider>

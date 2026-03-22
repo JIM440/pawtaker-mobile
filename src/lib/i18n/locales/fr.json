@@ -60,9 +60,7 @@
       "getStarted": "S'inscrire",
       "signIn": "Se connecter",
       "continueWithoutSigningIn": "Continuer sans se connecter",
-      "languageHint": "Ouvre un menu pour choisir l’anglais ou le français",
-      "clearSavedSession": "Effacer les données de session enregistrées",
-      "clearSavedSessionHint": "Si la connexion ou la déconnexion bloque, cela supprime les données de connexion stockées sur cet appareil."
+      "languageHint": "Ouvre un menu pour choisir l’anglais ou le français"
     },
     "onboarding": {
       "slide1Title": "Trouvez le nouveau meilleur ami de votre animal",
