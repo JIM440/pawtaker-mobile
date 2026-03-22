@@ -14,6 +14,11 @@ import {
 interface InputProps extends TextInputProps {
   label?: string;
   error?: string;
+  /**
+   * When true (default), border/error text only appear after the user has focused
+   * the field at least once — avoids showing validation errors before interaction.
+   */
+  showErrorOnlyAfterFocus?: boolean;
   containerStyle?: StyleProp<ViewStyle>;
   inputStyle?: StyleProp<TextStyle>;
   leftIcon?: React.ReactNode;
@@ -23,6 +28,7 @@ interface InputProps extends TextInputProps {
 export function Input({
   label,
   error,
+  showErrorOnlyAfterFocus = true,
   containerStyle,
   inputStyle,
   placeholderTextColor,
@@ -35,8 +41,10 @@ export function Input({
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [isFocused, setIsFocused] = useState(false);
+  const [hasBeenFocused, setHasBeenFocused] = useState(false);
 
   const handleFocus = (e: any) => {
+    setHasBeenFocused(true);
     setIsFocused(true);
     onFocus?.(e);
   };
@@ -46,19 +54,26 @@ export function Input({
     onBlur?.(e);
   };
 
+  const displayError = Boolean(
+    error && (!showErrorOnlyAfterFocus || hasBeenFocused),
+  );
+
   return (
     <View style={{ marginBottom: 20 }}>
       <View
         style={[
           {
             borderWidth: 1,
-            borderColor: error
+            borderColor: displayError
               ? colors.error
               : isFocused
                 ? colors.primary
                 : colors.outlineVariant,
             borderRadius: 16,
-            backgroundColor: colors.surfaceContainerHighest,
+            // Error state: tinted fill (Material errorContainer) — matches Figma error fields
+            backgroundColor: displayError
+              ? colors.errorContainer
+              : colors.surfaceContainerHighest,
             paddingHorizontal: 16,
             paddingVertical: label ? 0 : 12,
             paddingTop: label ? 12 : 12,
@@ -72,7 +87,13 @@ export function Input({
         {label ? (
           <AppText
             variant="caption"
-            color={isFocused ? colors.primary : colors.onSurfaceVariant}
+            color={
+              displayError
+                ? colors.onErrorContainer
+                : isFocused
+                  ? colors.primary
+                  : colors.onSurfaceVariant
+            }
             style={{ lineHeight: 12 }}
           >
             {label}
@@ -83,7 +104,7 @@ export function Input({
           <TextInput
             style={[
               {
-                color: colors.onSurface,
+                color: displayError ? colors.onErrorContainer : colors.onSurface,
                 fontSize: 14,
                 flex: 1,
               },
@@ -97,7 +118,7 @@ export function Input({
           {rightIcon && <View style={{ marginLeft: 10 }}>{rightIcon}</View>}
         </View>
       </View>
-      {error ? (
+      {displayError ? (
         <AppText
           variant="caption"
           color={colors.error}

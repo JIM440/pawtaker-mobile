@@ -6,5 +6,7 @@ export { Card } from "./Card";
 export { ImageViewerModal } from "./ImageViewerModal";
 export { Input } from "./Input";
 export { ProfileAvatar } from "./ProfileAvatar";
+export { RadioGroup } from "./RadioGroup";
 export { Skeleton } from "./Skeleton";
+export { StarRatingInput } from "./StarRatingInput";
 

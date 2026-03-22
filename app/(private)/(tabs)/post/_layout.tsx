@@ -1,10 +1,15 @@
-import { Stack } from 'expo-router';
+import { stackPerfScreenOptions } from "@/src/constants/navigation";
+import { Stack } from "expo-router";
 
-export default function PostLayout() {
+/**
+ * Post tab: lightweight stack (modal entry from + button). Wizards live under
+ * `/(private)/post-requests` and `/(private)/post-availability` so the tab bar stays hidden there.
+ */
+export default function PostTabLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="requests" options={{ title: 'Request Care' }} />
-      <Stack.Screen name="availability" options={{ title: 'My Availability' }} />
+    <Stack screenOptions={{ headerShown: false, ...stackPerfScreenOptions }}>
+      <Stack.Screen name="index" />
+      <Stack.Screen name="choose" options={{ title: "Post" }} />
     </Stack>
   );
 }

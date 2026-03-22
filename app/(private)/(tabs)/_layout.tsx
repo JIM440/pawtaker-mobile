@@ -1,4 +1,6 @@
 import { Colors } from "@/src/constants/colors";
+import { tabPerfScreenOptions } from "@/src/constants/navigation";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Tabs, useRouter } from "expo-router";
@@ -34,6 +36,7 @@ export default function TabsLayout() {
     <>
       <Tabs
         screenOptions={{
+          ...tabPerfScreenOptions,
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.onSurfaceVariant,
@@ -106,7 +109,10 @@ export default function TabsLayout() {
             tabBarButton: ({ style }) => (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setShowPostModal(true)}
+                onPress={() => {
+                  if (blockIfKycNotApproved()) return;
+                  setShowPostModal(true);
+                }}
                 style={[
                   style,
                   { alignItems: "center", justifyContent: "center" },
@@ -226,12 +232,13 @@ export default function TabsLayout() {
                 android_ripple={{ color: colors.surfaceContainerHighest }}
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
                 onPress={() => {
+                  if (blockIfKycNotApproved()) return;
                   setShowPostModal(false);
-                  router.push("/(private)/(tabs)/post/requests" as any);
+                  router.push("/(private)/post-requests" as any);
                 }}
               >
                 <AppText variant="body" color={colors.onSurface} style={{ fontWeight: 600 }}>
-                  {t("post.requestCare", "Launch Request")}
+                  {t("post.launchRequest")}
                 </AppText>
               </Pressable>
               <View
@@ -245,12 +252,13 @@ export default function TabsLayout() {
                 android_ripple={{ color: colors.surfaceContainerHighest }}
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
                 onPress={() => {
+                  if (blockIfKycNotApproved()) return;
                   setShowPostModal(false);
-                  router.push("/(private)/(tabs)/post/availability" as any);
+                  router.push("/(private)/post-availability" as any);
                 }}
               >
                 <AppText variant="body" color={colors.onSurface} style={{ fontWeight: 600 }}>
-                  {t("post.addAvailability", "Available to Care")}
+                  {t("post.availableToCare")}
                 </AppText>
               </Pressable>
             </View>

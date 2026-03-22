@@ -25,6 +25,8 @@ export const MOCK_CARE_GIVEN_ROWS = [
 export const MOCK_LIKED_PETS = [
     {
         id: '1',
+        /** Care request id — matches home feed / post-requests/[id] */
+        requestId: '1',
         imageSource: 'https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=400',
         petName: 'Polo',
         breed: 'Golden Retriever',
@@ -37,6 +39,7 @@ export const MOCK_LIKED_PETS = [
     },
     {
         id: '2',
+        requestId: '3',
         imageSource: 'https://images.unsplash.com/photo-1514888286974-6c03e2ca1dba?w=400',
         petName: 'Luna',
         breed: 'Tabby',

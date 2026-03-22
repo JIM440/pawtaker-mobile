@@ -10,7 +10,14 @@ import {
 } from "react-native";
 import { AppText } from "./AppText";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Variant =
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "danger"
+  /** Light surface + primary label — for CTAs on solid primary / brand backgrounds (e.g. onboarding). */
+  | "inverse";
 type Size = "md" | "sm";
 
 type ButtonProps = {
@@ -31,6 +38,7 @@ const variantBg: Record<Variant, (colors: (typeof Colors)[keyof typeof Colors]) 
   outline: () => "transparent",
   ghost: () => "transparent",
   danger: (c) => c.error,
+  inverse: (c) => c.surfaceBright,
 };
 
 const variantTextColor: Record<
@@ -42,6 +50,7 @@ const variantTextColor: Record<
   outline: (c) => c.primary,
   ghost: (c) => c.primary,
   danger: (c) => c.onError,
+  inverse: (c) => c.primary,
 };
 
 /**
@@ -96,7 +105,9 @@ export function Button({
           color={
             variant === "outline" || variant === "ghost"
               ? colors.primary
-              : colors.onPrimary
+              : variant === "inverse"
+                ? colors.primary
+                : colors.onPrimary
           }
         />
       )}

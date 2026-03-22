@@ -31,12 +31,12 @@ export function RangeSlider({
 
     // Sync from props
     React.useEffect(() => {
-        if (containerWidth > 0) {
-            const oneStepWidth = containerWidth / range;
-            leftX.value = (values[0] - min) * oneStepWidth;
-            rightX.value = (values[1] - min) * oneStepWidth;
+        if (containerWidth > 0 && range > 0) {
+            const span = max - min;
+            leftX.value = ((values[0] - min) / span) * containerWidth;
+            rightX.value = ((values[1] - min) / span) * containerWidth;
         }
-    }, [values, containerWidth, min, range]);
+    }, [values, containerWidth, min, max, range]);
 
     const onLayout = (event: LayoutChangeEvent) => {
         const width = event.nativeEvent.layout.width;
@@ -46,12 +46,16 @@ export function RangeSlider({
     };
 
     const updateValues = (lx: number, rx: number) => {
-        const oneStepWidth = containerWidth / range;
-        const newMin = Math.max(min, Math.min(max, Math.round(lx / oneStepWidth) + min));
-        const newMax = Math.max(min, Math.min(max, Math.round(rx / oneStepWidth) + min));
-
-        if (newMin !== values[0] || newMax !== values[1]) {
-            onValuesChange([newMin, newMax]);
+        if (containerWidth <= 0 || range <= 0) return;
+        const span = max - min;
+        let newMin = Math.round(min + (lx / containerWidth) * span);
+        let newMax = Math.round(min + (rx / containerWidth) * span);
+        newMin = Math.max(min, Math.min(max, newMin));
+        newMax = Math.max(min, Math.min(max, newMax));
+        const lo = Math.min(newMin, newMax);
+        const hi = Math.max(newMin, newMax);
+        if (lo !== values[0] || hi !== values[1]) {
+            onValuesChange([lo, hi]);
         }
     };
 
@@ -63,13 +67,11 @@ export function RangeSlider({
             const distRight = Math.abs(touchX - rightX.value);
 
             if (distLeft < distRight) {
-                // Closer to left handle
-                const newLX = Math.max(0, Math.min(rightX.value - (containerWidth / range), touchX));
+                const newLX = Math.max(0, Math.min(rightX.value, touchX));
                 leftX.value = newLX;
                 runOnJS(updateValues)(newLX, rightX.value);
             } else {
-                // Closer to right handle
-                const newRX = Math.max(leftX.value + (containerWidth / range), Math.min(containerWidth, touchX));
+                const newRX = Math.max(leftX.value, Math.min(containerWidth, touchX));
                 rightX.value = newRX;
                 runOnJS(updateValues)(leftX.value, newRX);
             }

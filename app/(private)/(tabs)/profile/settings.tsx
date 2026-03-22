@@ -1,16 +1,17 @@
 import { Colors } from "@/src/constants/colors";
+import { performSignOut } from "@/src/lib/auth/perform-sign-out";
 import i18n from "@/src/lib/i18n";
-import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { supabase } from "@/src/lib/supabase/client";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ChevronDown, LogOut, Trash2, UserX } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   Modal,
   Pressable,
   ScrollView,
@@ -21,10 +22,11 @@ import {
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
-  const { signOut } = useAuthStore();
+  const queryClient = useQueryClient();
   const [confirmAction, setConfirmAction] = useState<
     null | "logout" | "deactivate" | "delete"
   >(null);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const { theme, setTheme, resolvedTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const [openMenu, setOpenMenu] = useState<"theme" | "language" | null>(null);
@@ -51,10 +53,21 @@ export default function SettingsScreen() {
   const colors = Colors[resolvedTheme];
 
   const handleLogout = async () => {
-    setConfirmAction(null);
-    await supabase.auth.signOut();
-    signOut();
-    router.replace("/(auth)/welcome");
+    try {
+      setIsSigningOut(true);
+      await performSignOut();
+      queryClient.clear();
+      setConfirmAction(null);
+      router.replace("/welcome");
+    } catch (e) {
+      console.error("[settings] signOut", e);
+      Alert.alert(
+        t("common.error"),
+        t("settings.signOutFailed", "Could not sign out. Please try again."),
+      );
+    } finally {
+      setIsSigningOut(false);
+    }
   };
 
   return (
@@ -448,13 +461,15 @@ export default function SettingsScreen() {
                 : ""
         }
         primaryLabel={
-          confirmAction === "logout"
-            ? t("settings.logoutCta", "Sign Out")
-            : confirmAction === "deactivate"
-              ? t("settings.deactivateCta", "Deactivate")
-              : confirmAction === "delete"
-                ? t("settings.deleteCta", "Delete")
-                : ""
+          confirmAction === "logout" && isSigningOut
+            ? t("settings.signingOut", "Signing out...")
+            : confirmAction === "logout"
+              ? t("settings.logoutCta", "Sign Out")
+              : confirmAction === "deactivate"
+                ? t("settings.deactivateCta", "Deactivate")
+                : confirmAction === "delete"
+                  ? t("settings.deleteCta", "Delete")
+                  : ""
         }
         secondaryLabel={t("common.cancel", "Cancel")}
         destructive={
@@ -462,6 +477,7 @@ export default function SettingsScreen() {
           confirmAction === "deactivate" ||
           confirmAction === "delete"
         }
+        primaryLoading={confirmAction === "logout" && isSigningOut}
         onPrimary={async () => {
           if (confirmAction === "logout") {
             await handleLogout();

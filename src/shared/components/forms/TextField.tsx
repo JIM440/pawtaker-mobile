@@ -10,6 +10,8 @@ import { Input } from "@/src/shared/components/ui/Input";
 interface Props extends TextInputProps {
   label: string;
   error?: string;
+  /** @see Input — hide field errors until the user has focused the field once */
+  showErrorOnlyAfterFocus?: boolean;
   leftIcon?: React.ReactNode;
   rightIcon?: React.ReactNode;
   isPassword?: boolean;
@@ -18,6 +20,7 @@ interface Props extends TextInputProps {
 export function TextField({
   label,
   error,
+  showErrorOnlyAfterFocus,
   leftIcon,
   rightIcon,
   isPassword = false,
@@ -63,6 +66,7 @@ export function TextField({
     <Input
       label={label}
       error={error}
+      showErrorOnlyAfterFocus={showErrorOnlyAfterFocus}
       leftIcon={leftIcon}
       rightIcon={computedRightIcon}
       secureTextEntry={computedSecureTextEntry}

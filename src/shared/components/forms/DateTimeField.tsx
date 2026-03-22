@@ -12,6 +12,10 @@ type Props = {
   value: Date | null;
   onChange: (date: Date) => void;
   placeholder?: string;
+  /** Same pattern as `Input`: error border, `errorContainer` fill, message below. */
+  error?: string;
+  /** When `error` is set, still show styling but hide the caption (e.g. sibling field shows the message). */
+  showErrorText?: boolean;
 };
 
 export function DateTimeField({
@@ -20,10 +24,13 @@ export function DateTimeField({
   value,
   onChange,
   placeholder,
+  error,
+  showErrorText = true,
 }: Props) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [open, setOpen] = useState(false);
+  const displayError = Boolean(error);
 
   const isDark = resolvedTheme === "dark";
 
@@ -48,7 +55,9 @@ export function DateTimeField({
     <View style={styles.wrapper}>
       <AppText
         variant="label"
-        color={colors.onSurfaceVariant}
+        color={
+          displayError ? colors.onErrorContainer : colors.onSurfaceVariant
+        }
         style={styles.label}
       >
         {label}
@@ -58,24 +67,54 @@ export function DateTimeField({
         style={[
           styles.field,
           {
-            backgroundColor: colors.surfaceContainer,
+            borderWidth: 1,
+            borderColor: displayError ? colors.error : colors.outlineVariant,
+            backgroundColor: displayError
+              ? colors.errorContainer
+              : colors.surfaceContainer,
           },
         ]}
         onPress={() => setOpen(true)}
       >
         <AppText
           variant="body"
-          color={display ? colors.onSurface : colors.onSurfaceVariant}
+          color={
+            displayError
+              ? colors.onErrorContainer
+              : display
+                ? colors.onSurface
+                : colors.onSurfaceVariant
+          }
           style={styles.value}
         >
           {display || placeholder || "—"}
         </AppText>
         {mode === "date" ? (
-          <CalendarDays size={18} color={colors.onSurfaceVariant} />
+          <CalendarDays
+            size={18}
+            color={
+              displayError ? colors.onErrorContainer : colors.onSurfaceVariant
+            }
+          />
         ) : (
-          <Clock size={18} color={colors.onSurfaceVariant} />
+          <Clock
+            size={18}
+            color={
+              displayError ? colors.onErrorContainer : colors.onSurfaceVariant
+            }
+          />
         )}
       </TouchableOpacity>
+
+      {displayError && showErrorText ? (
+        <AppText
+          variant="caption"
+          color={colors.error}
+          style={styles.errorText}
+        >
+          {error}
+        </AppText>
+      ) : null}
 
       <DatePicker
         modal
@@ -112,5 +151,9 @@ const styles = StyleSheet.create({
   value: {
     marginRight: 8,
     fontSize: 14,
+  },
+  errorText: {
+    marginTop: 6,
+    marginLeft: 4,
   },
 });

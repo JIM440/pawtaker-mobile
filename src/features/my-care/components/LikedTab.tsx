@@ -5,7 +5,8 @@ import { LikedPetCard } from './LikedPetCard';
 interface LikedTabProps {
     colors: any;
     pets: any[];
-    onApply: () => void;
+    /** Care request id — opens request details */
+    onApply: (requestId: string) => void;
 }
 
 export function LikedTab({ colors, pets, onApply }: LikedTabProps) {
@@ -28,7 +29,7 @@ export function LikedTab({ colors, pets, onApply }: LikedTabProps) {
                     time={pet.seekingTime}
                     description={pet.bio}
                     tags={pet.tags}
-                    onApply={onApply}
+                    onApply={() => onApply(pet.requestId)}
                     onRemove={() => handleRemove(pet.id)}
                     isSeeking={pet.isSeeking}
                 />

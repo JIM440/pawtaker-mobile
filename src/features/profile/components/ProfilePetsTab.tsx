@@ -37,7 +37,7 @@ export function ProfilePetsTab({
       <View style={styles.emptyState}>
         <View style={styles.emptyIllustration} />
         <AppImage
-          source={require("@/assets/illustrations/no-pet.svg")}
+          source={require("@/assets/illustrations/pets/no-pet.svg")}
           type="svg"
           style={styles.emptyIllustration}
           height={145}

@@ -9,6 +9,8 @@ type OtpInputProps = {
   onChangeText: (next: string) => void;
   length?: number;
   error?: string;
+  /** Hide error styling/message until the user has focused the OTP field once */
+  showErrorOnlyAfterFocus?: boolean;
 };
 
 export function OtpInput({
@@ -16,11 +18,13 @@ export function OtpInput({
   onChangeText,
   length = 6,
   error,
+  showErrorOnlyAfterFocus = true,
 }: OtpInputProps) {
   const inputRef = useRef<TextInput | null>(null);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [isFocused, setIsFocused] = useState(false);
+  const [hasBeenFocused, setHasBeenFocused] = useState(false);
 
   const boxWidth = 48;
   const boxHeight = 56;
@@ -32,9 +36,14 @@ export function OtpInput({
     return clean.split("");
   }, [value, length]);
 
-  const boxBg = error ? colors.errorContainer : colors.surfaceContainerHighest;
+  const displayError = Boolean(
+    error && (!showErrorOnlyAfterFocus || hasBeenFocused),
+  );
+  const boxBg = displayError
+    ? colors.errorContainer
+    : colors.surfaceContainerHighest;
   const activeIndex = Math.min(digits.length, length - 1);
-  const digitColor = error ? colors.error : colors.onSurface;
+  const digitColor = displayError ? colors.error : colors.onSurface;
 
   return (
     <View>
@@ -66,7 +75,7 @@ export function OtpInput({
                   borderRadius: 4,
                   backgroundColor: boxBg,
                   borderWidth: 1,
-                  borderColor: error
+                  borderColor: displayError
                     ? colors.error
                     : isFocused && i === activeIndex
                       ? colors.outline
@@ -100,7 +109,10 @@ export function OtpInput({
           maxLength={length}
           autoCorrect={false}
           autoComplete="one-time-code"
-          onFocus={() => setIsFocused(true)}
+          onFocus={() => {
+            setHasBeenFocused(true);
+            setIsFocused(true);
+          }}
           onBlur={() => setIsFocused(false)}
           style={{
             position: "absolute",
@@ -113,7 +125,7 @@ export function OtpInput({
         />
       </Pressable>
 
-      {error ? (
+      {displayError ? (
         <AppText
           variant="caption"
           color={colors.error}

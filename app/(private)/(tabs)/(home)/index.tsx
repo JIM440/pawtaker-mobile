@@ -1,5 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PetCard } from "@/src/shared/components/cards";
@@ -9,7 +10,11 @@ import { FeedSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
+import {
+  CareTypeSelector,
+  type CareTypeKey,
+} from "@/src/shared/components/ui/CareTypeSelector";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
@@ -20,7 +25,6 @@ import {
   Search,
   SlidersHorizontal,
   Star,
-  Verified,
 } from "lucide-react-native";
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -30,17 +34,10 @@ import {
   Pressable,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from "react-native";
-
-const CARE_TYPE_KEYS = [
-  "daytime",
-  "play_walk",
-  "overnight",
-  "vacation",
-] as const;
-type CareTypeKey = (typeof CARE_TYPE_KEYS)[number];
 
 const MOCK_REQUESTS = [
   {
@@ -98,7 +95,7 @@ const MOCK_REQUESTS = [
     petType: "Cat",
     dateRange: "Mar 21-22",
     time: "10am-2pm",
-    careTypeKey: "play_walk" as CareTypeKey,
+    careTypeKey: "playwalk" as CareTypeKey,
     location: "Downtown Vancouver, BC",
     distance: "4km",
     description:
@@ -137,11 +134,17 @@ const MOCK_REQUESTS = [
   },
 ];
 
-const MAX_DISTANCE_RANGE = { min: 1, max: 50 }; // km
+/** Inclusive km range for feed filter (0 = no minimum). */
+const DISTANCE_MIN_KM = 0;
+const DISTANCE_MAX_KM = 50;
 
 function parseDistanceKm(s: string): number {
   const n = parseInt(s.replace(/\D/g, ""), 10);
   return Number.isFinite(n) ? n : 0;
+}
+
+function clampKm(n: number): number {
+  return Math.max(DISTANCE_MIN_KM, Math.min(DISTANCE_MAX_KM, Math.round(n)));
 }
 
 type FilterTab = "all" | "requests" | "takers";
@@ -166,7 +169,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=400",
     rating: 4.1,
     species: "Dogs",
-    tags: ["daytime", "play_walk"],
+    tags: ["daytime", "playwalk"],
     location: "Syracuse, New York, US",
     distance: "25km",
     status: "available",
@@ -178,7 +181,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1523419409543-3e4f83b9b4c9?w=400",
     rating: 4.1,
     species: "Dogs • Cats",
-    tags: ["daytime", "play_walk"],
+    tags: ["daytime", "playwalk"],
     location: "Syracuse, New York, US",
     distance: "25km",
     status: "available",
@@ -202,7 +205,7 @@ const MOCK_TAKERS: Taker[] = [
       "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
     rating: 4.5,
     species: "Dogs • Cats",
-    tags: ["daytime", "overnight", "play_walk"],
+    tags: ["daytime", "overnight", "playwalk"],
     location: "Burnaby, BC, CA",
     distance: "12km",
     status: "available",
@@ -228,22 +231,22 @@ export default function HomeScreen() {
   } | null>(null);
   const menuButtonRefs = useRef<Record<string, View | null>>({});
 
-  const [filterModalOpen, setFilterModalOpen] = useState(false);
+  const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [showKycPrompt, setShowKycPrompt] = useState(false);
   const [careTypeFilter, setCareTypeFilter] = useState<string[]>([]);
   const [distanceRange, setDistanceRange] = useState({
-    min: 0,
-    max: MAX_DISTANCE_RANGE.max,
+    min: DISTANCE_MIN_KM,
+    max: DISTANCE_MAX_KM,
   });
   const [filterDraft, setFilterDraft] = useState({
     careTypes: [] as string[],
-    minKm: 0,
-    maxKm: MAX_DISTANCE_RANGE.max,
+    minKm: DISTANCE_MIN_KM,
+    maxKm: DISTANCE_MAX_KM,
   });
 
   React.useEffect(() => {
     if (!profile) return;
-    if (profile.kyc_status !== "approved") {
+    if (!isKycApproved(profile.kyc_status)) {
       setShowKycPrompt(true);
     } else {
       setShowKycPrompt(false);
@@ -259,6 +262,57 @@ export default function HomeScreen() {
     });
   };
 
+  const resetFilters = () => {
+    const resetValue = {
+      careTypes: [] as string[],
+      minKm: DISTANCE_MIN_KM,
+      maxKm: DISTANCE_MAX_KM,
+    };
+    setFilterDraft(resetValue);
+    setCareTypeFilter([]);
+    setDistanceRange({ min: resetValue.minKm, max: resetValue.maxKm });
+  };
+
+  const applyFilters = () => {
+    const lo = Math.min(filterDraft.minKm, filterDraft.maxKm);
+    const hi = Math.max(filterDraft.minKm, filterDraft.maxKm);
+    const next = { min: clampKm(lo), max: clampKm(hi) };
+    setCareTypeFilter([...filterDraft.careTypes]);
+    setDistanceRange(next);
+    setFilterDraft((d) => ({
+      ...d,
+      minKm: next.min,
+      maxKm: next.max,
+    }));
+    setFilterPanelOpen(false);
+  };
+
+  const setDraftMinKmFromText = (text: string) => {
+    const raw = text.replace(/[^0-9]/g, "");
+    if (raw === "") {
+      setFilterDraft((d) => ({ ...d, minKm: DISTANCE_MIN_KM }));
+      return;
+    }
+    const n = clampKm(parseInt(raw, 10));
+    setFilterDraft((d) => ({
+      ...d,
+      minKm: Math.min(n, d.maxKm),
+    }));
+  };
+
+  const setDraftMaxKmFromText = (text: string) => {
+    const raw = text.replace(/[^0-9]/g, "");
+    if (raw === "") {
+      setFilterDraft((d) => ({ ...d, maxKm: DISTANCE_MAX_KM }));
+      return;
+    }
+    const n = clampKm(parseInt(raw, 10));
+    setFilterDraft((d) => ({
+      ...d,
+      maxKm: Math.max(n, d.minKm),
+    }));
+  };
+
   const filteredRequests = useMemo(() => {
     return MOCK_REQUESTS.filter((item) => {
       if (filter === "takers") return false;
@@ -268,8 +322,9 @@ export default function HomeScreen() {
       )
         return false;
       const distKm = parseDistanceKm(item.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max)
+      if (distKm < distanceRange.min || distKm > distanceRange.max) {
         return false;
+      }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -290,8 +345,9 @@ export default function HomeScreen() {
       )
         return false;
       const distKm = parseDistanceKm(taker.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max)
+      if (distKm < distanceRange.min || distKm > distanceRange.max) {
         return false;
+      }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
       return (
@@ -375,16 +431,20 @@ export default function HomeScreen() {
                   styles.filterButton,
                   {
                     backgroundColor: colors.surfaceContainerHighest,
+                    borderWidth: filterPanelOpen ? 2 : 0,
+                    borderColor: filterPanelOpen ? colors.primary : "transparent",
                   },
                 ]}
                 hitSlop={8}
                 onPress={() => {
-                  setFilterDraft({
-                    careTypes: [...careTypeFilter],
-                    minKm: distanceRange.min,
-                    maxKm: distanceRange.max,
-                  });
-                  setFilterModalOpen(true);
+                  if (!filterPanelOpen) {
+                    setFilterDraft({
+                      careTypes: [...careTypeFilter],
+                      minKm: distanceRange.min,
+                      maxKm: distanceRange.max,
+                    });
+                  }
+                  setFilterPanelOpen((o) => !o);
                 }}
               >
                 <SlidersHorizontal
@@ -393,6 +453,163 @@ export default function HomeScreen() {
                 />
               </TouchableOpacity>
             </View>
+
+            {/* Inline filter panel (Figma: sheet-style, not centered modal) */}
+            {filterPanelOpen ? (
+              <View
+                style={[
+                  styles.filterInlinePanel,
+                  {
+                    backgroundColor: colors.surfaceBright,
+                    borderColor: colors.outlineVariant,
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.filterPanelHeader,
+                    { borderBottomColor: colors.outlineVariant },
+                  ]}
+                >
+                  <AppText variant="title" color={colors.onSurface}>
+                    {t("filters.title")}
+                  </AppText>
+                  <TouchableOpacity
+                    onPress={resetFilters}
+                    hitSlop={12}
+                    style={styles.filterPanelHeaderBtn}
+                  >
+                    <AppText variant="body" color={colors.primary}>
+                      {t("filters.reset")}
+                    </AppText>
+                  </TouchableOpacity>
+                </View>
+
+                <View style={styles.filterPanelBody}>
+                  <AppText
+                    variant="label"
+                    color={colors.onSurfaceVariant}
+                    style={styles.filterSectionLabel}
+                  >
+                    {t("filters.careType")}
+                  </AppText>
+                  <View style={styles.filterCareTypesBlock}>
+                    <CareTypeSelector
+                      selectedKeys={filterDraft.careTypes}
+                      onToggle={(key) => {
+                        setFilterDraft((d) => {
+                          const selected = d.careTypes.includes(key);
+                          return {
+                            ...d,
+                            careTypes: selected
+                              ? d.careTypes.filter((x) => x !== key)
+                              : [...d.careTypes, key],
+                          };
+                        });
+                      }}
+                      circleSize={56}
+                      iconSize={22}
+                    />
+                  </View>
+
+                  <AppText
+                    variant="label"
+                    color={colors.onSurfaceVariant}
+                    style={styles.filterSectionLabel}
+                  >
+                    {t("filters.distanceRange")}
+                  </AppText>
+
+                  <View style={styles.distanceInputsRow}>
+                    <View style={styles.distanceInputCol}>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                        style={styles.distanceInputLabel}
+                      >
+                        {t("filters.minKm")}
+                      </AppText>
+                      <TextInput
+                        value={String(filterDraft.minKm)}
+                        onChangeText={setDraftMinKmFromText}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        placeholder="0"
+                        placeholderTextColor={colors.onSurfaceVariant}
+                        style={[
+                          styles.distanceTextInput,
+                          {
+                            color: colors.onSurface,
+                            borderColor: colors.outlineVariant,
+                            backgroundColor: colors.surfaceContainerLow,
+                          },
+                        ]}
+                      />
+                    </View>
+                    <View style={styles.distanceInputCol}>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                        style={styles.distanceInputLabel}
+                      >
+                        {t("filters.maxKm")}
+                      </AppText>
+                      <TextInput
+                        value={String(filterDraft.maxKm)}
+                        onChangeText={setDraftMaxKmFromText}
+                        keyboardType="number-pad"
+                        maxLength={2}
+                        placeholder="50"
+                        placeholderTextColor={colors.onSurfaceVariant}
+                        style={[
+                          styles.distanceTextInput,
+                          {
+                            color: colors.onSurface,
+                            borderColor: colors.outlineVariant,
+                            backgroundColor: colors.surfaceContainerLow,
+                          },
+                        ]}
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.rangeLabels}>
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {t("common.min", "Min")}: {filterDraft.minKm} km
+                    </AppText>
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {t("common.max", "Max")}: {filterDraft.maxKm} km
+                    </AppText>
+                  </View>
+
+                  <RangeSlider
+                    min={DISTANCE_MIN_KM}
+                    max={DISTANCE_MAX_KM}
+                    values={[filterDraft.minKm, filterDraft.maxKm]}
+                    onValuesChange={([minv, maxv]: [number, number]) =>
+                      setFilterDraft((d) => ({
+                        ...d,
+                        minKm: minv,
+                        maxKm: maxv,
+                      }))
+                    }
+                  />
+                </View>
+
+                <View
+                  style={[
+                    styles.filterPanelFooter,
+                    { borderTopColor: colors.outlineVariant },
+                  ]}
+                >
+                  <Button
+                    label={t("filters.apply")}
+                    onPress={applyFilters}
+                    fullWidth
+                  />
+                </View>
+              </View>
+            ) : null}
 
             {/* Filter tabs */}
             <TabBar<FilterTab>
@@ -410,8 +627,8 @@ export default function HomeScreen() {
             {showRequests && (
               <View style={styles.resultsHeader}>
                 {careTypeFilter.length > 0 ||
-                distanceRange.min > 0 ||
-                distanceRange.max < MAX_DISTANCE_RANGE.max ? (
+                distanceRange.min > DISTANCE_MIN_KM ||
+                distanceRange.max < DISTANCE_MAX_KM ? (
                   <View style={styles.resultsRow}>
                     <AppText variant="title" style={{ fontSize: 16 }}>
                       {t("feed.resultsLabel")}:{" "}
@@ -463,7 +680,10 @@ export default function HomeScreen() {
               caretaker={item.caretaker}
               isFavorite={favorites.has(item.id)}
               onFavorite={() => toggleFavorite(item.id)}
-              onApply={() => router.push(`/post/requests/${item.id}` as any)}
+              onApply={() => {
+                if (blockIfKycNotApproved()) return;
+                router.push(`/(private)/post-requests/${item.id}` as any);
+              }}
               onPress={() => router.push(`/(private)/pets/${item.id}` as any)}
               onCaretakerPress={() =>
                 router.push({
@@ -624,173 +844,9 @@ export default function HomeScreen() {
         }
       />
 
-      {/* Filter modal (Figma 1023-19359): care type + distance */}
-      <Modal
-        transparent
-        visible={filterModalOpen}
-        animationType="fade"
-        onRequestClose={() => setFilterModalOpen(false)}
-      >
-        <Pressable
-          style={styles.filterModalOverlay}
-          onPress={() => setFilterModalOpen(false)}
-        >
-          <Pressable
-            style={[
-              styles.filterModalCard,
-              { backgroundColor: colors.surfaceBright },
-            ]}
-            onPress={(e) => e.stopPropagation()}
-          >
-            <View
-              style={[
-                styles.filterModalHeader,
-                { borderBottomColor: colors.outlineVariant },
-              ]}
-            >
-              <AppText variant="title" color={colors.onSurface}>
-                {t("filters.title")}
-              </AppText>
-              <TouchableOpacity
-                onPress={() => setFilterModalOpen(false)}
-                hitSlop={12}
-                style={styles.filterModalClose}
-              >
-                <AppText variant="body" color={colors.primary}>
-                  {t("filters.done")}
-                </AppText>
-              </TouchableOpacity>
-            </View>
-            <ScrollView
-              style={styles.filterModalScroll}
-              showsVerticalScrollIndicator={false}
-            >
-              <AppText
-                variant="label"
-                color={colors.onSurfaceVariant}
-                style={styles.filterSectionLabel}
-              >
-                {t("filters.careType")}
-              </AppText>
-              <View style={styles.filterChipRow}>
-                {CARE_TYPE_KEYS.map((key) => {
-                  const label = t(`feed.careTypes.${key}`);
-                  const selected = filterDraft.careTypes.includes(key);
-                  return (
-                    <TouchableOpacity
-                      key={key}
-                      activeOpacity={0.9}
-                      onPress={() => {
-                        setFilterDraft((d) => ({
-                          ...d,
-                          careTypes: selected
-                            ? d.careTypes.filter((x) => x !== key)
-                            : [...d.careTypes, key],
-                        }));
-                      }}
-                      style={[
-                        styles.filterChip,
-                        {
-                          backgroundColor: selected
-                            ? colors.primary
-                            : colors.surfaceContainer,
-                          borderColor: selected
-                            ? colors.primary
-                            : colors.outlineVariant,
-                        },
-                      ]}
-                    >
-                      <AppText
-                        variant="body"
-                        color={selected ? colors.onPrimary : colors.onSurface}
-                      >
-                        {label}
-                      </AppText>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              <AppText
-                variant="label"
-                color={colors.onSurfaceVariant}
-                style={styles.filterSectionLabel}
-              >
-                {t("filters.distanceRange", "Distance Range")}
-              </AppText>
-
-              <View style={styles.rangeLabels}>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {t("common.min", "Min")}: {filterDraft.minKm}km
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {t("common.max", "Max")}: {filterDraft.maxKm}km
-                </AppText>
-              </View>
-
-              <RangeSlider
-                min={MAX_DISTANCE_RANGE.min}
-                max={MAX_DISTANCE_RANGE.max}
-                values={[filterDraft.minKm, filterDraft.maxKm]}
-                onValuesChange={([minv, maxv]: [number, number]) =>
-                  setFilterDraft((d) => ({ ...d, minKm: minv, maxKm: maxv }))
-                }
-              />
-            </ScrollView>
-            <View
-              style={[
-                styles.filterModalFooter,
-                { borderTopColor: colors.outlineVariant },
-              ]}
-            >
-              <Button
-                label={t("filters.reset")}
-                onPress={() => {
-                  const resetValue = {
-                    careTypes: [],
-                    minKm: 0,
-                    maxKm: MAX_DISTANCE_RANGE.max,
-                  };
-                  setFilterDraft(resetValue);
-                  setCareTypeFilter(resetValue.careTypes);
-                  setDistanceRange({
-                    min: resetValue.minKm,
-                    max: resetValue.maxKm,
-                  });
-                }}
-                variant="outline"
-                style={styles.filterFooterBtn}
-              />
-              <Button
-                label={t("filters.apply")}
-                onPress={() => {
-                  setCareTypeFilter(filterDraft.careTypes);
-                  setDistanceRange({
-                    min: Math.min(filterDraft.minKm, filterDraft.maxKm),
-                    max: Math.max(filterDraft.minKm, filterDraft.maxKm),
-                  });
-                  setFilterModalOpen(false);
-                }}
-                style={styles.filterFooterBtn}
-              />
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      <FeedbackModal
+      <KycPromptModal
         visible={showKycPrompt}
-        title={t("feed.kycModal.title")}
-        description={t("feed.kycModal.description")}
-        icon={<Verified size={40} color={colors.primary} />}
-        secondaryLabel={t("feed.kycModal.maybeLater")}
-        onSecondary={() => setShowKycPrompt(false)}
-        primaryLabel={t("feed.kycModal.getVerified")}
-        onPrimary={() => {
-          setShowKycPrompt(false);
-          router.push("/(private)/kyc");
-        }}
-        onRequestClose={() => setShowKycPrompt(false)}
+        onClose={() => setShowKycPrompt(false)}
       />
 
       <Modal
@@ -898,72 +954,60 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     marginBottom: 4,
   },
-  filterModalOverlay: {
-    flex: 1,
-    backgroundColor: "rgba(0,0,0,0.4)",
-    justifyContent: "flex-end",
+  filterInlinePanel: {
+    borderRadius: 16,
+    borderWidth: 1,
+    marginBottom: 12,
+    overflow: "hidden",
+    maxHeight: 480,
   },
-  filterModalCard: {
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    maxHeight: "80%",
-  },
-  filterModalHeader: {
+  filterPanelHeader: {
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderBottomWidth: StyleSheet.hairlineWidth,
   },
-  filterModalClose: {
-    padding: 4,
+  filterPanelHeaderBtn: {
+    paddingVertical: 4,
+    paddingLeft: 8,
   },
-  filterModalScroll: {
-    maxHeight: 320,
-    paddingHorizontal: 20,
-    paddingTop: 16,
+  filterPanelBody: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
     paddingBottom: 8,
   },
   filterSectionLabel: {
     marginBottom: 10,
   },
-  filterChipRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 10,
-    marginBottom: 24,
+  filterCareTypesBlock: {
+    marginBottom: 20,
   },
-  filterChip: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
-  },
-  filterDistanceRow: {
+  distanceInputsRow: {
     flexDirection: "row",
-    alignItems: "center",
     gap: 12,
     marginBottom: 8,
   },
-  filterSlider: {
+  distanceInputCol: {
     flex: 1,
-    height: 40,
   },
-  filterDistanceValue: {
-    minWidth: 48,
-    textAlign: "right",
+  distanceInputLabel: {
+    marginBottom: 6,
+    fontWeight: "600",
   },
-  filterModalFooter: {
-    flexDirection: "row",
-    gap: 12,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    paddingBottom: 32,
-    borderTopWidth: 1,
+  distanceTextInput: {
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    fontSize: 16,
   },
-  filterFooterBtn: {
-    flex: 1,
+  filterPanelFooter: {
+    paddingHorizontal: 16,
+    paddingTop: 12,
+    paddingBottom: 16,
+    borderTopWidth: StyleSheet.hairlineWidth,
   },
   takerAvatar: {
     width: 64,

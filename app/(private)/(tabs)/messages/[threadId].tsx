@@ -14,6 +14,7 @@ import { useTranslation } from 'react-i18next';
 import { ChevronLeft, Send, EllipsisVertical, Plus, Calendar, Clock } from 'lucide-react-native';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
+import { ChatTypography } from '@/src/constants/chatTypography';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
@@ -41,7 +42,7 @@ const MOCK_THREAD = {
         breed: 'Golden Retriever',
         date: 'Mar 14-18',
         time: '8am-4pm',
-        price: '$25/hr'
+        price: '25 pts/hr',
       }
     },
     { id: 'date-2', type: 'date' as any, text: 'Today' },
@@ -62,38 +63,74 @@ function MessageBubble({
   if (message.type === 'date') {
     return (
       <View style={styles.dateLabel}>
-        <AppText variant="caption" color={colors.onSurfaceVariant}>{message.text}</AppText>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          style={ChatTypography.threadDatePill}
+        >
+          {message.text}
+        </AppText>
       </View>
     );
   }
 
   if (message.type === 'request') {
+    const rd = message.requestData;
     return (
       <View style={[styles.bubbleWrap, styles.bubbleWrapLeft]}>
-        <View style={[styles.requestCard, { backgroundColor: colors.surfaceContainer, borderColor: colors.outlineVariant }]}>
-          <AppText variant="label" style={{ marginBottom: 8 }}>{t("messages.serviceRequest")}</AppText>
+        <View
+          style={[
+            styles.requestCard,
+            { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant },
+          ]}
+        >
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={[ChatTypography.requestCardLabel, styles.requestLabelSpacing]}
+          >
+            {t("messages.serviceRequest")}
+          </AppText>
           <View style={styles.requestInfo}>
             <View style={styles.requestHeader}>
-              <View style={[styles.petCircle, { backgroundColor: colors.surfaceDim }]}>
-                 <AppText variant="caption">E</AppText>
+              <View style={[styles.petCircle, { backgroundColor: colors.surfaceContainerHighest }]}>
+                <AppText variant="body" style={ChatTypography.requestPetName}>
+                  {rd.petName.charAt(0)}
+                </AppText>
               </View>
-              <View>
-                <AppText variant="body" style={{ fontWeight: '600' }}>{message.requestData.petName}</AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>{message.requestData.breed}</AppText>
+              <View style={styles.requestHeaderText}>
+                <AppText variant="body" style={ChatTypography.requestPetName} numberOfLines={1}>
+                  {rd.petName}
+                </AppText>
+                <AppText
+                  variant="body"
+                  color={colors.onSurfaceVariant}
+                  style={ChatTypography.requestSecondary}
+                  numberOfLines={1}
+                >
+                  {rd.breed}
+                </AppText>
               </View>
             </View>
             <View style={styles.requestMeta}>
-               <View style={styles.metaItem}>
-                  <Calendar size={14} color={colors.primary} />
-                  <AppText variant="caption">{message.requestData.date}</AppText>
-               </View>
-               <View style={styles.metaItem}>
-                  <Clock size={14} color={colors.primary} />
-                  <AppText variant="caption">{message.requestData.time}</AppText>
-               </View>
+              <View style={styles.metaItem}>
+                <Calendar size={16} color={colors.primary} />
+                <AppText variant="body" color={colors.onSurface} style={ChatTypography.requestMeta}>
+                  {rd.date}
+                </AppText>
+              </View>
+              <View style={styles.metaItem}>
+                <Clock size={16} color={colors.primary} />
+                <AppText variant="body" color={colors.onSurface} style={ChatTypography.requestMeta}>
+                  {rd.time}
+                </AppText>
+              </View>
             </View>
+            <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.requestPrice}>
+              {rd.price}
+            </AppText>
           </View>
-          <Button label={t("messages.viewRequest")} size="sm" style={{ marginTop: 12 }} />
+          <Button label={t("messages.viewRequest")} size="sm" style={styles.requestCta} />
         </View>
       </View>
     );
@@ -112,12 +149,19 @@ function MessageBubble({
         <AppText
           variant="body"
           color={isRight ? colors.onPrimary : colors.onSurface}
-          style={styles.bubbleText}
+          style={ChatTypography.bubbleBody}
         >
           {message.text}
         </AppText>
       </View>
-      <AppText variant="caption" color={colors.onSurfaceVariant} style={{ fontSize: 10, marginTop: 2, alignSelf: isRight ? 'flex-end' : 'flex-start' }}>
+      <AppText
+        variant="caption"
+        color={colors.onSurfaceVariant}
+        style={[
+          ChatTypography.bubbleTime,
+          { marginTop: 4, alignSelf: isRight ? 'flex-end' : 'flex-start' },
+        ]}
+      >
         10:45 AM
       </AppText>
     </View>
@@ -157,8 +201,15 @@ export default function ThreadScreen() {
             <View style={[styles.headerAvatar, { backgroundColor: colors.surfaceContainer }]} />
           )}
           <View style={styles.headerText}>
-            <AppText variant="label" numberOfLines={1}>{thread.name}</AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant} numberOfLines={1}>
+            <AppText variant="body" numberOfLines={1} style={ChatTypography.threadHeaderName}>
+              {thread.name}
+            </AppText>
+            <AppText
+              variant="body"
+              color={colors.onSurfaceVariant}
+              numberOfLines={1}
+              style={ChatTypography.threadHeaderSubtitle}
+            >
               {thread.subtitle}
             </AppText>
           </View>
@@ -251,6 +302,7 @@ export default function ThreadScreen() {
             containerStyle={{ flex: 1, marginBottom: 0 }}
             inputStyle={[
               styles.input,
+              ChatTypography.composerInput,
               {
                 backgroundColor: colors.surfaceContainer,
                 borderColor: colors.surfaceContainer,
@@ -331,34 +383,47 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
   },
-  bubbleText: {
-    fontSize: 15,
-    lineHeight: 22,
+  requestLabelSpacing: {
+    marginBottom: 10,
   },
   requestCard: {
     padding: 16,
-    borderRadius: 20,
+    borderRadius: 16,
     borderWidth: 1,
-    width: 280,
+    maxWidth: '100%',
+    width: '100%',
   },
   requestInfo: {
-    gap: 12,
+    gap: 10,
   },
   requestHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
+  requestHeaderText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
   petCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 48,
+    height: 48,
+    borderRadius: 24,
     alignItems: 'center',
     justifyContent: 'center',
   },
   requestMeta: {
     flexDirection: 'row',
+    flexWrap: 'wrap',
     gap: 16,
+    rowGap: 8,
+  },
+  requestPrice: {
+    marginTop: 4,
+  },
+  requestCta: {
+    marginTop: 14,
   },
   metaItem: {
     flexDirection: 'row',
@@ -386,7 +451,6 @@ const styles = StyleSheet.create({
     maxHeight: 120,
     paddingHorizontal: 16,
     paddingVertical: 10,
-    fontSize: 15,
   },
   sendBtn: {
     width: 44,

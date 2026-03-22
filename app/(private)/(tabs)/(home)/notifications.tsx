@@ -31,55 +31,6 @@ type NotificationItem = {
   image?: string;
 };
 
-const MOCK_NOTIFICATIONS: (NotificationItem & { type: string; image?: string })[] = [
-  {
-    id: "1",
-    title: "Care ending soon",
-    body: "Care for Polo with Bob Majors ends at 6PM",
-    time: "1m",
-    unread: true,
-    type: "care_given",
-  },
-  {
-    id: "2",
-    title: "New chat from Bob Majors",
-    body: "“can we conclude”",
-    time: "1h",
-    unread: true,
-    type: "chat",
-    image: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
-  },
-  {
-    id: "3",
-    title: "Checking Verification",
-    body: "Your verification is complete. You can now take jobs",
-    time: "3h",
-    type: "verification_complete",
-  },
-  {
-    id: "4",
-    title: "Match Found!",
-    body: "Bob Majors applied for Polo",
-    time: "5h",
-    type: "applied",
-    image: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
-  },
-  {
-    id: "5",
-    title: "+5 new points in!",
-    body: "You completed care for Polo for Jane Ambers",
-    time: "2d",
-    type: "points_gained",
-  },
-  {
-    id: "6",
-    title: "Care Successful!",
-    body: "You gave care to Polo",
-    time: "3d",
-    type: "paws_given",
-  },
-] as const;
-
 export default function NotificationsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -88,7 +39,62 @@ export default function NotificationsScreen() {
 
   const [loading] = useState(false);
   const [query, setQuery] = useState("");
-  const [items, setItems] = useState<NotificationItem[]>(MOCK_NOTIFICATIONS);
+
+  const mockNotifications = useMemo(
+    (): (NotificationItem & { type: string; image?: string })[] => [
+      {
+        id: "1",
+        title: t("notifications.mock.careEndingTitle"),
+        body: t("notifications.mock.careEndingBody"),
+        time: "1m",
+        unread: true,
+        type: "care_given",
+      },
+      {
+        id: "2",
+        title: t("notifications.mock.newChatTitle"),
+        body: t("notifications.mock.newChatBody"),
+        time: "1h",
+        unread: true,
+        type: "chat",
+        image:
+          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+      },
+      {
+        id: "3",
+        title: t("notifications.mock.verificationTitle"),
+        body: t("notifications.mock.verificationBody"),
+        time: "3h",
+        type: "verification_complete",
+      },
+      {
+        id: "4",
+        title: t("notifications.mock.matchTitle"),
+        body: t("notifications.mock.matchBody"),
+        time: "5h",
+        type: "applied",
+        image:
+          "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
+      },
+      {
+        id: "5",
+        title: t("notifications.mock.pointsTitle"),
+        body: t("notifications.mock.pointsBody"),
+        time: "2d",
+        type: "points_gained",
+      },
+      {
+        id: "6",
+        title: t("notifications.mock.careSuccessTitle"),
+        body: t("notifications.mock.careSuccessBody"),
+        time: "3d",
+        type: "paws_given",
+      },
+    ],
+    [t],
+  );
+
+  const [items, setItems] = useState<NotificationItem[]>([]);
   const [menuForId, setMenuForId] = useState<string | null>(null);
   const [menuPosition, setMenuPosition] = useState<{
     x: number;
@@ -99,10 +105,10 @@ export default function NotificationsScreen() {
 
   const menuButtonRefs = useRef<Record<string, View | null>>({});
 
-  // Sync items if MOCK_NOTIFICATIONS changes (handles hot reload stale state)
+  // Refresh mock list when locale changes (strings come from i18n)
   React.useEffect(() => {
-    setItems(MOCK_NOTIFICATIONS as NotificationItem[]);
-  }, []);
+    setItems(mockNotifications);
+  }, [mockNotifications]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -121,7 +127,7 @@ export default function NotificationsScreen() {
   };
 
   const handleNotificationPress = (id: string) => {
-    const item = items.find(n => n.id === id);
+    const item = items.find((n) => n.id === id);
     if (!item) return;
 
     switch (item.type) {
@@ -173,15 +179,10 @@ export default function NotificationsScreen() {
               style={styles.title}
               color={colors.onSurface}
             >
-              {t("notifications.title", "Notifications")}
+              {t("notifications.title")}
             </AppText>
             {badgeCount > 0 && (
-              <View
-                style={[
-                  styles.badge,
-                  { backgroundColor: colors.primary },
-                ]}
-              >
+              <View style={[styles.badge, { backgroundColor: colors.primary }]}>
                 <AppText
                   variant="caption"
                   color={colors.onPrimary}
@@ -204,10 +205,15 @@ export default function NotificationsScreen() {
         <View style={styles.header}>
           <SearchField
             containerStyle={styles.searchBar}
-            placeholder={t("notifications.searchPlaceholder", "Search notifications")}
+            placeholder={t("notifications.searchPlaceholder")}
             value={query}
             onChangeText={setQuery}
-            rightSlot={<Search size={SearchFilterStyles.searchIconSize} color={colors.onSurfaceVariant} />}
+            rightSlot={
+              <Search
+                size={SearchFilterStyles.searchIconSize}
+                color={colors.onSurfaceVariant}
+              />
+            }
           />
         </View>
 
@@ -241,7 +247,7 @@ export default function NotificationsScreen() {
         ) : (
           <View style={styles.emptyState}>
             <AppImage
-              source={require("@/assets/illustrations/no-notification-graphic.svg")}
+              source={require("@/assets/illustrations/pets/no-notification-graphic.svg")}
               type="svg"
               style={styles.emptyIllustration}
               height={145}
@@ -251,17 +257,14 @@ export default function NotificationsScreen() {
               color={colors.onSurface}
               style={styles.emptyTitle}
             >
-              {t("notifications.emptyTitle", "Oops! No notifications yet")}
+              {t("notifications.emptyTitle")}
             </AppText>
             <AppText
               variant="caption"
               color={colors.onSurfaceVariant}
               style={styles.emptySubtitle}
             >
-              {t(
-                "notifications.emptySubtitle",
-                "All your notifications will appear here",
-              )}
+              {t("notifications.emptySubtitle")}
             </AppText>
           </View>
         )}
@@ -291,17 +294,14 @@ export default function NotificationsScreen() {
                 {
                   backgroundColor: colors.surfaceContainerLowest,
                   borderColor: colors.outlineVariant,
-                  top: menuPosition.y + menuPosition.height + 28,
-                  left: menuPosition.x - 160,
+                  top: menuPosition.y + menuPosition.height + 24,
+                  right: 20,
                 },
               ]}
             >
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={handleDelete}
-              >
+              <TouchableOpacity style={styles.menuItem} onPress={handleDelete}>
                 <AppText variant="body" color={colors.onSurface}>
-                  {t("notifications.deleteOne", "Delete this notification")}
+                  {t("notifications.deleteOne")}
                 </AppText>
               </TouchableOpacity>
               {/* If more items were here, we'd add separators */}

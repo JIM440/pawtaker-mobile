@@ -1,10 +1,21 @@
 import i18n from "@/src/lib/i18n";
+import { useQueryClient } from "@tanstack/react-query";
 import { useRouter } from "expo-router";
 import React, { useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Pressable, Text, TouchableOpacity, View } from "react-native";
+import {
+  ActivityIndicator,
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { Colors } from "@/src/constants/colors";
+import { wipeAuthStorageAndClientState } from "@/src/lib/auth/perform-sign-out";
+import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 
@@ -14,13 +25,21 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { ChevronDown } from "lucide-react-native";
 import { LocalSvg } from "react-native-svg/css";
 
+/** primary_logo.svg viewBox 388.09 × 97.73 */
+const LOGO_W = 280;
+const LOGO_H = 180;
+const PRIMARY_LOGO = require("@/assets/icons/logos/svg/narrow_variant.svg");
+
 export default function WelcomeScreen() {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const setGuestMode = useAuthStore((s) => s.setGuestMode);
 
   const { language, setLanguage } = useLanguageStore();
+  const [wipeBusy, setWipeBusy] = useState(false);
 
   const languageButtonRef = useRef<View | null>(null);
   const [openMenu, setOpenMenu] = useState(false);
@@ -62,6 +81,9 @@ export default function WelcomeScreen() {
       >
         <TouchableOpacity
           ref={languageButtonRef}
+          accessibilityRole="button"
+          accessibilityLabel={t("settings.language")}
+          accessibilityHint={t("auth.welcome.languageHint")}
           onPress={() => {
             languageButtonRef.current?.measureInWindow(
               (x, y, width, height) => {
@@ -100,9 +122,9 @@ export default function WelcomeScreen() {
         }}
       >
         <LocalSvg
-          asset={require("@/assets/icons/logos/svg/narrow_variant.svg")}
-          width={200}
-          height={180}
+          asset={PRIMARY_LOGO}
+          width={LOGO_W}
+          height={LOGO_H}
           style={{
             alignSelf: "center",
           }}
@@ -114,17 +136,16 @@ export default function WelcomeScreen() {
           style={{
             textAlign: "center",
             letterSpacing: -0.5,
-            marginBottom: 20,
+            marginBottom: 8,
           }}
         >
           {t("auth.welcome.title")}
         </AppText>
 
         <Button
-          label={t("auth.welcome.signIn", "Sign In")}
-          onPress={() => router.push("/(auth)/login")}
+          label={t("auth.welcome.signIn")}
+          onPress={() => router.push("/login")}
           variant="outline"
-          style={{ marginVertical: 5 }}
         />
 
         <View
@@ -159,15 +180,15 @@ export default function WelcomeScreen() {
         </View>
 
         <Button
-          label={t("auth.welcome.getStarted", "Sign Up")}
-          onPress={() => router.push("/(auth)/signup/index")}
+          label={t("auth.welcome.getStarted")}
+          onPress={() => router.push("/signup")}
           variant="primary"
-          style={{ marginVertical: 5 }}
         />
-        {/* 
+
         <TouchableOpacity
           onPress={() => {
-            router.replace("/(private)/(tabs)");
+            setGuestMode(true);
+            router.replace("/(private)/(tabs)" as Parameters<typeof router.replace>[0]);
           }}
           style={{ marginTop: 26 }}
         >
@@ -176,12 +197,45 @@ export default function WelcomeScreen() {
             color={colors.onSurface}
             style={{ textAlign: "center", fontSize: 14 }}
           >
-            {t(
-              "auth.welcome.continueWithoutSigningIn",
-              "Continue without signing in",
-            )}
+            {t("auth.welcome.continueWithoutSigningIn")}
           </AppText>
-        </TouchableOpacity> */}
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          disabled={wipeBusy}
+          onPress={async () => {
+            try {
+              setWipeBusy(true);
+              await wipeAuthStorageAndClientState();
+              queryClient.clear();
+              router.replace("/welcome");
+            } finally {
+              setWipeBusy(false);
+            }
+          }}
+          style={{ marginTop: 28, paddingVertical: 8 }}
+        >
+          {wipeBusy ? (
+            <ActivityIndicator color={colors.onSurfaceVariant} />
+          ) : (
+            <>
+              <AppText
+                variant="caption"
+                color={colors.primary}
+                style={{ textAlign: "center", textDecorationLine: "underline" }}
+              >
+                {t("auth.welcome.clearSavedSession")}
+              </AppText>
+              <AppText
+                variant="caption"
+                color={colors.onSurfaceVariant}
+                style={{ textAlign: "center", marginTop: 6, paddingHorizontal: 12 }}
+              >
+                {t("auth.welcome.clearSavedSessionHint")}
+              </AppText>
+            </>
+          )}
+        </TouchableOpacity>
       </View>
 
       <Modal
@@ -190,50 +244,56 @@ export default function WelcomeScreen() {
         animationType="fade"
         onRequestClose={() => setOpenMenu(false)}
       >
-        <Pressable style={{ flex: 1 }} onPress={() => setOpenMenu(false)}>
+        <View style={{ flex: 1 }}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setOpenMenu(false)}
+          />
           {menuPosition ? (
-            <View
-              style={{
-                position: "absolute",
-                top: menuPosition.y + menuPosition.height + 30,
-                right: 20,
-                width: 180,
-                borderRadius: 12,
-                backgroundColor: colors.surfaceContainerLowest,
-                borderWidth: 1,
-                borderColor: colors.outlineVariant,
-                shadowColor: "#000",
-                shadowOpacity: 0.1,
-                shadowOffset: { width: 0, height: 12 },
-                shadowRadius: 16,
-                elevation: 6,
-                overflow: "hidden",
-              }}
-            >
-              {menuItems.map((item, idx) => (
-                <TouchableOpacity
-                  key={item.id}
-                  onPress={() => {
-                    setLanguage(item.id);
-                    i18n.changeLanguage(item.id);
-                    setOpenMenu(false);
-                  }}
-                  activeOpacity={0.7}
-                  style={{
-                    paddingHorizontal: 16,
-                    paddingVertical: 12,
-                    borderBottomWidth: idx === 0 ? 1 : 0,
-                    borderBottomColor: colors.outlineVariant,
-                  }}
-                >
-                  <Text style={{ fontSize: 14, color: colors.onSurface }}>
-                    {item.label}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+            <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+              <View
+                style={{
+                  position: "absolute",
+                  top: menuPosition.y + menuPosition.height + 30,
+                  right: 20,
+                  width: 180,
+                  borderRadius: 12,
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderWidth: 1,
+                  borderColor: colors.outlineVariant,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.1,
+                  shadowOffset: { width: 0, height: 12 },
+                  shadowRadius: 16,
+                  elevation: 6,
+                  overflow: "hidden",
+                }}
+              >
+                {menuItems.map((item, idx) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => {
+                      setLanguage(item.id);
+                      i18n.changeLanguage(item.id);
+                      setOpenMenu(false);
+                    }}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: idx === 0 ? 1 : 0,
+                      borderBottomColor: colors.outlineVariant,
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: colors.onSurface }}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
             </View>
           ) : null}
-        </Pressable>
+        </View>
       </Modal>
     </PageContainer>
   );

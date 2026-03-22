@@ -8,7 +8,8 @@ import { Colors } from '@/src/constants/colors';
 import { SearchFilterStyles } from '@/src/constants/searchFilter';
 import { PageContainer } from '@/src/shared/components/layout';
 import { AppText } from '@/src/shared/components/ui/AppText';
-import { ChatRow, ChatRowSkeleton } from '@/src/shared/components/chat';
+import { ChatScreenSkeleton, ChatRow } from '@/src/shared/components/chat';
+import { ChatTypography } from '@/src/constants/chatTypography';
 import { SearchField } from '@/src/shared/components/forms/SearchField';
 
 const MOCK_CHATS = [
@@ -71,49 +72,47 @@ export default function MessagesScreen() {
 
   return (
     <PageContainer scrollable={!loading}>
-      <View style={styles.header}>
-        <AppText variant="headline" style={styles.title}>
-          Chats
-        </AppText>
-      </View>
-
-      <View style={styles.searchRow}>
-        <SearchField
-          containerStyle={styles.searchBar}
-          placeholder={t("messages.searchChats")}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
-        />
-        <TouchableOpacity
-          style={[styles.filterBtn, { backgroundColor: colors.surfaceContainerHighest }]}
-          hitSlop={8}
-        >
-          <SlidersHorizontal size={SearchFilterStyles.searchIconSize} color={colors.onSurface} />
-        </TouchableOpacity>
-      </View>
-
       {loading ? (
-        <View style={styles.list}>
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <ChatRowSkeleton key={i} />
-          ))}
-        </View>
+        <ChatScreenSkeleton rowCount={8} />
       ) : (
-        <View style={styles.list}>
-          {MOCK_CHATS.map((chat) => (
-            <ChatRow
-              key={chat.threadId}
-              threadId={chat.threadId}
-              name={chat.name}
-              avatarUri={chat.avatarUri ?? undefined}
-              lastMessagePreview={chat.lastMessagePreview}
-              timestamp={chat.timestamp}
-              unreadCount={chat.unreadCount}
-              onPress={() => router.push(`/(private)/(tabs)/messages/${chat.threadId}`)}
+        <>
+          <View style={styles.header}>
+            <AppText variant="headline" style={ChatTypography.listScreenTitle}>
+              {t("messages.chatsTitle")}
+            </AppText>
+          </View>
+
+          <View style={styles.searchRow}>
+            <SearchField
+              containerStyle={styles.searchBar}
+              placeholder={t("messages.searchChats")}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
             />
-          ))}
-        </View>
+            <TouchableOpacity
+              style={[styles.filterBtn, { backgroundColor: colors.surfaceContainerHighest }]}
+              hitSlop={8}
+            >
+              <SlidersHorizontal size={SearchFilterStyles.searchIconSize} color={colors.onSurface} />
+            </TouchableOpacity>
+          </View>
+
+          <View style={styles.list}>
+            {MOCK_CHATS.map((chat) => (
+              <ChatRow
+                key={chat.threadId}
+                threadId={chat.threadId}
+                name={chat.name}
+                avatarUri={chat.avatarUri ?? undefined}
+                lastMessagePreview={chat.lastMessagePreview}
+                timestamp={chat.timestamp}
+                unreadCount={chat.unreadCount}
+                onPress={() => router.push(`/(private)/(tabs)/messages/${chat.threadId}`)}
+              />
+            ))}
+          </View>
+        </>
       )}
     </PageContainer>
   );
@@ -122,11 +121,6 @@ export default function MessagesScreen() {
 const styles = StyleSheet.create({
   header: {
     paddingVertical: 8,
-  },
-  title: {
-    fontSize: 24,
-    fontWeight: '700',
-    letterSpacing: -0.5,
   },
   searchRow: {
     flexDirection: 'row',

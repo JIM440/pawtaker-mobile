@@ -9,9 +9,10 @@ import {
   useFonts,
 } from "@expo-google-fonts/roboto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { router, Stack, useSegments } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
+import { useColorScheme } from "nativewind";
 import { useEffect, useLayoutEffect } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Platform } from "react-native";
@@ -32,30 +33,36 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5,
       retry: 2,
+      // Avoid refetch churn when screens mount/focus during navigation (RN focus events).
+      refetchOnWindowFocus: false,
     },
   },
 });
 
 export default function RootLayout() {
   const { resolvedTheme, _hasHydrated: themeHydrated } = useThemeStore();
+  const { setColorScheme } = useColorScheme();
   const { language, _hasHydrated: langHydrated } = useLanguageStore();
   const {
     isLoading,
-    session,
-    onboardingSeen,
     setSession,
     setProfile,
     setLoading,
     fetchProfile,
     _hasHydrated: authHydrated,
   } = useAuthStore();
-  const segments = useSegments();
 
   // Keep i18n in sync when user changes language after startup (persist middleware also hydrates on launch).
   useEffect(() => {
     if (!langHydrated) return;
     void i18n.changeLanguage(language);
   }, [language, langHydrated]);
+
+  // NativeWind / Tailwind `dark:` + semantic CSS variables (`global.css`) follow app theme (not only system).
+  useEffect(() => {
+    if (!themeHydrated) return;
+    setColorScheme(resolvedTheme);
+  }, [themeHydrated, resolvedTheme, setColorScheme]);
 
   const [fontsLoaded] = useFonts({
     Roboto_400Regular,
@@ -97,31 +104,6 @@ export default function RootLayout() {
     if (!ready) return;
     if (Platform.OS !== "web") void SplashScreen.hideAsync();
   }, [ready]);
-
-  useEffect(() => {
-    if (!ready) return;
-
-    const currentGroup = segments[0];
-    const inAuth = currentGroup === "(auth)";
-    const inPrivate = currentGroup === "(private)";
-
-    if (!session) {
-      if (!onboardingSeen) {
-        if (!inAuth || segments[1] !== "onboarding") {
-          router.replace("/(auth)/onboarding");
-        }
-        return;
-      }
-      if (inPrivate) {
-        router.replace("/(private)/(tabs)");
-      }
-      return;
-    }
-
-    if (inAuth) {
-      router.replace("/(private)/(tabs)");
-    }
-  }, [ready, session, onboardingSeen, segments]);
 
   return (
     <GestureHandlerRootView style={{ flex: 1 }}>

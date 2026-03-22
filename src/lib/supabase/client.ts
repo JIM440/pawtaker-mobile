@@ -27,9 +27,13 @@ const storage =
 const supabaseUrl = process.env.EXPO_PUBLIC_SUPABASE_URL!;
 const supabaseAnonKey = process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!;
 
+/** Stable key so sign-out can wipe SecureStore / localStorage reliably (see `performSignOut`). */
+export const SUPABASE_AUTH_STORAGE_KEY = 'pawtaker.supabase.auth';
+
 export const supabase = createClient<Database>(supabaseUrl, supabaseAnonKey, {
   auth: {
     storage,
+    storageKey: SUPABASE_AUTH_STORAGE_KEY,
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: false,

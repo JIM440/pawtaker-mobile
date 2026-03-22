@@ -13,7 +13,7 @@ export function EmptyState({ colors, variant }: EmptyStateProps) {
         <View style={styles.emptyContainer}>
             <View style={styles.emptyImgPlaceholder}>
                 <AppImage
-                    source={require('@/assets/illustrations/no-care.svg')}
+                    source={require('@/assets/illustrations/pets/no-care.svg')}
                     type='svg'
                     contentFit="contain"
                     width={240}

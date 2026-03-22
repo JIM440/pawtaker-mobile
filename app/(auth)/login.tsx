@@ -280,7 +280,7 @@ export default function LoginScreen() {
           {t("auth.login.noAccountPrefix")}{" "}
           <Text
             style={{ fontWeight: "700", color: colors.onSurface }}
-            onPress={() => router.push("/(auth)/signup/index")}
+            onPress={() => router.push("/(auth)/signup")}
           >
             {t("auth.login.signUpLink")}
           </Text>

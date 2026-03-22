@@ -24,7 +24,8 @@
     "or": "or",
     "previous": "Previous",
     "viewProfile": "View Profile",
-    "sendRequest": "Send Request"
+    "sendRequest": "Send Request",
+    "skip": "Skip"
   },
   "pet": {
     "detail": {
@@ -73,7 +74,18 @@
       "subtitle": "The community pet-sitting app",
       "getStarted": "Sign Up",
       "signIn": "Sign In",
-      "continueWithoutSigningIn": "Continue without signing in"
+      "continueWithoutSigningIn": "Continue without signing in",
+      "languageHint": "Opens a menu to choose English or French",
+      "clearSavedSession": "Clear saved session data",
+      "clearSavedSessionHint": "If sign-in or sign-out gets stuck, this removes stored login data from this device."
+    },
+    "onboarding": {
+      "slide1Title": "Find your pet's new buddy",
+      "slide1Body": "Connect with verified, local caretakers who treat your pet like family. The right care is just a search and a tap away.",
+      "slide2Title": "Care on your own schedule",
+      "slide2Body": "From quick midday walks to long-time, find the perfect match for your routine. Manage every detail in one clean space.",
+      "slide3Title": "Care more, earn more",
+      "slide3Body": "Every walk, stay, and playdate earns you points. No payments, no fees—just pet lovers helping pet lovers keep tails wagging."
     },
     "signup": {
       "credentials": {
@@ -150,6 +162,7 @@
         "uploadBack": "Upload back",
         "uploadPassport": "Upload passport page",
         "uploadSelfie": "Take a selfie",
+        "tapToAddSelfie": "Tap to add selfie",
         "selfieInstructions": "Center your face in the frame and follow the instructions.",
         "requiredImagesTwo": "Required images: 2 document photos",
         "requiredImagesOne": "Required images: 1 document photo",
@@ -162,6 +175,7 @@
         "progressUploadingSelfie": "Uploading selfie…",
         "progressSubmitting": "Submitting…",
         "cameraPermissionRequired": "Camera permission required",
+        "galleryPermissionRequired": "Photo library access is required to choose an image.",
         "submissionFailed": "KYC submission failed",
         "submit": "Submit for verification"
       },
@@ -226,13 +240,17 @@
       "title": "Let's get you verified",
       "description": "To keep our pet community safe and unlock your ability to book sitters or be one yourself, we just need to quickly confirm your identity. It only takes 2 minutes!",
       "maybeLater": "Maybe Later",
-      "getVerified": "Get Verified"
+      "getVerified": "Get Verified",
+      "pendingTitle": "Verification in progress",
+      "pendingDescription": "We're reviewing your documents. This usually takes 24–48 hours. You'll be able to post requests, add pets, and offer availability once you're approved.",
+      "pendingOk": "Got it"
     },
     "resultsLabel": "Results",
     "distanceKmRange": "{{min}}km–{{max}}km",
     "takerAvailable": "Available",
     "careTypes": {
       "daytime": "Daytime",
+      "playwalk": "Play/walk",
       "play_walk": "Play / walk",
       "overnight": "Overnight",
       "vacation": "Vacation"
@@ -275,13 +293,30 @@
     },
     "review": {
       "title": "Leave a Review",
+      "intro": "Share how the care went — ratings help keep the community trustworthy.",
+      "reviewing": "You're reviewing",
       "rating": "Rating",
       "comment": "Comment (optional)",
-      "submit": "Submit review"
+      "commentPlaceholder": "What went well? Anything others should know?",
+      "submit": "Submit review",
+      "successTitle": "Thank you!",
+      "successSubtitle": "Your review was submitted and helps others choose great caregivers."
     }
+  },
+  "offer": {
+    "title": "Send offer",
+    "subtitle": "Propose care for this pet. The owner will get your message in chat.",
+    "recipient": "To",
+    "forPet": "Pet: {{name}}",
+    "pointsLabel": "Points offered",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Introduce yourself and confirm when you're available…",
+    "send": "Send offer"
   },
   "post": {
     "title": "Post",
+    "launchRequest": "Launch request",
+    "availableToCare": "Available to care",
     "choose": {
       "title": "What do you need?",
       "requestCare": "Request care for my pet",
@@ -308,14 +343,41 @@
         "publish": "Save and Launch Care Request"
       },
       "selectPet": "Select pet",
+      "addAnotherPet": "or add another pet",
+      "validation": {
+        "careTypeRequired": "Select at least one type of care.",
+        "petRequired": "Select a pet to continue.",
+        "timeRange": "End time must be after start time.",
+        "daysRequired": "Select at least one day.",
+        "dateRangeOrder": "End date must be after start date."
+      },
       "addPet": "Add pet",
       "selectDate": "Select date",
       "date": "Date",
+      "startDate": "Start date",
+      "endDate": "End date",
       "selectDatePlaceholder": "Select a date",
       "startTime": "Start time",
       "endTime": "End time",
       "start": "Start",
       "end": "End",
+      "previewTitle": "Preview of your request",
+      "previewHint": "Tap chips or fields to adjust before launching.",
+      "previewDisclaimer": "By tapping Launch, you approve that anyone in the community can apply or contact you in our chat system.",
+      "specialNeedsPlaceholder": "Anything we should know?",
+      "preview": {
+        "careTypes": "Care",
+        "pet": "Pet",
+        "dates": "Dates",
+        "date": "Date",
+        "yard": "Yard",
+        "age": "Age",
+        "energy": "Energy",
+        "days": "Days",
+        "time": "Time",
+        "specialNeeds": "Special needs",
+        "edit": "Edit"
+      },
       "multiDay": "Need this service for more than 1 day",
       "detailsTitle": "Details & special needs",
       "detailsHint": "Yard type, energy level, special needs (optional).",
@@ -332,13 +394,61 @@
       "yardType": "Yard Type",
       "petOwner": "Pet Owner",
       "note": "Short note",
-      "save": "Save availability"
+      "save": "Save availability",
+      "careStepTitle": "What type of care do you need?",
+      "hintsTitle": "Hints",
+      "petKindQuestion": "What kind of pet?",
+      "yardQuestion": "What kind of yard do you have?",
+      "yardFenced": "Fenced yard",
+      "yardHighFence": "High fence",
+      "yardNone": "No yard",
+      "petOwnerQuestion": "Do you own any pets?",
+      "ownerYes": "Yes",
+      "ownerNo": "No",
+      "daysQuestion": "What days are you available?",
+      "noDaysSelected": "No days available",
+      "everyDays": "Every {{days}}",
+      "hoursTitle": "Set your available hours",
+      "noteTitle": "Add a short note",
+      "notePlaceholder": "Tell others about your experience with pets...",
+      "previewTitle": "Preview of your availability",
+      "careFieldLabel": "Care you will provide:",
+      "petTypeLabel": "Pet type:",
+      "yardChipLabel": "Yard type:",
+      "petOwnerChipLabel": "Pet owner:",
+      "daysFieldLabel": "Days:",
+      "timeFieldLabel": "Time:",
+      "startTimeLabel": "Start time",
+      "endTimeLabel": "End time",
+      "previewSubtitle": "Review your details before publishing.",
+      "previewDisclaimer": "By publishing, you approve that anyone in the community can see your availability and contact you.",
+      "publish": "Publish Availability",
+      "next": "Next",
+      "previewAvailable": "Available to care",
+      "previewBio": "Bio / experience",
+      "weekdays": {
+        "M": "Monday",
+        "Tu": "Tuesday",
+        "W": "Wednesday",
+        "Th": "Thursday",
+        "F": "Friday",
+        "Sa": "Saturday",
+        "Su": "Sunday"
+      },
+      "validation": {
+        "careTypeRequired": "Select at least one type of care.",
+        "petKindRequired": "Select a pet type to continue.",
+        "daysRequired": "Select at least one day.",
+        "timeRange": "End time must be after start time."
+      }
     }
   },
   "messages": {
     "searchChats": "Search chats",
+    "chatsTitle": "Chats",
     "viewRequest": "View Request",
     "serviceRequest": "Service request",
+    "requestSendHint": "Review and respond to this care request.",
     "title": "Messages",
     "noMessages": "No messages yet",
     "typeMessage": "Type a message",
@@ -371,7 +481,9 @@
     "reset": "Reset",
     "apply": "Apply",
     "done": "Done",
-    "distanceRange": "Distance Range"
+    "distanceRange": "Distance Range",
+    "minKm": "Min (km)",
+    "maxKm": "Max (km)"
   },
   "availability": {
     "title": "Post availability",
@@ -427,9 +539,14 @@
     "termsAndPolicies": "Terms and policies",
     "preferencesSection": "Preferences",
     "logoutTitle": "Sign out?",
+    "logoutConfirm": "You will need to sign back in to view your messages and manage your profile.",
     "deactivateTitle": "Deactivate account?",
+    "deactivateConfirm": "Your account will be paused. You will not appear in searches or receive new messages.",
     "deleteTitle": "Delete account?",
+    "deleteConfirm": "This will permanently delete your account and all related data. This action cannot be undone.",
     "logoutCta": "Sign Out",
+    "signingOut": "Signing out...",
+    "signOutFailed": "Could not sign out. Please try again.",
     "deactivateCta": "Deactivate",
     "deleteCta": "Delete"
   },
@@ -474,7 +591,24 @@
     "title": "Notifications",
     "searchPlaceholder": "Search notifications",
     "noNotifications": "No notifications",
-    "markAllRead": "Mark all as read"
+    "markAllRead": "Mark all as read",
+    "emptyTitle": "No notifications yet",
+    "emptySubtitle": "All your notifications will appear here.",
+    "deleteOne": "Delete this notification",
+    "mock": {
+      "careEndingTitle": "Care ending soon",
+      "careEndingBody": "Care for Polo with Bob Majors ends at 6PM",
+      "newChatTitle": "New chat from Bob Majors",
+      "newChatBody": "“can we conclude”",
+      "verificationTitle": "Checking verification",
+      "verificationBody": "Your verification is complete. You can now take jobs",
+      "matchTitle": "Match found!",
+      "matchBody": "Bob Majors applied for Polo",
+      "pointsTitle": "+5 new points in!",
+      "pointsBody": "You completed care for Polo for Jane Ambers",
+      "careSuccessTitle": "Care successful!",
+      "careSuccessBody": "You gave care to Polo"
+    }
   },
   "search": {
     "title": "Search",
@@ -485,6 +619,7 @@
   "pets": {
     "add": {
       "title": "Add Pet",
+      "whatKind": "What kind of pet?",
       "name": "Pet name",
       "species": "Species",
       "breed": "Breed (optional)",

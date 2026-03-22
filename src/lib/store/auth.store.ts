@@ -89,6 +89,7 @@ export const useAuthStore = create<AuthState>()(
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         onboardingSeen: state.onboardingSeen,
+        guestMode: state.guestMode,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

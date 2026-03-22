@@ -55,7 +55,7 @@ export function EditPetsTab({
       {pets.length === 0 ? (
         <View style={styles.empty}>
           <AppImage
-            source={require("@/assets/illustrations/no-pet.svg")}
+            source={require("@/assets/illustrations/pets/no-pet.svg")}
             type="svg"
             style={styles.emptyIllustration}
             height={145}

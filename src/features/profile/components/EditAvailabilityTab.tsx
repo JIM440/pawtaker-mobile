@@ -8,12 +8,6 @@ import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { ChipSelector } from "@/src/shared/components/ui/ChipSelector";
 import { DaySelector } from "@/src/shared/components/ui/DaySelector";
 import { Input } from "@/src/shared/components/ui/Input";
-import {
-  Briefcase,
-  Moon,
-  PawPrint,
-  Sun
-} from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
@@ -85,12 +79,6 @@ export function EditAvailabilityTab({ onSave }: Props) {
             Care you will provide:
           </AppText>
           <CareTypeSelector
-            options={[
-              { key: "daytime", label: "Daytime", Icon: Sun },
-              { key: "playwalk", label: "Play/walk", Icon: PawPrint },
-              { key: "overnight", label: "Overnight", Icon: Moon },
-              { key: "vacation", label: "Vacation", Icon: Briefcase },
-            ]}
             selectedKeys={services}
             onToggle={toggleService}
           />

@@ -1,6 +1,9 @@
 import { Colors } from "@/src/constants/colors";
+import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
+import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -10,8 +13,9 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { Input } from "@/src/shared/components/ui/Input";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { useRouter } from "expo-router";
+import { useFocusEffect } from "@react-navigation/native";
 import { Search } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BackHandler,
@@ -24,25 +28,7 @@ import {
 
 type Step = "kind" | "breed" | "details";
 
-const PET_KINDS = [
-  "Dog",
-  "Cat",
-  "Small Furries",
-  "Bird",
-  "Reptile",
-  "Other",
-] as const;
-
-const PET_KIND_ILLUSTRATIONS: Record<(typeof PET_KINDS)[number], number> = {
-  Dog: require("@/assets/illustrations/dog.svg") as number,
-  Cat: require("@/assets/illustrations/cat.svg") as number,
-  "Small Furries": require("@/assets/illustrations/furry.svg") as number,
-  Bird: require("@/assets/illustrations/bird.svg") as number,
-  Reptile: require("@/assets/illustrations/reptile.svg") as number,
-  Other: require("@/assets/illustrations/other.svg") as number,
-};
-
-const BREEDS_BY_KIND: Record<(typeof PET_KINDS)[number], string[]> = {
+const BREEDS_BY_KIND: Record<PetKindId, string[]> = {
   Dog: ["Afghan Hound", "Africanis", "Barbet", "Basenji", "Cesky Terrier"],
   Cat: ["Tabby", "Siamese", "Persian", "Maine Coon", "Sphynx"],
   "Small Furries": ["Rabbit", "Guinea Pig", "Hamster", "Ferret"],
@@ -57,8 +43,16 @@ export default function AddPetScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
+  useFocusEffect(
+    useCallback(() => {
+      if (blockIfKycNotApproved()) {
+        router.back();
+      }
+    }, [router]),
+  );
+
   const [step, setStep] = useState<Step>("kind");
-  const [kind, setKind] = useState<(typeof PET_KINDS)[number] | null>(null);
+  const [kind, setKind] = useState<PetKindId | null>(null);
   const [breedQuery, setBreedQuery] = useState("");
   const [breed, setBreed] = useState<string | null>(null);
 
@@ -151,60 +145,15 @@ export default function AddPetScreen() {
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-          <AppText
-            variant="title"
-            color={colors.onSurface}
-            style={styles.question}
-          >
-            What kind of pet?
-          </AppText>
-          <View style={styles.grid}>
-            {PET_KINDS.map((k) => {
-              const active = kind === k;
-              return (
-                <TouchableOpacity
-                  key={k}
-                  style={styles.kindCard}
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    setKind(k);
-                    setBreed(null);
-                    setBreedQuery("");
-                  }}
-                >
-                  <View
-                    style={[
-                      styles.kindBox,
-                      {
-                        borderColor: active
-                          ? colors.primary
-                          : colors.surfaceContainerHighest,
-                        backgroundColor: colors.surfaceContainerHighest,
-                      },
-                    ]}
-                  >
-                    <View style={styles.kindIllustrationWrapper}>
-                      <AppImage
-                        source={PET_KIND_ILLUSTRATIONS[k]}
-                        type="svg"
-                        style={{ backgroundColor: "transparent" }}
-                        contentFit="contain"
-                        height={98}
-                        width={98}
-                      />
-                    </View>
-                  </View>
-                  <AppText
-                    variant="body"
-                    style={styles.kindLabel}
-                    color={active ? colors.primary : colors.onSurface}
-                  >
-                    {k}
-                  </AppText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
+          <PetKindPickGrid
+            questionKey="pets.add.whatKind"
+            selectedKind={kind}
+            onSelect={(k) => {
+              setKind(k);
+              setBreed(null);
+              setBreedQuery("");
+            }}
+          />
         </ScrollView>
       )}
 
@@ -386,33 +335,6 @@ const styles = StyleSheet.create({
   question: {
     fontSize: 16,
     marginBottom: 16,
-  },
-  grid: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 12,
-  },
-  kindCard: {
-    width: "48%",
-    alignItems: "center",
-    gap: 8,
-  },
-  kindBox: {
-    width: "100%",
-    borderRadius: 16,
-    borderWidth: 3,
-    padding: 20,
-    height: 160
-  },
-  kindIllustrationWrapper: {
-    justifyContent: "center",
-    alignItems: "center",
-    marginBottom: 4,
-    height: 98
-  },
-  kindLabel: {
-    fontSize: 14,
-    fontWeight: "600"
   },
   searchField: {
     borderRadius: 999,

@@ -4,6 +4,7 @@ import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileSkeleton } from "@/src/shared/components/skeletons";
@@ -179,7 +180,10 @@ export default function ProfileScreen() {
         {activeTab === "pets" && (
           <ProfilePetsTab
             pets={MOCK_PETS}
-            onAddPet={() => router.push("/(private)/pets/add")}
+            onAddPet={() => {
+              if (blockIfKycNotApproved()) return;
+              router.push("/(private)/pets/add");
+            }}
             showAddPetButton
             onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
           />

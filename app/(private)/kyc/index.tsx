@@ -8,22 +8,27 @@ import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
+import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
 import { router } from "expo-router";
 import { X } from "lucide-react-native";
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ActivityIndicator,
   Alert,
-  Dimensions,
   Image,
+  Pressable,
   ScrollView,
+  StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
 
-type IdSlot = "front" | "back";
+const DOC_UPLOAD_HEIGHT = 244;
+const SELFIE_CIRCLE_SIZE = 220;
+
+type KycDocSlotKey = "front" | "back";
 type KycDocType = "passport" | "drivers_license" | "national_id";
 
 export default function KycScreen() {
@@ -44,14 +49,10 @@ export default function KycScreen() {
   } = useKycStore();
   const effectiveDocType = docType ?? "national_id";
 
-  const { width } = Dimensions.get("window");
-  const pageWidth = width - 32;
-  const pagerRef = useRef<ScrollView | null>(null);
-
   const [page, setPage] = useState(0);
-  const [loadingSlot, setLoadingSlot] = useState<IdSlot | "selfie" | null>(
-    null,
-  );
+  const [loadingSlot, setLoadingSlot] = useState<
+    KycDocSlotKey | "selfie" | null
+  >(null);
   const [submitting, setSubmitting] = useState(false);
   const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -103,9 +104,14 @@ export default function KycScreen() {
 
   const requiresBack = effectiveDocType !== "passport";
   const canGoSelfie = Boolean(frontUri && (requiresBack ? backUri : true));
-  const canSubmit = Boolean(frontUri && (requiresBack ? backUri : true) && selfieUri);
+  const canSubmit = Boolean(
+    frontUri && (requiresBack ? backUri : true) && selfieUri,
+  );
 
-  const pickImage = async (slot: IdSlot | "selfie", fromCamera: boolean) => {
+  const pickImage = async (
+    slot: KycDocSlotKey | "selfie",
+    fromCamera: boolean,
+  ) => {
     try {
       setLoadingSlot(slot);
       setError(null);
@@ -116,32 +122,42 @@ export default function KycScreen() {
           Alert.alert(t("auth.kyc.submit.cameraPermissionRequired"));
           return;
         }
+      } else {
+        const { status } =
+          await ImagePicker.requestMediaLibraryPermissionsAsync();
+        if (status !== "granted") {
+          Alert.alert(
+            t(
+              "auth.kyc.submit.galleryPermissionRequired",
+              "Photo library access is required to choose an image.",
+            ),
+          );
+          return;
+        }
       }
 
+      const pickerOptions = {
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        quality: 1 as const,
+      };
+
       const result = fromCamera
-        ? await ImagePicker.launchCameraAsync({
-            mediaTypes: ["images"],
-            allowsEditing: true,
-            quality: 1,
-          })
-        : await ImagePicker.launchImageLibraryAsync({
-            mediaTypes: ["images"],
-            allowsEditing: true,
-            quality: 1,
-          });
+        ? await ImagePicker.launchCameraAsync(pickerOptions)
+        : await ImagePicker.launchImageLibraryAsync(pickerOptions);
 
       if (!result.canceled && result.assets[0]) {
         const uri = result.assets[0].uri;
         if (slot === "front") setFrontUri(uri);
-        if (slot === "back") setBackUri(uri);
-        if (slot === "selfie") setSelfieUri(uri);
+        else if (slot === "back") setBackUri(uri);
+        else if (slot === "selfie") setSelfieUri(uri);
       }
     } finally {
       setLoadingSlot(null);
     }
   };
 
-  const chooseImageSource = (slot: IdSlot | "selfie") => {
+  const chooseImageSource = (slot: KycDocSlotKey | "selfie") => {
     if (submitting) return;
     Alert.alert(
       t("auth.kyc.submit.pickSourceTitle", "Select image source"),
@@ -204,7 +220,9 @@ export default function KycScreen() {
 
       await fetchProfile(session.user.id);
       clearKyc();
-      router.replace("/(private)/(tabs)");
+      router.replace(
+        "/(private)/(tabs)" as Parameters<typeof router.replace>[0],
+      );
     } catch (e: unknown) {
       setError(
         e instanceof Error ? e.message : t("auth.kyc.submit.submissionFailed"),
@@ -216,113 +234,127 @@ export default function KycScreen() {
   };
 
   const goToPage = (next: 0 | 1) => {
+    if (next === 1 && !canGoSelfie) return;
     setPage(next);
-    pagerRef.current?.scrollTo({ x: next * pageWidth, animated: true });
   };
 
-  const IdSlot = ({
+  /**
+   * Border + bg live inside Pressable so the hit area centers the inner box and label.
+   */
+  const DocUploadSlot = ({
     label,
     uri,
     onPick,
     onRemove,
-    width,
   }: {
     label: string;
     uri: string | null;
     onPick: () => void;
     onRemove: () => void;
-    width?: number;
   }) => (
-    <View style={{ marginBottom: 16, flex: 1 }}>
-      <View
-        style={{
-          borderWidth: 1.4,
-          borderStyle: "dashed",
-          borderColor: colors.outlineVariant,
-          borderRadius: 16,
-          height: 244,
-          backgroundColor: colors.surfaceContainer,
-          overflow: "hidden",
-          justifyContent: "center",
+    <View
+      style={{
+        marginBottom: 16,
+        width: "100%",
+        alignSelf: "stretch",
+        position: "relative",
+      }}
+    >
+      <Pressable
+        onPress={onPick}
+        disabled={submitting || Boolean(loadingSlot)}
+        style={({ pressed }) => ({
+          width: "100%",
           alignItems: "center",
-        }}
+          opacity: submitting || loadingSlot ? 0.6 : pressed ? 0.92 : 1,
+        })}
       >
-        {uri ? (
-          <>
+        <View
+          style={{
+            width: "100%",
+            height: DOC_UPLOAD_HEIGHT,
+            borderRadius: 16,
+            borderWidth: 1.5,
+            borderStyle: "dashed",
+            borderColor: colors.outlineVariant,
+            backgroundColor: colors.surfaceContainerLowest,
+            overflow: "hidden",
+            justifyContent: "center",
+            alignItems: "center",
+          }}
+        >
+          {uri ? (
             <Image
               source={{ uri }}
-              style={{ width: "100%", height: "100%" }}
+              style={[StyleSheet.absoluteFillObject, { borderRadius: 16 }]}
               resizeMode="cover"
             />
-            <TouchableOpacity
-              onPress={onRemove}
-              style={{
-                position: "absolute",
-                top: 10,
-                right: 10,
-                width: 30,
-                height: 30,
-                borderRadius: 999,
-                backgroundColor: colors.surfaceContainer,
-                borderWidth: 1,
-                borderColor: colors.outlineVariant,
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <X size={16} color={colors.textPrimary} />
-            </TouchableOpacity>
-          </>
-        ) : (
-          <TouchableOpacity
-            onPress={onPick}
-            disabled={submitting || Boolean(loadingSlot)}
-            style={{
-              flexDirection: "row",
-              alignItems: "center",
-              gap: 8,
-              opacity: submitting || loadingSlot ? 0.6 : 1,
-            }}
-          >
+          ) : (
             <AppText
               variant="body"
               color={colors.primary}
-              style={{ fontSize: 14, lineHeight: 22 }}
+              style={{
+                fontSize: 14,
+                lineHeight: 22,
+                paddingHorizontal: 8,
+                textAlign: "center",
+              }}
             >
               {"+ " + label}
             </AppText>
-          </TouchableOpacity>
-        )}
-      </View>
+          )}
+        </View>
+      </Pressable>
+      {uri ? (
+        <TouchableOpacity
+          onPress={onRemove}
+          hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+          style={{
+            position: "absolute",
+            top: 10,
+            right: 10,
+            width: 30,
+            height: 30,
+            borderRadius: 999,
+            backgroundColor: colors.surfaceContainer,
+            borderWidth: 1,
+            borderColor: colors.outlineVariant,
+            alignItems: "center",
+            justifyContent: "center",
+            zIndex: 2,
+          }}
+        >
+          <X size={16} color={colors.textPrimary} />
+        </TouchableOpacity>
+      ) : null}
     </View>
   );
+
+  const handleHeaderBack = () => {
+    if (page === 1) {
+      setPage(0);
+      return;
+    }
+    router.back();
+  };
 
   return (
     <PageContainer>
       <BackHeader
         className="pl-0"
+        onBack={handleHeaderBack}
         rightSlot={<StepProgress progress={page === 0 ? 0.5 : 1} width={150} />}
       />
 
-      <ScrollView keyboardShouldPersistTaps="handled">
-        <ScrollView
-          keyboardShouldPersistTaps="handled"
-          horizontal
-          pagingEnabled
-          scrollEnabled={page === 1 || canGoSelfie}
-          ref={pagerRef}
-          showsHorizontalScrollIndicator={false}
-          onMomentumScrollEnd={(e) => {
-            const next = Math.round(e.nativeEvent.contentOffset.x / pageWidth);
-            if (next === 1 && !canGoSelfie) {
-              pagerRef.current?.scrollTo({ x: 0, animated: true });
-              setPage(0);
-              return;
-            }
-            setPage(next);
-          }}
-        >
-          <View style={{ width: pageWidth }}>
+      <ScrollView
+        // flex:1 + minHeight:0 — required so the list fills the screen under BackHeader (otherwise height can collapse to 0)
+        style={{ flex: 1, minHeight: 0 }}
+        contentContainerStyle={{ flexGrow: 1, paddingBottom: 8 }}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        {page === 0 ? (
+          <View style={{ width: "100%" }}>
             <AppText
               variant="caption"
               color={colors.textSecondary}
@@ -344,7 +376,6 @@ export default function KycScreen() {
                     onPress={() => {
                       if (submitting) return;
                       setDocType(option.value);
-                      // Reset picked document images when changing type
                       setFrontUri(null);
                       setBackUri(null);
                     }}
@@ -406,33 +437,42 @@ export default function KycScreen() {
                   )}
             </AppText>
 
-            <View style={{ flexDirection: "row", gap: 10 }}>
-              <IdSlot
-                width={requiresBack ? (pageWidth - 28) / 2 : pageWidth - 18}
-                label={
-                  selectedDoc?.frontLabel ??
-                  t("auth.kyc.submit.uploadFront", "Upload front")
-                }
-                uri={frontUri}
-                onPick={() => chooseImageSource("front")}
-                onRemove={() => setFrontUri(null)}
-              />
-              {requiresBack ? (
-                <IdSlot
-                  width={(pageWidth - 28) / 2}
+            <View
+              style={{
+                flexDirection: "row",
+                gap: 10,
+                alignItems: "stretch",
+                width: "100%",
+              }}
+            >
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <DocUploadSlot
                   label={
-                    selectedDoc?.backLabel ??
-                    t("auth.kyc.submit.uploadBack", "Upload back")
+                    selectedDoc?.frontLabel ??
+                    t("auth.kyc.submit.uploadFront", "Upload front")
                   }
-                  uri={backUri}
-                  onPick={() => chooseImageSource("back")}
-                  onRemove={() => setBackUri(null)}
+                  uri={frontUri}
+                  onPick={() => chooseImageSource("front")}
+                  onRemove={() => setFrontUri(null)}
                 />
+              </View>
+              {requiresBack ? (
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <DocUploadSlot
+                    label={
+                      selectedDoc?.backLabel ??
+                      t("auth.kyc.submit.uploadBack", "Upload back")
+                    }
+                    uri={backUri}
+                    onPick={() => chooseImageSource("back")}
+                    onRemove={() => setBackUri(null)}
+                  />
+                </View>
               ) : null}
             </View>
           </View>
-
-          <View style={{ width: pageWidth }}>
+        ) : (
+          <View style={{ width: "100%" }}>
             <AppText
               variant="title"
               color={colors.textPrimary}
@@ -449,27 +489,64 @@ export default function KycScreen() {
             </AppText>
 
             <View style={{ alignItems: "center", marginBottom: 24 }}>
-              <View
-                style={{
-                  width: 220,
-                  height: 220,
-                  borderRadius: 999,
-                  backgroundColor: colors.surfaceDim,
-                  overflow: "hidden",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                {selfieUri ? (
-                  <Image
-                    source={{ uri: selfieUri }}
-                    style={{ width: "100%", height: "100%" }}
-                    resizeMode="cover"
-                  />
-                ) : null}
+              <View style={{ position: "relative" }}>
+                <Pressable
+                  onPress={() => chooseImageSource("selfie")}
+                  disabled={submitting || loadingSlot === "selfie"}
+                  style={({ pressed }) => ({
+                    alignItems: "center",
+                    justifyContent: "center",
+                    opacity:
+                      submitting || loadingSlot === "selfie"
+                        ? 0.6
+                        : pressed
+                          ? 0.92
+                          : 1,
+                  })}
+                >
+                  <View
+                    style={{
+                      width: SELFIE_CIRCLE_SIZE,
+                      height: SELFIE_CIRCLE_SIZE,
+                      borderRadius: SELFIE_CIRCLE_SIZE / 2,
+                      borderColor: colors.outlineVariant,
+                      backgroundColor: colors.surfaceContainerLowest,
+                      overflow: "hidden",
+                      justifyContent: "center",
+                      alignItems: "center",
+                    }}
+                  >
+                    {selfieUri ? (
+                      <ExpoImage
+                        source={{ uri: selfieUri }}
+                        style={{
+                          width: SELFIE_CIRCLE_SIZE,
+                          height: SELFIE_CIRCLE_SIZE,
+                          borderRadius: SELFIE_CIRCLE_SIZE / 2,
+                        }}
+                        contentFit="cover"
+                        cachePolicy="memory-disk"
+                        transition={150}
+                      />
+                    ) : (
+                      <AppText
+                        variant="body"
+                        color={colors.primary}
+                        style={{
+                          fontSize: 14,
+                          textAlign: "center",
+                          paddingHorizontal: 16,
+                        }}
+                      >
+                        {t("auth.kyc.submit.tapToAddSelfie")}
+                      </AppText>
+                    )}
+                  </View>
+                </Pressable>
                 {selfieUri ? (
                   <TouchableOpacity
                     onPress={() => setSelfieUri(null)}
+                    hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={{
                       position: "absolute",
                       top: 30,
@@ -482,6 +559,7 @@ export default function KycScreen() {
                       borderColor: colors.outlineVariant,
                       alignItems: "center",
                       justifyContent: "center",
+                      zIndex: 2,
                     }}
                   >
                     <X size={16} color={colors.textPrimary} />
@@ -525,39 +603,16 @@ export default function KycScreen() {
               disabled={submitting || loadingSlot === "selfie"}
             />
           </View>
-        </ScrollView>
+        )}
 
         <View
           style={{
             flexDirection: "row",
-            justifyContent: "center",
-            flex: 1,
-            gap: 8,
-            marginTop: 12,
-            marginBottom: 12,
+            gap: 10,
+            marginTop: page === 0 ? 8 : 50,
+            marginBottom: 24,
           }}
         >
-          <View
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: 999,
-              backgroundColor:
-                page === 0 ? colors.primary : colors.outlineVariant,
-            }}
-          />
-          <View
-            style={{
-              width: 10,
-              height: 10,
-              borderRadius: 999,
-              backgroundColor:
-                page === 1 ? colors.primary : colors.outlineVariant,
-            }}
-          />
-        </View>
-
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 24 }}>
           {page === 1 && (
             <Button
               label={t("common.previous")}
@@ -568,9 +623,7 @@ export default function KycScreen() {
             />
           )}
           <Button
-            label={
-              page === 0 ? t("common.next") : t("common.submit")
-            }
+            label={page === 0 ? t("common.next") : t("common.submit")}
             onPress={() => (page === 0 ? goToPage(1) : submitKyc())}
             disabled={page === 0 ? !canGoSelfie : !canSubmit || submitting}
             loading={page === 1 && submitting}

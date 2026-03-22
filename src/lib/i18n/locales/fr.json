@@ -27,7 +27,8 @@
     "previous": "Précédent",
     "submit": "Envoyer",
     "viewProfile": "Voir le profil",
-    "sendRequest": "Envoyer une demande"
+    "sendRequest": "Envoyer une demande",
+    "skip": "Passer"
   },
   "pet": {
     "detail": {
@@ -58,7 +59,18 @@
       "subtitle": "L'application communautaire de garde d'animaux",
       "getStarted": "S'inscrire",
       "signIn": "Se connecter",
-      "continueWithoutSigningIn": "Continuer sans se connecter"
+      "continueWithoutSigningIn": "Continuer sans se connecter",
+      "languageHint": "Ouvre un menu pour choisir l’anglais ou le français",
+      "clearSavedSession": "Effacer les données de session enregistrées",
+      "clearSavedSessionHint": "Si la connexion ou la déconnexion bloque, cela supprime les données de connexion stockées sur cet appareil."
+    },
+    "onboarding": {
+      "slide1Title": "Trouvez le nouveau meilleur ami de votre animal",
+      "slide1Body": "Entrez en contact avec des gardiens vérifiés près de chez vous qui traitent votre animal comme un membre de la famille. Les bons soins sont à portée : une recherche et un tap suffisent.",
+      "slide2Title": "Des soins à votre rythme",
+      "slide2Body": "Des promenades rapides en milieu de journée aux gardes longue durée, trouvez l’accord parfait pour votre routine. Gérez chaque détail dans un espace clair.",
+      "slide3Title": "Aimez plus, gagnez plus",
+      "slide3Body": "Chaque promenade, garde et moment de jeu vous rapporte des points. Sans paiement ni frais — des passionnés qui s’entraident pour faire battre les cœurs et remuer les queues."
     },
     "login": {
       "title": "Se connecter",
@@ -150,6 +162,7 @@
         "uploadBack": "Télécharger le verso",
         "uploadPassport": "Télécharger la page du passeport",
         "uploadSelfie": "Prendre un selfie",
+        "tapToAddSelfie": "Appuyez pour ajouter un selfie",
         "selfieInstructions": "Centrez votre visage dans le cadre et suivez les instructions.",
         "requiredImagesTwo": "Images requises : 2 photos du document",
         "requiredImagesOne": "Images requises : 1 photo du document",
@@ -162,6 +175,7 @@
         "progressUploadingSelfie": "Téléversement du selfie…",
         "progressSubmitting": "Envoi…",
         "cameraPermissionRequired": "Autorisation de la caméra requise",
+        "galleryPermissionRequired": "L’accès à la photothèque est nécessaire pour choisir une image.",
         "submissionFailed": "Échec de l'envoi de la vérification",
         "submit": "Soumettre pour vérification"
       },
@@ -226,13 +240,17 @@
       "title": "Vérifions votre identité",
       "description": "Pour protéger la communauté et débloquer la réservation ou le rôle de gardien, nous devons confirmer rapidement votre identité. Cela ne prend que 2 minutes !",
       "maybeLater": "Plus tard",
-      "getVerified": "Me faire vérifier"
+      "getVerified": "Me faire vérifier",
+      "pendingTitle": "Vérification en cours",
+      "pendingDescription": "Nous examinons vos documents. Cela prend généralement 24 à 48 heures. Vous pourrez publier des demandes, ajouter des animaux et proposer votre disponibilité une fois approuvé.",
+      "pendingOk": "Compris"
     },
     "resultsLabel": "Résultats",
     "distanceKmRange": "{{min}}km–{{max}}km",
     "takerAvailable": "Disponible",
     "careTypes": {
       "daytime": "Journée",
+      "playwalk": "Jeu / promenade",
       "play_walk": "Jeu / promenade",
       "overnight": "Nuit",
       "vacation": "Vacances"
@@ -275,13 +293,30 @@
     },
     "review": {
       "title": "Laisser un avis",
+      "intro": "Dites comment s'est passée la garde — les avis aident toute la communauté.",
+      "reviewing": "Vous évaluez",
       "rating": "Note",
       "comment": "Commentaire (optionnel)",
-      "submit": "Soumettre l'avis"
+      "commentPlaceholder": "Qu'est-ce qui s'est bien passé ? Que devraient savoir les autres ?",
+      "submit": "Soumettre l'avis",
+      "successTitle": "Merci !",
+      "successSubtitle": "Votre avis a été envoyé et aide les autres à choisir des gardiens de confiance."
     }
+  },
+  "offer": {
+    "title": "Envoyer une offre",
+    "subtitle": "Proposez votre garde pour cet animal. Le propriétaire recevra votre message dans le chat.",
+    "recipient": "À",
+    "forPet": "Animal : {{name}}",
+    "pointsLabel": "Points proposés",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Présentez-vous et indiquez vos disponibilités…",
+    "send": "Envoyer l'offre"
   },
   "post": {
     "title": "Publier",
+    "launchRequest": "Lancer une demande",
+    "availableToCare": "Disponible pour garder",
     "choose": {
       "title": "De quoi avez-vous besoin ?",
       "requestCare": "Demander des soins pour mon animal",
@@ -308,14 +343,41 @@
         "publish": "Enregistrer et lancer la demande de soins"
       },
       "selectPet": "Choisir un animal",
+      "addAnotherPet": "ou ajouter un autre animal",
+      "validation": {
+        "careTypeRequired": "Sélectionnez au moins un type de garde.",
+        "petRequired": "Sélectionnez un animal pour continuer.",
+        "timeRange": "L’heure de fin doit être après l’heure de début.",
+        "daysRequired": "Sélectionnez au moins un jour.",
+        "dateRangeOrder": "La date de fin doit être après la date de début."
+      },
       "addPet": "Ajouter un animal",
       "selectDate": "Choisir la date",
       "date": "Date",
+      "startDate": "Date de début",
+      "endDate": "Date de fin",
       "selectDatePlaceholder": "Choisir une date",
       "startTime": "Heure de début",
       "endTime": "Heure de fin",
       "start": "Début",
       "end": "Fin",
+      "previewTitle": "Aperçu de votre demande",
+      "previewHint": "Touchez les puces ou les champs pour ajuster avant de lancer.",
+      "previewDisclaimer": "En appuyant sur Lancer, vous acceptez que la communauté puisse postuler ou vous contacter via le chat.",
+      "specialNeedsPlaceholder": "Quelque chose à savoir ?",
+      "preview": {
+        "careTypes": "Soins",
+        "pet": "Animal",
+        "dates": "Dates",
+        "date": "Date",
+        "yard": "Jardin",
+        "age": "Âge",
+        "energy": "Énergie",
+        "days": "Jours",
+        "time": "Heures",
+        "specialNeeds": "Besoins particuliers",
+        "edit": "Modifier"
+      },
       "multiDay": "Plus d'un jour",
       "detailsTitle": "Détails et besoins particuliers",
       "detailsHint": "Type de jardin, niveau d'énergie, besoins particuliers (optionnel).",
@@ -332,13 +394,61 @@
       "yardType": "Type de terrain",
       "petOwner": "Propriétaire d'animaux",
       "note": "Note courte",
-      "save": "Enregistrer la disponibilité"
+      "save": "Enregistrer la disponibilité",
+      "careStepTitle": "De quel type de garde avez-vous besoin ?",
+      "hintsTitle": "Conseils",
+      "petKindQuestion": "Quel type d’animal ?",
+      "yardQuestion": "Quel type de terrain avez-vous ?",
+      "yardFenced": "Terrain clôturé",
+      "yardHighFence": "Haute clôture",
+      "yardNone": "Pas de terrain",
+      "petOwnerQuestion": "Possédez-vous des animaux ?",
+      "ownerYes": "Oui",
+      "ownerNo": "Non",
+      "daysQuestion": "Quels jours êtes-vous disponible ?",
+      "noDaysSelected": "Aucun jour sélectionné",
+      "everyDays": "Chaque {{days}}",
+      "hoursTitle": "Définissez vos heures de disponibilité",
+      "noteTitle": "Ajoutez une courte note",
+      "notePlaceholder": "Parlez de votre expérience avec les animaux…",
+      "previewTitle": "Aperçu de votre disponibilité",
+      "careFieldLabel": "Soins proposés :",
+      "petTypeLabel": "Type d’animal :",
+      "yardChipLabel": "Type de terrain :",
+      "petOwnerChipLabel": "Propriétaire d’animal :",
+      "daysFieldLabel": "Jours :",
+      "timeFieldLabel": "Heures :",
+      "startTimeLabel": "Heure de début",
+      "endTimeLabel": "Heure de fin",
+      "previewSubtitle": "Vérifiez vos informations avant publication.",
+      "previewDisclaimer": "En publiant, vous acceptez que la communauté puisse voir votre disponibilité et vous contacter.",
+      "publish": "Publier la disponibilité",
+      "next": "Suivant",
+      "previewAvailable": "Disponible pour garder",
+      "previewBio": "Bio / expérience",
+      "weekdays": {
+        "M": "lundi",
+        "Tu": "mardi",
+        "W": "mercredi",
+        "Th": "jeudi",
+        "F": "vendredi",
+        "Sa": "samedi",
+        "Su": "dimanche"
+      },
+      "validation": {
+        "careTypeRequired": "Sélectionnez au moins un type de garde.",
+        "petKindRequired": "Sélectionnez un type d’animal pour continuer.",
+        "daysRequired": "Sélectionnez au moins un jour.",
+        "timeRange": "L’heure de fin doit être après l’heure de début."
+      }
     }
   },
   "messages": {
     "searchChats": "Rechercher dans les discussions",
+    "chatsTitle": "Discussions",
     "viewRequest": "Voir la demande",
     "serviceRequest": "Demande de service",
+    "requestSendHint": "Consultez et répondez à cette demande de garde.",
     "title": "Messages",
     "noMessages": "Aucun message",
     "typeMessage": "Écrire un message",
@@ -370,7 +480,10 @@
     "maxDistance": "Distance max",
     "reset": "Réinitialiser",
     "apply": "Appliquer",
-    "done": "Terminé"
+    "done": "Terminé",
+    "distanceRange": "Distance",
+    "minKm": "Min (km)",
+    "maxKm": "Max (km)"
   },
   "availability": {
     "title": "Publier ma disponibilité",
@@ -426,9 +539,14 @@
     "termsAndPolicies": "Mentions et politiques",
     "preferencesSection": "Préférences",
     "logoutTitle": "Se déconnecter ?",
+    "logoutConfirm": "Vous devrez vous reconnecter pour voir vos messages et gérer votre profil.",
     "deactivateTitle": "Désactiver le compte ?",
+    "deactivateConfirm": "Votre compte sera suspendu. Vous n’apparaîtrez plus dans les recherches et ne recevrez plus de nouveaux messages.",
     "deleteTitle": "Supprimer le compte ?",
+    "deleteConfirm": "Cela supprimera définitivement votre compte et toutes les données associées. Cette action est irréversible.",
     "logoutCta": "Se déconnecter",
+    "signingOut": "Déconnexion…",
+    "signOutFailed": "Impossible de se déconnecter. Réessayez.",
     "deactivateCta": "Désactiver",
     "deleteCta": "Supprimer"
   },
@@ -473,7 +591,24 @@
     "title": "Notifications",
     "searchPlaceholder": "Rechercher dans les notifications",
     "noNotifications": "Aucune notification",
-    "markAllRead": "Tout marquer comme lu"
+    "markAllRead": "Tout marquer comme lu",
+    "emptyTitle": "Aucune notification pour l’instant",
+    "emptySubtitle": "Toutes vos notifications apparaîtront ici.",
+    "deleteOne": "Supprimer cette notification",
+    "mock": {
+      "careEndingTitle": "Fin de garde bientôt",
+      "careEndingBody": "La garde de Polo avec Bob Majors se termine à 18h",
+      "newChatTitle": "Nouveau message de Bob Majors",
+      "newChatBody": "« peut-on conclure »",
+      "verificationTitle": "Vérification en cours",
+      "verificationBody": "Votre vérification est terminée. Vous pouvez maintenant accepter des missions",
+      "matchTitle": "Correspondance trouvée !",
+      "matchBody": "Bob Majors a postulé pour Polo",
+      "pointsTitle": "+5 nouveaux points !",
+      "pointsBody": "Vous avez terminé la garde de Polo pour Jane Ambers",
+      "careSuccessTitle": "Garde réussie !",
+      "careSuccessBody": "Vous avez gardé Polo"
+    }
   },
   "search": {
     "title": "Rechercher",
@@ -484,6 +619,7 @@
   "pets": {
     "add": {
       "title": "Ajouter un animal",
+      "whatKind": "Quel type d’animal ?",
       "name": "Nom de l'animal",
       "species": "Espèce",
       "breed": "Race (optionnel)",

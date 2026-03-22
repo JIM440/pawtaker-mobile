@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 /** Colors from design token tables (Light scheme). */
 module.exports = {
+  darkMode: 'class',
   content: ['./app/**/*.{js,jsx,ts,tsx}', './src/**/*.{js,jsx,ts,tsx}'],
   presets: [require('nativewind/preset')],
   theme: {
@@ -11,6 +12,12 @@ module.exports = {
         'sans-bold': ['Roboto_700Bold'],
       },
       colors: {
+        /** Semantic tokens — light values; dark mode via CSS vars + NativeWind `setColorScheme` (see global.css). */
+        background: 'var(--color-background)',
+        surface: 'var(--color-surface)',
+        'text-primary': 'var(--color-text-primary)',
+        'text-secondary': 'var(--color-text-secondary)',
+        border: 'var(--color-border)',
         primary: '#8c4a60',
         'primary-light': '#ffb1c8',
         'primary-container': '#ffd9e2',
@@ -26,8 +33,6 @@ module.exports = {
         error: '#ba1a1a',
         'error-container': '#ffdad6',
         'on-error': '#ffffff',
-        background: '#f5f0f0',
-        surface: '#fff8f8',
         'surface-container': '#faf2f4',
         'surface-container-lowest': '#ffffff',
         'on-surface': '#22191c',
@@ -40,9 +45,6 @@ module.exports = {
         success: '#27ae60',
         warning: '#e67e22',
         danger: '#ba1a1a',
-        'text-primary': '#22191c',
-        'text-secondary': '#665459',
-        border: '#e8e7e7',
       },
     },
   },

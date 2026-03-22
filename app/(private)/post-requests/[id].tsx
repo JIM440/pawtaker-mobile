@@ -1,4 +1,5 @@
 import { Colors } from '@/src/constants/colors';
+import { blockIfKycNotApproved } from '@/src/lib/kyc/kyc-gate';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { BackHeader } from '@/src/shared/components/layout/BackHeader';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
@@ -74,8 +75,9 @@ export default function RequestDetailScreen() {
   const imageCount = request.images.length;
 
   const onApplyNow = () => {
+    if (blockIfKycNotApproved()) return;
     // Navigate to offer flow or submit application
-    router.push(`/(private)/(tabs)/post/availability/${id ?? '1'}` as any);
+    router.push(`/(private)/offer/${id ?? "1"}` as any);
   };
 
   return (

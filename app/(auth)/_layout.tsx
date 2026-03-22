@@ -1,11 +1,45 @@
-import { Stack } from "expo-router";
+import { Colors } from "@/src/constants/colors";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { router, Stack, usePathname } from "expo-router";
+import { useEffect } from "react";
 import { Platform } from "react-native";
 
 export default function AuthLayout() {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+
+  const session = useAuthStore((s) => s.session);
+  const onboardingSeen = useAuthStore((s) => s.onboardingSeen);
+  const authHydrated = useAuthStore((s) => s._hasHydrated);
+  const isLoading = useAuthStore((s) => s.isLoading);
+  const pathname = usePathname();
+
+  /**
+   * Route protection belongs here (not root): this layout only mounts for (auth) screens,
+   * so navigating welcome → login never races with (private) segment/pathname.
+   */
+  useEffect(() => {
+    if (!authHydrated || isLoading) return;
+
+    if (session) {
+      router.replace("/(private)/(tabs)" as Parameters<typeof router.replace>[0]);
+      return;
+    }
+
+    if (!onboardingSeen) {
+      const path = pathname.split("?")[0] ?? "";
+      if (!path.startsWith("/onboarding")) {
+        router.replace("/(auth)/onboarding");
+      }
+    }
+  }, [session, onboardingSeen, authHydrated, isLoading, pathname]);
+
   return (
     <Stack
       screenOptions={{
         headerShown: false,
+        contentStyle: { backgroundColor: colors.background },
         ...(Platform.OS !== "web" && { animation: "slide_from_right" }),
       }}
     >

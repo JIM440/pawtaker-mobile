@@ -1,4 +1,5 @@
 import { Colors } from '@/src/constants/colors';
+import { blockIfKycNotApproved } from '@/src/lib/kyc/kyc-gate';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { PageContainer } from '@/src/shared/components/layout';
 import { MyCareSkeleton } from '@/src/shared/components/skeletons';
@@ -28,7 +29,7 @@ import {
 import { CareGivenTab } from '@/src/features/my-care/components/CareGivenTab';
 import { CareReceivedTab } from '@/src/features/my-care/components/CareReceivedTab';
 import { LikedTab } from '@/src/features/my-care/components/LikedTab';
-import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
+import { useRouter } from 'expo-router';
 
 // Constants
 import {
@@ -41,6 +42,7 @@ type TabId = 'given' | 'received' | 'liked';
 
 export default function MyCareScreen() {
   const { t } = useTranslation();
+  const router = useRouter();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [loading] = useState(false);
@@ -48,7 +50,6 @@ export default function MyCareScreen() {
   const [activeTab, setActiveTab] = useState<TabId>('given');
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
-  const [applyModalVisible, setApplyModalVisible] = useState(false);
   const [hasActiveCare] = useState(true); // Demo mode
 
   const onAvailableChange = (value: boolean) => {
@@ -240,26 +241,13 @@ export default function MyCareScreen() {
           <LikedTab
             colors={colors as any}
             pets={MOCK_LIKED_PETS}
-            onApply={() => setApplyModalVisible(true)}
+            onApply={(requestId) => {
+              if (blockIfKycNotApproved()) return;
+              router.push(`/(private)/post-requests/${requestId}` as any);
+            }}
           />
         )}
       </ScrollView>
-
-      {/* Applying Modal */}
-      <FeedbackModal
-        visible={applyModalVisible}
-        title={t("myCare.applyingForPet")}
-        description={t("myCare.applyingDescription")}
-        icon={<PawPrint size={32} color={colors.primary} />}
-        primaryLabel={t("common.continue")}
-        onPrimary={() => {
-          setApplyModalVisible(false);
-          setShowSnackbar(true);
-        }}
-        secondaryLabel={t("common.cancel")}
-        onSecondary={() => setApplyModalVisible(false)}
-        onRequestClose={() => setApplyModalVisible(false)}
-      />
 
       {showSnackbar && (
         <View style={[styles.snackbarShadow, { bottom: 100 }]}>
