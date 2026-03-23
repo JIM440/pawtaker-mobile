@@ -12,7 +12,6 @@ import {
 } from "react-native";
 
 import { Colors } from "@/src/constants/colors";
-import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 
@@ -23,16 +22,15 @@ import { ChevronDown } from "lucide-react-native";
 import { LocalSvg } from "react-native-svg/css";
 
 /** primary_logo.svg viewBox 388.09 × 97.73 */
-const LOGO_W = 280;
-const LOGO_H = 180;
-const PRIMARY_LOGO = require("@/assets/icons/logos/svg/narrow_variant.svg");
+const LOGO_W = 120;
+const LOGO_H = 120;
+const PRIMARY_LOGO = require("@/assets/icons/logos/svg/coloured_favicon.svg");
 
 export default function WelcomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const setGuestMode = useAuthStore((s) => s.setGuestMode);
 
   const { language, setLanguage } = useLanguageStore();
 
@@ -62,16 +60,13 @@ export default function WelcomeScreen() {
   );
 
   return (
-    <PageContainer
-      contentStyle={{ paddingTop: 32, paddingBottom: 32 }}
-      scrollable={true}
-    >
+    <PageContainer contentStyle={{ paddingTop: 48, paddingBottom: 48 }}>
       <View
         style={{
           width: "100%",
           flexDirection: "row",
           justifyContent: "flex-end",
-          marginBottom: 10,
+          marginBottom: 24,
         }}
       >
         <TouchableOpacity
@@ -112,7 +107,7 @@ export default function WelcomeScreen() {
           flex: 1,
           width: "100%",
           gap: 24,
-          paddingTop: 32,
+          paddingTop: 48,
         }}
       >
         <LocalSvg
@@ -126,11 +121,11 @@ export default function WelcomeScreen() {
 
         <AppText
           variant="headline"
-          color={colors.onSurface}
+          color={colors.onSurfaceVariant}
           style={{
             textAlign: "center",
             letterSpacing: -0.5,
-            marginBottom: 8,
+            marginBottom: 20,
           }}
         >
           {t("auth.welcome.title")}
@@ -178,22 +173,6 @@ export default function WelcomeScreen() {
           onPress={() => router.push("/signup")}
           variant="primary"
         />
-
-        <TouchableOpacity
-          onPress={() => {
-            setGuestMode(true);
-            router.replace("/(private)/(tabs)" as Parameters<typeof router.replace>[0]);
-          }}
-          style={{ marginTop: 26 }}
-        >
-          <AppText
-            variant="body"
-            color={colors.onSurface}
-            style={{ textAlign: "center", fontSize: 14 }}
-          >
-            {t("auth.welcome.continueWithoutSigningIn")}
-          </AppText>
-        </TouchableOpacity>
       </View>
 
       <Modal

@@ -27,7 +27,11 @@ export default function PrivateLayout() {
         screenOptions={{
           headerShown: false,
           ...stackPerfScreenOptions,
-          ...(Platform.OS !== "web" && { animation: "slide_from_right" }),
+            ...(Platform.OS === "ios"
+              ? { animation: "ios" as any, gestureEnabled: true }
+              : Platform.OS !== "web"
+                ? { animation: "slide_from_right" }
+                : {}),
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />

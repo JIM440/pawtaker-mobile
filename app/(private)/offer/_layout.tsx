@@ -1,9 +1,18 @@
 import { stackPerfScreenOptions } from "@/src/constants/navigation";
 import { Stack } from "expo-router";
+import { Platform } from "react-native";
 
 export default function OfferLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false, ...stackPerfScreenOptions }}>
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        ...stackPerfScreenOptions,
+        ...(Platform.OS === "ios"
+          ? { animation: "ios" as any, gestureEnabled: true }
+          : {}),
+      }}
+    >
       <Stack.Screen name="[id]" />
     </Stack>
   );

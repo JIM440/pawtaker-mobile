@@ -33,7 +33,11 @@ export default function AuthLayout() {
       screenOptions={{
         headerShown: false,
         contentStyle: { backgroundColor: colors.background },
-        ...(Platform.OS !== "web" && { animation: "slide_from_right" }),
+        ...(Platform.OS === "ios"
+          ? { animation: "ios" as any, gestureEnabled: true }
+          : Platform.OS !== "web"
+            ? { animation: "slide_from_right" }
+            : {}),
       }}
     >
       <Stack.Screen name="onboarding" />

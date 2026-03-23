@@ -1,9 +1,9 @@
 import { useRouter } from "expo-router";
-import { ChevronRight } from "lucide-react-native";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   FlatList,
+  Image,
   type ListRenderItem,
   type NativeScrollEvent,
   type NativeSyntheticEvent,
@@ -22,24 +22,33 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout/PageContainer";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { ChevronRight } from "lucide-react-native";
 
 const ONBOARDING_PAD_H = 16;
 
 /** primary_logo.svg viewBox 388.09 × 97.73 */
-const LOGO_W = 180;
-const LOGO_H = Math.round((LOGO_W * 97.73) / 388.09);
+const LOGO_W = 160;
+const LOGO_H = 40;
 
 const PRIMARY_LOGO = require("@/assets/icons/logos/svg/primary_logo.svg");
+const PRIMARY_YELLOW_LOGO_PNG = require("@/assets/icons/logos/png/primary_yellow_variant.png");
+const PRIMARY_LOGO_PNG = require("@/assets/icons/logos/png/primary_logo.png");
 
 const ILLU_SLIDE_1 = require("@/assets/illustrations/onboarding/onboarding_img_1.svg");
-const ILLU_SLIDE_2 = require("@/assets/illustrations/onboarding/onboarding_placeholder.svg");
-const ILLU_SLIDE_3 = require("@/assets/illustrations/onboarding/onboarding_placeholder.svg");
+const ILLU_SLIDE_2 = require("@/assets/illustrations/onboarding/onboarding_img_2.svg");
+const ILLU_SLIDE_3 = require("@/assets/illustrations/onboarding/onboarding_img_3.svg");
+
+/** Slide 1 keeps brand dark hero; slides 2–3 follow theme background. */
+const BG_DARK_MAUVE = Colors.light.primary;
+
+type SlideVariant = "dark" | "light";
 
 type Slide = {
   key: string;
   title: string;
   body: string;
   illustration: number;
+  variant: SlideVariant;
 };
 
 export default function OnboardingScreen() {
@@ -58,18 +67,21 @@ export default function OnboardingScreen() {
         title: t("auth.onboarding.slide1Title"),
         body: t("auth.onboarding.slide1Body"),
         illustration: ILLU_SLIDE_1,
+        variant: "dark",
       },
       {
         key: "s2",
         title: t("auth.onboarding.slide2Title"),
         body: t("auth.onboarding.slide2Body"),
         illustration: ILLU_SLIDE_2,
+        variant: "light",
       },
       {
         key: "s3",
         title: t("auth.onboarding.slide3Title"),
         body: t("auth.onboarding.slide3Body"),
         illustration: ILLU_SLIDE_3,
+        variant: "light",
       },
     ],
     [t],
@@ -77,11 +89,12 @@ export default function OnboardingScreen() {
 
   const [index, setIndex] = useState(0);
   const isLast = index === slides.length - 1;
+  const currentVariant = slides[index]?.variant ?? "light";
 
   const primary = colors.primary;
+  const onPrimary = colors.onPrimary;
   const onSurfaceVariant = colors.onSurfaceVariant;
-  const onSurface = colors.onSurface;
-  const dotInactive = colors.primaryContainer;
+  const dotInactiveLight = colors.primaryContainer;
 
   const illuWidth = Math.min(windowWidth - ONBOARDING_PAD_H * 2, 340);
   const illuHeight = 330;
@@ -116,10 +129,6 @@ export default function OnboardingScreen() {
     [pageWidth, slides.length],
   );
 
-  const goBack = () => {
-    goToSlide(index - 1);
-  };
-
   const goNext = () => {
     if (!isLast) {
       goToSlide(index + 1);
@@ -128,74 +137,215 @@ export default function OnboardingScreen() {
     }
   };
 
+  const dotColors = useMemo(() => {
+    if (currentVariant === "dark") {
+      return {
+        active: "#FFFFFF",
+        inactive: "rgba(255, 255, 255, 0.38)",
+      };
+    }
+    return {
+      active: primary,
+      inactive: dotInactiveLight,
+    };
+  }, [currentVariant, dotInactiveLight, primary]);
+
   const renderSlide: ListRenderItem<Slide> = useCallback(
-    ({ item }) => (
-      <View style={[{ width: pageWidth }]}>
-        <ScrollView
-          nestedScrollEnabled
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-          bounces
-          contentContainerStyle={styles.slideScrollContent}
-        >
-          <View style={{ paddingHorizontal: ONBOARDING_PAD_H }}>
-            <View style={styles.logoBlock}>
-              <LocalSvg asset={PRIMARY_LOGO} width={LOGO_W} height={LOGO_H} />
-            </View>
+    ({ item, index: slideIndex }) => {
+      const bg = item.variant === "dark" ? BG_DARK_MAUVE : colors.background;
+      const titleColor = item.variant === "dark" ? onPrimary : onSurfaceVariant;
+      const bodyColor = item.variant === "dark" ? onPrimary : onSurfaceVariant;
+      // Keep the top logo lockup the same size across slides.
+      const yellowLogoW = LOGO_W;
+      const yellowLogoH = LOGO_H;
+      const slideSkipColor = slideIndex === 0 ? onPrimary : onSurfaceVariant;
+      const isSlideLast = slideIndex === slides.length - 1;
 
-            <View style={styles.illuWrap}>
-              <LocalSvg
-                asset={item.illustration}
-                width={illuWidth}
-                height={illuHeight}
-              />
-            </View>
-
-            <View style={styles.dotsRow} accessibilityRole="tablist">
-              {slides.map((s, i) => {
-                const active = i === index;
-                return (
+      return (
+        <View style={[{ width: pageWidth, flex: 1, backgroundColor: bg }]}>
+          <View style={styles.slideRoot}>
+            <View
+              style={[styles.topBar, { paddingHorizontal: ONBOARDING_PAD_H }]}
+            >
+              {isSlideLast ? null : (
+                <Pressable
+                  onPress={handleContinue}
+                  hitSlop={12}
+                  style={({ pressed }) => [
+                    styles.skipTopPressable,
+                    pressed && { opacity: 0.65 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("common.skip")}
+                >
                   <View
-                    key={s.key}
-                    style={[
-                      active ? styles.dotActive : styles.dotIdle,
-                      {
-                        backgroundColor: active ? primary : dotInactive,
-                      },
-                    ]}
-                    accessibilityState={{ selected: active }}
-                  />
-                );
-              })}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <AppText
+                      style={[styles.skipTopLabel, { color: slideSkipColor }]}
+                    >
+                      {t("common.skip")}
+                    </AppText>
+                    <ChevronRight size={16} color={slideSkipColor} />
+                  </View>
+                </Pressable>
+              )}
             </View>
 
-            <AppText
-              style={[styles.title, { color: onSurfaceVariant }]}
-              numberOfLines={4}
+            <ScrollView
+              nestedScrollEnabled
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+              bounces
+              contentContainerStyle={styles.slideScrollContent}
             >
-              {item.title}
-            </AppText>
+              <View style={{ paddingHorizontal: ONBOARDING_PAD_H }}>
+                <View style={styles.logoBlock}>
+                  {item.variant === "dark" ? (
+                    <Image
+                      source={PRIMARY_YELLOW_LOGO_PNG}
+                      accessibilityIgnoresInvertColors
+                      accessibilityRole="image"
+                      accessibilityLabel="pawtaker"
+                      style={{
+                        width: yellowLogoW,
+                        height: yellowLogoH,
+                      }}
+                      resizeMode="contain"
+                    />
+                  ) : (
+                    <Image
+                      source={PRIMARY_LOGO_PNG}
+                      accessibilityRole="image"
+                      accessibilityLabel="pawtaker"
+                      style={{
+                        width: LOGO_W,
+                        height: LOGO_H,
+                      }}
+                      resizeMode="contain"
+                    />
+                  )}
+                </View>
 
-            <AppText
-              style={[styles.body, { color: onSurface }]}
-              numberOfLines={12}
+                <View style={styles.illuWrap}>
+                  <LocalSvg
+                    asset={item.illustration}
+                    width={illuWidth}
+                    height={illuHeight}
+                  />
+                </View>
+
+                <View style={styles.dotsRow} accessibilityRole="tablist">
+                  {slides.map((s, i) => {
+                    const active = i === index;
+                    return (
+                      <View
+                        key={s.key}
+                        style={[
+                          active ? styles.dotActive : styles.dotIdle,
+                          {
+                            backgroundColor: active
+                              ? dotColors.active
+                              : dotColors.inactive,
+                          },
+                        ]}
+                        accessibilityState={{ selected: active }}
+                      />
+                    );
+                  })}
+                </View>
+
+                <AppText
+                  style={[styles.title, { color: titleColor }]}
+                  numberOfLines={4}
+                >
+                  {item.title}
+                </AppText>
+
+                <AppText
+                  style={[styles.body, { color: bodyColor }]}
+                  numberOfLines={12}
+                >
+                  {item.body}
+                </AppText>
+              </View>
+            </ScrollView>
+
+            <View
+              style={[
+                styles.bottomBlock,
+                { paddingHorizontal: ONBOARDING_PAD_H },
+                slideIndex === 0 ? styles.bottomFirst : styles.bottomRest,
+              ]}
             >
-              {item.body}
-            </AppText>
+              {slideIndex > 0 ? (
+                <Button
+                  label={t("common.back")}
+                  onPress={() => goToSlide(slideIndex - 1)}
+                  variant="outline"
+                  style={[
+                    styles.backButton,
+                    // Use outline padding/typography, but remove the visible border.
+                    // { borderWidth: 0, borderColor: "transparent" },
+                  ]}
+                />
+              ) : (
+                <View style={styles.skipSpacer} />
+              )}
+
+              {slideIndex === 0 ? (
+                <Pressable
+                  onPress={goNext}
+                  hitSlop={16}
+                  style={({ pressed }) => [
+                    styles.nextTextOnly,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                  accessibilityRole="button"
+                  accessibilityLabel={t("common.next")}
+                >
+                  <AppText
+                    style={[styles.nextTextOnlyLabel, { color: onPrimary }]}
+                  >
+                    {t("common.next")}
+                  </AppText>
+                </Pressable>
+              ) : (
+                <Button
+                  label={
+                    isSlideLast
+                      ? (t("auth.onboarding.getStarted") ?? "Get started")
+                      : t("common.next")
+                  }
+                  onPress={() =>
+                    isSlideLast ? handleContinue() : goToSlide(slideIndex + 1)
+                  }
+                  variant="primary"
+                  style={styles.nextPill}
+                />
+              )}
+            </View>
           </View>
-        </ScrollView>
-      </View>
-    ),
+        </View>
+      );
+    },
     [
-      dotInactive,
+      dotColors.active,
+      colors.background,
+      dotColors.inactive,
       illuHeight,
       illuWidth,
       index,
-      onSurface,
+      onPrimary,
       onSurfaceVariant,
       pageWidth,
       primary,
       slides,
+      t,
     ],
   );
 
@@ -210,9 +360,12 @@ export default function OnboardingScreen() {
 
   const keyExtractor = useCallback((item: Slide) => item.key, []);
 
+  const screenBg =
+    currentVariant === "dark" ? BG_DARK_MAUVE : colors.background;
+
   return (
     <SafeAreaView
-      style={[styles.safe, { backgroundColor: colors.background }]}
+      style={[styles.safe, { backgroundColor: screenBg }]}
       edges={["top", "bottom"]}
     >
       <PageContainer
@@ -221,36 +374,10 @@ export default function OnboardingScreen() {
           paddingTop: 0,
           paddingBottom: 0,
           paddingHorizontal: 0,
-          backgroundColor: colors.background,
+          backgroundColor: screenBg,
         }}
       >
         <View style={styles.root}>
-          {/* Skip — top right + chevron (mauve) */}
-          <View
-            style={[styles.topBar, { paddingHorizontal: ONBOARDING_PAD_H }]}
-          >
-            <Pressable
-              onPress={handleContinue}
-              hitSlop={12}
-              style={({ pressed }) => [
-                styles.skipPressable,
-                pressed && { opacity: 0.65 },
-              ]}
-              accessibilityRole="button"
-              accessibilityLabel={t("common.skip")}
-            >
-              <View style={styles.skipLabelContainer}>
-                <AppText
-                  variant="caption"
-                  style={[styles.skipLabel, { color: primary }]}
-                >
-                  {t("common.skip")}
-                </AppText>
-                <ChevronRight size={14} color={primary} strokeWidth={2.5} />
-              </View>
-            </Pressable>
-          </View>
-
           <FlatList
             ref={flatListRef}
             data={slides}
@@ -262,38 +389,10 @@ export default function OnboardingScreen() {
             keyboardShouldPersistTaps="handled"
             onMomentumScrollEnd={onMomentumScrollEnd}
             getItemLayout={getItemLayout}
-            extraData={{ slides, index }}
+            extraData={{ slides, index, dotColors }}
             style={styles.pager}
             scrollEventThrottle={16}
           />
-
-          {/* Bottom: Back + primary CTA */}
-          <View
-            style={[
-              styles.bottomBlock,
-              { paddingHorizontal: ONBOARDING_PAD_H },
-            ]}
-          >
-            {index > 0 ? (
-              <Button
-                label={t("common.back")}
-                onPress={goBack}
-                variant="ghost"
-                style={{ width: "100%", flex: 1 }}
-              />
-            ) : null}
-
-            <Button
-              label={
-                isLast
-                  ? (t("auth.welcome.getStarted") ?? "Sign Up")
-                  : t("common.next")
-              }
-              onPress={goNext}
-              variant="primary"
-              style={{ width: "100%", flex: 1 }}
-            />
-          </View>
         </View>
       </PageContainer>
     </SafeAreaView>
@@ -308,31 +407,26 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
   },
+  slideRoot: {
+    flex: 1,
+  },
   topBar: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "flex-end",
     width: "100%",
     minHeight: 36,
+    alignItems: "flex-end",
+    justifyContent: "center",
     marginBottom: 4,
   },
-  skipPressable: {
+  skipTopPressable: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
     flexDirection: "row",
-    alignItems: "center",
-    paddingVertical: 6,
-    paddingLeft: 10,
+    gap: 4,
   },
-  skipLabelContainer: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 2,
-  },
-  skipLabel: {
+  skipTopLabel: {
     fontFamily: "Roboto_500Medium",
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "500",
-    letterSpacing: 0.15,
-    lineHeight: 16,
   },
   pager: {
     flex: 1,
@@ -340,7 +434,8 @@ const styles = StyleSheet.create({
   },
   slideScrollContent: {
     flexGrow: 1,
-    paddingTop: 8,
+    paddingHorizontal: 16,
+    paddingTop: 16,
     paddingBottom: 16,
   },
   logoBlock: {
@@ -399,6 +494,41 @@ const styles = StyleSheet.create({
     width: "100%",
     paddingVertical: 24,
     flexDirection: "row",
+    alignItems: "center",
     gap: 12,
+  },
+  bottomFirst: {
+    justifyContent: "flex-end",
+  },
+  bottomRest: {
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  skipSpacer: {
+    width: 0,
+  },
+  backButton: {
+    flex: 1,
+    width: "100%",
+    marginRight: 12,
+    // borderWidth: 0,
+    // borderColor: "transparent",
+  },
+  nextTextOnly: {
+    paddingVertical: 8,
+    paddingHorizontal: 4,
+  },
+  nextTextOnlyLabel: {
+    fontFamily: "Roboto_500Medium",
+    fontSize: 16,
+    fontWeight: "500",
+    textAlign: "center",
+    width: 120,
+  },
+  nextPill: {
+    flex: 1,
+    minWidth: 0,
+    paddingHorizontal: 8,
+    width: "100%",
   },
 });

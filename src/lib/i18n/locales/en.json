@@ -74,10 +74,11 @@
       "subtitle": "The community pet-sitting app",
       "getStarted": "Sign Up",
       "signIn": "Sign In",
-      "continueWithoutSigningIn": "Continue without signing in",
       "languageHint": "Opens a menu to choose English or French"
     },
     "onboarding": {
+      "getStarted": "Get started",
+      "tagline": "take them good…",
       "slide1Title": "Find your pet's new buddy",
       "slide1Body": "Connect with verified, local caretakers who treat your pet like family. The right care is just a search and a tap away.",
       "slide2Title": "Care on your own schedule",

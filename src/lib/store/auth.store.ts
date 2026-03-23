@@ -27,18 +27,12 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
-  /**
-   * When true, unauthenticated users are allowed to browse limited parts of the app
-   * (e.g. the home feed) without being redirected to the auth welcome screen.
-   */
-  guestMode: boolean;
   onboardingSeen: boolean;
   _hasHydrated: boolean;
   isLoading: boolean;
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
   setProfile: (profile: UserProfile | null) => void;
-  setGuestMode: (guestMode: boolean) => void;
   setOnboardingSeen: (onboardingSeen: boolean) => void;
   setHasHydrated: (state: boolean) => void;
   setLoading: (isLoading: boolean) => void;
@@ -53,7 +47,6 @@ export const useAuthStore = create<AuthState>()(
       user: null,
       session: null,
       profile: null,
-      guestMode: false,
       onboardingSeen: false,
       _hasHydrated: false,
       isLoading: true,
@@ -62,10 +55,8 @@ export const useAuthStore = create<AuthState>()(
         set((state) => ({
           session,
           user: session?.user ?? null,
-          guestMode: session ? false : state.guestMode,
         })),
       setProfile: (profile) => set({ profile }),
-      setGuestMode: (guestMode) => set({ guestMode }),
       setOnboardingSeen: (onboardingSeen) => set({ onboardingSeen }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
       setLoading: (isLoading) => set({ isLoading }),
@@ -81,15 +72,14 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signOut: () => set({ user: null, session: null, profile: null, guestMode: false }),
-      clearAuth: () => set({ user: null, session: null, profile: null, guestMode: false }),
+      signOut: () => set({ user: null, session: null, profile: null }),
+      clearAuth: () => set({ user: null, session: null, profile: null }),
     }),
     {
       name: 'pawtaker-auth',
       storage: createJSONStorage(() => AsyncStorage),
       partialize: (state) => ({
         onboardingSeen: state.onboardingSeen,
-        guestMode: state.guestMode,
       }),
       onRehydrateStorage: () => (state) => {
         state?.setHasHydrated(true);

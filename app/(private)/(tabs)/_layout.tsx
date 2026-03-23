@@ -3,7 +3,7 @@ import { tabPerfScreenOptions } from "@/src/constants/navigation";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import {
   CircleUserRound,
   Home,
@@ -29,6 +29,7 @@ export default function TabsLayout() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const router = useRouter();
+  const pathname = usePathname();
   const [showPostModal, setShowPostModal] = useState(false);
   const activePillBg = colors.primaryContainer;
 
@@ -125,7 +126,7 @@ export default function TabsLayout() {
                     ...ICON_PILL,
                     backgroundColor: "transparent",
                     overflow: "hidden",
-                    marginTop: -10
+                    marginTop: -10,
                   }}
                 >
                   <PlusCircle
@@ -172,6 +173,27 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t("profile.title"),
+            tabBarButton: ({ style, onPress, children }) => (
+              <TouchableOpacity
+                style={style}
+                activeOpacity={0.8}
+                onPress={() => {
+                  const currentPath = pathname ?? "";
+                  const isViewingOtherUserProfile =
+                    currentPath.includes("/profile/users/");
+
+                  if (isViewingOtherUserProfile) {
+                    // Reset nested profile stack back to profile index.
+                    router.push("/(private)/(tabs)/profile" as any);
+                    return;
+                  }
+
+                  onPress?.(undefined as any);
+                }}
+              >
+                {children}
+              </TouchableOpacity>
+            ),
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{
@@ -201,7 +223,7 @@ export default function TabsLayout() {
         <Pressable
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.2)",
+            backgroundColor: "rgba(0,0,0,0.1)",
             justifyContent: "flex-end",
           }}
           onPress={() => setShowPostModal(false)}
@@ -237,7 +259,11 @@ export default function TabsLayout() {
                   router.push("/(private)/post-requests" as any);
                 }}
               >
-                <AppText variant="body" color={colors.onSurface} style={{ fontWeight: 600 }}>
+                <AppText
+                  variant="body"
+                  color={colors.onSurface}
+                  style={{ fontWeight: 600 }}
+                >
                   {t("post.launchRequest")}
                 </AppText>
               </Pressable>
@@ -257,14 +283,18 @@ export default function TabsLayout() {
                   router.push("/(private)/post-availability" as any);
                 }}
               >
-                <AppText variant="body" color={colors.onSurface} style={{ fontWeight: 600 }}>
+                <AppText
+                  variant="body"
+                  color={colors.onSurface}
+                  style={{ fontWeight: 600 }}
+                >
                   {t("post.availableToCare")}
                 </AppText>
               </Pressable>
             </View>
           </View>
         </Pressable>
-      </Modal >
+      </Modal>
     </>
   );
 }

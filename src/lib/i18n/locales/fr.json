@@ -59,10 +59,11 @@
       "subtitle": "L'application communautaire de garde d'animaux",
       "getStarted": "S'inscrire",
       "signIn": "Se connecter",
-      "continueWithoutSigningIn": "Continuer sans se connecter",
       "languageHint": "Ouvre un menu pour choisir l’anglais ou le français"
     },
     "onboarding": {
+      "getStarted": "Commencer",
+      "tagline": "prends-en soin…",
       "slide1Title": "Trouvez le nouveau meilleur ami de votre animal",
       "slide1Body": "Entrez en contact avec des gardiens vérifiés près de chez vous qui traitent votre animal comme un membre de la famille. Les bons soins sont à portée : une recherche et un tap suffisent.",
       "slide2Title": "Des soins à votre rythme",

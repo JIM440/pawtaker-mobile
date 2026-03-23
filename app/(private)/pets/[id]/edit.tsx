@@ -1,24 +1,18 @@
 import { Colors } from "@/src/constants/colors";
+import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { Button } from "@/src/shared/components/ui/Button";
-import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
 import { router, useLocalSearchParams } from "expo-router";
-import { Search } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
-import { Input as AppInput } from "@/src/shared/components/ui/Input";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { Input as AppInput } from "@/src/shared/components/ui/Input";
 import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
 
 const BREEDS_BY_KIND: Record<string, string[]> = {
@@ -77,7 +71,7 @@ export default function EditPetScreen() {
 
   return (
     <PageContainer style={{ paddingHorizontal: 0 }}>
-      <BackHeader title={t("pets.edit.title", "Edit pet")} />
+      <BackHeader title={t("pets.edit.title", "Edit pet")} className="pl-0" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
@@ -87,7 +81,9 @@ export default function EditPetScreen() {
         <PetPhotoSelector photos={photos} setPhotos={setPhotos} />
 
         <View style={styles.section}>
-          <AppText variant="label" style={styles.sectionTitle}>{t("pets.edit.kind", "Pet kind")}</AppText>
+          <AppText variant="label" style={styles.sectionTitle}>
+            {t("pets.edit.kind", "Pet kind")}
+          </AppText>
           <PetKindSelector
             options={Array.from(PET_TYPE_OPTIONS)}
             selectedKeys={[kind]}
@@ -110,7 +106,6 @@ export default function EditPetScreen() {
               setBreedQuery(v);
               setShowBreedList(true);
             }}
-            rightIcon={<Search size={22} color={colors.onSurfaceVariant} />}
             onFocus={() => setShowBreedList(true)}
           />
           {showBreedList && filteredBreeds.length > 0 && (
@@ -137,7 +132,7 @@ export default function EditPetScreen() {
                           : colors.surfaceBright,
                         borderBottomWidth: isLast ? 0 : 0.8,
                         borderBottomColor: colors.outlineVariant,
-                      }
+                      },
                     ]}
                     onPress={() => {
                       setBreed(item);
@@ -195,7 +190,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 32,
     gap: 16,
@@ -205,7 +199,7 @@ const styles = StyleSheet.create({
   },
   sectionTitle: {
     fontSize: 14,
-    fontWeight: '600',
+    fontWeight: "600",
     marginBottom: 12,
   },
   breedList: {

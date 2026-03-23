@@ -46,7 +46,6 @@ export default function RootLayout() {
   const {
     isLoading,
     session,
-    guestMode,
     setSession,
     setProfile,
     setLoading,
@@ -108,8 +107,8 @@ export default function RootLayout() {
   }, [ready]);
 
   /** Expo Router: Stack.Protected — only one branch mounts; avoids flashing (private) before redirect. */
-  const canAccessPrivate = !!session || guestMode;
-  const canAccessAuth = !session && !guestMode;
+  const canAccessPrivate = !!session;
+  const canAccessAuth = !session;
 
   if (!ready) {
     return (
@@ -127,7 +126,14 @@ export default function RootLayout() {
     <GestureHandlerRootView style={{ flex: 1 }}>
       <QueryClientProvider client={queryClient}>
         <I18nextProvider i18n={i18n}>
-          <Stack screenOptions={{ headerShown: false }}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              ...(Platform.OS === "ios"
+                ? { animation: "ios" as any, gestureEnabled: true }
+                : {}),
+            }}
+          >
             <Stack.Protected guard={canAccessAuth}>
               <Stack.Screen name="(auth)" options={{ headerShown: false }} />
             </Stack.Protected>
