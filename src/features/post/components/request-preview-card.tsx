@@ -16,19 +16,7 @@ export function RequestPreviewCard({ children }: RequestPreviewCardProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
-  return (
-    <View
-      style={[
-        styles.card,
-        {
-          backgroundColor: colors.surfaceBright,
-          borderColor: colors.outlineVariant,
-        },
-      ]}
-    >
-      {children}
-    </View>
-  );
+  return <View style={[styles.card]}>{children}</View>;
 }
 
 type RequestPreviewRowProps = {
@@ -98,14 +86,11 @@ export function RequestPreviewRow({
 
 const styles = StyleSheet.create({
   card: {
-    borderRadius: 16,
-    borderWidth: 1,
     overflow: "hidden",
   },
   row: {
     flexDirection: "row",
     alignItems: "flex-start",
-    paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 12,
   },
@@ -123,7 +108,6 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   rowStacked: {
-    paddingHorizontal: 16,
     paddingVertical: 14,
     gap: 10,
   },

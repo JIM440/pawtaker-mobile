@@ -72,7 +72,7 @@ export default function ForgotPasswordConfirmScreen() {
     }
 
     clear();
-    router.replace("/(private)/(tabs)");
+    router.replace("/(private)/(tabs)/(home)" as any);
   };
 
   return (

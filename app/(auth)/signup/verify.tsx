@@ -46,7 +46,7 @@ export default function VerifyScreen() {
     }
 
     clearSignup();
-    router.replace('/(private)/(tabs)');
+    router.replace('/(private)/(tabs)/(home)' as any);
   };
 
   const handleResend = async () => {

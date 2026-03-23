@@ -31,6 +31,7 @@ const materialLight = {
   surfaceContainerLow: "#fff7f8",
   surfaceContainerLowest: "#ffffff",
   surfaceContainerHighest: "#EDE6E7",
+  surfaceContainerHigh: "#F5EEEF",
   surfaceDim: "#ebdddf",
 } as const;
 
@@ -64,6 +65,7 @@ const materialDark = {
   surfaceContainerLow: "#121011",
   surfaceContainerLowest: "#0a090a",
   surfaceContainerHighest: "#383435",
+  surfaceContainerHigh: "#302B2C",
   surfaceDim: "#191113",
 } as const;
 

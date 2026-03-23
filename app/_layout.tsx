@@ -21,6 +21,7 @@ import i18n from "../src/lib/i18n";
 import { useAuthStore } from "../src/lib/store/auth.store";
 import { useLanguageStore } from "../src/lib/store/language.store";
 import { useThemeStore } from "../src/lib/store/theme.store";
+import { ToastHost } from "../src/shared/components/ui/ToastHost";
 
 // Keep native splash visible until fonts load, theme + language are rehydrated from AsyncStorage
 // and applied, auth store is rehydrated, and session bootstrap finishes (see `ready`).
@@ -141,6 +142,7 @@ export default function RootLayout() {
               <Stack.Screen name="(private)" options={{ headerShown: false }} />
             </Stack.Protected>
           </Stack>
+          <ToastHost />
           <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
         </I18nextProvider>
       </QueryClientProvider>

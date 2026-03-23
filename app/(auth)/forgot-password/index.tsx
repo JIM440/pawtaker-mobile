@@ -156,7 +156,7 @@ export default function ForgotPasswordEmailScreen() {
               style={{ fontWeight: "700" }}
               onPress={() => {
                 if (loading) return;
-                router.push("/(auth)/signup/index");
+                router.push("/(auth)/signup/credentials" as any);
               }}
             >
               {t("auth.login.signUpLink")}

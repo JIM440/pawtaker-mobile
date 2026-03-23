@@ -1,10 +1,10 @@
-import React from 'react';
-import { View, TouchableOpacity, StyleSheet } from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { ChatTypography } from '@/src/constants/chatTypography';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { AppText } from '@/src/shared/components/ui/AppText';
+import { ChatTypography } from "@/src/constants/chatTypography";
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import React from "react";
+import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export type ChatRowProps = {
   threadId: string;
@@ -31,16 +31,25 @@ export function ChatRow({
     <TouchableOpacity
       activeOpacity={0.7}
       onPress={onPress}
-      style={[styles.row, { borderBottomColor: colors.outlineVariant }]}
+      style={[styles.row]}
     >
       <View style={styles.avatarWrap}>
         {avatarUri ? (
-          <AppImage source={{ uri: avatarUri }} style={styles.avatar} contentFit="cover" />
+          <AppImage
+            source={{ uri: avatarUri }}
+            style={styles.avatar}
+            contentFit="cover"
+          />
         ) : (
-          <View style={[styles.avatarPlaceholder, { backgroundColor: colors.surfaceDim }]}>
+          <View
+            style={[
+              styles.avatarPlaceholder,
+              { backgroundColor: colors.surfaceDim },
+            ]}
+          >
             <AppText
               variant="body"
-              color={colors.onSurfaceVariant}
+              color={colors.onSurface}
               style={ChatTypography.rowName}
             >
               {name.charAt(0).toUpperCase()}
@@ -49,7 +58,11 @@ export function ChatRow({
         )}
       </View>
       <View style={styles.content}>
-        <AppText variant="body" numberOfLines={1} style={[styles.name, ChatTypography.rowName]}>
+        <AppText
+          variant="body"
+          numberOfLines={1}
+          style={[styles.name, ChatTypography.rowName]}
+        >
           {name}
         </AppText>
         <AppText
@@ -71,8 +84,12 @@ export function ChatRow({
         </AppText>
         {unreadCount > 0 && (
           <View style={[styles.badge, { backgroundColor: colors.primary }]}>
-            <AppText variant="caption" color={colors.onPrimary} style={[styles.badgeText, ChatTypography.rowBadge]}>
-              {unreadCount > 99 ? '99+' : unreadCount}
+            <AppText
+              variant="caption"
+              color={colors.onPrimary}
+              style={[styles.badgeText, ChatTypography.rowBadge]}
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
             </AppText>
           </View>
         )}
@@ -83,37 +100,42 @@ export function ChatRow({
 
 const styles = StyleSheet.create({
   row: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingVertical: 16,
-    borderBottomWidth: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    paddingVertical: 12,
     gap: 12,
   },
   avatarWrap: {
-    width: 56,
-    height: 56,
+    width: 44,
+    height: 44,
     borderRadius: 28,
-    overflow: 'hidden',
+    overflow: "hidden",
   },
   avatar: {
-    width: 56,
-    height: 56,
+    width: 44,
+    height: 44,
   },
   avatarPlaceholder: {
-    width: 56,
-    height: 56,
-    alignItems: 'center',
-    justifyContent: 'center',
+    width: 44,
+    height: 44,
+    alignItems: "center",
+    justifyContent: "center",
   },
   content: {
     flex: 1,
     gap: 4,
     minWidth: 0,
   },
-  name: {},
-  preview: {},
+  name: {
+    fontSize: 14,
+    lineHeight: 14,
+  },
+  preview: {
+    fontSize: 12,
+    lineHeight: 12,
+  },
   right: {
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     minWidth: 40,
     gap: 6,
   },
@@ -122,9 +144,9 @@ const styles = StyleSheet.create({
     minWidth: 18,
     height: 18,
     borderRadius: 9,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: 5,
+    alignItems: "center",
+    justifyContent: "center",
+    paddingHorizontal: 8,
   },
   badgeText: {},
 });

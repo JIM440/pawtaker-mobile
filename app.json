@@ -47,11 +47,11 @@
       "typedRoutes": true,
       "reactCompiler": true
     },
-    "owner": "jim440",
+    "owner": "takemjim",
     "extra": {
       "router": {},
       "eas": {
-        "projectId": "b5dc31c4-1f80-47b1-98f4-abefa7a41df6"
+        "projectId": "d925eae7-c43a-4cc9-bb9b-aa658252ad7a"
       }
     }
   }

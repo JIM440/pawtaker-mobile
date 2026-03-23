@@ -3,16 +3,15 @@ import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { PetCard } from "@/src/shared/components/cards";
+import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
+import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
 import { PageContainer } from "@/src/shared/components/layout";
 import { FeedSkeleton } from "@/src/shared/components/skeletons";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
 import {
-  CareTypeSelector,
+  CARE_TYPE_KEYS,
   type CareTypeKey,
 } from "@/src/shared/components/ui/CareTypeSelector";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
@@ -20,14 +19,13 @@ import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
 import {
   Bell,
-  EllipsisVertical,
-  MapPin,
   Search,
   SlidersHorizontal,
   Star,
 } from "lucide-react-native";
-import React, { useMemo, useRef, useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { MOCK_LIKED_PETS } from "@/src/features/my-care/constants";
 import {
   FlatList,
   Modal,
@@ -229,7 +227,13 @@ export default function HomeScreen() {
     width: number;
     height: number;
   } | null>(null);
-  const menuButtonRefs = useRef<Record<string, View | null>>({});
+  const [sendRequestOpen, setSendRequestOpen] = useState(false);
+  const [selectedSeekingPet, setSelectedSeekingPet] = useState<
+    (typeof MOCK_LIKED_PETS)[number] | null
+  >(null);
+  const [takerForSendRequest, setTakerForSendRequest] = useState<Taker | null>(
+    null,
+  );
 
   const [filterPanelOpen, setFilterPanelOpen] = useState(false);
   const [showKycPrompt, setShowKycPrompt] = useState(false);
@@ -273,18 +277,39 @@ export default function HomeScreen() {
     setDistanceRange({ min: resetValue.minKm, max: resetValue.maxKm });
   };
 
-  const applyFilters = () => {
-    const lo = Math.min(filterDraft.minKm, filterDraft.maxKm);
-    const hi = Math.max(filterDraft.minKm, filterDraft.maxKm);
+  const commitFilters = (draft: typeof filterDraft, closePanel: boolean) => {
+    const lo = Math.min(draft.minKm, draft.maxKm);
+    const hi = Math.max(draft.minKm, draft.maxKm);
     const next = { min: clampKm(lo), max: clampKm(hi) };
-    setCareTypeFilter([...filterDraft.careTypes]);
+
+    // Commit to the active filters that drive the results list.
+    setCareTypeFilter([...draft.careTypes]);
     setDistanceRange(next);
-    setFilterDraft((d) => ({
-      ...d,
+    setFilterDraft({
+      careTypes: [...draft.careTypes],
       minKm: next.min,
       maxKm: next.max,
-    }));
-    setFilterPanelOpen(false);
+    });
+
+    if (closePanel) setFilterPanelOpen(false);
+  };
+
+  const applyFilters = () => commitFilters(filterDraft, true);
+
+  const toggleCareTypeAndApply = (key: string) => {
+    const selected = filterDraft.careTypes.includes(key);
+    const nextCareTypes = selected
+      ? filterDraft.careTypes.filter((x) => x !== key)
+      : [...filterDraft.careTypes, key];
+
+    // Apply immediately when user taps a care type pill.
+    commitFilters(
+      {
+        ...filterDraft,
+        careTypes: nextCareTypes,
+      },
+      false,
+    );
   };
 
   const setDraftMinKmFromText = (text: string) => {
@@ -389,9 +414,7 @@ export default function HomeScreen() {
         <TouchableOpacity
           className="relative pr-3"
           hitSlop={12}
-          onPress={() =>
-            router.push("/(private)/(tabs)/(home)/notifications")
-          }
+          onPress={() => router.push("/(private)/(tabs)/(home)/notifications")}
         >
           <Bell size={24} color={colors.onSurface} />
           <View
@@ -432,7 +455,9 @@ export default function HomeScreen() {
                   {
                     backgroundColor: colors.surfaceContainerHighest,
                     borderWidth: filterPanelOpen ? 2 : 0,
-                    borderColor: filterPanelOpen ? colors.primary : "transparent",
+                    borderColor: filterPanelOpen
+                      ? colors.primary
+                      : "transparent",
                   },
                 ]}
                 hitSlop={8}
@@ -460,18 +485,14 @@ export default function HomeScreen() {
                 style={[
                   styles.filterInlinePanel,
                   {
-                    backgroundColor: colors.surfaceBright,
+                    backgroundColor: colors.surfaceContainerHigh,
+                    borderWidth: 1,
                     borderColor: colors.outlineVariant,
                   },
                 ]}
               >
-                <View
-                  style={[
-                    styles.filterPanelHeader,
-                    { borderBottomColor: colors.outlineVariant },
-                  ]}
-                >
-                  <AppText variant="title" color={colors.onSurface}>
+                <View style={[styles.filterPanelHeader]}>
+                  <AppText variant="body" color={colors.onSurfaceVariant}>
                     {t("filters.title")}
                   </AppText>
                   <TouchableOpacity
@@ -479,7 +500,11 @@ export default function HomeScreen() {
                     hitSlop={12}
                     style={styles.filterPanelHeaderBtn}
                   >
-                    <AppText variant="body" color={colors.primary}>
+                    <AppText
+                      variant="body"
+                      color={colors.primary}
+                      style={{ textDecorationLine: "underline" }}
+                    >
                       {t("filters.reset")}
                     </AppText>
                   </TouchableOpacity>
@@ -494,22 +519,38 @@ export default function HomeScreen() {
                     {t("filters.careType")}
                   </AppText>
                   <View style={styles.filterCareTypesBlock}>
-                    <CareTypeSelector
-                      selectedKeys={filterDraft.careTypes}
-                      onToggle={(key) => {
-                        setFilterDraft((d) => {
-                          const selected = d.careTypes.includes(key);
-                          return {
-                            ...d,
-                            careTypes: selected
-                              ? d.careTypes.filter((x) => x !== key)
-                              : [...d.careTypes, key],
-                          };
-                        });
-                      }}
-                      circleSize={56}
-                      iconSize={22}
-                    />
+                    <View style={styles.careTypePillsRow}>
+                      {CARE_TYPE_KEYS.map((key) => {
+                        const active = filterDraft.careTypes.includes(key);
+                        return (
+                          <TouchableOpacity
+                            key={key}
+                            activeOpacity={0.9}
+                            onPress={() => toggleCareTypeAndApply(key)}
+                            style={[
+                              styles.careTypePill,
+                              {
+                                borderColor: active
+                                  ? colors.primary
+                                  : colors.outlineVariant,
+                              },
+                            ]}
+                          >
+                            <AppText
+                              variant="label"
+                              color={
+                                active
+                                  ? colors.primary
+                                  : colors.onSurfaceVariant
+                              }
+                              style={styles.careTypePillLabel}
+                            >
+                              {t(`feed.careTypes.${key}`)}
+                            </AppText>
+                          </TouchableOpacity>
+                        );
+                      })}
+                    </View>
                   </View>
 
                   <AppText
@@ -521,11 +562,19 @@ export default function HomeScreen() {
                   </AppText>
 
                   <View style={styles.distanceInputsRow}>
-                    <View style={styles.distanceInputCol}>
+                    <View
+                      style={[
+                        styles.distanceCard,
+                        {
+                          backgroundColor: colors.surfaceContainerHighest,
+                          borderColor: colors.outlineVariant,
+                        },
+                      ]}
+                    >
                       <AppText
                         variant="caption"
                         color={colors.onSurfaceVariant}
-                        style={styles.distanceInputLabel}
+                        style={styles.distanceCardLabel}
                       >
                         {t("filters.minKm")}
                       </AppText>
@@ -537,20 +586,37 @@ export default function HomeScreen() {
                         placeholder="0"
                         placeholderTextColor={colors.onSurfaceVariant}
                         style={[
-                          styles.distanceTextInput,
+                          styles.distanceCardInput,
                           {
                             color: colors.onSurface,
-                            borderColor: colors.outlineVariant,
-                            backgroundColor: colors.surfaceContainerLow,
                           },
                         ]}
                       />
                     </View>
-                    <View style={styles.distanceInputCol}>
+
+                    <View style={styles.distanceDash}>
+                      <AppText
+                        variant="title"
+                        color={colors.onSurfaceVariant}
+                        style={styles.distanceDashText}
+                      >
+                        -
+                      </AppText>
+                    </View>
+
+                    <View
+                      style={[
+                        styles.distanceCard,
+                        {
+                          backgroundColor: colors.surfaceContainerHighest,
+                          borderColor: colors.outlineVariant,
+                        },
+                      ]}
+                    >
                       <AppText
                         variant="caption"
                         color={colors.onSurfaceVariant}
-                        style={styles.distanceInputLabel}
+                        style={styles.distanceCardLabel}
                       >
                         {t("filters.maxKm")}
                       </AppText>
@@ -562,24 +628,13 @@ export default function HomeScreen() {
                         placeholder="50"
                         placeholderTextColor={colors.onSurfaceVariant}
                         style={[
-                          styles.distanceTextInput,
+                          styles.distanceCardInput,
                           {
                             color: colors.onSurface,
-                            borderColor: colors.outlineVariant,
-                            backgroundColor: colors.surfaceContainerLow,
                           },
                         ]}
                       />
                     </View>
-                  </View>
-
-                  <View style={styles.rangeLabels}>
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {t("common.min", "Min")}: {filterDraft.minKm} km
-                    </AppText>
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {t("common.max", "Max")}: {filterDraft.maxKm} km
-                    </AppText>
                   </View>
 
                   <RangeSlider
@@ -593,19 +648,6 @@ export default function HomeScreen() {
                         maxKm: maxv,
                       }))
                     }
-                  />
-                </View>
-
-                <View
-                  style={[
-                    styles.filterPanelFooter,
-                    { borderTopColor: colors.outlineVariant },
-                  ]}
-                >
-                  <Button
-                    label={t("filters.apply")}
-                    onPress={applyFilters}
-                    fullWidth
                   />
                 </View>
               </View>
@@ -635,8 +677,10 @@ export default function HomeScreen() {
                     </AppText>
                     <AppText
                       variant="body"
-                      color={colors.primary}
-                      style={{ fontWeight: "600" }}
+                      color={colors.onSurfaceVariant}
+                      style={{ fontWeight: "600", flex: 1, flexShrink: 1 }}
+                      numberOfLines={1}
+                      ellipsizeMode="tail"
                     >
                       {[
                         ...careTypeFilter.map((k) => t(`feed.careTypes.${k}`)),
@@ -711,132 +755,27 @@ export default function HomeScreen() {
 
               <View className="gap-3">
                 {filteredTakers.map((taker) => (
-                  <TouchableOpacity
+                  <TakerCard
                     key={taker.id}
-                    activeOpacity={0.9}
+                    taker={{
+                      ...taker,
+                      tags: taker.tags.map((tag) => t(`feed.careTypes.${tag}`)),
+                    }}
                     onPress={() =>
                       router.push({
                         pathname: "/(private)/(tabs)/profile/users/[id]",
                         params: { id: taker.id },
                       })
                     }
-                    className="flex-row items-center rounded-2xl px-3 py-3"
-                    style={{ backgroundColor: colors.surfaceBright }}
-                  >
-                    <View className="mr-3">
-                      <AppImage
-                        source={{ uri: taker.avatar }}
-                        contentFit="cover"
-                        style={[
-                          styles.takerAvatar,
-                          { backgroundColor: colors.surfaceContainer },
-                        ]}
-                      />
-                    </View>
-                    <View className="flex-1">
-                      <View className="flex-row items-center justify-between mb-1">
-                        <AppText
-                          variant="headline"
-                          numberOfLines={1}
-                          style={{
-                            fontSize: 16,
-                            letterSpacing: -0.1,
-                            maxWidth: 180,
-                            flexShrink: 1,
-                            minWidth: 0,
-                          }}
-                        >
-                          {taker.name}
-                        </AppText>
-                        <View className="flex-row items-center gap-1">
-                          <View
-                            className="px-2 py-0.5 rounded-full"
-                            style={{
-                              backgroundColor: colors.secondaryContainer,
-                            }}
-                          >
-                            <AppText
-                              variant="caption"
-                              color={colors.onSecondaryContainer}
-                            >
-                              {t("feed.takerAvailable")}
-                            </AppText>
-                          </View>
-                          <TouchableOpacity
-                            ref={(el) => {
-                              menuButtonRefs.current[taker.id] = el;
-                            }}
-                            onPress={() => {
-                              const btn = menuButtonRefs.current[taker.id];
-                              btn?.measureInWindow((x, y, width, height) => {
-                                setMenuPosition({ x, y, width, height });
-                                setOpenMenuTaker(taker);
-                              });
-                            }}
-                            hitSlop={8}
-                            className="px-2 py-2"
-                          >
-                            <EllipsisVertical
-                              size={18}
-                              color={colors.onSurface}
-                            />
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-
-                      <View className="flex-row items-center gap-1 mb-1">
-                        <AppText variant="caption" color={colors.onSurface}>
-                          {taker.rating.toFixed(1)}
-                        </AppText>
-                        <Star
-                          size={12}
-                          color={colors.onSurface}
-                          fill={colors.onSurface}
-                        />
-                        <AppText
-                          variant="caption"
-                          color={colors.onSurfaceVariant}
-                        >
-                          {taker.species}
-                        </AppText>
-                      </View>
-
-                      <View className="flex-row flex-wrap gap-1 mb-1">
-                        {taker.tags.map((tag) => (
-                          <View
-                            key={tag}
-                            className="px-2 py-1 rounded-full"
-                            style={{ backgroundColor: colors.surfaceContainer }}
-                          >
-                            <AppText
-                              variant="caption"
-                              color={colors.onSurfaceVariant}
-                            >
-                              {t(`feed.careTypes.${tag}`)}
-                            </AppText>
-                          </View>
-                        ))}
-                      </View>
-
-                      <View className="flex-row items-center gap-1 min-w-0">
-                        <MapPin size={14} color={colors.onSurfaceVariant} />
-                        <AppText
-                          variant="caption"
-                          color={colors.onSurfaceVariant}
-                          numberOfLines={1}
-                          style={{ flexShrink: 1, minWidth: 0 }}
-                        >
-                          {taker.location}
-                        </AppText>
-                        <AppText
-                          variant="caption"
-                          color={colors.onSurfaceVariant}
-                        >
-                          • {taker.distance}
-                        </AppText>
-                      </View>
-                    </View>
-                  </TouchableOpacity>
+                    onMenuPress={(ref) => {
+                      ref?.measureInWindow(
+                        (x: number, y: number, width: number, height: number) => {
+                          setMenuPosition({ x, y, width, height });
+                          setOpenMenuTaker(taker);
+                        },
+                      );
+                    }}
+                  />
                 ))}
               </View>
             </View>
@@ -856,7 +795,7 @@ export default function HomeScreen() {
         onRequestClose={() => setOpenMenuTaker(null)}
       >
         <Pressable
-          className="flex-1 bg-black/20"
+          className="flex-1"
           onPress={() => setOpenMenuTaker(null)}
         >
           {menuPosition && openMenuTaker && (
@@ -899,8 +838,10 @@ export default function HomeScreen() {
               <Pressable
                 style={{ paddingHorizontal: 16, paddingVertical: 12 }}
                 onPress={() => {
+                  setTakerForSendRequest(openMenuTaker);
                   setOpenMenuTaker(null);
-                  // Logic for send request
+                  setSelectedSeekingPet(null);
+                  setSendRequestOpen(true);
                 }}
               >
                 <AppText variant="body" color={colors.onSurface}>
@@ -909,6 +850,103 @@ export default function HomeScreen() {
               </Pressable>
             </View>
           )}
+        </Pressable>
+      </Modal>
+
+      <Modal
+        transparent
+        visible={sendRequestOpen}
+        animationType="fade"
+        onRequestClose={() => setSendRequestOpen(false)}
+      >
+        <Pressable
+          style={styles.sendRequestOverlay}
+          onPress={() => setSendRequestOpen(false)}
+        >
+          <View
+            style={[
+              styles.sendRequestCard,
+              { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant },
+            ]}
+          >
+            <AppText
+              variant="title"
+              color={colors.onSurface}
+              style={styles.sendRequestTitle}
+            >
+              Select a pet you are seeking
+            </AppText>
+
+            <ScrollView
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.sendRequestListContent}
+            >
+              {MOCK_LIKED_PETS.filter((p) => p.isSeeking).map((pet) => {
+                const selected = selectedSeekingPet?.id === pet.id;
+                return (
+                  <TouchableOpacity
+                    key={pet.id}
+                    activeOpacity={0.9}
+                    onPress={() => setSelectedSeekingPet(pet)}
+                    style={[
+                      styles.petPickRow,
+                      {
+                        backgroundColor: selected
+                          ? colors.surfaceContainerHighest
+                          : colors.surfaceContainerLow,
+                        borderColor: selected
+                          ? colors.primary
+                          : colors.outlineVariant,
+                      },
+                    ]}
+                  >
+                    <View style={{ flex: 1, minWidth: 0 }}>
+                      <AppText
+                        variant="headline"
+                        color={colors.onSurface}
+                        style={{ fontSize: 16, letterSpacing: -0.1 }}
+                        numberOfLines={1}
+                      >
+                        {pet.petName}
+                      </AppText>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                        numberOfLines={1}
+                      >
+                        {pet.seekingTime || "—"} • {pet.seekingDateRange || "—"}
+                      </AppText>
+                    </View>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            <View style={styles.sendRequestFooter}>
+              <Button
+                label={t("common.sendRequest", "Send request")}
+                onPress={() => {
+                  if (!selectedSeekingPet || !takerForSendRequest) return;
+                  setSendRequestOpen(false);
+                  router.push({
+                    pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+                    params: {
+                      threadId: "1",
+                      mode: "seeking",
+                      petName: selectedSeekingPet.petName,
+                      breed: selectedSeekingPet.breed,
+                      date: selectedSeekingPet.seekingDateRange || "Mar 14-18",
+                      time: selectedSeekingPet.seekingTime || "8am-4pm",
+                      price: "25 pts/hr",
+                      offerId: selectedSeekingPet.requestId,
+                    } as any,
+                  });
+                }}
+                disabled={!selectedSeekingPet || !takerForSendRequest}
+                fullWidth
+              />
+            </View>
+          </View>
         </Pressable>
       </Modal>
     </PageContainer>
@@ -956,10 +994,10 @@ const styles = StyleSheet.create({
   },
   filterInlinePanel: {
     borderRadius: 16,
-    borderWidth: 1,
     marginBottom: 12,
     overflow: "hidden",
     maxHeight: 480,
+    flex: 1,
   },
   filterPanelHeader: {
     flexDirection: "row",
@@ -967,7 +1005,6 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 16,
     paddingVertical: 14,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   filterPanelHeaderBtn: {
     paddingVertical: 4,
@@ -975,8 +1012,6 @@ const styles = StyleSheet.create({
   },
   filterPanelBody: {
     paddingHorizontal: 16,
-    paddingTop: 12,
-    paddingBottom: 8,
   },
   filterSectionLabel: {
     marginBottom: 10,
@@ -984,24 +1019,63 @@ const styles = StyleSheet.create({
   filterCareTypesBlock: {
     marginBottom: 20,
   },
+  careTypePillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
+  },
+  careTypePill: {
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  careTypePillLabel: {
+    fontSize: 12,
+    lineHeight: 20,
+    letterSpacing: -0.1,
+    fontWeight: "600",
+  },
   distanceInputsRow: {
     flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginBottom: 8,
+  },
+  distanceCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
   },
   distanceInputCol: {
     flex: 1,
   },
-  distanceInputLabel: {
-    marginBottom: 6,
+  distanceCardLabel: {
+    marginBottom: 10,
     fontWeight: "600",
   },
-  distanceTextInput: {
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 12,
-    fontSize: 16,
+  distanceCardInput: {
+    paddingHorizontal: 0,
+    paddingVertical: 0,
+    margin: 0,
+    fontSize: 22,
+    lineHeight: 26,
+    fontWeight: "600",
+  },
+  distanceDash: {
+    width: 24,
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 22,
+  },
+  distanceDashText: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: "600",
   },
   filterPanelFooter: {
     paddingHorizontal: 16,
@@ -1014,5 +1088,41 @@ const styles = StyleSheet.create({
     height: 64,
     borderRadius: 32,
     overflow: "hidden",
+  },
+  sendRequestOverlay: {
+    flex: 1,
+    backgroundColor: "transparent",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendRequestCard: {
+    width: "92%",
+    borderRadius: 16,
+    borderWidth: 1,
+    maxHeight: "70%",
+    overflow: "hidden",
+  },
+  sendRequestTitle: {
+    paddingHorizontal: 16,
+    paddingTop: 16,
+    paddingBottom: 8,
+  },
+  sendRequestListContent: {
+    paddingHorizontal: 16,
+    paddingBottom: 10,
+    gap: 10,
+  },
+  petPickRow: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+  },
+  sendRequestFooter: {
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    paddingTop: 10,
+    borderTopWidth: 1,
+    borderTopColor: "transparent",
   },
 });

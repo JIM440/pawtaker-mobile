@@ -17,13 +17,7 @@ import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
-import { ChipSelector } from "@/src/shared/components/ui/ChipSelector";
-import { DaySelector } from "@/src/shared/components/ui/DaySelector";
-import { Input } from "@/src/shared/components/ui/Input";
-import {
-  PetGridAddTile,
-  PetGridTile,
-} from "@/src/shared/components/ui/PetGridTile";
+import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
 import { useRouter } from "expo-router";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -35,20 +29,12 @@ import {
   View,
 } from "react-native";
 
-const TOTAL_STEPS = 5;
+const TOTAL_STEPS = 4;
 
 function startOfDayMs(d: Date) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x.getTime();
-}
-
-function formatPreviewDate(d: Date) {
-  return d.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    year: "numeric",
-  });
 }
 
 const MOCK_PETS = [
@@ -121,8 +107,7 @@ export default function LaunchRequestWizardScreen() {
   };
 
   const timeRangeInvalid = () => {
-    const startM =
-      timeStart.getHours() * 60 + timeStart.getMinutes();
+    const startM = timeStart.getHours() * 60 + timeStart.getMinutes();
     const endM = timeEnd.getHours() * 60 + timeEnd.getMinutes();
     return endM <= startM;
   };
@@ -153,7 +138,7 @@ export default function LaunchRequestWizardScreen() {
         return false;
       }
     }
-    if (step === 4) {
+    if (step === 3) {
       if (days.length === 0) {
         setErrors({ days: t("post.request.validation.daysRequired") });
         return false;
@@ -236,7 +221,7 @@ export default function LaunchRequestWizardScreen() {
               Select pet
             </AppText>
             {MOCK_PETS.length > 0 ? (
-              <View style={styles.petGrid}>
+              <View style={styles.petRow}>
                 {MOCK_PETS.map((pet) => (
                   <PetGridTile
                     key={pet.id}
@@ -247,13 +232,31 @@ export default function LaunchRequestWizardScreen() {
                     onPress={() => setSelectedPet(pet.id)}
                   />
                 ))}
-                <PetGridAddTile
-                  width={columnWidth}
-                  label={t("post.request.addAnotherPet", "or add another pet")}
-                  onPress={() => {}}
-                />
               </View>
-            ) : (
+            ) : null}
+
+            {MOCK_PETS.length > 0 ? (
+              <TouchableOpacity
+                accessibilityRole="button"
+                accessibilityLabel={t(
+                  "post.request.addAnotherPet",
+                  "or add another pet",
+                )}
+                onPress={() => router.push("/(private)/pets/add" as any)}
+                activeOpacity={0.8}
+                style={styles.addPetRow}
+              >
+                <AppText
+                  variant="body"
+                  color={colors.primary}
+                  style={{ fontWeight: "600" }}
+                >
+                  {"+ "}
+                  {t("post.request.addAnotherPet", "or add another pet")}
+                </AppText>
+              </TouchableOpacity>
+            ) : null}
+            {MOCK_PETS.length === 0 ? (
               <View style={styles.emptyState}>
                 <AppImage
                   source={require("@/assets/illustrations/pets/no-pet.svg")}
@@ -275,7 +278,7 @@ export default function LaunchRequestWizardScreen() {
                 <Button
                   label="Add a pet"
                   variant="outline"
-                  onPress={() => {}}
+                  onPress={() => router.push("/(private)/pets/add" as any)}
                   style={styles.addPetPromptBtn}
                   leftIcon={
                     <AppText
@@ -288,174 +291,139 @@ export default function LaunchRequestWizardScreen() {
                   }
                 />
               </View>
-            )}
+            ) : null}
           </View>
         )}
 
         {step === 2 && (
           <View style={styles.stepContainer}>
-            <AppText variant="title" style={styles.stepTitle}>
-              Select date
-            </AppText>
-            <View
-              style={[
-                styles.switchRow,
-                { backgroundColor: colors.surfaceContainer },
-              ]}
-            >
-              <AppText variant="body" color={colors.onSurface}>
-                {t("post.request.multiDay")}
+            <View>
+              <AppText variant="title" style={styles.stepTitle}>
+                Select date
               </AppText>
-              <AppSwitch
-                value={multiDay}
-                onValueChange={(v) => {
-                  setMultiDay(v);
-                  setErrors((e) => ({
-                    ...e,
-                    dateRange: undefined,
-                  }));
-                  if (v) {
-                    setEndDate((ed) => {
-                      if (startOfDayMs(ed) <= startOfDayMs(startDate)) {
-                        const n = new Date(startDate);
-                        n.setDate(n.getDate() + 1);
-                        return n;
-                      }
-                      return ed;
-                    });
-                  }
-                }}
-              />
-            </View>
-            {multiDay ? (
-              <View style={styles.timeRow}>
-                <View style={{ flex: 1 }}>
-                  <DateTimeField
-                    mode="date"
-                    label={t("post.request.startDate")}
-                    value={startDate}
-                    onChange={(d) => {
-                      setStartDate(d);
-                      setErrors((e) => ({
-                        ...e,
-                        dateRange: undefined,
-                        timeRange: undefined,
-                      }));
+              <View
+                style={[
+                  styles.switchRow,
+                  { backgroundColor: colors.surfaceContainer },
+                ]}
+              >
+                <AppText variant="body" color={colors.onSurface}>
+                  {t("post.request.multiDay")}
+                </AppText>
+                <AppSwitch
+                  value={multiDay}
+                  onValueChange={(v) => {
+                    setMultiDay(v);
+                    setErrors((e) => ({
+                      ...e,
+                      dateRange: undefined,
+                    }));
+                    if (v) {
                       setEndDate((ed) => {
-                        if (startOfDayMs(ed) <= startOfDayMs(d)) {
-                          const n = new Date(d);
+                        if (startOfDayMs(ed) <= startOfDayMs(startDate)) {
+                          const n = new Date(startDate);
                           n.setDate(n.getDate() + 1);
                           return n;
                         }
                         return ed;
                       });
-                    }}
-                    placeholder={t("post.request.selectDatePlaceholder")}
-                    error={errors.dateRange}
-                  />
-                </View>
-                <View style={{ flex: 1 }}>
-                  <DateTimeField
-                    mode="date"
-                    label={t("post.request.endDate")}
-                    value={endDate}
-                    onChange={(d) => {
-                      setEndDate(d);
-                      setErrors((e) => ({
-                        ...e,
-                        dateRange: undefined,
-                        timeRange: undefined,
-                      }));
-                    }}
-                    placeholder={t("post.request.selectDatePlaceholder")}
-                    error={errors.dateRange}
-                    showErrorText={false}
-                  />
-                </View>
+                    }
+                  }}
+                />
               </View>
-            ) : (
-              <DateTimeField
-                mode="date"
-                label={t("post.request.date")}
-                value={startDate}
-                onChange={(d) => {
-                  setStartDate(d);
-                  setErrors((e) => ({ ...e, timeRange: undefined }));
-                }}
-                placeholder={t("post.request.selectDatePlaceholder")}
-              />
-            )}
-            <View style={styles.timeRow}>
-              <DateTimeField
-                mode="time"
-                label={t("post.request.startTime")}
-                value={timeStart}
-                onChange={(d) => {
-                  setTimeStart(d);
-                  setErrors((e) => ({ ...e, timeRange: undefined }));
-                }}
-                placeholder={t("availability.startTime")}
-                error={errors.timeRange}
-              />
-              <DateTimeField
-                mode="time"
-                label={t("post.request.endTime")}
-                value={timeEnd}
-                onChange={(d) => {
-                  setTimeEnd(d);
-                  setErrors((e) => ({ ...e, timeRange: undefined }));
-                }}
-                placeholder={t("availability.endTime")}
-                error={errors.timeRange}
-                showErrorText={false}
-              />
+              {multiDay ? (
+                <View style={styles.timeRow}>
+                  <View style={{ flex: 1 }}>
+                    <DateTimeField
+                      mode="date"
+                      label={t("post.request.startDate")}
+                      value={startDate}
+                      onChange={(d) => {
+                        setStartDate(d);
+                        setErrors((e) => ({
+                          ...e,
+                          dateRange: undefined,
+                          timeRange: undefined,
+                        }));
+                        setEndDate((ed) => {
+                          if (startOfDayMs(ed) <= startOfDayMs(d)) {
+                            const n = new Date(d);
+                            n.setDate(n.getDate() + 1);
+                            return n;
+                          }
+                          return ed;
+                        });
+                      }}
+                      placeholder={t("post.request.selectDatePlaceholder")}
+                      error={errors.dateRange}
+                    />
+                  </View>
+                  <View style={{ flex: 1 }}>
+                    <DateTimeField
+                      mode="date"
+                      label={t("post.request.endDate")}
+                      value={endDate}
+                      onChange={(d) => {
+                        setEndDate(d);
+                        setErrors((e) => ({
+                          ...e,
+                          dateRange: undefined,
+                          timeRange: undefined,
+                        }));
+                      }}
+                      placeholder={t("post.request.selectDatePlaceholder")}
+                      error={errors.dateRange}
+                      showErrorText={false}
+                    />
+                  </View>
+                </View>
+              ) : (
+                <DateTimeField
+                  mode="date"
+                  label={t("post.request.date")}
+                  value={startDate}
+                  onChange={(d) => {
+                    setStartDate(d);
+                    setErrors((e) => ({ ...e, timeRange: undefined }));
+                  }}
+                  placeholder={t("post.request.selectDatePlaceholder")}
+                />
+              )}
+            </View>
+            <View style={styles.timeRowContainer}>
+              <AppText variant="title" style={styles.stepTitle}>
+                Select time
+              </AppText>
+              <View style={styles.timeRow}>
+                <DateTimeField
+                  mode="time"
+                  label={t("post.request.startTime")}
+                  value={timeStart}
+                  onChange={(d) => {
+                    setTimeStart(d);
+                    setErrors((e) => ({ ...e, timeRange: undefined }));
+                  }}
+                  placeholder={t("availability.startTime")}
+                  error={errors.timeRange}
+                />
+                <DateTimeField
+                  mode="time"
+                  label={t("post.request.endTime")}
+                  value={timeEnd}
+                  onChange={(d) => {
+                    setTimeEnd(d);
+                    setErrors((e) => ({ ...e, timeRange: undefined }));
+                  }}
+                  placeholder={t("availability.endTime")}
+                  error={errors.timeRange}
+                  showErrorText={false}
+                />
+              </View>
             </View>
           </View>
         )}
 
         {step === 3 && (
-          <View style={styles.stepContainer}>
-            <AppText variant="title" style={styles.stepTitle}>
-              {t("post.request.detailsTitle")}
-            </AppText>
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.detailHint}
-            >
-              {t("post.request.detailsHint")}
-            </AppText>
-            <View style={styles.detailSections}>
-              <ChipSelector
-                label="Yard type:"
-                options={["fenced yard", "high fence", "no yard"]}
-                selectedOption={yardType}
-                onSelect={setYardType}
-              />
-              <ChipSelector
-                label="Age range:"
-                options={["0-1 yr", "1-3 yrs", "3-8 yrs", "8+ yrs"]}
-                selectedOption={ageRange}
-                onSelect={setAgeRange}
-              />
-              <ChipSelector
-                label="Energy level:"
-                options={["low energy", "medium energy", "high energy"]}
-                selectedOption={energyLevel}
-                onSelect={setEnergyLevel}
-              />
-            </View>
-            <Input
-              label="Special needs (e.g. medication, diet)…"
-              value={specialNeeds}
-              onChangeText={setSpecialNeeds}
-              multiline
-              inputStyle={styles.specialNeedsInput}
-            />
-          </View>
-        )}
-
-        {step === 4 && (
           <View style={styles.stepContainer}>
             <AppText variant="title" style={styles.stepTitle}>
               {t("post.request.previewTitle", "Preview of your request")}
@@ -501,8 +469,7 @@ export default function LaunchRequestWizardScreen() {
                     style={styles.previewPetName}
                     numberOfLines={1}
                   >
-                    {MOCK_PETS.find((p) => p.id === selectedPet)?.name ||
-                      "—"}
+                    {MOCK_PETS.find((p) => p.id === selectedPet)?.name || "—"}
                   </AppText>
                   <TouchableOpacity
                     onPress={() => setStep(1)}
@@ -523,66 +490,68 @@ export default function LaunchRequestWizardScreen() {
                     : t("post.request.preview.date")
                 }
               >
-                <View style={styles.previewDateRow}>
-                  <AppText
-                    variant="body"
-                    color={colors.onSurface}
-                    style={styles.previewDateText}
-                    numberOfLines={2}
-                  >
-                    {multiDay
-                      ? `${formatPreviewDate(startDate)} – ${formatPreviewDate(endDate)}`
-                      : formatPreviewDate(startDate)}
-                  </AppText>
-                  <TouchableOpacity
-                    onPress={() => setStep(2)}
-                    hitSlop={8}
-                  >
-                    <AppText variant="caption" color={colors.primary}>
-                      {t("post.request.preview.edit")}
-                    </AppText>
-                  </TouchableOpacity>
-                </View>
-              </RequestPreviewRow>
-
-              <RequestPreviewRow label={t("post.request.preview.yard")}>
-                <ChipSelector
-                  options={["fenced yard", "high fence", "no yard"]}
-                  selectedOption={yardType}
-                  onSelect={setYardType}
-                  compact
-                  variant="surface"
-                />
-              </RequestPreviewRow>
-
-              <RequestPreviewRow label={t("post.request.preview.age")}>
-                <ChipSelector
-                  options={["0-1 yr", "1-3 yrs", "3-8 yrs", "8+ yrs"]}
-                  selectedOption={ageRange}
-                  onSelect={setAgeRange}
-                  compact
-                  variant="surface"
-                />
-              </RequestPreviewRow>
-
-              <RequestPreviewRow label={t("post.request.preview.energy")}>
-                <ChipSelector
-                  options={["low energy", "medium energy", "high energy"]}
-                  selectedOption={energyLevel}
-                  onSelect={setEnergyLevel}
-                  compact
-                  variant="surface"
-                />
-              </RequestPreviewRow>
-
-              <RequestPreviewRow label={t("post.request.preview.days")}>
-                <DaySelector
-                  days={["M", "Tu", "W", "Th", "F", "Sa", "Su"]}
-                  selectedDays={days}
-                  onToggle={toggleDay}
-                  error={errors.days}
-                  circleSize={40}
-                />
+                {multiDay ? (
+                  <View style={styles.previewTimeRow}>
+                    <View style={styles.previewTimeField}>
+                      <DateTimeField
+                        mode="date"
+                        label={t("post.request.startDate")}
+                        value={startDate}
+                        onChange={(d) => {
+                          setStartDate(d);
+                          setErrors((e) => ({
+                            ...e,
+                            dateRange: undefined,
+                            timeRange: undefined,
+                          }));
+                          setEndDate((ed) => {
+                            if (startOfDayMs(ed) <= startOfDayMs(d)) {
+                              const n = new Date(d);
+                              n.setDate(n.getDate() + 1);
+                              return n;
+                            }
+                            return ed;
+                          });
+                        }}
+                        placeholder={t("post.request.selectDatePlaceholder")}
+                        showErrorText={false}
+                      />
+                    </View>
+                    <View style={styles.previewTimeField}>
+                      <DateTimeField
+                        mode="date"
+                        label={t("post.request.endDate")}
+                        value={endDate}
+                        onChange={(d) => {
+                          setEndDate(d);
+                          setErrors((e) => ({
+                            ...e,
+                            dateRange: undefined,
+                            timeRange: undefined,
+                          }));
+                        }}
+                        placeholder={t("post.request.selectDatePlaceholder")}
+                        showErrorText={false}
+                      />
+                    </View>
+                  </View>
+                ) : (
+                  <DateTimeField
+                    mode="date"
+                    label={t("post.request.startDate")}
+                    value={startDate}
+                    onChange={(d) => {
+                      setStartDate(d);
+                      setErrors((e) => ({
+                        ...e,
+                        dateRange: undefined,
+                        timeRange: undefined,
+                      }));
+                    }}
+                    placeholder={t("post.request.selectDatePlaceholder")}
+                    showErrorText={false}
+                  />
+                )}
               </RequestPreviewRow>
 
               <RequestPreviewRow label={t("post.request.preview.time")}>
@@ -613,26 +582,6 @@ export default function LaunchRequestWizardScreen() {
                     />
                   </View>
                 </View>
-              </RequestPreviewRow>
-
-              <RequestPreviewRow
-                label={t("post.request.preview.specialNeeds")}
-                stacked
-                isLast
-              >
-                <Input
-                  label={undefined}
-                  value={specialNeeds}
-                  onChangeText={setSpecialNeeds}
-                  multiline
-                  placeholder={t(
-                    "post.request.specialNeedsPlaceholder",
-                    "Anything we should know?",
-                  )}
-                  inputStyle={styles.noteInput}
-                  containerStyle={styles.previewSpecialNeedsInput}
-                  showErrorOnlyAfterFocus={false}
-                />
               </RequestPreviewRow>
             </RequestPreviewCard>
 
@@ -684,11 +633,17 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
-  petGrid: {
+  petRow: {
     flexDirection: "row",
-    flexWrap: "wrap",
     gap: PET_GRID_GAP,
-    justifyContent: "flex-start",
+    justifyContent: "space-between",
+  },
+  addPetRow: {
+    marginTop: 10,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 8,
   },
   emptyState: {
     alignItems: "center",
@@ -712,9 +667,12 @@ const styles = StyleSheet.create({
   switchRow: {
     flexDirection: "row",
     alignItems: "center",
-    justifyContent: "space-between",
-    padding: 16,
     borderRadius: 16,
+    gap: 20,
+    marginVertical: 16,
+  },
+  timeRowContainer: {
+    gap: 16,
   },
   timeRow: {
     flexDirection: "row",

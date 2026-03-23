@@ -2,174 +2,203 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import React, { useMemo, useState } from "react";
 import { LayoutChangeEvent, StyleSheet, View } from "react-native";
-import { Gesture, GestureDetector, GestureHandlerRootView } from "react-native-gesture-handler";
-import Animated, { runOnJS, useAnimatedStyle, useSharedValue } from "react-native-reanimated";
+import {
+    Gesture,
+    GestureDetector,
+    GestureHandlerRootView,
+} from "react-native-gesture-handler";
+import Animated, {
+    runOnJS,
+    useAnimatedStyle,
+    useSharedValue,
+} from "react-native-reanimated";
 
 interface RangeSliderProps {
-    min: number;
-    max: number;
-    step?: number;
-    values: [number, number];
-    onValuesChange: (values: [number, number]) => void;
+  min: number;
+  max: number;
+  step?: number;
+  values: [number, number];
+  onValuesChange: (values: [number, number]) => void;
 }
 
 export function RangeSlider({
-    min,
-    max,
-    step = 1,
-    values,
-    onValuesChange,
+  min,
+  max,
+  step = 1,
+  values,
+  onValuesChange,
 }: RangeSliderProps) {
-    const { resolvedTheme } = useThemeStore();
-    const colors = Colors[resolvedTheme];
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
 
-    const [containerWidth, setContainerWidth] = useState(0);
-    const range = max - min;
+  const [containerWidth, setContainerWidth] = useState(0);
+  const range = max - min;
 
-    const leftX = useSharedValue(0);
-    const rightX = useSharedValue(0);
+  const leftX = useSharedValue(0);
+  const rightX = useSharedValue(0);
 
-    // Sync from props
-    React.useEffect(() => {
-        if (containerWidth > 0 && range > 0) {
-            const span = max - min;
-            leftX.value = ((values[0] - min) / span) * containerWidth;
-            rightX.value = ((values[1] - min) / span) * containerWidth;
-        }
-    }, [values, containerWidth, min, max, range]);
+  // Sync from props
+  React.useEffect(() => {
+    if (containerWidth > 0 && range > 0) {
+      const span = max - min;
+      leftX.value = ((values[0] - min) / span) * containerWidth;
+      rightX.value = ((values[1] - min) / span) * containerWidth;
+    }
+  }, [values, containerWidth, min, max, range]);
 
-    const onLayout = (event: LayoutChangeEvent) => {
-        const width = event.nativeEvent.layout.width;
-        if (width > 0) {
-            setContainerWidth(width);
-        }
-    };
+  const onLayout = (event: LayoutChangeEvent) => {
+    const width = event.nativeEvent.layout.width;
+    if (width > 0) {
+      setContainerWidth(width);
+    }
+  };
 
-    const updateValues = (lx: number, rx: number) => {
-        if (containerWidth <= 0 || range <= 0) return;
-        const span = max - min;
-        let newMin = Math.round(min + (lx / containerWidth) * span);
-        let newMax = Math.round(min + (rx / containerWidth) * span);
-        newMin = Math.max(min, Math.min(max, newMin));
-        newMax = Math.max(min, Math.min(max, newMax));
-        const lo = Math.min(newMin, newMax);
-        const hi = Math.max(newMin, newMax);
-        if (lo !== values[0] || hi !== values[1]) {
-            onValuesChange([lo, hi]);
-        }
-    };
+  const updateValues = (lx: number, rx: number) => {
+    if (containerWidth <= 0 || range <= 0) return;
+    const span = max - min;
+    let newMin = Math.round(min + (lx / containerWidth) * span);
+    let newMax = Math.round(min + (rx / containerWidth) * span);
+    newMin = Math.max(min, Math.min(max, newMin));
+    newMax = Math.max(min, Math.min(max, newMax));
+    const lo = Math.min(newMin, newMax);
+    const hi = Math.max(newMin, newMax);
+    if (lo !== values[0] || hi !== values[1]) {
+      onValuesChange([lo, hi]);
+    }
+  };
 
-    const panGesture = Gesture.Pan()
-        .minPointers(1)
-        .onUpdate((e) => {
-            const touchX = e.x;
-            const distLeft = Math.abs(touchX - leftX.value);
-            const distRight = Math.abs(touchX - rightX.value);
+  const panGesture = Gesture.Pan()
+    .minPointers(1)
+    .onUpdate((e) => {
+      const touchX = e.x;
+      const distLeft = Math.abs(touchX - leftX.value);
+      const distRight = Math.abs(touchX - rightX.value);
 
-            if (distLeft < distRight) {
-                const newLX = Math.max(0, Math.min(rightX.value, touchX));
-                leftX.value = newLX;
-                runOnJS(updateValues)(newLX, rightX.value);
-            } else {
-                const newRX = Math.max(leftX.value, Math.min(containerWidth, touchX));
-                rightX.value = newRX;
-                runOnJS(updateValues)(leftX.value, newRX);
-            }
-        });
+      if (distLeft < distRight) {
+        const newLX = Math.max(0, Math.min(rightX.value, touchX));
+        leftX.value = newLX;
+        runOnJS(updateValues)(newLX, rightX.value);
+      } else {
+        const newRX = Math.max(leftX.value, Math.min(containerWidth, touchX));
+        rightX.value = newRX;
+        runOnJS(updateValues)(leftX.value, newRX);
+      }
+    });
 
-    const activeTrackStyle = useAnimatedStyle(() => ({
-        left: leftX.value,
-        width: rightX.value - leftX.value,
-    }));
+  const activeTrackStyle = useAnimatedStyle(() => ({
+    left: leftX.value,
+    width: rightX.value - leftX.value,
+  }));
 
-    const leftHandleStyle = useAnimatedStyle(() => ({
-        transform: [{ translateX: leftX.value }],
-    }));
+  const leftHandleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: leftX.value }],
+  }));
 
-    const rightHandleStyle = useAnimatedStyle(() => ({
-        transform: [{ translateX: rightX.value }],
-    }));
+  const rightHandleStyle = useAnimatedStyle(() => ({
+    transform: [{ translateX: rightX.value }],
+  }));
 
-    const dots = useMemo(() => {
-        const d = [];
-        for (let i = 0; i <= range; i += step) {
-            d.push(i + min);
-        }
-        return d;
-    }, [min, max, step, range]);
+  const dots = useMemo(() => {
+    const d = [];
+    for (let i = 0; i <= range; i += step) {
+      d.push(i + min);
+    }
+    return d;
+  }, [min, max, step, range]);
 
-    return (
-        <GestureHandlerRootView style={styles.container}>
-            <GestureDetector gesture={panGesture}>
-                <View style={[styles.sliderArea]} onLayout={onLayout}>
-                    {containerWidth > 0 && (
-                        <View style={[styles.track, { width: containerWidth, backgroundColor: colors.surfaceContainerHighest }]}>
-                            {dots.map((dot) => {
-                                const oneStepWidth = containerWidth / range;
-                                const dotX = (dot - min) * oneStepWidth;
-                                return (
-                                    <View
-                                        key={dot}
-                                        style={[
-                                            styles.dot,
-                                            {
-                                                left: dotX - 2.5,
-                                                backgroundColor: colors.onSurfaceVariant,
-                                                opacity: 0.4,
-                                            },
-                                        ]}
-                                    />
-                                );
-                            })}
+  return (
+    <GestureHandlerRootView style={styles.container}>
+      <GestureDetector gesture={panGesture}>
+        <View style={[styles.sliderArea]} onLayout={onLayout}>
+          {containerWidth > 0 && (
+            <View style={[styles.track, { width: containerWidth }]}>
+              {dots.map((dot) => {
+                const oneStepWidth = containerWidth / range;
+                const dotX = (dot - min) * oneStepWidth;
+                const inSelectedRange = dot >= values[0] && dot <= values[1];
+                return (
+                  <View
+                    key={dot}
+                    style={[
+                      styles.dot,
+                      {
+                        left: dotX - 2.5,
+                        backgroundColor: inSelectedRange
+                          ? colors.onPrimary
+                          : colors.onSurfaceVariant,
+                        opacity: inSelectedRange ? 1 : 0.4,
+                      },
+                    ]}
+                  />
+                );
+              })}
 
-                            <Animated.View style={[styles.activeLine, { backgroundColor: colors.primary }, activeTrackStyle]} />
+              <Animated.View
+                style={[
+                  styles.activeLine,
+                  { backgroundColor: colors.primary },
+                  activeTrackStyle,
+                ]}
+              />
 
-                            <Animated.View style={[styles.handle, { backgroundColor: colors.primary }, leftHandleStyle]} />
-                            <Animated.View style={[styles.handle, { backgroundColor: colors.primary }, rightHandleStyle]} />
-                        </View>
-                    )}
-                </View>
-            </GestureDetector>
-        </GestureHandlerRootView>
-    );
+              <Animated.View
+                style={[
+                  styles.handle,
+                  { backgroundColor: colors.primary },
+                  leftHandleStyle,
+                ]}
+              />
+              <Animated.View
+                style={[
+                  styles.handle,
+                  { backgroundColor: colors.primary },
+                  rightHandleStyle,
+                ]}
+              />
+            </View>
+          )}
+        </View>
+      </GestureDetector>
+    </GestureHandlerRootView>
+  );
 }
 
 const styles = StyleSheet.create({
-    container: {
-        width: "100%",
-        height: 60,
-        marginVertical: 10,
-    },
-    sliderArea: {
-        flex: 1,
-        justifyContent: "center",
-        alignItems: "center",
-        backgroundColor: "transparent", // Ensure it captures touches
-    },
-    track: {
-        height: 14,
-        borderRadius: 7,
-        position: "relative",
-        justifyContent: "center",
-    },
-    activeLine: {
-        height: 14,
-        borderRadius: 7,
-        position: "absolute",
-    },
-    dot: {
-        position: "absolute",
-        width: 5,
-        height: 5,
-        borderRadius: 2.5,
-        zIndex: 1,
-    },
-    handle: {
-        width: 6,
-        height: 36,
-        borderRadius: 3,
-        position: "absolute",
-        left: -3, // Center on the X coordinate
-        zIndex: 10,
-    },
+  container: {
+    width: "100%",
+    height: 60,
+    marginVertical: 10,
+  },
+  sliderArea: {
+    flex: 1,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "transparent", // Ensure it captures touches
+  },
+  track: {
+    height: 14,
+    borderRadius: 7,
+    position: "relative",
+    justifyContent: "center",
+  },
+  activeLine: {
+    height: 14,
+    borderRadius: 7,
+    position: "absolute",
+  },
+  dot: {
+    position: "absolute",
+    width: 5,
+    height: 5,
+    borderRadius: 2.5,
+    zIndex: 1,
+  },
+  handle: {
+    width: 6,
+    height: 36,
+    borderRadius: 3,
+    position: "absolute",
+    left: -3, // Center on the X coordinate
+    zIndex: 10,
+  },
 });

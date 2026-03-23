@@ -7,6 +7,7 @@ import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppSwitch } from '@/src/shared/components/ui/AppSwitch';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { TabBar } from '@/src/shared/components/ui/TabBar';
+import { useToastStore } from '@/src/lib/store/toast.store';
 import {
   Handshake,
   MoreHorizontal,
@@ -48,13 +49,20 @@ export default function MyCareScreen() {
   const [loading] = useState(false);
   const [available, setAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('given');
-  const [showSnackbar, setShowSnackbar] = useState(false);
   const [menuVisible, setMenuVisible] = useState(false);
   const [hasActiveCare] = useState(true); // Demo mode
 
+  const showToast = useToastStore((s) => s.showToast);
+
   const onAvailableChange = (value: boolean) => {
     setAvailable(value);
-    if (value) setShowSnackbar(true);
+    if (value) {
+      showToast({
+        variant: 'success',
+        message: `${t('myCare.nowAvailableSnackbar')} ${t('myCare.availableHighlight')}`,
+        durationMs: 3200,
+      });
+    }
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -249,18 +257,6 @@ export default function MyCareScreen() {
         )}
       </ScrollView>
 
-      {showSnackbar && (
-        <View style={[styles.snackbarShadow, { bottom: 100 }]}>
-          <View style={[styles.snackbar, { backgroundColor: colors.onSurfaceVariant }]}>
-            <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '600' }}>
-              {t('myCare.nowAvailableSnackbar')}{' '}
-              <AppText variant="body" color={colors.surfaceBright} style={{ fontWeight: '800' }}>
-                {t('myCare.availableHighlight')}
-              </AppText>
-            </AppText>
-          </View>
-        </View>
-      )}
     </PageContainer>
   );
 }

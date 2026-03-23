@@ -282,7 +282,18 @@
       "title": "Contract",
       "sign": "Sign contract",
       "signed": "Signed",
-      "status": "Status"
+      "status": "Status",
+      "idLabel": "ID: {{id}}",
+      "agreementActive": "Agreement is active.",
+      "acceptHint": "Accept the offer to unlock the agreement actions.",
+      "acceptOffer": "Accept Offer",
+      "acceptConfirmTitle": "Are you sure you want to accept this offer?",
+      "acceptConfirmDescription": "Yes, I'm going to accept.",
+      "acceptDisclaimer": "By tapping Accept Offer, you approve that anyone in the community can contact you in our chat system.",
+      "rateAndReview": "Rate & Review",
+      "terminate": "Terminate Contract",
+      "terminatedDemo": "Agreement terminated (demo)",
+      "active": "Active"
     },
     "checkin": {
       "title": "Check-in",
@@ -394,7 +405,7 @@
       "petOwner": "Pet Owner",
       "note": "Short note",
       "save": "Save availability",
-      "careStepTitle": "What type of care do you need?",
+      "careStepTitle": "What type of care can you provide?",
       "hintsTitle": "Hints",
       "petKindQuestion": "What kind of pet?",
       "yardQuestion": "What kind of yard do you have?",
@@ -454,11 +465,16 @@
     "send": "Send",
     "proposal": "Care Proposal",
     "agreement": "Agreement",
+    "applyingFor": "Applying for ",
+    "applyingForPet": "Applying for {{petName}}",
+    "seekingForPet": "Seeking for {{petName}}",
+    "viewOfferDetails": "View Offer Details",
     "viewProfile": "View profile",
     "muteNotifications": "Mute notifications",
     "block": "Block",
     "blockConfirmTitle": "Block this user?",
-    "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings."
+    "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings.",
+    "blockedDemo": "Blocked (demo)"
   },
   "requestDetails": {
     "title": "Request details",

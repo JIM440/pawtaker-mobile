@@ -30,6 +30,7 @@ type ButtonProps = {
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
   leftIcon?: React.ReactNode;
+  color?: string
 };
 
 const variantBg: Record<Variant, (colors: (typeof Colors)[keyof typeof Colors]) => string> = {
@@ -67,6 +68,7 @@ export function Button({
   fullWidth = true,
   style,
   leftIcon,
+  color
 }: ButtonProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -114,7 +116,7 @@ export function Button({
       {!loading && leftIcon}
       <AppText
         variant="label"
-        color={variantTextColor[variant](colors)}
+        color={color ?? variantTextColor[variant](colors)}
         style={[styles.label, size === "sm" && styles.labelSm]}
       >
         {label}

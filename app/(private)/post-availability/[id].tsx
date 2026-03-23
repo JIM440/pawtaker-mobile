@@ -5,6 +5,7 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 import { Button } from '@/src/shared/components/ui/Button';
 import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
 import {
   ChevronLeft,
   EllipsisVertical,
@@ -12,7 +13,8 @@ import {
 } from 'lucide-react-native';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useToastStore } from '@/src/lib/store/toast.store';
 
 const MOCK_OFFER = {
   petName: 'Polo',
@@ -38,12 +40,22 @@ const MOCK_OFFER = {
 };
 
 export default function ViewOfferScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id, accepted: acceptedParam } = useLocalSearchParams<{
+    id: string;
+    accepted?: string;
+  }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const offer = MOCK_OFFER;
+  const [acceptedConfirmOpen, setAcceptedConfirmOpen] = React.useState(false);
+  const [accepted, setAccepted] = React.useState(
+    () => acceptedParam === '1' || acceptedParam === 'true',
+  );
+  const [actionsOpen, setActionsOpen] = React.useState(false);
+  const [showBlockConfirm, setShowBlockConfirm] = React.useState(false);
+  const showToast = useToastStore((s) => s.showToast);
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -57,7 +69,9 @@ export default function ViewOfferScreen() {
             <ChevronLeft size={24} color={colors.onSurface} />
           </TouchableOpacity>
           <View style={styles.titleRow}>
-            <AppText variant="body" style={styles.titleLabel}>Applying for </AppText>
+            <AppText variant="body" style={styles.titleLabel}>
+              {t("messages.applyingFor")}
+            </AppText>
             <TouchableOpacity>
               <AppText variant="title" color={colors.primary} style={styles.titleLink}>
                 {offer.petName}
@@ -89,10 +103,20 @@ export default function ViewOfferScreen() {
               </AppText>
               {offer.taker.available && (
                 <View style={[styles.availablePill, { backgroundColor: colors.tertiaryContainer }]}>
-                  <AppText variant="caption" color={colors.onTertiaryContainer}>Available</AppText>
+                  <AppText variant="caption" color={colors.onTertiaryContainer}>
+                    {t("myCare.available")}
+                  </AppText>
                 </View>
               )}
-              <TouchableOpacity style={styles.menuBtn}>
+              <TouchableOpacity
+                style={styles.menuBtn}
+                hitSlop={8}
+                onPress={() => {
+                  if (!accepted) return;
+                  setActionsOpen(true);
+                }}
+                activeOpacity={0.9}
+              >
                 <EllipsisVertical size={24} color={colors.onSurface} />
               </TouchableOpacity>
             </View>
@@ -117,29 +141,138 @@ export default function ViewOfferScreen() {
         </TouchableOpacity>
 
         {/* Details */}
-        <AppText variant="title" style={styles.sectionTitle}>Details</AppText>
+        <AppText variant="title" style={styles.sectionTitle}>
+          {t("requestDetails.details")}
+        </AppText>
         <View style={styles.detailGrid}>
           <DetailRow label={t('requestDetails.yardType')} value={offer.details.yardType} colors={colors} />
-          <DetailRow label="Active" value={offer.details.active} colors={colors} />
+          <DetailRow label={t("myCare.contract.active")} value={offer.details.active} colors={colors} />
           <DetailRow label={t('requestDetails.careTypes')} value={offer.details.careTypes} colors={colors} />
           <DetailRow label={t('requestDetails.petOwner')} value={offer.details.petOwner} colors={colors} />
         </View>
 
         {/* Note */}
-        <AppText variant="title" style={styles.sectionTitle}>Note</AppText>
+        <AppText variant="title" style={styles.sectionTitle}>{t("post.availability.note")}</AppText>
         <AppText variant="body" color={colors.onSurfaceVariant} style={styles.note}>
           {offer.note}
         </AppText>
 
-        <Button
-          label="Accept Offer"
-          onPress={() => { }}
-          style={styles.acceptBtn}
-        />
-        <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.disclaimer}>
-          By tapping Accept Offer, you approve that anyone in the community can contact you in our chat system.
-        </AppText>
+        {!accepted ? (
+          <>
+            <Button
+              label={t("myCare.contract.acceptOffer")}
+              onPress={() => setAcceptedConfirmOpen(true)}
+              style={styles.acceptBtn}
+            />
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={styles.disclaimer}
+            >
+              {t("myCare.contract.acceptDisclaimer")}
+            </AppText>
+          </>
+        ) : null}
       </ScrollView>
+
+      {/* Actions (hide Accept Offer when already accepted) */}
+      <Modal
+        transparent
+        visible={actionsOpen}
+        onRequestClose={() => setActionsOpen(false)}
+        animationType="fade"
+      >
+        <Pressable style={styles.actionsOverlay} onPress={() => setActionsOpen(false)}>
+          <View
+            style={[
+              styles.actionsCard,
+              { backgroundColor: colors.surfaceContainerLowest, borderColor: colors.outlineVariant },
+            ]}
+            onStartShouldSetResponder={() => true}
+          >
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => {
+                setActionsOpen(false);
+                router.push(`/(private)/(tabs)/my-care/review/${id}` as any);
+              }}
+            >
+              <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
+                {t("myCare.contract.rateAndReview")}
+              </AppText>
+            </TouchableOpacity>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
+
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => {
+                setActionsOpen(false);
+                setAccepted(false);
+                showToast({
+                  variant: 'info',
+                  message: t("myCare.contract.terminatedDemo"),
+                  durationMs: 3000,
+                });
+              }}
+            >
+              <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
+                {t("myCare.contract.terminate")}
+              </AppText>
+            </TouchableOpacity>
+
+            <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
+
+            <TouchableOpacity
+              style={styles.actionItem}
+              onPress={() => {
+                setActionsOpen(false);
+                setShowBlockConfirm(true);
+              }}
+            >
+              <AppText variant="body" color={colors.error} numberOfLines={1}>
+                {t("profile.blockUser")}
+              </AppText>
+            </TouchableOpacity>
+          </View>
+        </Pressable>
+      </Modal>
+
+      <FeedbackModal
+        visible={showBlockConfirm}
+        title={t('messages.blockConfirmTitle')}
+        description={t('messages.blockConfirmDescription')}
+        primaryLabel={t('messages.block')}
+        secondaryLabel={t('common.cancel')}
+        destructive
+        onPrimary={() => {
+          setShowBlockConfirm(false);
+          showToast({
+            variant: 'info',
+            message: t("messages.blockedDemo"),
+            durationMs: 3000,
+          });
+        }}
+        onSecondary={() => setShowBlockConfirm(false)}
+        onRequestClose={() => setShowBlockConfirm(false)}
+      />
+
+      <FeedbackModal
+        visible={acceptedConfirmOpen}
+        title={t("myCare.contract.acceptConfirmTitle")}
+        description={t("myCare.contract.acceptConfirmDescription")}
+        primaryLabel={t("myCare.contract.acceptOffer")}
+        secondaryLabel={t("common.cancel")}
+        onPrimary={() => {
+          setAcceptedConfirmOpen(false);
+          router.push({
+            pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
+            params: { id: id ?? "1", accepted: "1" } as any,
+          });
+        }}
+        onSecondary={() => setAcceptedConfirmOpen(false)}
+        onRequestClose={() => setAcceptedConfirmOpen(false)}
+      />
     </View>
   );
 }
@@ -285,5 +418,39 @@ const styles = StyleSheet.create({
   },
   disclaimer: {
     textAlign: 'center',
+  },
+  actionsOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    alignItems: 'flex-end',
+    paddingTop: 60,
+    paddingRight: 16,
+    backgroundColor: 'transparent',
+  },
+  actionsCard: {
+    width: 172,
+    borderRadius: 8,
+    borderWidth: 1,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 12 },
+    shadowOpacity: 0.1,
+    shadowRadius: 16,
+    elevation: 6,
+    paddingVertical: 0,
+    paddingHorizontal: 0,
+  },
+  actionItem: {
+    height: 48,
+    paddingHorizontal: 16,
+    paddingVertical: 4,
+    justifyContent: 'center',
+  },
+  menuDivider: {
+    height: 1,
+    marginHorizontal: 12,
   },
 });

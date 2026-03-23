@@ -8,14 +8,22 @@ import { Input } from "@/src/shared/components/ui/Input";
 import { StarRatingInput } from "@/src/shared/components/ui/StarRatingInput";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { CheckCircle } from "lucide-react-native";
+import { MoreHorizontal } from "lucide-react-native";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
+import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 
 const MOCK_PEER = {
   name: "Bob Majors",
   avatar:
     "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200",
+  location: "Lake Placid, New York, US",
+  points: 58,
+  handshakes: 12,
+  paws: 17,
+  rating: 4.1,
+  currentTask: "Caring for Your Pet",
 };
 
 /**
@@ -40,32 +48,58 @@ export default function PostCareReviewScreen() {
   if (submitted) {
     return (
       <PageContainer>
-        <BackHeader title={t("myCare.review.title")} onBack={() => router.back()} />
+        <BackHeader
+          title=""
+          onBack={() => router.back()}
+          rightSlot={
+            <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+              <MoreHorizontal size={24} color={colors.onSurface} />
+            </View>
+          }
+        />
         <View style={styles.successWrap}>
-          <View
-            style={[
-              styles.successIcon,
-              { backgroundColor: colors.primaryContainer },
-            ]}
-          >
-            <CheckCircle size={48} color={colors.primary} />
+          <View style={{ width: "100%" }}>
+            <ProfileHeader
+              name={MOCK_PEER.name}
+              avatarUri={MOCK_PEER.avatar}
+              location={MOCK_PEER.location}
+              points={MOCK_PEER.points}
+              handshakes={MOCK_PEER.handshakes}
+              paws={MOCK_PEER.paws}
+              rating={MOCK_PEER.rating}
+              currentTask={MOCK_PEER.currentTask}
+              isAvailable
+            />
+
+            <View style={styles.staticStarsWrap} pointerEvents="none">
+              <StarRatingInput
+                value={rating}
+                onChange={() => {}}
+                size={28}
+                maxStars={5}
+                accessibilityLabel="Rating"
+              />
+            </View>
+
+            <Input
+              label={t("myCare.review.comment", "Review")}
+              value={comment}
+              onChangeText={() => {}}
+              editable={false}
+              multiline
+              placeholder=""
+              inputStyle={styles.commentInput}
+              containerStyle={styles.commentContainer}
+              showErrorOnlyAfterFocus={false}
+            />
+
+            <Button
+              label={t("myCare.review.submit", "Submit")}
+              onPress={() => router.back()}
+              fullWidth
+              style={styles.doneBtn}
+            />
           </View>
-          <AppText variant="title" style={styles.successTitle}>
-            {t("myCare.review.successTitle")}
-          </AppText>
-          <AppText
-            variant="body"
-            color={colors.onSurfaceVariant}
-            style={styles.successSubtitle}
-          >
-            {t("myCare.review.successSubtitle")}
-          </AppText>
-          <Button
-            label={t("common.done", "Done")}
-            onPress={() => router.back()}
-            fullWidth
-            style={styles.doneBtn}
-          />
         </View>
       </PageContainer>
     );
@@ -73,7 +107,15 @@ export default function PostCareReviewScreen() {
 
   return (
     <PageContainer>
-      <BackHeader title={t("myCare.review.title")} onBack={() => router.back()} />
+      <BackHeader
+        title=""
+        onBack={() => router.back()}
+        rightSlot={
+          <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
+            <MoreHorizontal size={24} color={colors.onSurface} />
+          </View>
+        }
+      />
 
       <ScrollView
         style={styles.scroll}
@@ -81,33 +123,17 @@ export default function PostCareReviewScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <AppText variant="body" color={colors.onSurfaceVariant} style={styles.intro}>
-          {t("myCare.review.intro")}
-        </AppText>
-
-        <View
-          style={[
-            styles.peerCard,
-            {
-              backgroundColor: colors.surfaceBright,
-              borderColor: colors.outlineVariant,
-            },
-          ]}
-        >
-          <AppImage
-            source={{ uri: MOCK_PEER.avatar }}
-            style={styles.avatar}
-            contentFit="cover"
-          />
-          <View style={{ flex: 1, minWidth: 0 }}>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {t("myCare.review.reviewing")}
-            </AppText>
-            <AppText variant="title" numberOfLines={1} style={styles.peerName}>
-              {MOCK_PEER.name}
-            </AppText>
-          </View>
-        </View>
+        <ProfileHeader
+          name={MOCK_PEER.name}
+          avatarUri={MOCK_PEER.avatar}
+          location={MOCK_PEER.location}
+          points={MOCK_PEER.points}
+          handshakes={MOCK_PEER.handshakes}
+          paws={MOCK_PEER.paws}
+          rating={MOCK_PEER.rating}
+          currentTask={MOCK_PEER.currentTask}
+          isAvailable
+        />
 
         <AppText variant="label" color={colors.onSurfaceVariant} style={styles.ratingLabel}>
           {t("myCare.review.rating")}
@@ -154,23 +180,6 @@ const styles = StyleSheet.create({
     lineHeight: 22,
     marginBottom: 4,
   },
-  peerCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 14,
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
-  },
-  avatar: {
-    width: 56,
-    height: 56,
-    borderRadius: 28,
-  },
-  peerName: {
-    fontSize: 18,
-    fontWeight: "600",
-  },
   ratingLabel: {
     marginTop: 8,
     marginBottom: 4,
@@ -193,26 +202,14 @@ const styles = StyleSheet.create({
     paddingHorizontal: 24,
     gap: 16,
   },
-  successIcon: {
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    alignItems: "center",
-    justifyContent: "center",
-    marginBottom: 8,
-  },
-  successTitle: {
-    fontSize: 22,
-    fontWeight: "700",
-    textAlign: "center",
-  },
-  successSubtitle: {
-    textAlign: "center",
-    lineHeight: 22,
-    marginBottom: 8,
-  },
   doneBtn: {
     marginTop: 8,
     width: "100%",
+  },
+  staticStarsWrap: {
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 10,
+    marginBottom: 8,
   },
 });

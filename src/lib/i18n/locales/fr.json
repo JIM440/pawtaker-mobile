@@ -282,7 +282,18 @@
       "title": "Contrat",
       "sign": "Signer le contrat",
       "signed": "Signé",
-      "status": "Statut"
+      "status": "Statut",
+      "idLabel": "ID : {{id}}",
+      "agreementActive": "L'accord est actif.",
+      "acceptHint": "Acceptez l'offre pour débloquer les actions de l'accord.",
+      "acceptOffer": "Accepter l'offre",
+      "acceptConfirmTitle": "Voulez-vous vraiment accepter cette offre ?",
+      "acceptConfirmDescription": "Oui, je vais accepter.",
+      "acceptDisclaimer": "En appuyant sur Accepter l'offre, vous acceptez que toute personne de la communauté puisse vous contacter dans notre système de chat.",
+      "rateAndReview": "Noter et évaluer",
+      "terminate": "Résilier le contrat",
+      "terminatedDemo": "Accord résilié (démo)",
+      "active": "Actif"
     },
     "checkin": {
       "title": "Enregistrement",
@@ -394,7 +405,7 @@
       "petOwner": "Propriétaire d'animaux",
       "note": "Note courte",
       "save": "Enregistrer la disponibilité",
-      "careStepTitle": "De quel type de garde avez-vous besoin ?",
+      "careStepTitle": "De quel type de garde pouvez-vous offrir ?",
       "hintsTitle": "Conseils",
       "petKindQuestion": "Quel type d’animal ?",
       "yardQuestion": "Quel type de terrain avez-vous ?",
@@ -454,11 +465,16 @@
     "send": "Envoyer",
     "proposal": "Proposition de soins",
     "agreement": "Accord",
+    "applyingFor": "Postuler pour ",
+    "applyingForPet": "Postuler pour {{petName}}",
+    "seekingForPet": "Recherche pour {{petName}}",
+    "viewOfferDetails": "Voir les détails de l'offre",
     "viewProfile": "Voir le profil",
     "muteNotifications": "Désactiver les notifications",
     "block": "Bloquer",
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
-    "blockConfirmDescription": "Il ou elle ne pourra plus vous envoyer de messages. Vous pourrez débloquer plus tard dans Paramètres."
+    "blockConfirmDescription": "Il ou elle ne pourra plus vous envoyer de messages. Vous pourrez débloquer plus tard dans Paramètres.",
+    "blockedDemo": "Utilisateur bloqué (démo)"
   },
   "requestDetails": {
     "title": "Détails de la demande",

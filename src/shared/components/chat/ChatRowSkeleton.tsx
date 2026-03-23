@@ -1,22 +1,12 @@
-import { Colors } from "@/src/constants/colors";
 import { ChatTypography } from "@/src/constants/chatTypography";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import React from "react";
 import { View, StyleSheet } from "react-native";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 
 /** Row line heights match `ChatTypography` / `ChatRow` (Figma chat list). */
 export function ChatRowSkeleton() {
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
-
   return (
-    <View
-      style={[
-        styles.row,
-        { borderBottomColor: colors.outlineVariant, borderBottomWidth: StyleSheet.hairlineWidth },
-      ]}
-    >
+    <View style={styles.row}>
       <Skeleton width={56} height={56} borderRadius={28} />
       <View style={styles.content}>
         <Skeleton

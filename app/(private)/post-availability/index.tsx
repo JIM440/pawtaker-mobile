@@ -1,8 +1,8 @@
+import { Colors } from "@/src/constants/colors";
 import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PET_TYPE_OPTIONS } from "@/src/constants/pets";
-import { Colors } from "@/src/constants/colors";
-import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
 import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
+import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
@@ -11,18 +11,13 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { DaySelector } from "@/src/shared/components/ui/DaySelector";
-import { RadioGroup } from "@/src/shared/components/ui/RadioGroup";
 import { Input } from "@/src/shared/components/ui/Input";
 import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
+import { RadioGroup } from "@/src/shared/components/ui/RadioGroup";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  BackHandler,
-  ScrollView,
-  StyleSheet,
-  View,
-} from "react-native";
+import { BackHandler, ScrollView, StyleSheet, View } from "react-native";
 
 const TOTAL_STEPS = 8;
 
@@ -74,10 +69,7 @@ export default function AvailabilityWizardScreen() {
 
   const progress = (step + 1) / TOTAL_STEPS;
 
-  const everyDaysText = useMemo(
-    () => formatEveryDaysLabel(days, t),
-    [days, t],
-  );
+  const everyDaysText = useMemo(() => formatEveryDaysLabel(days, t), [days, t]);
 
   const yardRadioOptions = useMemo(
     () => [
@@ -287,11 +279,7 @@ export default function AvailabilityWizardScreen() {
             <AppText variant="title" style={styles.stepTitle}>
               {t("post.availability.daysQuestion")}
             </AppText>
-            {days.length === 0 ? (
-              <AppText variant="body" color={colors.onSurfaceVariant}>
-                {t("post.availability.noDaysSelected")}
-              </AppText>
-            ) : null}
+
             <DaySelector
               days={["M", "Tu", "W", "Th", "F", "Sa", "Su"]}
               selectedDays={days}
@@ -393,10 +381,7 @@ export default function AvailabilityWizardScreen() {
                 >
                   {t("availability.available", "Available")}
                 </AppText>
-                <AppSwitch
-                  value={isAvailable}
-                  onValueChange={setIsAvailable}
-                />
+                <AppSwitch value={isAvailable} onValueChange={setIsAvailable} />
               </View>
 
               <View style={styles.previewFields}>
@@ -406,7 +391,10 @@ export default function AvailabilityWizardScreen() {
                     color={colors.onSurfaceVariant}
                     style={styles.fieldLabel}
                   >
-                    {t("post.availability.careFieldLabel", "Care you will provide:")}
+                    {t(
+                      "post.availability.careFieldLabel",
+                      "Care you will provide:",
+                    )}
                   </AppText>
                   <CareTypeSelector
                     selectedKeys={careTypes}
@@ -488,7 +476,10 @@ export default function AvailabilityWizardScreen() {
                     <View style={styles.timeField}>
                       <DateTimeField
                         mode="time"
-                        label={t("post.availability.startTimeLabel", "Start time")}
+                        label={t(
+                          "post.availability.startTimeLabel",
+                          "Start time",
+                        )}
                         value={startTime}
                         onChange={(d) => {
                           setStartTime(d);

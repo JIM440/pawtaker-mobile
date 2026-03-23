@@ -1,3 +1,4 @@
+import { StatusBar } from "react-native";
 import { useRouter } from "expo-router";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -38,9 +39,6 @@ const ILLU_SLIDE_1 = require("@/assets/illustrations/onboarding/onboarding_img_1
 const ILLU_SLIDE_2 = require("@/assets/illustrations/onboarding/onboarding_img_2.svg");
 const ILLU_SLIDE_3 = require("@/assets/illustrations/onboarding/onboarding_img_3.svg");
 
-/** Slide 1 keeps brand dark hero; slides 2–3 follow theme background. */
-const BG_DARK_MAUVE = Colors.light.primary;
-
 type SlideVariant = "dark" | "light";
 
 type Slide = {
@@ -55,8 +53,8 @@ export default function OnboardingScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { width: windowWidth } = useWindowDimensions();
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
+  // Always use light theme colors, regardless of theme store
+  const colors = Colors.light;
   const { setOnboardingSeen } = useAuthStore();
   const flatListRef = useRef<FlatList<Slide>>(null);
 
@@ -89,12 +87,15 @@ export default function OnboardingScreen() {
 
   const [index, setIndex] = useState(0);
   const isLast = index === slides.length - 1;
-  const currentVariant = slides[index]?.variant ?? "light";
 
-  const primary = colors.primary;
-  const onPrimary = colors.onPrimary;
-  const onSurfaceVariant = colors.onSurfaceVariant;
-  const dotInactiveLight = colors.primaryContainer;
+  // Always use primary light and onPrimary from light theme for first slide,
+  // all other slides (and the whole onboarding screen background) always use light theme
+  const BG_PRIMARY_LIGHT = Colors.light.primary;
+  const ON_PRIMARY_LIGHT = Colors.light.onPrimary;
+  const BG_LIGHT = Colors.light.background;
+  const ON_SURFACE_VARIANT_LIGHT = Colors.light.onSurfaceVariant;
+  const PRIMARY = Colors.light.primary;
+  const DOT_INACTIVE_LIGHT = Colors.light.primaryContainer;
 
   const illuWidth = Math.min(windowWidth - ONBOARDING_PAD_H * 2, 340);
   const illuHeight = 330;
@@ -138,27 +139,29 @@ export default function OnboardingScreen() {
   };
 
   const dotColors = useMemo(() => {
-    if (currentVariant === "dark") {
+    if (index === 0) {
       return {
         active: "#FFFFFF",
         inactive: "rgba(255, 255, 255, 0.38)",
       };
     }
     return {
-      active: primary,
-      inactive: dotInactiveLight,
+      active: PRIMARY,
+      inactive: DOT_INACTIVE_LIGHT,
     };
-  }, [currentVariant, dotInactiveLight, primary]);
+  }, [index, PRIMARY, DOT_INACTIVE_LIGHT]);
 
   const renderSlide: ListRenderItem<Slide> = useCallback(
     ({ item, index: slideIndex }) => {
-      const bg = item.variant === "dark" ? BG_DARK_MAUVE : colors.background;
-      const titleColor = item.variant === "dark" ? onPrimary : onSurfaceVariant;
-      const bodyColor = item.variant === "dark" ? onPrimary : onSurfaceVariant;
+      const isFirstSlide = slideIndex === 0;
+
+      const bg = isFirstSlide ? BG_PRIMARY_LIGHT : BG_LIGHT;
+      const titleColor = isFirstSlide ? ON_PRIMARY_LIGHT : ON_SURFACE_VARIANT_LIGHT;
+      const bodyColor = isFirstSlide ? ON_PRIMARY_LIGHT : ON_SURFACE_VARIANT_LIGHT;
       // Keep the top logo lockup the same size across slides.
       const yellowLogoW = LOGO_W;
       const yellowLogoH = LOGO_H;
-      const slideSkipColor = slideIndex === 0 ? onPrimary : onSurfaceVariant;
+      const slideSkipColor = isFirstSlide ? ON_PRIMARY_LIGHT : ON_SURFACE_VARIANT_LIGHT;
       const isSlideLast = slideIndex === slides.length - 1;
 
       return (
@@ -205,7 +208,7 @@ export default function OnboardingScreen() {
             >
               <View style={{ paddingHorizontal: ONBOARDING_PAD_H }}>
                 <View style={styles.logoBlock}>
-                  {item.variant === "dark" ? (
+                  {isFirstSlide ? (
                     <Image
                       source={PRIMARY_YELLOW_LOGO_PNG}
                       accessibilityIgnoresInvertColors
@@ -289,9 +292,11 @@ export default function OnboardingScreen() {
                   variant="outline"
                   style={[
                     styles.backButton,
-                    // Use outline padding/typography, but remove the visible border.
-                    // { borderWidth: 0, borderColor: "transparent" },
+                    {
+                      borderColor: 'transparent'
+                    }
                   ]}
+                  color={Colors.light.onSurface}
                 />
               ) : (
                 <View style={styles.skipSpacer} />
@@ -309,7 +314,7 @@ export default function OnboardingScreen() {
                   accessibilityLabel={t("common.next")}
                 >
                   <AppText
-                    style={[styles.nextTextOnlyLabel, { color: onPrimary }]}
+                    style={[styles.nextTextOnlyLabel, { color: ON_PRIMARY_LIGHT }]}
                   >
                     {t("common.next")}
                   </AppText>
@@ -325,7 +330,10 @@ export default function OnboardingScreen() {
                     isSlideLast ? handleContinue() : goToSlide(slideIndex + 1)
                   }
                   variant="primary"
-                  style={styles.nextPill}
+                  style={[styles.nextPill, {
+                    backgroundColor: Colors.light.primary
+                  }]}
+                  color={Colors.light.onPrimary}
                 />
               )}
             </View>
@@ -334,16 +342,23 @@ export default function OnboardingScreen() {
       );
     },
     [
+      BG_LIGHT,
+      BG_PRIMARY_LIGHT,
+      DOT_INACTIVE_LIGHT,
+      ON_PRIMARY_LIGHT,
+      ON_SURFACE_VARIANT_LIGHT,
       dotColors.active,
-      colors.background,
       dotColors.inactive,
+      goNext,
+      goToSlide,
+      handleContinue,
       illuHeight,
       illuWidth,
       index,
-      onPrimary,
-      onSurfaceVariant,
       pageWidth,
-      primary,
+      PRIMARY,
+      PRIMARY_LOGO_PNG,
+      PRIMARY_YELLOW_LOGO_PNG,
       slides,
       t,
     ],
@@ -360,8 +375,8 @@ export default function OnboardingScreen() {
 
   const keyExtractor = useCallback((item: Slide) => item.key, []);
 
-  const screenBg =
-    currentVariant === "dark" ? BG_DARK_MAUVE : colors.background;
+  // Always set onboarding bg to light theme color, special casing for first slide
+  const screenBg = index === 0 ? BG_PRIMARY_LIGHT : BG_LIGHT;
 
   return (
     <SafeAreaView
@@ -377,6 +392,10 @@ export default function OnboardingScreen() {
           backgroundColor: screenBg,
         }}
       >
+        <StatusBar
+  barStyle={index === 0 ? "light-content" : "dark-content"}
+  backgroundColor={screenBg}
+/>
         <View style={styles.root}>
           <FlatList
             ref={flatListRef}
@@ -511,8 +530,6 @@ const styles = StyleSheet.create({
     flex: 1,
     width: "100%",
     marginRight: 12,
-    // borderWidth: 0,
-    // borderColor: "transparent",
   },
   nextTextOnly: {
     paddingVertical: 8,

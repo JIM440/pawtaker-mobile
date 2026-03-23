@@ -1,56 +1,59 @@
-import React, { useState } from 'react';
-import { View, StyleSheet, TouchableOpacity } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { Search, SlidersHorizontal } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { SearchFilterStyles } from '@/src/constants/searchFilter';
-import { PageContainer } from '@/src/shared/components/layout';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { ChatScreenSkeleton, ChatRow } from '@/src/shared/components/chat';
-import { ChatTypography } from '@/src/constants/chatTypography';
-import { SearchField } from '@/src/shared/components/forms/SearchField';
+import { ChatTypography } from "@/src/constants/chatTypography";
+import { Colors } from "@/src/constants/colors";
+import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { ChatRow, ChatScreenSkeleton } from "@/src/shared/components/chat";
+import { SearchField } from "@/src/shared/components/forms/SearchField";
+import { PageContainer } from "@/src/shared/components/layout";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { useRouter } from "expo-router";
+import { Search, SlidersHorizontal } from "lucide-react-native";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 const MOCK_CHATS = [
   {
-    threadId: '1',
-    name: 'Alice Morgan',
-    avatarUri: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100',
-    lastMessagePreview: 'can we conclude the booking for next week?',
-    timestamp: '12m',
+    threadId: "1",
+    name: "Alice Morgan",
+    avatarUri:
+      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=100",
+    lastMessagePreview: "can we conclude the booking for next week?",
+    timestamp: "12m",
     unreadCount: 2,
   },
   {
-    threadId: '2',
-    name: 'Bob Majors',
-    avatarUri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
+    threadId: "2",
+    name: "Bob Majors",
+    avatarUri:
+      "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100",
     lastMessagePreview: "yes, i'll be available",
-    timestamp: '1h',
+    timestamp: "1h",
     unreadCount: 0,
   },
   {
-    threadId: '3',
-    name: 'Jude Meyer',
+    threadId: "3",
+    name: "Jude Meyer",
     avatarUri: null,
-    lastMessagePreview: 'Hello there. waiting for a response pls',
-    timestamp: '2h',
+    lastMessagePreview: "Hello there. waiting for a response pls",
+    timestamp: "2h",
     unreadCount: 1,
   },
   {
-    threadId: '4',
-    name: 'Elsa Mago',
+    threadId: "4",
+    name: "Elsa Mago",
     avatarUri: null,
-    lastMessagePreview: 'Thanks for confirming!',
-    timestamp: 'Yesterday',
+    lastMessagePreview: "Thanks for confirming!",
+    timestamp: "Yesterday",
     unreadCount: 1,
   },
   {
-    threadId: '5',
-    name: 'James Alvarez',
-    avatarUri: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100',
-    lastMessagePreview: 'See you then.',
-    timestamp: 'Mon',
+    threadId: "5",
+    name: "James Alvarez",
+    avatarUri:
+      "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=100",
+    lastMessagePreview: "See you then.",
+    timestamp: "Mon",
     unreadCount: 0,
   },
 ];
@@ -61,7 +64,7 @@ export default function MessagesScreen() {
   const colors = Colors[resolvedTheme];
   const router = useRouter();
   const [loading, setLoading] = useState(false);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState("");
 
   // Simulate premium loading state
   React.useEffect(() => {
@@ -71,11 +74,14 @@ export default function MessagesScreen() {
   }, []);
 
   return (
-    <PageContainer scrollable={!loading}>
+    <PageContainer>
       {loading ? (
         <ChatScreenSkeleton rowCount={8} />
       ) : (
-        <>
+        <ScrollView
+          showsVerticalScrollIndicator={false}
+          keyboardShouldPersistTaps="handled"
+        >
           <View style={styles.header}>
             <AppText variant="headline" style={ChatTypography.listScreenTitle}>
               {t("messages.chatsTitle")}
@@ -91,10 +97,16 @@ export default function MessagesScreen() {
               rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
             />
             <TouchableOpacity
-              style={[styles.filterBtn, { backgroundColor: colors.surfaceContainerHighest }]}
+              style={[
+                styles.filterBtn,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
               hitSlop={8}
             >
-              <SlidersHorizontal size={SearchFilterStyles.searchIconSize} color={colors.onSurface} />
+              <SlidersHorizontal
+                size={SearchFilterStyles.searchIconSize}
+                color={colors.onSurface}
+              />
             </TouchableOpacity>
           </View>
 
@@ -108,11 +120,13 @@ export default function MessagesScreen() {
                 lastMessagePreview={chat.lastMessagePreview}
                 timestamp={chat.timestamp}
                 unreadCount={chat.unreadCount}
-                onPress={() => router.push(`/(private)/(tabs)/messages/${chat.threadId}`)}
+                onPress={() =>
+                  router.push(`/(private)/(tabs)/messages/${chat.threadId}`)
+                }
               />
             ))}
           </View>
-        </>
+        </ScrollView>
       )}
     </PageContainer>
   );
@@ -123,8 +137,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
     marginVertical: 12,
   },
@@ -135,8 +149,8 @@ const styles = StyleSheet.create({
     width: SearchFilterStyles.filterButtonSize,
     height: SearchFilterStyles.filterButtonSize,
     borderRadius: SearchFilterStyles.filterButtonBorderRadius,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   list: {
     paddingBottom: 40,
