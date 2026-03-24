@@ -25,7 +25,7 @@ export default function VerifyScreen() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleVerify = async () => {
-    if (otp.length < 6) {
+    if (otp.length < 8) {
       setError(t('auth.signup.verify.invalidCode'));
       return;
     }

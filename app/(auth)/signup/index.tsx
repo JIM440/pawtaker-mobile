@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { useSignupStore } from "@/src/lib/store/signup.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { signInWithGoogleNative } from "@/src/lib/supabase/google-auth";
 import { TextField } from "@/src/shared/components/forms/TextField";
 import { BackHeader } from "@/src/shared/components/layout";
 import { PageContainer } from "@/src/shared/components/layout/PageContainer";
@@ -66,6 +67,17 @@ export default function SignupScreen() {
 
   const onSocialPress = () => {
     Alert.alert(t("app.name"), t("auth.socialSignInComingSoon"));
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setLoading(true);
+    const { error: googleError } = await signInWithGoogleNative();
+    setLoading(false);
+
+    if (googleError) {
+      setError(googleError);
+    }
   };
 
   const handleSignUp = async () => {
@@ -337,7 +349,7 @@ export default function SignupScreen() {
           }}
         >
           <TouchableOpacity
-            onPress={onSocialPress}
+            onPress={handleGoogleSignIn}
             style={{
               width: 52,
               height: 52,

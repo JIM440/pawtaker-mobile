@@ -30,12 +30,14 @@ interface AuthState {
   onboardingSeen: boolean;
   _hasHydrated: boolean;
   isLoading: boolean;
+  isInRecoveryFlow: boolean;
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
   setProfile: (profile: UserProfile | null) => void;
   setOnboardingSeen: (onboardingSeen: boolean) => void;
   setHasHydrated: (state: boolean) => void;
   setLoading: (isLoading: boolean) => void;
+  setIsInRecoveryFlow: (val: boolean) => void;
   fetchProfile: (userId: string) => Promise<void>;
   signOut: () => void;
   clearAuth: () => void;
@@ -50,9 +52,10 @@ export const useAuthStore = create<AuthState>()(
       onboardingSeen: false,
       _hasHydrated: false,
       isLoading: true,
+      isInRecoveryFlow: false,
       setUser: (user) => set({ user }),
       setSession: (session) =>
-        set((state) => ({
+        set((_state) => ({
           session,
           user: session?.user ?? null,
         })),
@@ -60,6 +63,7 @@ export const useAuthStore = create<AuthState>()(
       setOnboardingSeen: (onboardingSeen) => set({ onboardingSeen }),
       setHasHydrated: (state) => set({ _hasHydrated: state }),
       setLoading: (isLoading) => set({ isLoading }),
+      setIsInRecoveryFlow: (val) => set({ isInRecoveryFlow: val }),
 
       fetchProfile: async (userId: string) => {
         const { data, error } = await supabase
@@ -72,8 +76,8 @@ export const useAuthStore = create<AuthState>()(
         }
       },
 
-      signOut: () => set({ user: null, session: null, profile: null }),
-      clearAuth: () => set({ user: null, session: null, profile: null }),
+      signOut: () => set({ user: null, session: null, profile: null, isInRecoveryFlow: false }),
+      clearAuth: () => set({ user: null, session: null, profile: null, isInRecoveryFlow: false }),
     }),
     {
       name: 'pawtaker-auth',

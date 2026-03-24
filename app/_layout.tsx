@@ -2,6 +2,7 @@ import "../global.css";
 import "../src/lib/i18n";
 
 import { supabase } from "@/src/lib/supabase/client";
+import { configureGoogleSignIn } from "@/src/lib/supabase/google-auth";
 import {
   Roboto_400Regular,
   Roboto_500Medium,
@@ -29,6 +30,8 @@ if (Platform.OS !== "web") {
   SplashScreen.preventAutoHideAsync();
 }
 
+configureGoogleSignIn();
+
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
@@ -51,6 +54,8 @@ export default function RootLayout() {
     setProfile,
     setLoading,
     fetchProfile,
+    isInRecoveryFlow,
+    setIsInRecoveryFlow,
     _hasHydrated: authHydrated,
   } = useAuthStore();
 
@@ -87,6 +92,18 @@ export default function RootLayout() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (_event === 'PASSWORD_RECOVERY') {
+        // Atomically mark recovery mode + set session so the Stack.Protected
+        // guard sees both changes in the same render — prevents the auth group
+        // being unmounted before the user has reset their password.
+        useAuthStore.setState({ isInRecoveryFlow: true, session, user: session?.user ?? null });
+        return;
+      }
+
+      if (_event === 'SIGNED_OUT') {
+        setIsInRecoveryFlow(false);
+      }
+
       setSession(session);
       if (session?.user?.id) {
         void fetchProfile(session.user.id);
@@ -107,9 +124,10 @@ export default function RootLayout() {
     if (Platform.OS !== "web") void SplashScreen.hideAsync();
   }, [ready]);
 
-  /** Expo Router: Stack.Protected — only one branch mounts; avoids flashing (private) before redirect. */
-  const canAccessPrivate = !!session;
-  const canAccessAuth = !session;
+  /** Expo Router: Stack.Protected — only one branch mounts; avoids flashing (private) before redirect.
+   *  During PASSWORD_RECOVERY the user has a session but must stay in the auth group to reset their password. */
+  const canAccessPrivate = !!session && !isInRecoveryFlow;
+  const canAccessAuth = !session || isInRecoveryFlow;
 
   if (!ready) {
     return (

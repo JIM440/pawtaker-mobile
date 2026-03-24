@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { signInWithGoogleNative } from "@/src/lib/supabase/google-auth";
 import { TextField } from "@/src/shared/components/forms/TextField";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { PageContainer } from "@/src/shared/components/layout/PageContainer";
@@ -50,6 +51,17 @@ export default function LoginScreen() {
 
   const onSocialPress = () => {
     Alert.alert(t("app.name"), t("auth.socialSignInComingSoon"));
+  };
+
+  const handleGoogleSignIn = async () => {
+    setError(null);
+    setLoading(true);
+    const { error: googleError } = await signInWithGoogleNative();
+    setLoading(false);
+
+    if (googleError) {
+      setError(googleError);
+    }
   };
 
   const handleSignIn = async () => {
@@ -233,7 +245,7 @@ export default function LoginScreen() {
           }}
         >
           <TouchableOpacity
-            onPress={onSocialPress}
+            onPress={handleGoogleSignIn}
             style={{
               width: 52,
               height: 52,

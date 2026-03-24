@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { supabase } from "@/src/lib/supabase/client";
+import { useAuthStore } from "@/src/lib/store/auth.store";
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useForgotPasswordStore } from "@/src/lib/store/forgotPassword.store";
@@ -26,6 +27,7 @@ export default function ForgotPasswordConfirmScreen() {
   const colors = Colors[resolvedTheme];
 
   const { newPassword, clear } = useForgotPasswordStore();
+  const { setIsInRecoveryFlow } = useAuthStore();
 
   const [confirm, setConfirm] = useState("");
   const [touched, setTouched] = useState(false);
@@ -72,6 +74,7 @@ export default function ForgotPasswordConfirmScreen() {
     }
 
     clear();
+    setIsInRecoveryFlow(false); // lift the recovery gate → Stack.Protected lets private group mount
     router.replace("/(private)/(tabs)/(home)" as any);
   };
 
