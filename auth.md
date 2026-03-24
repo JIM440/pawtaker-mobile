@@ -1,189 +1,187 @@
-🐾  PawTaker
+🐾 PawTaker
 Authentication Implementation Guide
-For the Junior Developer  •  Version 1.0  •  March 2026
+For the Junior Developer • Version 1.0 • March 2026
 
 Tech Stack
-React Native + Expo Router	Backend
-Supabase (Auth + PostgreSQL)	State
+React Native + Expo Router Backend
+Supabase (Auth + PostgreSQL) State
 Zustand
 
 0.  Purpose & Scope of This Document
-This document is the complete implementation guide for the PawTaker authentication system. It covers every action that must be taken — both inside the Supabase dashboard and inside the React Native codebase — to deliver a fully working auth flow, from sign-up through email OTP verification, profile creation, and onboarding navigation.
-Follow the steps in the exact order they appear. Each section is self-contained and tells you where to do something (Supabase dashboard vs code), what to write, and why.
+    This document is the complete implementation guide for the PawTaker authentication system. It covers every action that must be taken — both inside the Supabase dashboard and inside the React Native codebase — to deliver a fully working auth flow, from sign-up through email OTP verification, profile creation, and onboarding navigation.
+    Follow the steps in the exact order they appear. Each section is self-contained and tells you where to do something (Supabase dashboard vs code), what to write, and why.
 
-Scope item	Included?
-Email + password sign-up	✅  Yes
-OTP email verification	✅  Yes
-Google & Apple OAuth	✅  Yes (noted where it differs)
-Zustand store for signup state	✅  Yes
-Supabase database trigger	✅  Yes — full SQL provided
-onAuthStateChange navigation	✅  Yes
-KYC submit + pending screens	✅  Referenced — not wired to Supabase yet
-Points, reviews, feed	❌  Out of scope for this document
-
+Scope item Included?
+Email + password sign-up ✅ Yes
+OTP email verification ✅ Yes
+Google & Apple OAuth ✅ Yes (noted where it differs)
+Zustand store for signup state ✅ Yes
+Supabase database trigger ✅ Yes — full SQL provided
+onAuthStateChange navigation ✅ Yes
+KYC submit + pending screens ✅ Referenced — not wired to Supabase yet
+Points, reviews, feed ❌ Out of scope for this document
 
 1.  Architecture Overview
-Before writing any code, understand how the two Supabase tables relate to each other and where your app fits.
+    Before writing any code, understand how the two Supabase tables relate to each other and where your app fits.
 
-1.1  The Two-Table Model
-Table	Purpose
-auth.users	Managed entirely by Supabase. Stores credentials, tokens, email verification state. You never write to this directly.
-public.users	Your application table. Stores all profile data: name, location, KYC status, points, preferences etc. You read and write this freely.
+1.1 The Two-Table Model
+Table Purpose
+auth.users Managed entirely by Supabase. Stores credentials, tokens, email verification state. You never write to this directly.
+public.users Your application table. Stores all profile data: name, location, KYC status, points, preferences etc. You read and write this freely.
 
-✅  NOTE  These two tables share the same UUID as their primary key. auth.users.id === public.users.id. This is how you link them.
+✅ NOTE These two tables share the same UUID as their primary key. auth.users.id === public.users.id. This is how you link them.
 
-1.2  How They Stay in Sync — The Database Trigger
+1.2 How They Stay in Sync — The Database Trigger
 When a user signs up, Supabase creates the auth.users row automatically. You need the public.users row to be created at the same moment. The cleanest way to do this is a PostgreSQL trigger that fires on every INSERT into auth.users and automatically creates the matching public.users row.
 This approach is chosen over doing the insert in React Native code because:
-•	It fires server-side — network drops and app crashes cannot prevent it.
-•	It works for all auth methods (email, Google, Apple) from a single piece of code.
-•	Your React Native sign-up code stays clean — one call, no manual inserts.
+• It fires server-side — network drops and app crashes cannot prevent it.
+• It works for all auth methods (email, Google, Apple) from a single piece of code.
+• Your React Native sign-up code stays clean — one call, no manual inserts.
 
-1.3  Full Auth Flow at a Glance
+1.3 Full Auth Flow at a Glance
 User fills Step 1 — Credentials screen
-        ↓
+↓
 supabase.auth.signUp() called from React Native
-        ↓
-  ┌─────────────────────────────────┐
-  │ Supabase creates auth.users row  │
-  │ Trigger fires → public.users row │
-  │ OTP email sent automatically     │
-  └─────────────────────────────────┘
-        ↓
+↓
+┌─────────────────────────────────┐
+│ Supabase creates auth.users row │
+│ Trigger fires → public.users row │
+│ OTP email sent automatically │
+└─────────────────────────────────┘
+↓
 User navigates to OTP verification screen (new Step 2)
-        ↓
+↓
 User enters 6-digit code from email
-        ↓
+↓
 supabase.auth.verifyOtp() called
-        ↓
+↓
 Trigger fires → is_email_verified = true in public.users
-        ↓
+↓
 User fills Step 3 — Profile Information
-        ↓
+↓
 public.users updated (bio, city, display name)
-        ↓
+↓
 User completes Step 4 — Declaration
-        ↓
+↓
 User submits Step 5 — KYC document
-        ↓
+↓
 User lands on Step 6 — KYC Pending screen
-        ↓
+↓
 User enters the main app (/(private)/(tabs))
 
-
 2.  How Authentication Works Under the Hood
-Before writing a single line of code, you must understand what actually happens when a user signs up or signs in. This section explains what Supabase returns, where tokens go, how they are managed, and how the navigation logic uses all of this.
+    Before writing a single line of code, you must understand what actually happens when a user signs up or signs in. This section explains what Supabase returns, where tokens go, how they are managed, and how the navigation logic uses all of this.
 
-2.1  What Supabase Returns After Auth
+2.1 What Supabase Returns After Auth
 When supabase.auth.signUp() or supabase.auth.signInWithPassword() is called, Supabase returns a session object. This is the core of everything — it proves who the user is and keeps them logged in.
 
 // What comes back from signUp() or signInWithPassword()
 {
-  data: {
-    session: {
-      access_token:  'eyJhbGc...',   // JWT — proves who the user is
-      refresh_token: 'xKj8...',       // used to silently get a new access_token
-      expires_at:    1711234567,       // unix timestamp when access_token expires
-      expires_in:    3600,             // seconds until expiry (1 hour)
-      token_type:    'bearer',
-      user: {
-        id:                   'uuid-here',
-        email:                'john@example.com',
-        email_confirmed_at:   null,    // null until OTP verified
-        user_metadata: {
-          full_name:    'John Doe',
-          has_had_pet:  true
-        }
-      }
-    },
-    user: { ... }   // same user object as above
-  },
-  error: null
+data: {
+session: {
+access_token: 'eyJhbGc...', // JWT — proves who the user is
+refresh_token: 'xKj8...', // used to silently get a new access_token
+expires_at: 1711234567, // unix timestamp when access_token expires
+expires_in: 3600, // seconds until expiry (1 hour)
+token_type: 'bearer',
+user: {
+id: 'uuid-here',
+email: 'john@example.com',
+email_confirmed_at: null, // null until OTP verified
+user_metadata: {
+full_name: 'John Doe',
+has_had_pet: true
+}
+}
+},
+user: { ... } // same user object as above
+},
+error: null
 }
 
-✅  NOTE  email_confirmed_at is null until the user verifies their email via OTP. This is what Supabase uses internally to know if the email is verified.
+✅ NOTE email_confirmed_at is null until the user verifies their email via OTP. This is what Supabase uses internally to know if the email is verified.
 
-2.2  Where Do Tokens Go — expo-secure-store
+2.2 Where Do Tokens Go — expo-secure-store
 You never manually handle or store tokens. The Supabase client does this entirely on your behalf. But it needs to know WHERE to store them on the device. For React Native / Expo, the answer is expo-secure-store — a secure, encrypted key-value store on the device.
 
 This is configured once in your Supabase client file. Make sure your src/lib/supabase/client.ts looks exactly like this:
 
 import { createClient } from '@supabase/supabase-js';
-import * as SecureStore from 'expo-secure-store';
+import \* as SecureStore from 'expo-secure-store';
 
 // Adapter that tells Supabase to use expo-secure-store
 const ExpoSecureStoreAdapter = {
-  getItem:    (key: string) => SecureStore.getItemAsync(key),
-  setItem:    (key: string, value: string) => SecureStore.setItemAsync(key, value),
-  removeItem: (key: string) => SecureStore.deleteItemAsync(key),
+getItem: (key: string) => SecureStore.getItemAsync(key),
+setItem: (key: string, value: string) => SecureStore.setItemAsync(key, value),
+removeItem: (key: string) => SecureStore.deleteItemAsync(key),
 };
 
 export const supabase = createClient(
-  process.env.EXPO_PUBLIC_SUPABASE_URL!,
-  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
-  {
-    auth: {
-      storage:          ExpoSecureStoreAdapter, // store tokens securely on device
-      autoRefreshToken: true,                   // auto-refresh when access_token expires
-      persistSession:   true,                   // session survives app restarts
-      detectSessionInUrl: false,                // must be false for React Native
-    }
-  }
+process.env.EXPO_PUBLIC_SUPABASE_URL!,
+process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY!,
+{
+auth: {
+storage: ExpoSecureStoreAdapter, // store tokens securely on device
+autoRefreshToken: true, // auto-refresh when access_token expires
+persistSession: true, // session survives app restarts
+detectSessionInUrl: false, // must be false for React Native
+}
+}
 );
 
-⚠️  NOTE  If expo-secure-store is not installed, run: npx expo install expo-secure-store
+⚠️ NOTE If expo-secure-store is not installed, run: npx expo install expo-secure-store
 
 Once this is configured, here is what happens automatically every time:
 
-Action	What Supabase does automatically
-User signs up or signs in	Saves access_token + refresh_token to expo-secure-store
-User makes any Supabase query	Attaches access_token to the request header automatically
-access_token expires (after 1 hour)	Uses refresh_token to silently get a new access_token
-User closes and reopens the app	Reads saved tokens from expo-secure-store — user stays logged in
-User signs out	Deletes tokens from expo-secure-store — user is logged out
+Action What Supabase does automatically
+User signs up or signs in Saves access_token + refresh_token to expo-secure-store
+User makes any Supabase query Attaches access_token to the request header automatically
+access_token expires (after 1 hour) Uses refresh_token to silently get a new access_token
+User closes and reopens the app Reads saved tokens from expo-secure-store — user stays logged in
+User signs out Deletes tokens from expo-secure-store — user is logged out
 
-✅  NOTE  You never read or write tokens manually anywhere in your code. The Supabase client handles all of this silently in the background.
+✅ NOTE You never read or write tokens manually anywhere in your code. The Supabase client handles all of this silently in the background.
 
-2.3  How onAuthStateChange Works
+2.3 How onAuthStateChange Works
 onAuthStateChange is a listener that fires every time the user's auth state changes. It is set up once in the root layout and runs for the entire lifetime of the app. It is what keeps your Zustand session state in sync with Supabase.
 
-// Already in your _layout.tsx — this is what it does:
-supabase.auth.onAuthStateChange((_event, session) => {
-  setSession(session);   // updates Zustand auth store
+// Already in your \_layout.tsx — this is what it does:
+supabase.auth.onAuthStateChange((\_event, session) => {
+setSession(session); // updates Zustand auth store
 });
 
 Here is every event it can fire and exactly when:
 
-Event	When it fires	What to do
-INITIAL_SESSION	App boots — Supabase reads saved tokens from SecureStore	setSession() — already handled
-SIGNED_IN	User signs in OR OTP is verified successfully	setSession() — navigation useEffect handles routing
-USER_UPDATED	User verifies email or changes password	setSession() — profile re-fetch handles the rest
-TOKEN_REFRESHED	access_token silently refreshed in background	setSession() with new token — no action needed
-SIGNED_OUT	User manually signs out	setSession(null) — navigation sends to welcome screen
-PASSWORD_RECOVERY	User clicks password reset link	Navigate to password reset screen
+Event When it fires What to do
+INITIAL_SESSION App boots — Supabase reads saved tokens from SecureStore setSession() — already handled
+SIGNED_IN User signs in OR OTP is verified successfully setSession() — navigation useEffect handles routing
+USER_UPDATED User verifies email or changes password setSession() — profile re-fetch handles the rest
+TOKEN_REFRESHED access_token silently refreshed in background setSession() with new token — no action needed
+SIGNED_OUT User manually signs out setSession(null) — navigation sends to welcome screen
+PASSWORD_RECOVERY User clicks password reset link Navigate to password reset screen
 
-2.4  How the Conditional Navigation Works
-This is the most critical part to understand. The navigation does NOT happen inside individual screens. It all happens in one place — the useEffect in _layout.tsx that watches the session. Here is the complete logic:
+2.4 How the Conditional Navigation Works
+This is the most critical part to understand. The navigation does NOT happen inside individual screens. It all happens in one place — the useEffect in \_layout.tsx that watches the session. Here is the complete logic:
 
 Step 1 — onAuthStateChange fires and updates session in Zustand:
 
-supabase.auth.onAuthStateChange((_event, session) => {
-  setSession(session);   // session changes → useEffect re-runs
+supabase.auth.onAuthStateChange((\_event, session) => {
+setSession(session); // session changes → useEffect re-runs
 });
 
 Step 2 — useEffect watches session and decides where to navigate:
 
 useEffect(() => {
-  if (!ready) return;                    // wait for fonts + auth to load
+if (!ready) return; // wait for fonts + auth to load
 
-  if (!session) {
-    router.replace('/(auth)/welcome');   // no session = not logged in → welcome
-    return;
-  }
+if (!session) {
+router.replace('/(auth)/welcome'); // no session = not logged in → welcome
+return;
+}
 
-  // session exists — but we need the profile to know WHERE to send the user
-  fetchProfile(session.user.id).then(() => {
-    const profile = useAuthStore.getState().profile;
+// session exists — but we need the profile to know WHERE to send the user
+fetchProfile(session.user.id).then(() => {
+const profile = useAuthStore.getState().profile;
 
     if (!profile.is_email_verified) {
       router.replace('/(auth)/signup/verify');      // email not verified yet
@@ -196,60 +194,60 @@ useEffect(() => {
     } else {
       router.replace('/(private)/(tabs)');          // fully onboarded → home
     }
-  });
 
-}, [ready, session]);   // re-runs when either changes
+});
+
+}, [ready, session]); // re-runs when either changes
 
 Why [ready, session] as the dependency array:
 
-Dependency	Why it is needed
-ready	Prevents navigation before fonts are loaded and auth state is known. Without this, the app would try to navigate before Supabase has finished reading tokens from SecureStore.
-session	Re-runs the navigation logic every time auth state changes. This is what makes sign-in and sign-out automatically redirect the user without any manual router.push() calls in individual screens.
+Dependency Why it is needed
+ready Prevents navigation before fonts are loaded and auth state is known. Without this, the app would try to navigate before Supabase has finished reading tokens from SecureStore.
+session Re-runs the navigation logic every time auth state changes. This is what makes sign-in and sign-out automatically redirect the user without any manual router.push() calls in individual screens.
 
-2.5  The Complete Token & Navigation Flow
+2.5 The Complete Token & Navigation Flow
 APP OPENS
-    ↓
+↓
 Supabase reads expo-secure-store for saved tokens
-    ↓
-    ┌──────────────────────┬────────────────────────┐
-    │                      │                        │
-No tokens found     Tokens found             Tokens found
-                    (still valid)             (expired)
-    │                      │                        │
-    ↓                      ↓                        ↓
-session = null      INITIAL_SESSION          Supabase uses
-    │                fires                   refresh_token
-    ↓                      │                silently
-Welcome screen      setSession(session)            │
-                           │                        ↓
-                           ↓               TOKEN_REFRESHED
-                    useEffect fires                 │
-                           │                setSession(new)
-                           ↓                        │
-                    fetchProfile()                  ↓
-                           │               same as tokens
-                           ↓               found valid
-                    Check conditions
-                           │
-           ┌───────────────┼───────────────────┐
-           ↓               ↓                   ↓
-    email not       profile not          kyc_status
-    verified        complete             navigation
-           ↓               ↓                   ↓
-    /signup/verify  /signup/profile      /kyc/submit
-                                         /kyc/pending
-                                         /(private)/(tabs)
-
+↓
+┌──────────────────────┬────────────────────────┐
+│ │ │
+No tokens found Tokens found Tokens found
+(still valid) (expired)
+│ │ │
+↓ ↓ ↓
+session = null INITIAL_SESSION Supabase uses
+│ fires refresh_token
+↓ │ silently
+Welcome screen setSession(session) │
+│ ↓
+↓ TOKEN_REFRESHED
+useEffect fires │
+│ setSession(new)
+↓ │
+fetchProfile() ↓
+│ same as tokens
+↓ found valid
+Check conditions
+│
+┌───────────────┼───────────────────┐
+↓ ↓ ↓
+email not profile not kyc_status
+verified complete navigation
+↓ ↓ ↓
+/signup/verify /signup/profile /kyc/submit
+/kyc/pending
+/(private)/(tabs)
 
 3.  Supabase Dashboard Configuration
-These steps must be completed before writing any code. They only need to be done once.
+    These steps must be completed before writing any code. They only need to be done once.
 
-3.1	Edit the Confirm Sign Up Email Template (Enable OTP)
+3.1 Edit the Confirm Sign Up Email Template (Enable OTP)
 
 By default Supabase sends a magic link for email verification. We want a 6-digit OTP code instead. This is achieved by editing the email template — there is no separate toggle to enable.
 
 Navigation path in the Supabase dashboard:
-Authentication  →  Notifications  →  Email  →  Templates tab  →  Confirm sign up
+Authentication → Notifications → Email → Templates tab → Confirm sign up
 
 Replace the entire template content with the following:
 
@@ -260,28 +258,28 @@ Replace the entire template content with the following:
 <p>This code expires in <strong>1 hour</strong>.</p>
 <p>If you did not create a PawTaker account, you can safely ignore this email.</p>
 
-✅  NOTE  The key change is {{ .Token }} — this tells Supabase to insert a 6-digit code instead of {{ .ConfirmationURL }} which sends a link.
+✅ NOTE The key change is {{ .Token }} — this tells Supabase to insert a 6-digit code instead of {{ .ConfirmationURL }} which sends a link.
 
 Click Save when done.
 
-3.2	Set OTP Expiration Time
+3.2 Set OTP Expiration Time
 
 Navigation path:
-Authentication  →  Configuration  →  Sign In / Providers  →  Email  →  Email OTP Expiration
+Authentication → Configuration → Sign In / Providers → Email → Email OTP Expiration
 
 Set the value to 3600 (this is 1 hour in seconds). Click Save.
 
-3.3	Confirm Email Provider Is Enabled
+3.3 Confirm Email Provider Is Enabled
 
 Navigation path:
-Authentication  →  Configuration  →  Sign In / Providers  →  Email
+Authentication → Configuration → Sign In / Providers → Email
 
 Make sure the Email provider toggle is ON. Leave all other settings at their defaults for now.
 
-3.4	Run the Database Trigger in SQL Editor
+3.4 Run the Database Trigger in SQL Editor
 
 Navigation path:
-SQL Editor  →  New query
+SQL Editor → New query
 
 Run the following SQL. This creates two triggers: one that creates the public.users row on signup, and one that sets is_email_verified = true when the user verifies their email.
 
@@ -290,44 +288,46 @@ QUERY 1 — Create the new user handler function:
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
 BEGIN
-  INSERT INTO public.users (
-    id,
-    email,
-    full_name,
-    auth_type,
-    has_had_pet,
-    kyc_status,
-    is_verified,
-    is_email_verified,
-    care_given_count,
-    care_received_count,
-    points_balance,
-    points_alltime_high,
-    language_pref,
-    theme_pref,
-    is_deactivated
-  )
-  VALUES (
-    NEW.id,
-    NEW.email,
-    NEW.raw_user_meta_data->>'full_name',
-    CASE
-      WHEN NEW.app_metadata->>'provider' = 'google' THEN 'google'
-      WHEN NEW.app_metadata->>'provider' = 'apple'  THEN 'apple'
-      ELSE 'email'
-    END,
-    COALESCE((NEW.raw_user_meta_data->>'has_had_pet')::boolean, false),
-    'not_submitted',
-    false,
-    false,
-    0, 0, 0, 0,
-    'en',
-    'system',
-    false
-  );
-  RETURN NEW;
+INSERT INTO public.users (
+id,
+email,
+full_name,
+auth_type,
+has_had_pet,
+kyc_status,
+is_verified,
+is_email_verified,
+care_given_count,
+care_received_count,
+points_balance,
+points_alltime_high,
+language_pref,
+theme_pref,
+is_deactivated
+)
+VALUES (
+NEW.id,
+NEW.email,
+NEW.raw_user_meta_data->>'full_name',
+CASE
+WHEN NEW.app_metadata->>'provider' = 'google' THEN 'google'
+WHEN NEW.app_metadata->>'provider' = 'apple' THEN 'apple'
+ELSE 'email'
+END,
+COALESCE((NEW.raw_user_meta_data->>'has_had_pet')::boolean, false),
+'not_submitted',
+false,
+false,
+0, 0, 0, 0,
+'en',
+'system',
+false
+);
+RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+$$
+LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Attach trigger to auth.users
 CREATE OR REPLACE TRIGGER on_auth_user_created
@@ -338,17 +338,21 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 QUERY 2 — Create the email verified handler function:
 
 CREATE OR REPLACE FUNCTION public.handle_email_verified()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER AS
+$$
+
 BEGIN
-  IF NEW.email_confirmed_at IS NOT NULL
-     AND OLD.email_confirmed_at IS NULL THEN
-    UPDATE public.users
-    SET is_email_verified = true
-    WHERE id = NEW.id;
-  END IF;
-  RETURN NEW;
+IF NEW.email_confirmed_at IS NOT NULL
+AND OLD.email_confirmed_at IS NULL THEN
+UPDATE public.users
+SET is_email_verified = true
+WHERE id = NEW.id;
+END IF;
+RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+$$
+LANGUAGE plpgsql SECURITY DEFINER;
 
 -- Attach trigger to auth.users
 CREATE OR REPLACE TRIGGER on_auth_user_updated
@@ -523,7 +527,7 @@ export default function AuthLayout() {
     <Stack screenOptions={{ headerShown: false }}>
       <Stack.Screen name="welcome" />
       <Stack.Screen name="login" />
-      <Stack.Screen name="signup/credentials" />   {/* Step 1 */}
+      <Stack.Screen name="signup" />   {/* Step 1 */}
       <Stack.Screen name="signup/verify" />        {/* Step 2 — NEW */}
       <Stack.Screen name="signup/profile" />       {/* Step 3 */}
       <Stack.Screen name="signup/declaration" />   {/* Step 4 */}
@@ -537,7 +541,7 @@ export default function AuthLayout() {
 7.  Screen Implementations
 
 7.1  Step 1 — Credentials Screen  (already exists, wire it up)
-File: app/(auth)/signup/credentials.tsx
+File: app/(auth)/signup/index.tsx
 This screen already has the UI. Wire the state and the Supabase call as follows:
 
 import { useState } from 'react';
@@ -1187,7 +1191,7 @@ Code — Cloudinary Utility
 Code — Screens
 30.	Update app/_layout.tsx — replace navigation useEffect with profile-aware version
 31.	Update app/(auth)/_layout.tsx — add signup/verify to route list
-32.	Wire app/(auth)/signup/credentials.tsx — connect state + supabase.auth.signUp()
+32.	Wire app/(auth)/signup.tsx — connect state + supabase.auth.signUp()
 33.	Create app/(auth)/signup/verify.tsx — full OTP verification screen
 34.	Wire app/(auth)/signup/profile.tsx — connect state to Zustand only (no Supabase call)
 35.	Wire app/(auth)/signup/declaration.tsx — connect state + final Supabase update
@@ -1225,3 +1229,4 @@ Permission denied for camera/gallery	Call requestMediaLibraryPermissionsAsync() 
 
 
 End of Document  •  PawTaker Auth Implementation Guide  •  v1.2  •  March 2026
+$$

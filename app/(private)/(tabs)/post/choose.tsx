@@ -1,14 +1,14 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Modal,
   TouchableOpacity,
   StyleSheet,
   Pressable,
-  useWindowDimensions,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
+import { blockIfKycNotApproved } from '@/src/lib/kyc/kyc-gate';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { AppText } from '@/src/shared/components/ui/AppText';
@@ -16,19 +16,20 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 export default function PostChooseScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { width } = useWindowDimensions();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [modalVisible, setModalVisible] = useState(true);
 
   const openRequest = () => {
+    if (blockIfKycNotApproved()) return;
     setModalVisible(false);
-    router.replace('/(private)/(tabs)/post/request');
+    router.replace('/(private)/post-requests' as any);
   };
 
   const openAvailability = () => {
+    if (blockIfKycNotApproved()) return;
     setModalVisible(false);
-    router.replace('/(private)/(tabs)/post/availability');
+    router.replace('/(private)/post-availability' as any);
   };
 
   return (

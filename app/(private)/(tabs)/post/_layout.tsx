@@ -1,14 +1,24 @@
-import { Stack } from 'expo-router';
+import { stackPerfScreenOptions } from "@/src/constants/navigation";
+import { Stack } from "expo-router";
+import { Platform } from "react-native";
 
-export default function PostLayout() {
+/**
+ * Post tab: lightweight stack (modal entry from + button). Wizards live under
+ * `/(private)/post-requests` and `/(private)/post-availability` so the tab bar stays hidden there.
+ */
+export default function PostTabLayout() {
   return (
-    <Stack screenOptions={{ headerShown: false }}>
-      <Stack.Screen name="choose" />
-      <Stack.Screen name="request/index" />
-      <Stack.Screen name="request/pet" options={{ headerShown: true, title: 'Select Pet' }} />
-      <Stack.Screen name="request/details" options={{ headerShown: true, title: 'Care Details' }} />
-      <Stack.Screen name="request/publish" options={{ headerShown: true, title: 'Review & Publish' }} />
-      <Stack.Screen name="availability" options={{ headerShown: true, title: 'My Availability' }} />
+    <Stack
+      screenOptions={{
+        headerShown: false,
+        ...stackPerfScreenOptions,
+        ...(Platform.OS === "ios"
+          ? { animation: "ios" as any, gestureEnabled: true }
+          : {}),
+      }}
+    >
+      <Stack.Screen name="index" />
+      <Stack.Screen name="choose" options={{ title: "Post" }} />
     </Stack>
   );
 }

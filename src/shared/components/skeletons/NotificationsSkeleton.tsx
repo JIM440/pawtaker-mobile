@@ -8,7 +8,6 @@ import { Skeleton } from '@/src/shared/components/ui/Skeleton';
 function NotificationRowSkeleton() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const bg = colors.surfaceContainer;
 
   return (
     <View style={styles.row}>
@@ -27,7 +26,6 @@ function NotificationRowSkeleton() {
 export function NotificationsSkeleton() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const bg = colors.surfaceContainer;
 
   return (
     <View style={styles.container}>
@@ -38,7 +36,7 @@ export function NotificationsSkeleton() {
       </View>
 
       {/* Search bar */}
-      <View style={[styles.searchBar, { backgroundColor: bg }]} />
+      <View style={[styles.searchBar, { backgroundColor: colors.surfaceContainer }]} />
 
       {/* List */}
       <View style={[styles.list, { borderBottomColor: colors.outlineVariant }]}>

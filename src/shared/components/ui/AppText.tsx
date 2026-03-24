@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import React from "react";
 import {
+  StyleSheet,
   Text,
   type StyleProp,
   type TextProps,
@@ -26,11 +27,11 @@ type AppTextProps = TextProps & {
 const variantStyles: Record<AppTextVariant, TextStyle> = {
   body: {
     fontFamily: "Roboto_400Regular",
-    fontSize: 16,
+    fontSize: 14,
     lineHeight: 24,
   },
   bodyLarge: {
-    fontFamily: "Roboto_400Regular",
+    fontFamily: "Roboto_500Medium",
     fontSize: 22,
     lineHeight: 24,
   },
@@ -58,8 +59,8 @@ const variantStyles: Record<AppTextVariant, TextStyle> = {
 };
 
 /**
- * Reusable text component with Roboto and theme-aware color.
- * Use for all app text so typography and color stay consistent.
+ * Reusable text component with Roboto font and theme-aware color.
+ * The font weight is determined by the variant, but can be overridden via style.
  */
 export function AppText({
   variant = "body",
@@ -71,12 +72,34 @@ export function AppText({
   const { resolvedTheme } = useThemeStore();
   const defaultColor = color ?? Colors[resolvedTheme].onSurface;
 
+  // Flatten styles to check for fontWeight override
+  const flattenedStyle = StyleSheet.flatten(style);
+  const fontWeight = flattenedStyle?.fontWeight;
+
+  let fontFamily = variantStyles[variant].fontFamily;
+
+  if (fontWeight) {
+    if (fontWeight === "bold" || fontWeight === "700" || (typeof fontWeight === "number" && fontWeight >= 700)) {
+      fontFamily = "Roboto_700Bold";
+    } else if (fontWeight === "500" || fontWeight === "600" || (typeof fontWeight === "number" && fontWeight >= 500)) {
+      fontFamily = "Roboto_500Medium";
+    } else {
+      fontFamily = "Roboto_400Regular";
+    }
+  }
+
   return (
     <Text
-      style={[variantStyles[variant], { color: defaultColor }, style]}
+      style={[
+        variantStyles[variant],
+        { color: defaultColor, fontFamily },
+        style,
+      ]}
       {...rest}
     >
       {children}
     </Text>
   );
 }
+
+

@@ -1,22 +1,39 @@
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Ellipsis } from "lucide-react-native";
+import {
+  Activity,
+  Ellipsis,
+  Handshake,
+  PawPrint,
+  Shield
+} from "lucide-react-native";
 import React, { ForwardedRef, forwardRef } from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
+
+export type NotificationType =
+  | "verification"
+  | "verification_complete"
+  | "care_given"
+  | "handshake"
+  | "paws"
+  | "paws_given"
+  | "points"
+  | "points_gained"
+  | "chat"
+  | "applied";
 
 export type NotificationCardProps = {
   id: string;
   title: string;
   body: string;
   time: string;
+  type?: NotificationType;
+  image?: string;
   unread?: boolean;
-  /**
-   * Colors object from theme to keep this component presentation-only.
-   */
-  colors: {
-    onSurface: string;
-    onSurfaceVariant: string;
-  };
+  isLast?: boolean;
+  onPress?: (id: string) => void;
   /**
    * Called when the overflow menu is pressed.
    */
@@ -24,22 +41,95 @@ export type NotificationCardProps = {
 };
 
 export const NotificationCard = forwardRef<View, NotificationCardProps>(
-  ({ id, title, body, time, unread, colors, onPressMenu }, ref) => {
+  ({ id, title, body, time, unread, type, image, isLast, onPress, onPressMenu }, ref) => {
+    const { resolvedTheme } = useThemeStore();
+    const colors = Colors[resolvedTheme];
+
+    const renderIcon = () => {
+      const containerStyle: StyleProp<ViewStyle> = [
+        styles.itemAvatar,
+        {
+          backgroundColor: colors.primaryContainer,
+          alignItems: "center",
+          justifyContent: "center",
+        },
+      ];
+
+      switch (type) {
+        case "verification":
+        case "verification_complete":
+          return (
+            <View style={containerStyle}>
+              <Shield size={20} color={colors.primary} />
+            </View>
+          );
+        case "care_given":
+        case "handshake":
+          return (
+            <View style={containerStyle}>
+              <Handshake size={20} color={colors.primary} />
+            </View>
+          );
+        case "paws":
+        case "paws_given":
+          return (
+            <View style={containerStyle}>
+              <PawPrint size={20} color={colors.primary} />
+            </View>
+          );
+        case "points":
+        case "points_gained":
+          return (
+            <View style={containerStyle}>
+              <Activity size={20} color={colors.primary} />
+            </View>
+          );
+        case "chat":
+        case "applied":
+          return (
+            <AppImage
+              source={{
+                uri:
+                  image ??
+                  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
+              }}
+              style={styles.itemAvatar}
+            />
+          );
+        default:
+          return image ? (
+            <AppImage source={{ uri: image }} style={styles.itemAvatar} />
+          ) : (
+            <View style={containerStyle}>
+              <PawPrint size={20} color={colors.primary} />
+            </View>
+          );
+      }
+    };
+
     return (
-      <View style={styles.itemInner}>
-        <AppImage
-          source={{
-            uri: "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
-          }}
-          style={styles.itemAvatar}
-        />
+      <TouchableOpacity
+        activeOpacity={0.7}
+        onPress={() => onPress?.(id)}
+        disabled={!onPress}
+        style={{
+          ...styles.itemInner,
+          backgroundColor: unread ? colors.surfaceBright : "transparent",
+          borderTopColor: colors.outlineVariant,
+          borderTopWidth: 1,
+          borderBottomColor: colors.outlineVariant,
+          borderBottomWidth: isLast ? 1 : 0,
+        }}
+      >
+        {renderIcon()}
+
         <View style={styles.itemContent}>
           {/* Row 1: title (left) + time (right) */}
           <View style={styles.row}>
             <AppText
               variant="body"
               style={styles.itemTitle}
-              color={unread ? colors.onSurface : colors.onSurface}
+              color={colors.onSurfaceVariant}
             >
               {title}
             </AppText>
@@ -66,11 +156,11 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
               hitSlop={8}
               onPress={() => onPressMenu?.(id)}
             >
-              <Ellipsis size={18} color={colors.onSurfaceVariant} />
+              <Ellipsis size={24} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
           </View>
         </View>
-      </View>
+      </TouchableOpacity>
     );
   },
 );
@@ -88,7 +178,6 @@ const styles = StyleSheet.create({
     height: 40,
     borderRadius: 20,
     marginRight: 12,
-    backgroundColor: "#F4D6D6",
   },
   itemContent: {
     flex: 1,
@@ -97,15 +186,16 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
-    marginBottom: 2,
   },
   itemTitle: {
     flex: 1,
     marginRight: 8,
+    lineHeight: 16,
   },
   itemBody: {
     flex: 1,
     marginRight: 8,
+    lineHeight: 14,
   },
   itemTime: {
     fontSize: 11,

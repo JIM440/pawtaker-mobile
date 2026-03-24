@@ -1,15 +1,8 @@
-import { Colors } from "@/src/constants/colors";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import React from "react";
-import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 
 export function ProfileBioTab() {
-  const { t } = useTranslation();
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
-
   return (
     <View style={styles.container}>
       <AppText variant="body" style={styles.content}>
@@ -34,5 +27,6 @@ const styles = StyleSheet.create({
   },
   content: {
     lineHeight: 22,
+    fontSize: 14,
   },
 });

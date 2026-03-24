@@ -1,25 +1,30 @@
 import "../global.css";
 import "../src/lib/i18n";
 
+import { supabase } from "@/src/lib/supabase/client";
 import {
   Roboto_400Regular,
   Roboto_500Medium,
-  Roboto_700Bold, useFonts
+  Roboto_700Bold,
+  useFonts,
 } from "@expo-google-fonts/roboto";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, useRouter } from "expo-router";
+import { Stack } from "expo-router";
 import * as SplashScreen from "expo-splash-screen";
 import { StatusBar } from "expo-status-bar";
-import { useEffect } from "react";
+import { useColorScheme } from "nativewind";
+import { useEffect, useLayoutEffect } from "react";
 import { I18nextProvider } from "react-i18next";
 import { Platform } from "react-native";
+import { GestureHandlerRootView } from "react-native-gesture-handler";
 import i18n from "../src/lib/i18n";
 import { useAuthStore } from "../src/lib/store/auth.store";
 import { useLanguageStore } from "../src/lib/store/language.store";
 import { useThemeStore } from "../src/lib/store/theme.store";
-import { supabase } from "../src/lib/supabase/client";
+import { ToastHost } from "../src/shared/components/ui/ToastHost";
 
-// Keep native splash visible until auth and fonts are ready
+// Keep native splash visible until fonts load, theme + language are rehydrated from AsyncStorage
+// and applied, auth store is rehydrated, and session bootstrap finishes (see `ready`).
 if (Platform.OS !== "web") {
   SplashScreen.preventAutoHideAsync();
 }
@@ -29,19 +34,37 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60 * 5,
       retry: 2,
+      // Avoid refetch churn when screens mount/focus during navigation (RN focus events).
+      refetchOnWindowFocus: false,
     },
   },
 });
 
 export default function RootLayout() {
-  const { resolvedTheme } = useThemeStore();
-  const { language } = useLanguageStore();
-  const { session, isLoading, setSession, setLoading, fetchProfile } = useAuthStore();
-  const router = useRouter();
+  const { resolvedTheme, _hasHydrated: themeHydrated } = useThemeStore();
+  const { setColorScheme } = useColorScheme();
+  const { language, _hasHydrated: langHydrated } = useLanguageStore();
+  const {
+    isLoading,
+    session,
+    setSession,
+    setProfile,
+    setLoading,
+    fetchProfile,
+    _hasHydrated: authHydrated,
+  } = useAuthStore();
 
+  // Keep i18n in sync when user changes language after startup (persist middleware also hydrates on launch).
   useEffect(() => {
-    i18n.changeLanguage(language);
-  }, [language]);
+    if (!langHydrated) return;
+    void i18n.changeLanguage(language);
+  }, [language, langHydrated]);
+
+  // NativeWind / Tailwind `dark:` + semantic CSS variables (`global.css`) follow app theme (not only system).
+  useEffect(() => {
+    if (!themeHydrated) return;
+    setColorScheme(resolvedTheme);
+  }, [themeHydrated, resolvedTheme, setColorScheme]);
 
   const [fontsLoaded] = useFonts({
     Roboto_400Regular,
@@ -53,6 +76,11 @@ export default function RootLayout() {
   useEffect(() => {
     supabase.auth.getSession().then(({ data: { session } }) => {
       setSession(session);
+      if (session?.user?.id) {
+        void fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
       setLoading(false);
     });
 
@@ -60,60 +88,64 @@ export default function RootLayout() {
       data: { subscription },
     } = supabase.auth.onAuthStateChange((_event, session) => {
       setSession(session);
+      if (session?.user?.id) {
+        void fetchProfile(session.user.id);
+      } else {
+        setProfile(null);
+      }
     });
 
     return () => subscription.unsubscribe();
   }, []);
 
-  const ready = fontsLoaded && !isLoading;
+  const ready =
+    fontsLoaded && !isLoading && themeHydrated && langHydrated && authHydrated;
 
-  useEffect(() => {
+  // Hide splash only after persisted theme/language are applied (see stores) and other gates pass.
+  useLayoutEffect(() => {
     if (!ready) return;
-    if (Platform.OS !== "web") SplashScreen.hideAsync();
+    if (Platform.OS !== "web") void SplashScreen.hideAsync();
+  }, [ready]);
 
-    if (!session) {
-      router.replace("/(auth)/welcome");
-      return;
-    }
+  /** Expo Router: Stack.Protected — only one branch mounts; avoids flashing (private) before redirect. */
+  const canAccessPrivate = !!session;
+  const canAccessAuth = !session;
 
-    // Session exists — fetch profile to determine where to send the user
-    fetchProfile(session.user.id).then(() => {
-      const profile = useAuthStore.getState().profile;
-
-      // Email not yet verified (check Supabase auth + optional DB field)
-      const emailVerified =
-        !!session.user.email_confirmed_at || !!profile?.is_email_verified;
-
-      if (!emailVerified) {
-        router.replace("/(auth)/signup/verify");
-      } else if (!profile?.city) {
-        // Profile not complete
-        router.replace("/(auth)/signup/profile");
-      } else if (
-        !profile?.kyc_status ||
-        profile.kyc_status === "not_submitted"
-      ) {
-        // KYC not started
-        router.replace("/(auth)/kyc/submit");
-      } else if (profile.kyc_status === "pending" || profile.kyc_status === "submitted") {
-        // KYC waiting for admin
-        router.replace("/(auth)/kyc/pending");
-      } else {
-        // Fully onboarded
-        router.replace("/(private)/(tabs)");
-      }
-    });
-  }, [ready, session]);
+  if (!ready) {
+    return (
+      <GestureHandlerRootView style={{ flex: 1 }}>
+        <QueryClientProvider client={queryClient}>
+          <I18nextProvider i18n={i18n}>
+            <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
+          </I18nextProvider>
+        </QueryClientProvider>
+      </GestureHandlerRootView>
+    );
+  }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <I18nextProvider i18n={i18n}>
-        <Stack screenOptions={{ headerShown: false }}>
-          <Stack.Screen name="(auth)" options={{ headerShown: false }} />
-          <Stack.Screen name="(private)" options={{ headerShown: false }} />
-        </Stack>
-        <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
-      </I18nextProvider>
-    </QueryClientProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <I18nextProvider i18n={i18n}>
+          <Stack
+            screenOptions={{
+              headerShown: false,
+              ...(Platform.OS === "ios"
+                ? { animation: "ios" as any, gestureEnabled: true }
+                : {}),
+            }}
+          >
+            <Stack.Protected guard={canAccessAuth}>
+              <Stack.Screen name="(auth)" options={{ headerShown: false }} />
+            </Stack.Protected>
+            <Stack.Protected guard={canAccessPrivate}>
+              <Stack.Screen name="(private)" options={{ headerShown: false }} />
+            </Stack.Protected>
+          </Stack>
+          <ToastHost />
+          <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
+        </I18nextProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }

@@ -5,11 +5,11 @@ import {
   Modal,
   Pressable,
   StyleSheet,
-  useWindowDimensions,
   View,
   type StyleProp,
-  type ViewStyle,
+  type ViewStyle
 } from "react-native";
+import Animated, { FadeInUp } from "react-native-reanimated";
 import { AppText } from "./AppText";
 import { Button } from "./Button";
 
@@ -19,11 +19,13 @@ type FeedbackModalProps = {
   description?: string;
   icon?: React.ReactNode;
   primaryLabel: string;
-  onPrimary: () => void;
+  onPrimary: () => void | Promise<void>;
   secondaryLabel?: string;
   onSecondary?: () => void;
   /** When true, primary button uses danger styling */
   destructive?: boolean;
+  /** Shows spinner on primary and blocks dismiss / secondary while true */
+  primaryLoading?: boolean;
   onRequestClose?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
 };
@@ -42,6 +44,7 @@ export function FeedbackModal({
   secondaryLabel,
   onSecondary,
   destructive = false,
+  primaryLoading = false,
   onRequestClose,
   containerStyle,
 }: FeedbackModalProps) {
@@ -49,10 +52,9 @@ export function FeedbackModal({
   const colors = Colors[resolvedTheme];
 
   const handleClose = () => {
+    if (primaryLoading) return;
     if (onRequestClose) onRequestClose();
   };
-
-  const height = useWindowDimensions().height;
 
   return (
     <Modal
@@ -60,63 +62,83 @@ export function FeedbackModal({
       transparent
       animationType="fade"
       onRequestClose={handleClose}
-      style={{ height, backgroundColor: colors.error }}
     >
-      <Pressable style={{...styles.backdrop, height}} onPress={handleClose}>
+      {/*
+        Do not wrap the card in the same Pressable as the backdrop — on Android / with Reanimated,
+        the parent Pressable can steal touches so inner Buttons never fire and the modal blocks the whole app.
+        Backdrop dismiss is a sibling layer behind a box-none centering wrapper.
+      */}
+      <View style={styles.root}>
         <Pressable
-          style={[
-            styles.card,
-            { backgroundColor: colors.surfaceContainer },
-            containerStyle,
-          ]}
-          onPress={(e) => e.stopPropagation()}
-        >
-          {icon && (
-            <View style={styles.iconWrap}>
-              {/* Ensure icon uses 24 size & primary fill when possible */}
-              {icon}
-            </View>
-          )}
-          <AppText variant="title" style={[styles.title, { fontSize: 16 }]}>
-            {title}
-          </AppText>
-          {description ? (
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.description}
-            >
-              {description}
+          style={StyleSheet.absoluteFill}
+          onPress={handleClose}
+          accessibilityRole="button"
+          accessibilityLabel="Close dialog"
+        />
+        <View style={styles.cardWrap} pointerEvents="box-none">
+          <Animated.View
+            entering={FadeInUp}
+            style={[
+              styles.card,
+              {
+                backgroundColor: colors.surfaceContainer,
+                borderColor: colors.outlineVariant,
+                borderWidth: 1,
+              },
+              containerStyle,
+            ]}
+          >
+            {icon && (
+              <View style={styles.iconWrap}>
+                {icon}
+              </View>
+            )}
+            <AppText variant="headline" style={styles.title} color={colors.onSurface}>
+              {title}
             </AppText>
-          ) : null}
-          <View style={styles.buttons}>
-            {secondaryLabel && onSecondary && (
+            {description ? (
+              <AppText
+                variant="body"
+                color={colors.onSurfaceVariant}
+                style={styles.description}
+              >
+                {description}
+              </AppText>
+            ) : null}
+            <View style={styles.buttons}>
+              {secondaryLabel && onSecondary && (
+                <Button
+                  label={secondaryLabel}
+                  variant="outline"
+                  fullWidth
+                  onPress={onSecondary}
+                  disabled={primaryLoading}
+                  style={styles.button}
+                />
+              )}
               <Button
-                label={secondaryLabel}
-                variant="secondary"
+                label={primaryLabel}
+                variant={destructive ? "danger" : "primary"}
                 fullWidth
-                onPress={onSecondary}
+                loading={primaryLoading}
+                onPress={() => void onPrimary()}
                 style={styles.button}
               />
-            )}
-            <Button
-              label={primaryLabel}
-              variant={destructive ? "danger" : "primary"}
-              fullWidth
-              onPress={onPrimary}
-              style={styles.button}
-            />
-          </View>
-        </Pressable>
-      </Pressable>
+            </View>
+          </Animated.View>
+        </View>
+      </View>
     </Modal>
   );
 }
 
 const styles = StyleSheet.create({
-  backdrop: {
+  root: {
     flex: 1,
     backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  cardWrap: {
+    ...StyleSheet.absoluteFillObject,
     justifyContent: "center",
     alignItems: "center",
   },
@@ -141,12 +163,13 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: "center",
-    marginBottom: 4,
+    marginBottom: 8,
   },
   description: {
     textAlign: "center",
     marginBottom: 16,
     fontSize: 12,
+    lineHeight: 18
   },
   buttons: {
     flexDirection: "row",

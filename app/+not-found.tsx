@@ -61,7 +61,7 @@ export default function NotFoundScreen() {
             <Button
               label={t("common.goHome")}
               fullWidth
-              onPress={() => router.replace("/(private)/(tabs)")}
+              onPress={() => router.replace("/(private)/(tabs)/(home)" as any)}
               style={{ flex: 1 }}
             />
             <Button

@@ -1,7 +1,9 @@
 import { Colors } from "@/src/constants/colors";
+import { tabPerfScreenOptions } from "@/src/constants/navigation";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Tabs, useRouter } from "expo-router";
+import { Tabs, usePathname, useRouter } from "expo-router";
 import {
   CircleUserRound,
   Home,
@@ -27,6 +29,7 @@ export default function TabsLayout() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const router = useRouter();
+  const pathname = usePathname();
   const [showPostModal, setShowPostModal] = useState(false);
   const activePillBg = colors.primaryContainer;
 
@@ -34,6 +37,7 @@ export default function TabsLayout() {
     <>
       <Tabs
         screenOptions={{
+          ...tabPerfScreenOptions,
           headerShown: false,
           tabBarActiveTintColor: colors.primary,
           tabBarInactiveTintColor: colors.onSurfaceVariant,
@@ -56,14 +60,7 @@ export default function TabsLayout() {
         }}
       >
         <Tabs.Screen
-          name="(no-label)"
-          options={{
-            href: null,
-            headerShown: false,
-          }}
-        />
-        <Tabs.Screen
-          name="index"
+          name="(home)"
           options={{
             title: t("feed.title"),
             tabBarIcon: ({ color, focused }) => (
@@ -113,7 +110,10 @@ export default function TabsLayout() {
             tabBarButton: ({ style }) => (
               <TouchableOpacity
                 activeOpacity={0.8}
-                onPress={() => setShowPostModal(true)}
+                onPress={() => {
+                  if (blockIfKycNotApproved()) return;
+                  setShowPostModal(true);
+                }}
                 style={[
                   style,
                   { alignItems: "center", justifyContent: "center" },
@@ -126,6 +126,7 @@ export default function TabsLayout() {
                     ...ICON_PILL,
                     backgroundColor: "transparent",
                     overflow: "hidden",
+                    marginTop: -10,
                   }}
                 >
                   <PlusCircle
@@ -137,7 +138,7 @@ export default function TabsLayout() {
                   <AppText
                     variant="caption"
                     color={colors.onSecondaryContainer}
-                    style={{ fontSize: 11, marginTop: -2 }}
+                    style={{ fontSize: 11, fontWeight: 600 }}
                   >
                     {t("post.title")}
                   </AppText>
@@ -172,6 +173,27 @@ export default function TabsLayout() {
           name="profile"
           options={{
             title: t("profile.title"),
+            tabBarButton: ({ style, onPress, children }) => (
+              <TouchableOpacity
+                style={style}
+                activeOpacity={0.8}
+                onPress={() => {
+                  const currentPath = pathname ?? "";
+                  const isViewingOtherUserProfile =
+                    currentPath.includes("/profile/users/");
+
+                  if (isViewingOtherUserProfile) {
+                    // Reset nested profile stack back to profile index.
+                    router.push("/(private)/(tabs)/profile" as any);
+                    return;
+                  }
+
+                  onPress?.(undefined as any);
+                }}
+              >
+                {children}
+              </TouchableOpacity>
+            ),
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{
@@ -201,7 +223,7 @@ export default function TabsLayout() {
         <Pressable
           style={{
             flex: 1,
-            backgroundColor: "rgba(0,0,0,0.3)",
+            backgroundColor: "rgba(0,0,0,0.1)",
             justifyContent: "flex-end",
           }}
           onPress={() => setShowPostModal(false)}
@@ -211,7 +233,7 @@ export default function TabsLayout() {
               position: "absolute",
               left: 0,
               right: 0,
-              bottom: Platform.OS === "ios" ? 50 : 38,
+              bottom: Platform.OS === "ios" ? 140 : 128,
               alignItems: "center",
             }}
             pointerEvents="box-none"
@@ -220,14 +242,10 @@ export default function TabsLayout() {
               style={{
                 width: 220,
                 borderRadius: 8,
+
                 backgroundColor: colors.surface,
                 borderWidth: 1,
                 borderColor: colors.outlineVariant,
-                shadowColor: "#000",
-                shadowOpacity: 0.16,
-                shadowRadius: 20,
-                shadowOffset: { width: 0, height: 10 },
-                elevation: 8,
                 overflow: "hidden",
                 padding: 8,
               }}
@@ -236,12 +254,17 @@ export default function TabsLayout() {
                 android_ripple={{ color: colors.surfaceContainerHighest }}
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
                 onPress={() => {
+                  if (blockIfKycNotApproved()) return;
                   setShowPostModal(false);
-                  router.push("/(private)/requests/create");
+                  router.push("/(private)/post-requests" as any);
                 }}
               >
-                <AppText variant="body" color={colors.onSurface}>
-                  {t("post.requestCare", "Launch Request")}
+                <AppText
+                  variant="body"
+                  color={colors.onSurface}
+                  style={{ fontWeight: 600 }}
+                >
+                  {t("post.launchRequest")}
                 </AppText>
               </Pressable>
               <View
@@ -255,12 +278,17 @@ export default function TabsLayout() {
                 android_ripple={{ color: colors.surfaceContainerHighest }}
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
                 onPress={() => {
+                  if (blockIfKycNotApproved()) return;
                   setShowPostModal(false);
-                  router.push("/(private)/(tabs)/post/availability");
+                  router.push("/(private)/post-availability" as any);
                 }}
               >
-                <AppText variant="body" color={colors.onSurface}>
-                  {t("post.addAvailability", "Available to Care")}
+                <AppText
+                  variant="body"
+                  color={colors.onSurface}
+                  style={{ fontWeight: 600 }}
+                >
+                  {t("post.availableToCare")}
                 </AppText>
               </Pressable>
             </View>

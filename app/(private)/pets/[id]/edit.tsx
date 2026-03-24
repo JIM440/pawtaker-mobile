@@ -1,25 +1,40 @@
 import { Colors } from "@/src/constants/colors";
+import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
+import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
+import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
-import { AppText } from "@/src/shared/components/ui/AppText";
+import { PageContainer } from "@/src/shared/components/layout";
+import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { Button } from "@/src/shared/components/ui/Button";
-import { Input } from "@/src/shared/components/ui/Input";
-import * as ImagePicker from "expo-image-picker";
 import { router, useLocalSearchParams } from "expo-router";
-import { Camera, Trash2 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  ScrollView,
-  StyleSheet,
-  Switch,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Input as AppInput } from "@/src/shared/components/ui/Input";
+import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
+
+const BREEDS_BY_KIND: Record<string, string[]> = {
+  Dog: [
+    "Afghan Hound",
+    "Africanis",
+    "Barbet",
+    "Basenji",
+    "Cesky Terrier",
+    "Golden Retriever",
+    "Beagle",
+    "Poodle",
+  ],
+  Cat: ["Tabby", "Siamese", "Persian", "Maine Coon", "Sphynx"],
+  "Small Furries": ["Rabbit", "Guinea Pig", "Hamster", "Ferret"],
+  Bird: ["Parakeet", "Cockatiel", "Parrot", "Canary"],
+  Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle"],
+  Other: ["Mixed", "Unknown"],
+};
 
 export default function EditPetScreen() {
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const { id: _petId } = useLocalSearchParams<{ id: string }>();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const { t } = useTranslation();
@@ -31,314 +46,132 @@ export default function EditPetScreen() {
     "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch.",
   );
 
-  const handlePickImages = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      allowsMultipleSelection: true,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const uris = result.assets.map((a) => a.uri);
-      setPhotos((prev) => [...prev, ...uris]);
-    }
-  };
-
-  const handleTakePhoto = async () => {
-    const permission = await ImagePicker.requestCameraPermissionsAsync();
-    if (!permission.granted) return;
-
-    const result = await ImagePicker.launchCameraAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
-    });
-
-    if (!result.canceled) {
-      const uris = result.assets.map((a) => a.uri);
-      setPhotos((prev) => [...prev, ...uris]);
-    }
-  };
-
-  const removePhoto = (uri: string) => {
-    setPhotos((prev) => prev.filter((p) => p !== uri));
-  };
-
   const [yardType, setYardType] = useState("fenced yard");
-  const [dob, setDob] = useState<Date>(new Date());
-  const [showDobPicker, setShowDobPicker] = useState(false);
+  const [ageRange, setAgeRange] = useState("1-3yrs");
   const [energyLevel, setEnergyLevel] = useState("medium energy");
   const [specialNeeds, setSpecialNeeds] = useState(false);
-
-  const dobDisplay = dob ? dob.toLocaleDateString() : "";
+  const [specialNeedsText, setSpecialNeedsText] = useState("");
 
   const handleSave = () => {
     // TODO: persist edited pet
     router.back();
   };
 
+  const [kind, setKind] = useState<PetKind>("Dog");
+  const [breed, setBreed] = useState<string>("Golden Retriever");
+  const [breedQuery, setBreedQuery] = useState("");
+  const [showBreedList, setShowBreedList] = useState(false);
+
+  const filteredBreeds = useMemo(() => {
+    const baseBreeds = BREEDS_BY_KIND[kind] ?? [];
+    const q = breedQuery.trim().toLowerCase();
+    if (!q) return baseBreeds;
+    return baseBreeds.filter((b: string) => b.toLowerCase().includes(q));
+  }, [breedQuery, kind]);
+
   return (
-    <View style={{ flex: 1, backgroundColor: colors.background }}>
+    <PageContainer style={{ paddingHorizontal: 0 }}>
+      <BackHeader title={t("pets.edit.title", "Edit pet")} className="pl-0" />
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
       >
-        <AppText
-          variant="title"
-          color={colors.onSurface}
-          style={styles.title}
-        >
-          {t("pets.edit.title", "Edit pet")}
-        </AppText>
+        <PetPhotoSelector photos={photos} setPhotos={setPhotos} />
 
-        <View
-          style={[
-            styles.photoCard,
-            {
-              backgroundColor: colors.surfaceContainerHighest,
-              borderColor: colors.outlineVariant,
-            },
-          ]}
-        >
-          {photos.length === 0 ? (
-            <TouchableOpacity onPress={handlePickImages} style={styles.emptyPhotoBtn}>
-              <AppText
-                variant="body"
-                color={colors.onSurfaceVariant}
-                style={{ textAlign: "center" }}
-              >
-                {t("pets.edit.addPhotos", "+ Add pet photos")}
-              </AppText>
-            </TouchableOpacity>
-          ) : (
-            <ScrollView
-              horizontal
-              showsHorizontalScrollIndicator={false}
-              contentContainerStyle={styles.photoScrollContent}
+        <View style={styles.section}>
+          <AppText variant="label" style={styles.sectionTitle}>
+            {t("pets.edit.kind", "Pet kind")}
+          </AppText>
+          <PetKindSelector
+            options={Array.from(PET_TYPE_OPTIONS)}
+            selectedKeys={[kind]}
+            onToggle={(k) => {
+              setKind(k as PetKind);
+              setBreed("");
+              setBreedQuery("");
+            }}
+            variant="small"
+          />
+        </View>
+
+        <View style={styles.section}>
+          <AppInput
+            label={t("pets.edit.breed", "Breed")}
+            placeholder={t("pets.add.breedSearch", "Search pet breed")}
+            value={breed || breedQuery}
+            onChangeText={(v) => {
+              setBreed("");
+              setBreedQuery(v);
+              setShowBreedList(true);
+            }}
+            onFocus={() => setShowBreedList(true)}
+          />
+          {showBreedList && filteredBreeds.length > 0 && (
+            <View
+              style={[
+                styles.breedList,
+                {
+                  backgroundColor: colors.surfaceBright,
+                  borderColor: colors.outlineVariant,
+                },
+              ]}
             >
-              {photos.map((uri) => (
-                <View key={uri} style={styles.photoSlide}>
-                  <AppImage
-                    source={{ uri }}
-                    style={styles.photoImage}
-                    contentFit="cover"
-                  />
+              {filteredBreeds.map((item, index) => {
+                const active = breed === item;
+                const isLast = index === filteredBreeds.length - 1;
+                return (
                   <TouchableOpacity
-                    style={[styles.removePhotoBtn, { backgroundColor: colors.errorContainer }]}
-                    onPress={() => removePhoto(uri)}
+                    key={item}
+                    style={[
+                      styles.breedRow,
+                      {
+                        backgroundColor: active
+                          ? colors.surfaceContainer
+                          : colors.surfaceBright,
+                        borderBottomWidth: isLast ? 0 : 0.8,
+                        borderBottomColor: colors.outlineVariant,
+                      },
+                    ]}
+                    onPress={() => {
+                      setBreed(item);
+                      setBreedQuery(item);
+                      setShowBreedList(false);
+                    }}
                   >
-                    <Trash2 size={16} color={colors.onErrorContainer} />
+                    <AppText
+                      variant="body"
+                      color={colors.onSurfaceVariant}
+                      style={{ paddingHorizontal: 16 }}
+                    >
+                      {item}
+                    </AppText>
                   </TouchableOpacity>
-                </View>
-              ))}
-              <TouchableOpacity
-                onPress={handlePickImages}
-                style={[styles.addMorePhotosBtn, { borderColor: colors.outlineVariant }]}
-              >
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  + Add more
-                </AppText>
-              </TouchableOpacity>
-            </ScrollView>
+                );
+              })}
+            </View>
           )}
         </View>
 
-        <TouchableOpacity
-          style={[
-            styles.takePhotosBtn,
-            {
-              borderColor: colors.outlineVariant,
-              backgroundColor: colors.surface,
-            },
-          ]}
-          activeOpacity={0.9}
-          onPress={handleTakePhoto}
-        >
-          <Camera size={18} color={colors.onSurface} />
-          <AppText
-            variant="body"
-            color={colors.onSurface}
-            style={{ marginLeft: 8 }}
-          >
-            {t("pets.edit.takeNewPhotos", "or take new photos")}
-          </AppText>
-        </TouchableOpacity>
-
-        <View style={styles.field}>
-          <Input
-            label={t("pets.edit.nameLabel", "Pet name")}
-            value={petName}
-            onChangeText={setPetName}
-            maxLength={50}
-          />
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.helperText}
-          >
-            {petName.length}/50
-          </AppText>
-        </View>
-
-        <View style={styles.field}>
-          <Input
-            label={t("pets.edit.bioLabel", "Pet short bio")}
-            value={petBio}
-            onChangeText={setPetBio}
-            inputStyle={styles.textArea}
-            multiline
-            maxLength={300}
-          />
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.helperText}
-          >
-            {petBio.length}/300
-          </AppText>
-        </View>
-
-        {/* Yard Type Chips */}
-        <View style={styles.chipGroup}>
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.chipGroupLabel}
-          >
-            {t("pets.edit.yardType", "Yard Type")}
-          </AppText>
-          <View style={styles.chipRowWrap}>
-            {["fenced yard", "high fence", "no yard"].map((label) => {
-              const active = yardType === label;
-              return (
-                <TouchableOpacity
-                  key={label}
-                  style={[
-                    styles.chipPill,
-                    {
-                      backgroundColor: active
-                        ? colors.primary
-                        : colors.surfaceContainerHighest,
-                    },
-                  ]}
-                  onPress={() => setYardType(label)}
-                >
-                  <AppText
-                    variant="caption"
-                    color={active ? colors.onPrimary : colors.onSurfaceVariant}
-                  >
-                    {label}
-                  </AppText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Date of Birth Picker */}
-        <View style={styles.field}>
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.fieldLabel}
-          >
-            {t("pets.edit.dob", "Date of birth")}
-          </AppText>
-          <TouchableOpacity
-            activeOpacity={0.8}
-            onPress={() => setShowDobPicker(true)}
-            style={[
-              styles.dateInput,
-              {
-                backgroundColor: colors.surfaceContainerHighest,
-                borderColor: colors.outlineVariant,
-              },
-            ]}
-          >
-            <AppText
-              variant="body"
-              color={dob ? colors.onSurface : colors.onSurfaceVariant}
-            >
-              {dobDisplay}
-            </AppText>
-          </TouchableOpacity>
-        </View>
-
-        {/* Energy Level Chips */}
-        <View style={styles.chipGroup}>
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.chipGroupLabel}
-          >
-            {t("pets.edit.energyLevel", "Energy Level")}
-          </AppText>
-          <View style={styles.chipRowWrap}>
-            {["calm", "medium energy", "high energy"].map((label) => {
-              const active = energyLevel === label;
-              return (
-                <TouchableOpacity
-                  key={label}
-                  style={[
-                    styles.chipPill,
-                    {
-                      backgroundColor: active
-                        ? colors.primary
-                        : colors.surfaceContainerHighest,
-                    },
-                  ]}
-                  onPress={() => setEnergyLevel(label)}
-                >
-                  <AppText
-                    variant="caption"
-                    color={active ? colors.onPrimary : colors.onSurfaceVariant}
-                  >
-                    {label}
-                  </AppText>
-                </TouchableOpacity>
-              );
-            })}
-          </View>
-        </View>
-
-        {/* Special Needs Switch */}
-        <View style={styles.toggleRow}>
-          <AppText
-            variant="body"
-            color={colors.onSurface}
-            style={{ flex: 1 }}
-          >
-            {t("pets.edit.specialNeeds", "Does your pet have special needs?")}
-          </AppText>
-          <Switch
-            value={specialNeeds}
-            onValueChange={setSpecialNeeds}
-            trackColor={{
-              false: colors.surfaceContainerHighest,
-              true: colors.primary,
-            }}
-            thumbColor={colors.surface}
-          />
-        </View>
+        <PetFormFields
+          petName={petName}
+          setPetName={setPetName}
+          petBio={petBio}
+          setPetBio={setPetBio}
+          yardType={yardType}
+          setYardType={setYardType}
+          ageRange={ageRange}
+          setAgeRange={setAgeRange}
+          energyLevel={energyLevel}
+          setEnergyLevel={setEnergyLevel}
+          specialNeeds={specialNeeds}
+          setSpecialNeeds={setSpecialNeeds}
+          specialNeedsText={specialNeedsText}
+          setSpecialNeedsText={setSpecialNeedsText}
+          premiumStyle={true}
+        />
       </ScrollView>
-
-      {showDobPicker && (
-        <View style={styles.datePickerContainer}>
-          <DateTimeField
-            mode="date"
-            label={t("pets.add.age", "Age (years)")}
-            value={dob}
-            onChange={(d) => {
-              setDob(d);
-              setShowDobPicker(false);
-            }}
-          />
-        </View>
-      )}
 
       <View style={styles.footer}>
         <Button
@@ -348,7 +181,7 @@ export default function EditPetScreen() {
           onPress={handleSave}
         />
       </View>
-    </View>
+    </PageContainer>
   );
 }
 
@@ -357,127 +190,30 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 32,
     gap: 16,
   },
-  title: {
-    marginBottom: 4,
+  section: {
+    marginBottom: 8,
   },
-  photoCard: {
-    borderRadius: 16,
-    borderWidth: StyleSheet.hairlineWidth,
-    padding: 16,
-    minHeight: 140,
-    justifyContent: "center",
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: "600",
+    marginBottom: 12,
   },
-  emptyPhotoBtn: {
-    paddingVertical: 40,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  photoScrollContent: {
-    gap: 12,
-    paddingRight: 16,
-  },
-  photoSlide: {
-    width: 220,
-    height: 140,
-    borderRadius: 12,
-    overflow: "hidden",
-    position: "relative",
-  },
-  photoImage: {
-    width: "100%",
-    height: "100%",
-    borderRadius: 12,
-  },
-  removePhotoBtn: {
-    position: "absolute",
-    top: 8,
-    right: 8,
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    alignItems: "center",
-    justifyContent: "center",
-    elevation: 2,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 1 },
-    shadowOpacity: 0.2,
-    shadowRadius: 2,
-  },
-  addMorePhotosBtn: {
-    width: 100,
-    height: 140,
+  breedList: {
     borderRadius: 12,
     borderWidth: 1,
-    borderStyle: "dashed",
-    alignItems: "center",
-    justifyContent: "center",
+    overflow: "hidden",
+    marginTop: -8,
+    marginBottom: 16,
   },
-  takePhotosBtn: {
-    marginTop: 8,
-    paddingVertical: 10,
-    paddingHorizontal: 16,
-    borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
-    flexDirection: "row",
-    alignItems: "center",
-    alignSelf: "flex-start",
-  },
-  field: {
-    marginTop: 8,
-  },
-  fieldLabel: {
-    fontSize: 12,
-    marginBottom: 8,
-  },
-  textArea: {
-    minHeight: 120,
-    textAlignVertical: "top",
-  },
-  helperText: {
-    marginTop: -16,
-    marginBottom: 8,
-    textAlign: "right",
-  },
-  chipGroup: {
-    marginTop: 16,
-  },
-  chipGroupLabel: {
-    marginBottom: 8,
-  },
-  chipRowWrap: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 8,
-  },
-  chipPill: {
-    paddingHorizontal: 16,
-    paddingVertical: 8,
-    borderRadius: 999,
-  },
-  dateInput: {
-    paddingHorizontal: 16,
+  breedRow: {
     paddingVertical: 12,
-    borderRadius: 16,
-    borderWidth: 1.5,
-  },
-  toggleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    marginTop: 16,
-    paddingVertical: 4,
-  },
-  datePickerContainer: {
-    paddingHorizontal: 16,
-    paddingBottom: 16,
   },
   footer: {
     paddingHorizontal: 16,
     paddingBottom: 24,
   },
 });
-

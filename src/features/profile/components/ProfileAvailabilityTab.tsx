@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AvailabilityPreviewCard } from "@/src/shared/components/cards";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { CalendarDays, Clock } from "lucide-react-native";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
@@ -23,8 +24,6 @@ const MOCK_AVAILABILITY = {
   time: "08:00 AM - 09:00 PM",
   days: "Sat • Sun",
 };
-
-import { CalendarDays, Clock } from "lucide-react-native";
 
 export function ProfileAvailabilityTab() {
   const { t } = useTranslation();
@@ -91,32 +90,32 @@ export function ProfileAvailabilityTab() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <View style={styles.bio}>
-        {/* Bio / Short note directly below card */}
-        <DisplayField
-          label={t("availability.note", "Short note")}
-          value={MOCK_AVAILABILITY.note}
-        />
-      </View>
-
       <AvailabilityPreviewCard {...MOCK_AVAILABILITY} />
 
       <View style={styles.details}>
+        <View style={styles.bio}>
+          {/* Bio / Short note directly below card */}
+          <DisplayField
+            label={t("availability.note", "Short note")}
+            value={MOCK_AVAILABILITY.note}
+          />
+        </View>
 
-
-        {/* Time */}
-        <DisplayField
-          label={t("availability.timeOnly", "Time")}
-          value={MOCK_AVAILABILITY.time}
-          icon={<Clock size={16} color={colors.primary} />}
-        />
-
-        {/* Days */}
-        <DisplayField
-          label={t("availability.daysOnly", "Days")}
-          value={MOCK_AVAILABILITY.days}
-          icon={<CalendarDays size={16} color={colors.primary} />}
-        />
+        {/* Time & Days in one line */}
+        <View style={styles.row}>
+          <DisplayField
+            label={t("availability.timeOnly", "Time")}
+            value={MOCK_AVAILABILITY.time}
+            icon={<Clock size={16} color={colors.primary} />}
+            style={{ flex: 1.2 }}
+          />
+          <DisplayField
+            label={t("availability.daysOnly", "Days")}
+            value={MOCK_AVAILABILITY.days}
+            icon={<CalendarDays size={16} color={colors.primary} />}
+            style={{ flex: 1 }}
+          />
+        </View>
 
         {/* Yard Type and Pet Owner in one line */}
         <View style={styles.row}>

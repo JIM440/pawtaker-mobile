@@ -1,5 +1,3 @@
-import { Colors } from "@/src/constants/colors";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
@@ -23,15 +21,15 @@ type Props = {
   pets: ProfilePet[];
   onAddPet?: () => void;
   showAddPetButton?: boolean;
+  onPetPress?: (petId: string) => void;
 };
 
 export function ProfilePetsTab({
   pets,
   onAddPet,
   showAddPetButton = true,
+  onPetPress,
 }: Props) {
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
   const hasPets = pets.length > 0;
 
   if (!hasPets) {
@@ -39,7 +37,7 @@ export function ProfilePetsTab({
       <View style={styles.emptyState}>
         <View style={styles.emptyIllustration} />
         <AppImage
-          source={require("@/assets/illustrations/no-pet.svg")}
+          source={require("@/assets/illustrations/pets/no-pet.svg")}
           type="svg"
           style={styles.emptyIllustration}
           height={145}
@@ -81,6 +79,7 @@ export function ProfilePetsTab({
             tags={pet.tags}
             seekingDateRange={pet.seekingDateRange}
             seekingTime={pet.seekingTime}
+            onPress={() => onPetPress?.(pet.id)}
           />
         ))}
       </View>

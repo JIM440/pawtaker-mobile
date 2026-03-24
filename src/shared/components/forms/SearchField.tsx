@@ -1,9 +1,8 @@
-import React from 'react';
-import { View, TextInput, type TextInputProps, type StyleProp, type ViewStyle } from 'react-native';
-import { Search } from 'lucide-react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { SearchFilterStyles } from '@/src/constants/searchFilter';
+import { useThemeStore } from '@/src/lib/store/theme.store';
+import React from 'react';
+import { TextInput, View, type StyleProp, type TextInputProps, type ViewStyle } from 'react-native';
 
 type SearchFieldProps = Omit<TextInputProps, 'style'> & {
   containerStyle?: StyleProp<ViewStyle>;
@@ -20,19 +19,17 @@ export function SearchField({ containerStyle, rightSlot, ...props }: SearchField
         {
           height: SearchFilterStyles.searchBarHeight,
           borderRadius: SearchFilterStyles.searchBarBorderRadius,
-          borderWidth: 1,
           flexDirection: 'row',
           alignItems: 'center',
           paddingLeft: SearchFilterStyles.searchBarPaddingHorizontal,
           paddingRight: SearchFilterStyles.searchBarPaddingRight,
           gap: SearchFilterStyles.searchBarGap,
-          backgroundColor: colors.surfaceContainer,
-          borderColor: colors.outlineVariant,
+          backgroundColor: colors.surfaceContainerLow,
         },
         containerStyle,
       ]}
     >
-      <Search size={SearchFilterStyles.searchIconSize} color={colors.onSurfaceVariant} />
+      {/* <Search size={SearchFilterStyles.searchIconSize} color={colors.onSurfaceVariant} /> */}
       <TextInput
         style={{ flex: 1, fontSize: SearchFilterStyles.searchInputFontSize, color: colors.onSurface }}
         placeholderTextColor={colors.onSurfaceVariant}

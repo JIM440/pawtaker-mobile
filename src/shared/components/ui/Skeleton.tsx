@@ -1,38 +1,63 @@
-import React from 'react';
-import { View, StyleSheet, ViewStyle, DimensionValue } from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
+import { useThemeStore } from '@/src/lib/store/theme.store';
+import React, { useEffect } from 'react';
+import { DimensionValue, ViewStyle } from 'react-native';
+import Animated, {
+  useAnimatedStyle,
+  useSharedValue,
+  withRepeat,
+  withSequence,
+  withTiming,
+} from 'react-native-reanimated';
 
 type SkeletonProps = {
-  width?: number | string;
-  height?: number | string;
+  width?: DimensionValue;
+  height?: DimensionValue;
   borderRadius?: number;
   style?: ViewStyle;
 };
 
 /**
- * Simple placeholder block for skeleton loaders. Uses theme surfaceContainer.
+ * Premium shimmering skeleton loader block.
+ * Uses reactive opacity pulse for a high-end feel in absence of linear gradient.
  */
 export function Skeleton({
   width,
   height,
-  borderRadius = 999,
+  borderRadius = 12, // More modern default
   style,
 }: SkeletonProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const bg = colors.surfaceContainer;
+  const opacity = useSharedValue(0.4);
+
+  useEffect(() => {
+    opacity.value = withRepeat(
+      withSequence(
+        withTiming(0.8, { duration: 800 }),
+        withTiming(0.4, { duration: 800 })
+      ),
+      -1,
+      true
+    );
+  }, []);
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    opacity: opacity.value,
+  }));
 
   return (
-    <View
+    <Animated.View
       style={[
-        { backgroundColor: bg, borderRadius },
-        width != null && { width: width as DimensionValue },
-        height != null && { height: height as DimensionValue },
+        {
+          backgroundColor: colors.surfaceContainerHighest,
+          borderRadius,
+        },
+        width != null && { width },
+        height != null && { height },
         style,
+        animatedStyle,
       ]}
     />
   );
 }
-
-const styles = StyleSheet.create({});

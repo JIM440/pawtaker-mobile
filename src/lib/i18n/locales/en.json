@@ -6,17 +6,36 @@
     "save": "Save",
     "cancel": "Cancel",
     "confirm": "Confirm",
+    "submit": "Submit",
     "delete": "Delete",
     "edit": "Edit",
     "back": "Back",
     "next": "Next",
+    "continue": "Continue",
     "done": "Done",
     "close": "Close",
     "search": "Search",
     "filter": "Filter",
     "noResults": "No results found",
     "points": "points",
-    "goHome": "Go home"
+    "goHome": "Go home",
+    "min": "Min",
+    "max": "Max",
+    "or": "or",
+    "previous": "Previous",
+    "viewProfile": "View Profile",
+    "sendRequest": "Send Request",
+    "skip": "Skip"
+  },
+  "pet": {
+    "detail": {
+      "seeking": "Seeking",
+      "about": "About {{name}}",
+      "attributes": "Attributes",
+      "specialNeeds": "Special needs",
+      "petOwner": "Pet owner",
+      "helpWithPet": "Help with this pet"
+    }
   },
   "notFound": {
     "title": "Oops!",
@@ -26,39 +45,69 @@
     "name": "PawTaker"
   },
   "auth": {
+    "orContinueWith": "or continue with",
+    "termsOfService": "Terms of Service",
+    "privacyPolicy": "Privacy Policy",
+    "legalPrefix": "By tapping Sign Up or Sign In, you agree to our",
+    "legalMiddle": " and ",
+    "legalPagesUnavailable": "Legal pages are not configured yet.",
+    "socialSignInComingSoon": "Sign in with Google or Apple will be available soon.",
+    "showPassword": "Show password",
+    "hidePassword": "Hide password",
     "login": {
       "title": "Sign In",
+      "subtitle": "Enter your email and password to access your account.",
       "emailLabel": "Email address",
-      "emailPlaceholder": "Email address",
+      "emailPlaceholder": "e.g., name@mail.com",
       "passwordLabel": "Password",
-      "passwordPlaceholder": "Password",
+      "passwordPlaceholder": "e.g. Wi45%gfe",
       "forgotPassword": "Forgot password?",
       "submit": "Sign In",
+      "signingIn": "Signing in...",
       "noAccount": "Don't have an account? Sign up",
+      "noAccountPrefix": "Don't have an account?",
+      "signUpLink": "Sign up",
       "invalidCredentials": "Invalid email or password."
     },
     "welcome": {
-      "title": "Welcome to PawTaker",
+      "title": "Welcome,\nthis is PawTaker",
       "subtitle": "The community pet-sitting app",
-      "getStarted": "Get Started",
-      "signIn": "Already have an account? Sign in"
+      "getStarted": "Sign Up",
+      "signIn": "Sign In",
+      "languageHint": "Opens a menu to choose English or French"
+    },
+    "onboarding": {
+      "getStarted": "Get started",
+      "tagline": "take them good…",
+      "slide1Title": "Find your pet's new buddy",
+      "slide1Body": "Connect with verified, local caretakers who treat your pet like family. The right care is just a search and a tap away.",
+      "slide2Title": "Care on your own schedule",
+      "slide2Body": "From quick midday walks to long-time, find the perfect match for your routine. Manage every detail in one clean space.",
+      "slide3Title": "Care more, earn more",
+      "slide3Body": "Every walk, stay, and playdate earns you points. No payments, no fees—just pet lovers helping pet lovers keep tails wagging."
     },
     "signup": {
       "credentials": {
-        "title": "Create Account",
+        "title": "Sign Up",
+        "subtitle": "Enter your email and create a strong password for your new account.",
         "email": "Email address",
         "password": "Password",
         "confirmPassword": "Confirm password",
-        "submit": "Continue",
+        "submit": "Sign Up",
+        "signingUp": "Signing up...",
         "nameLabel": "Full name",
         "namePlaceholder": "Your full name",
         "emailLabel": "Email address",
-        "emailPlaceholder": "Enter your email",
+        "emailPlaceholder": "e.g., name@mail.com",
         "passwordLabel": "Password",
-        "passwordPlaceholder": "At least 8 characters",
-        "confirmPasswordLabel": "Confirm password",
+        "passwordPlaceholder": "e.g. Wi45%gfe",
+        "confirmPasswordLabel": "Re-enter Password",
         "confirmPasswordPlaceholder": "Repeat your password",
-        "alreadyHaveAccount": "Already have an account? Sign in"
+        "usernameLabel": "Username",
+        "usernamePlaceholder": "e.g., John Paw",
+        "alreadyHaveAccount": "Already have an account? Sign in",
+        "alreadyPrefix": "Already have an account?",
+        "signInLink": "Sign in"
       },
       "verify": {
         "title": "Check your email",
@@ -90,6 +139,7 @@
         "subtitle": "Please read and agree to our community standards",
         "agreeAll": "I agree to all terms",
         "submit": "Join PawTaker",
+        "submitting": "Submitting...",
         "point1": "I will treat all pets and their owners with respect.",
         "point2": "I will honor all care commitments I accept.",
         "point3": "I will communicate openly and honestly at all times.",
@@ -104,9 +154,28 @@
         "passport": "Passport",
         "driversLicense": "Driver's License",
         "nationalId": "National ID",
+        "nationalIdSubtitle": "Upload a photo or scan of your document",
+        "driversLicenseSubtitle": "Upload a photo or scan of your driver's license",
+        "passportSubtitle": "Upload a photo or scan of your passport identity page",
         "uploadFront": "Upload front",
         "uploadBack": "Upload back",
+        "uploadPassport": "Upload passport page",
         "uploadSelfie": "Take a selfie",
+        "tapToAddSelfie": "Tap to add selfie",
+        "selfieInstructions": "Center your face in the frame and follow the instructions.",
+        "requiredImagesTwo": "Required images: 2 document photos",
+        "requiredImagesOne": "Required images: 1 document photo",
+        "pickSourceTitle": "Select image source",
+        "useCamera": "Use Camera",
+        "useGallery": "Choose from Gallery",
+        "retakeSelfie": "Retake selfie",
+        "progressUploadingDocs": "Uploading documents…",
+        "progressUploadingBack": "Uploading back image…",
+        "progressUploadingSelfie": "Uploading selfie…",
+        "progressSubmitting": "Submitting…",
+        "cameraPermissionRequired": "Camera permission required",
+        "galleryPermissionRequired": "Photo library access is required to choose an image.",
+        "submissionFailed": "KYC submission failed",
         "submit": "Submit for verification"
       },
       "pending": {
@@ -118,10 +187,35 @@
     },
     "forgotPassword": {
       "title": "Reset Password",
-      "subtitle": "Enter your email and we'll send you a reset link",
+      "subtitle": "Enter the email address associated with your account and we will send you a code to input to reset your password",
       "email": "Email address",
-      "submit": "Send reset link",
-      "success": "Check your email for a reset link"
+      "submit": "Send code",
+      "resetting": "Resetting...",
+      "success": "Code successfully sent to email!",
+      "emailNotFound": "Email not found. Try again or sign up",
+
+      "codeTitle": "Enter the code",
+      "codeSubtitlePrefix": "Enter the 6-digit code we sent to",
+      "codePlaceholder": "6-digit code",
+      "verify": "Verify",
+      "verifyingCode": "Verifying code...",
+      "resendPrefix": "Didn't receive the code?",
+      "resend": "Resend",
+      "resending": "Sending...",
+      "invalidCode": "Incorrect code. Please check your email and try again.",
+
+      "newPasswordTitle": "New Password",
+      "newPasswordSubtitle": "Create a strong new password.",
+      "newPasswordLabel": "Password",
+      "newPasswordPlaceholder": "e.g. Wi45%gfe",
+      "newPasswordSubmit": "Continue",
+      "continuing": "Continuing...",
+
+      "confirmPasswordLabel": "Re-enter Password",
+      "confirmPasswordSubtitle": "Make sure it matches.",
+      "confirmPasswordPlaceholder": "Repeat your password",
+      "confirmPasswordSubmit": "Update password",
+      "updatingPassword": "Updating password..."
     }
   },
   "feed": {
@@ -140,17 +234,66 @@
     "topTakers": "Top Takers",
     "recentRequests": "Recent Requests",
     "noTakers": "No takers found nearby",
-    "noPets": "No pets need care right now"
+    "noPets": "No pets need care right now",
+    "kycModal": {
+      "title": "Let's get you verified",
+      "description": "To keep our pet community safe and unlock your ability to book sitters or be one yourself, we just need to quickly confirm your identity. It only takes 2 minutes!",
+      "maybeLater": "Maybe Later",
+      "getVerified": "Get Verified",
+      "pendingTitle": "Verification in progress",
+      "pendingDescription": "We're reviewing your documents. This usually takes 24–48 hours. You'll be able to post requests, add pets, and offer availability once you're approved.",
+      "pendingOk": "Got it"
+    },
+    "resultsLabel": "Results",
+    "distanceKmRange": "{{min}}km–{{max}}km",
+    "takerAvailable": "Available",
+    "careTypes": {
+      "daytime": "Daytime",
+      "playwalk": "Play/walk",
+      "play_walk": "Play / walk",
+      "overnight": "Overnight",
+      "vacation": "Vacation"
+    }
   },
   "myCare": {
     "title": "My Care",
     "noCare": "No active care sessions",
     "startCare": "Browse requests",
+    "applyingForPet": "Applying for this pet?",
+    "applyingDescription": "A message with your availability details will be sent to this pet's owner.",
+    "tabs": {
+      "careGiven": "Care given",
+      "careReceived": "Care received",
+      "liked": "Liked"
+    },
+    "available": "Available",
+    "inCare": "In care",
+    "goToChat": "Go to chat",
+    "viewAgreement": "View agreement",
+    "points": "Points",
+    "allTimeHigh": "All time high",
+    "careGivenShort": "Care given",
+    "careReceivedShort": "Care received",
+    "endsIn": "Ends in {{time}}",
+    "nowAvailableSnackbar": "You are now tagged",
+    "availableHighlight": "available",
+    "pointsCount": "{{count}} points",
     "contract": {
       "title": "Contract",
       "sign": "Sign contract",
       "signed": "Signed",
-      "status": "Status"
+      "status": "Status",
+      "idLabel": "ID: {{id}}",
+      "agreementActive": "Agreement is active.",
+      "acceptHint": "Accept the offer to unlock the agreement actions.",
+      "acceptOffer": "Accept Offer",
+      "acceptConfirmTitle": "Are you sure you want to accept this offer?",
+      "acceptConfirmDescription": "Yes, I'm going to accept.",
+      "acceptDisclaimer": "By tapping Accept Offer, you approve that anyone in the community can contact you in our chat system.",
+      "rateAndReview": "Rate & Review",
+      "terminate": "Terminate Contract",
+      "terminatedDemo": "Agreement terminated (demo)",
+      "active": "Active"
     },
     "checkin": {
       "title": "Check-in",
@@ -160,13 +303,30 @@
     },
     "review": {
       "title": "Leave a Review",
+      "intro": "Share how the care went — ratings help keep the community trustworthy.",
+      "reviewing": "You're reviewing",
       "rating": "Rating",
       "comment": "Comment (optional)",
-      "submit": "Submit review"
+      "commentPlaceholder": "What went well? Anything others should know?",
+      "submit": "Submit review",
+      "successTitle": "Thank you!",
+      "successSubtitle": "Your review was submitted and helps others choose great caregivers."
     }
+  },
+  "offer": {
+    "title": "Send offer",
+    "subtitle": "Propose care for this pet. The owner will get your message in chat.",
+    "recipient": "To",
+    "forPet": "Pet: {{name}}",
+    "pointsLabel": "Points offered",
+    "messageLabel": "Message",
+    "messagePlaceholder": "Introduce yourself and confirm when you're available…",
+    "send": "Send offer"
   },
   "post": {
     "title": "Post",
+    "launchRequest": "Launch request",
+    "availableToCare": "Available to care",
     "choose": {
       "title": "What do you need?",
       "requestCare": "Request care for my pet",
@@ -190,17 +350,44 @@
       },
       "publish": {
         "title": "Review & Publish",
-        "publish": "Publish request"
+        "publish": "Save and Launch Care Request"
       },
       "selectPet": "Select pet",
+      "addAnotherPet": "or add another pet",
+      "validation": {
+        "careTypeRequired": "Select at least one type of care.",
+        "petRequired": "Select a pet to continue.",
+        "timeRange": "End time must be after start time.",
+        "daysRequired": "Select at least one day.",
+        "dateRangeOrder": "End date must be after start date."
+      },
       "addPet": "Add pet",
       "selectDate": "Select date",
       "date": "Date",
+      "startDate": "Start date",
+      "endDate": "End date",
       "selectDatePlaceholder": "Select a date",
       "startTime": "Start time",
       "endTime": "End time",
       "start": "Start",
       "end": "End",
+      "previewTitle": "Preview of your request",
+      "previewHint": "Tap chips or fields to adjust before launching.",
+      "previewDisclaimer": "By tapping Launch, you approve that anyone in the community can apply or contact you in our chat system.",
+      "specialNeedsPlaceholder": "Anything we should know?",
+      "preview": {
+        "careTypes": "Care",
+        "pet": "Pet",
+        "dates": "Dates",
+        "date": "Date",
+        "yard": "Yard",
+        "age": "Age",
+        "energy": "Energy",
+        "days": "Days",
+        "time": "Time",
+        "specialNeeds": "Special needs",
+        "edit": "Edit"
+      },
       "multiDay": "Need this service for more than 1 day",
       "detailsTitle": "Details & special needs",
       "detailsHint": "Yard type, energy level, special needs (optional).",
@@ -217,22 +404,77 @@
       "yardType": "Yard Type",
       "petOwner": "Pet Owner",
       "note": "Short note",
-      "save": "Save availability"
+      "save": "Save availability",
+      "careStepTitle": "What type of care can you provide?",
+      "hintsTitle": "Hints",
+      "petKindQuestion": "What kind of pet?",
+      "yardQuestion": "What kind of yard do you have?",
+      "yardFenced": "Fenced yard",
+      "yardHighFence": "High fence",
+      "yardNone": "No yard",
+      "petOwnerQuestion": "Do you own any pets?",
+      "ownerYes": "Yes",
+      "ownerNo": "No",
+      "daysQuestion": "What days are you available?",
+      "noDaysSelected": "No days available",
+      "everyDays": "Every {{days}}",
+      "hoursTitle": "Set your available hours",
+      "noteTitle": "Add a short note",
+      "notePlaceholder": "Tell others about your experience with pets...",
+      "previewTitle": "Preview of your availability",
+      "careFieldLabel": "Care you will provide:",
+      "petTypeLabel": "Pet type:",
+      "yardChipLabel": "Yard type:",
+      "petOwnerChipLabel": "Pet owner:",
+      "daysFieldLabel": "Days:",
+      "timeFieldLabel": "Time:",
+      "startTimeLabel": "Start time",
+      "endTimeLabel": "End time",
+      "previewSubtitle": "Review your details before publishing.",
+      "previewDisclaimer": "By publishing, you approve that anyone in the community can see your availability and contact you.",
+      "publish": "Publish Availability",
+      "next": "Next",
+      "previewAvailable": "Available to care",
+      "previewBio": "Bio / experience",
+      "weekdays": {
+        "M": "Monday",
+        "Tu": "Tuesday",
+        "W": "Wednesday",
+        "Th": "Thursday",
+        "F": "Friday",
+        "Sa": "Saturday",
+        "Su": "Sunday"
+      },
+      "validation": {
+        "careTypeRequired": "Select at least one type of care.",
+        "petKindRequired": "Select a pet type to continue.",
+        "daysRequired": "Select at least one day.",
+        "timeRange": "End time must be after start time."
+      }
     }
   },
   "messages": {
     "searchChats": "Search chats",
+    "chatsTitle": "Chats",
+    "viewRequest": "View Request",
+    "serviceRequest": "Service request",
+    "requestSendHint": "Review and respond to this care request.",
     "title": "Messages",
     "noMessages": "No messages yet",
     "typeMessage": "Type a message",
     "send": "Send",
     "proposal": "Care Proposal",
     "agreement": "Agreement",
+    "applyingFor": "Applying for ",
+    "applyingForPet": "Applying for {{petName}}",
+    "seekingForPet": "Seeking for {{petName}}",
+    "viewOfferDetails": "View Offer Details",
     "viewProfile": "View profile",
     "muteNotifications": "Mute notifications",
     "block": "Block",
     "blockConfirmTitle": "Block this user?",
-    "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings."
+    "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings.",
+    "blockedDemo": "Blocked (demo)"
   },
   "requestDetails": {
     "title": "Request details",
@@ -244,6 +486,7 @@
     "age": "Age",
     "energyLevel": "Energy level",
     "specialNeeds": "Special needs",
+    "apply": "Apply",
     "applyNow": "Apply Now"
   },
   "filters": {
@@ -252,7 +495,10 @@
     "maxDistance": "Max distance",
     "reset": "Reset",
     "apply": "Apply",
-    "done": "Done"
+    "done": "Done",
+    "distanceRange": "Distance Range",
+    "minKm": "Min (km)",
+    "maxKm": "Max (km)"
   },
   "availability": {
     "title": "Post availability",
@@ -308,14 +554,19 @@
     "termsAndPolicies": "Terms and policies",
     "preferencesSection": "Preferences",
     "logoutTitle": "Sign out?",
+    "logoutConfirm": "You will need to sign back in to view your messages and manage your profile.",
     "deactivateTitle": "Deactivate account?",
+    "deactivateConfirm": "Your account will be paused. You will not appear in searches or receive new messages.",
     "deleteTitle": "Delete account?",
+    "deleteConfirm": "This will permanently delete your account and all related data. This action cannot be undone.",
     "logoutCta": "Sign Out",
+    "signingOut": "Signing out...",
+    "signOutFailed": "Could not sign out. Please try again.",
     "deactivateCta": "Deactivate",
     "deleteCta": "Delete"
   },
   "profile": {
-    "title": "My Profile",
+    "title": "Profile",
     "reviews": "Reviews",
     "points": "Points",
     "pets": {
@@ -355,7 +606,24 @@
     "title": "Notifications",
     "searchPlaceholder": "Search notifications",
     "noNotifications": "No notifications",
-    "markAllRead": "Mark all as read"
+    "markAllRead": "Mark all as read",
+    "emptyTitle": "No notifications yet",
+    "emptySubtitle": "All your notifications will appear here.",
+    "deleteOne": "Delete this notification",
+    "mock": {
+      "careEndingTitle": "Care ending soon",
+      "careEndingBody": "Care for Polo with Bob Majors ends at 6PM",
+      "newChatTitle": "New chat from Bob Majors",
+      "newChatBody": "“can we conclude”",
+      "verificationTitle": "Checking verification",
+      "verificationBody": "Your verification is complete. You can now take jobs",
+      "matchTitle": "Match found!",
+      "matchBody": "Bob Majors applied for Polo",
+      "pointsTitle": "+5 new points in!",
+      "pointsBody": "You completed care for Polo for Jane Ambers",
+      "careSuccessTitle": "Care successful!",
+      "careSuccessBody": "You gave care to Polo"
+    }
   },
   "search": {
     "title": "Search",
@@ -366,13 +634,17 @@
   "pets": {
     "add": {
       "title": "Add Pet",
+      "whatKind": "What kind of pet?",
       "name": "Pet name",
       "species": "Species",
       "breed": "Breed (optional)",
       "age": "Age (years)",
       "weight": "Weight (kg)",
       "notes": "Special notes",
-      "submit": "Add pet"
+      "submit": "Add pet",
+      "yardType": "Yard Type",
+      "energyLevel": "Energy Level",
+      "specialNeedsPlaceholder": "e.g., Needs insulin shots twice a day or is very shy around loud noises."
     },
     "profile": {
       "title": "Pet Profile",
@@ -380,7 +652,11 @@
       "info": "Information"
     },
     "edit": {
-      "title": "Edit Pet"
+      "title": "Edit Pet",
+      "kind": "Pet kind",
+      "breed": "Breed",
+      "specialNeeds": "Does your pet have special needs?",
+      "details": "Details"
     }
   },
   "errors": {

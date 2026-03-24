@@ -54,35 +54,35 @@ export function CaretakerInfo({
         <AppText
           variant="label"
           style={styles.name}
-          color={colors.onSurface}
+          color={colors.onSurfaceVariant}
           numberOfLines={1}
         >
           {name}
         </AppText>
         <View style={styles.statsRow}>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>
+          <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.rating}>
             {rating.toFixed(1)}
           </AppText>
           <Star size={10} color={colors.tertiary} fill={colors.tertiary} />
           <View
             style={[
               styles.statPill,
-              { backgroundColor: colors.surfaceContainerLowest },
+              { backgroundColor: colors.surfaceBright },
             ]}
           >
-            <Handshake size={12} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" color={colors.onSurface}>
+            <Handshake size={12} color={colors.tertiary} />
+            <AppText variant="caption" color={colors.onSurface} style={styles.rating}>
               {reviewsCount}
             </AppText>
           </View>
           <View
             style={[
               styles.statPill,
-              { backgroundColor: colors.surfaceContainerLowest },
+              { backgroundColor: colors.surfaceBright },
             ]}
           >
-            <PawPrint size={12} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" color={colors.onSurface}>
+            <PawPrint size={12} color={colors.tertiary} />
+            <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.rating}>
               {petsCount}
             </AppText>
           </View>
@@ -120,11 +120,15 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
+    lineHeight: 16
   },
   statsRow: {
     flexDirection: "row",
     alignItems: "center",
     gap: 4,
+  },
+  rating: {
+    lineHeight: 14
   },
   statPill: {
     flexDirection: "row",

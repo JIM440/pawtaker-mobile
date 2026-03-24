@@ -1,25 +1,77 @@
-import { useState } from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { useTranslation } from 'react-i18next';
-import { supabase } from '@/src/lib/supabase/client';
-import { TextField } from '@/src/shared/components/forms/TextField';
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { supabase } from "@/src/lib/supabase/client";
+import { TextField } from "@/src/shared/components/forms/TextField";
+import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { PageContainer } from "@/src/shared/components/layout/PageContainer";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
+import { validateRequired } from "@/src/shared/utils/auth-validation";
+import { isValidEmail } from "@/src/shared/utils/is-valid-email";
+import { Ionicons } from "@expo/vector-icons";
+import { router } from "expo-router";
+import { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Alert,
+  Linking,
+  ScrollView,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+import { LocalSvg } from "react-native-svg/css";
 
 export default function LoginScreen() {
   const { t } = useTranslation();
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
 
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [emailTouched, setEmailTouched] = useState(false);
+  const [passwordTouched, setPasswordTouched] = useState(false);
+  const [emailError, setEmailError] = useState<string | null>(null);
+  const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  const openLegal = (kind: "terms" | "privacy") => {
+    const url =
+      kind === "terms"
+        ? process.env.EXPO_PUBLIC_TERMS_URL
+        : process.env.EXPO_PUBLIC_PRIVACY_URL;
+    if (url) {
+      void Linking.openURL(url);
+    } else {
+      Alert.alert(t("app.name"), t("auth.legalPagesUnavailable"));
+    }
+  };
+
+  const onSocialPress = () => {
+    Alert.alert(t("app.name"), t("auth.socialSignInComingSoon"));
+  };
 
   const handleSignIn = async () => {
     setError(null);
 
-    if (!email || !password) {
-      setError(t('errors.required'));
-      return;
-    }
+    setEmailTouched(true);
+    setPasswordTouched(true);
+
+    const emailValue = email.trim();
+    const nextEmailError = !emailValue
+      ? t("errors.required")
+      : !isValidEmail(emailValue)
+        ? t("errors.invalidEmail")
+        : null;
+    const nextPasswordError = !validateRequired(password)
+      ? t("errors.required")
+      : null;
+
+    setEmailError(nextEmailError);
+    setPasswordError(nextPasswordError);
+
+    if (nextEmailError || nextPasswordError) return;
 
     setLoading(true);
 
@@ -31,55 +83,234 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (signInError) {
-      setError(t('auth.login.invalidCredentials'));
+      setError(t("auth.login.invalidCredentials"));
     }
-    // No navigation here — onAuthStateChange fires SIGNED_IN
-    // and the root layout useEffect handles routing based on profile state
   };
 
+  useEffect(() => {
+    if (!emailTouched) {
+      setEmailError(null);
+      return;
+    }
+
+    const emailValue = email.trim();
+    if (!emailValue) {
+      setEmailError(t("errors.required"));
+      return;
+    }
+
+    if (!isValidEmail(emailValue)) {
+      setEmailError(t("errors.invalidEmail"));
+      return;
+    }
+
+    setEmailError(null);
+  }, [email, emailTouched, t]);
+
+  useEffect(() => {
+    if (!passwordTouched) {
+      setPasswordError(null);
+      return;
+    }
+
+    setPasswordError(!validateRequired(password) ? t("errors.required") : null);
+  }, [password, passwordTouched, t]);
+
   return (
-    <View className="flex-1 bg-background px-6 justify-center">
-      <Text className="text-2xl font-bold text-text-primary mb-8">{t('auth.login.title')}</Text>
-
-      <TextField
-        label={t('auth.login.emailLabel')}
-        value={email}
-        onChangeText={setEmail}
-        placeholder={t('auth.login.emailPlaceholder')}
-        keyboardType="email-address"
-        autoCapitalize="none"
-      />
-      <TextField
-        label={t('auth.login.passwordLabel')}
-        value={password}
-        onChangeText={setPassword}
-        placeholder={t('auth.login.passwordPlaceholder')}
-        secureTextEntry
-      />
-
-      {error && (
-        <Text className="text-danger text-sm mb-4">{error}</Text>
-      )}
-
-      <TouchableOpacity
-        className="bg-primary w-full py-4 rounded-xl items-center mb-4"
-        onPress={handleSignIn}
-        disabled={loading}
+    <PageContainer>
+      <BackHeader className="pl-0" />
+      <ScrollView
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+        style={{ flex: 1, paddingTop: 16 }}
       >
-        <Text className="text-white font-semibold text-base">
-          {loading ? t('common.loading') : t('auth.login.submit')}
-        </Text>
-      </TouchableOpacity>
+        <AppText
+          variant="title"
+          color={colors.onSurface}
+          style={{ marginBottom: 8, fontSize: 28, fontWeight: "700" }}
+        >
+          {t("auth.login.title")}
+        </AppText>
+        <AppText
+          variant="body"
+          color={colors.onSurfaceVariant}
+          style={{ marginBottom: 24, lineHeight: 22 }}
+        >
+          {t("auth.login.subtitle")}
+        </AppText>
 
-      <TouchableOpacity onPress={() => router.push('/(auth)/forgot-password')}>
-        <Text className="text-primary-light text-center text-sm mb-3">
-          {t('auth.login.forgotPassword')}
-        </Text>
-      </TouchableOpacity>
+        <TextField
+          label={t("auth.login.emailLabel")}
+          value={email}
+          onChangeText={(text) => {
+            setEmail(text);
+            setEmailTouched(true);
+          }}
+          placeholder={t("auth.login.emailPlaceholder")}
+          keyboardType="email-address"
+          autoCapitalize="none"
+          autoCorrect={false}
+          error={emailError ?? undefined}
+        />
+        <TextField
+          label={t("auth.login.passwordLabel")}
+          value={password}
+          onChangeText={(text) => {
+            setPassword(text);
+            setPasswordTouched(true);
+          }}
+          placeholder={t("auth.login.passwordPlaceholder")}
+          isPassword
+          textContentType="password"
+          autoComplete="password"
+          error={passwordError ?? undefined}
+        />
 
-      <TouchableOpacity onPress={() => router.push('/(auth)/signup/credentials')}>
-        <Text className="text-primary-light text-center text-base">{t('auth.login.noAccount')}</Text>
-      </TouchableOpacity>
-    </View>
+        {error ? (
+          <AppText
+            variant="caption"
+            color={colors.error}
+            style={{ marginBottom: 12 }}
+          >
+            {error}
+          </AppText>
+        ) : null}
+
+        <TouchableOpacity
+          onPress={() => router.push("/(auth)/forgot-password")}
+          style={{ alignSelf: "flex-end", marginBottom: 24 }}
+        >
+          <AppText variant="body" color={colors.primary}>
+            {t("auth.login.forgotPassword")}
+          </AppText>
+        </TouchableOpacity>
+
+        <View style={{ marginBottom: 20 }}>
+          <Button
+            label={loading ? t("auth.login.signingIn") : t("auth.login.submit")}
+            onPress={handleSignIn}
+            loading={loading}
+            disabled={loading}
+          />
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            marginBottom: 20,
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: colors.outlineVariant,
+            }}
+          />
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={{ marginHorizontal: 12 }}
+          >
+            {t("auth.orContinueWith")}
+          </AppText>
+          <View
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: colors.outlineVariant,
+            }}
+          />
+        </View>
+
+        <View
+          style={{
+            flexDirection: "row",
+            justifyContent: "center",
+            gap: 16,
+            marginBottom: 28,
+          }}
+        >
+          <TouchableOpacity
+            onPress={onSocialPress}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              backgroundColor: colors.surfaceContainerLowest,
+              borderWidth: 1,
+              borderColor: colors.outlineVariant,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Google"
+          >
+            <LocalSvg asset={require("@/assets/icons/google.svg")} width={32} />
+          </TouchableOpacity>
+          <TouchableOpacity
+            onPress={onSocialPress}
+            style={{
+              width: 52,
+              height: 52,
+              borderRadius: 26,
+              backgroundColor: colors.surfaceContainerLowest,
+              borderWidth: 1,
+              borderColor: colors.outlineVariant,
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+            accessibilityRole="button"
+            accessibilityLabel="Apple"
+          >
+            <Ionicons name="logo-apple" size={26} color={colors.onSurface} />
+          </TouchableOpacity>
+        </View>
+
+        <Text
+          style={{
+            textAlign: "center",
+            color: colors.onSurfaceVariant,
+            fontSize: 15,
+            lineHeight: 22,
+            marginBottom: 20,
+          }}
+        >
+          {t("auth.login.noAccountPrefix")}{" "}
+          <Text
+            style={{ fontWeight: "700", color: colors.onSurface }}
+            onPress={() => router.push("/(auth)/signup")}
+          >
+            {t("auth.login.signUpLink")}
+          </Text>
+        </Text>
+
+        <Text
+          style={{
+            textAlign: "center",
+            color: colors.onSurfaceVariant,
+            fontSize: 12,
+            lineHeight: 18,
+          }}
+        >
+          {t("auth.legalPrefix")}{" "}
+          <Text
+            style={{ textDecorationLine: "underline" }}
+            onPress={() => openLegal("terms")}
+          >
+            {t("auth.termsOfService")}
+          </Text>
+          {t("auth.legalMiddle")}
+          <Text
+            style={{ textDecorationLine: "underline" }}
+            onPress={() => openLegal("privacy")}
+          >
+            {t("auth.privacyPolicy")}
+          </Text>
+          .
+        </Text>
+      </ScrollView>
+    </PageContainer>
   );
 }

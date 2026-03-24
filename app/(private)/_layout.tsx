@@ -1,5 +1,7 @@
 import { Colors } from "@/src/constants/colors";
+import { stackPerfScreenOptions } from "@/src/constants/navigation";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { KycGlobalPrompt } from "@/src/shared/components/kyc/KycGlobalPrompt";
 import { Stack } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
@@ -7,8 +9,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 
 /**
  * Private (authenticated) app shell: tabs + detail screens.
- * Native: slide_from_right so tab → detail feels like a push, not a full reload.
- * Web: navigation will still feel like page loads (Expo Router web limitation).
+ * Access is gated by `Stack.Protected` in root `app/_layout.tsx`.
  */
 export default function PrivateLayout() {
   const { resolvedTheme } = useThemeStore();
@@ -21,28 +22,39 @@ export default function PrivateLayout() {
       edges={["top", "bottom"]}
     >
       <StatusBar style={resolvedTheme === "light" ? "dark" : "light"} />
+      <KycGlobalPrompt />
       <Stack
         screenOptions={{
           headerShown: false,
-          ...(Platform.OS !== "web" && { animation: "slide_from_right" }),
+          ...stackPerfScreenOptions,
+            ...(Platform.OS === "ios"
+              ? { animation: "ios" as any, gestureEnabled: true }
+              : Platform.OS !== "web"
+                ? { animation: "slide_from_right" }
+                : {}),
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
-        <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
-        <Stack.Screen name="requests/[id]" options={{ title: "Request" }} />
-        <Stack.Screen name="offers/[id]" options={{ headerShown: false }} />
+        <Stack.Screen name="post-requests" options={{ headerShown: false }} />
+        <Stack.Screen name="post-availability" options={{ headerShown: false }} />
+        <Stack.Screen name="offer" options={{ headerShown: false }} />
+        <Stack.Screen name="kyc" options={{ headerShown: false }} />
         <Stack.Screen name="takers/[id]" options={{ title: "Taker" }} />
         <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />
         <Stack.Screen name="pets/[id]" options={{ title: "Pet Profile" }} />
         <Stack.Screen name="pets/[id]/edit" options={{ title: "Edit Pet" }} />
-        {/* Nested utility screens live under (tabs)/(no-label) */}
+        {/* Home stack: (tabs)/(home)/notifications, search — nested in (tabs) */}
         <Stack.Screen
-          name="(tabs)/(no-label)/notifications"
+          name="(tabs)/(home)/notifications"
           options={{ title: "Notifications" }}
         />
         <Stack.Screen
-          name="(tabs)/(no-label)/search"
+          name="(tabs)/(home)/search"
           options={{ title: "Search" }}
+        />
+        <Stack.Screen
+          name="(tabs)/profile/users/[id]"
+          options={{ title: "Profile" }}
         />
       </Stack>
     </SafeAreaView>

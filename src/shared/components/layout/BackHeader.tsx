@@ -3,7 +3,8 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useRouter } from "expo-router";
 import { ArrowLeft } from "lucide-react-native";
 import React, { ReactNode } from "react";
-import { Text, TouchableOpacity, View } from "react-native";
+import { StyleProp, TouchableOpacity, View, ViewStyle } from "react-native";
+import { AppText } from "../ui";
 
 type BackHeaderProps = {
   /**
@@ -19,30 +20,47 @@ type BackHeaderProps = {
    * Optional right-aligned accessory (e.g. menu button).
    */
   rightSlot?: ReactNode;
+  /**
+   * Optional style for the header.
+   */
+  style?: StyleProp<ViewStyle>;
+  /**
+   * Optional class name for the header.
+   */
+  className?: string;
 };
 
-export function BackHeader({ title = "", onBack, rightSlot }: BackHeaderProps) {
+export function BackHeader({
+  title = "",
+  onBack,
+  rightSlot,
+  style,
+  className,
+}: BackHeaderProps) {
   const router = useRouter();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
   return (
-    <View className="flex-row items-center px-4 pt-4 pb-3">
+    <View
+      className={`flex-row items-center px-4 pt-4 pb-3 ${className}`}
+      style={style}
+    >
       <TouchableOpacity
         onPress={onBack ?? (() => router.back())}
         activeOpacity={0.7}
         className="mr-3"
       >
-        <ArrowLeft
-          size={24}
-          color={colors.onSurfaceVariant}
-        />
+        <ArrowLeft size={24} color={colors.onSurfaceVariant} />
       </TouchableOpacity>
       <View className="flex-1 flex-row items-center justify-between">
         {typeof title === "string" ? (
-          <Text className="text-[22px] font-semibold text-on-surface tracking-tight">
+          <AppText
+            variant="headline"
+            style={{ fontSize: 22, fontWeight: "600", color: colors.onSurface }}
+          >
             {title}
-          </Text>
+          </AppText>
         ) : (
           // Custom title node (e.g., title + badge row)
           title

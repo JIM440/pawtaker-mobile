@@ -10,7 +10,14 @@ import {
 } from "react-native";
 import { AppText } from "./AppText";
 
-type Variant = "primary" | "secondary" | "outline" | "ghost" | "danger";
+type Variant =
+  | "primary"
+  | "secondary"
+  | "outline"
+  | "ghost"
+  | "danger"
+  /** Light surface + primary label — for CTAs on solid primary / brand backgrounds (e.g. onboarding). */
+  | "inverse";
 type Size = "md" | "sm";
 
 type ButtonProps = {
@@ -22,6 +29,8 @@ type ButtonProps = {
   disabled?: boolean;
   fullWidth?: boolean;
   style?: StyleProp<ViewStyle>;
+  leftIcon?: React.ReactNode;
+  color?: string
 };
 
 const variantBg: Record<Variant, (colors: (typeof Colors)[keyof typeof Colors]) => string> = {
@@ -30,6 +39,7 @@ const variantBg: Record<Variant, (colors: (typeof Colors)[keyof typeof Colors]) 
   outline: () => "transparent",
   ghost: () => "transparent",
   danger: (c) => c.error,
+  inverse: (c) => c.surfaceBright,
 };
 
 const variantTextColor: Record<
@@ -41,6 +51,7 @@ const variantTextColor: Record<
   outline: (c) => c.primary,
   ghost: (c) => c.primary,
   danger: (c) => c.onError,
+  inverse: (c) => c.primary,
 };
 
 /**
@@ -56,6 +67,8 @@ export function Button({
   disabled = false,
   fullWidth = true,
   style,
+  leftIcon,
+  color
 }: ButtonProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -82,7 +95,8 @@ export function Button({
           borderWidth,
           borderColor,
           alignSelf: fullWidth ? "stretch" : "flex-start",
-          opacity: isDisabled ? 0.5 : 1,
+          // Keep visual emphasis while showing loading activity.
+          opacity: disabled && !loading ? 0.5 : 1,
         },
         style,
       ]}
@@ -93,13 +107,16 @@ export function Button({
           color={
             variant === "outline" || variant === "ghost"
               ? colors.primary
-              : colors.onPrimary
+              : variant === "inverse"
+                ? colors.primary
+                : colors.onPrimary
           }
         />
       )}
+      {!loading && leftIcon}
       <AppText
         variant="label"
-        color={variantTextColor[variant](colors)}
+        color={color ?? variantTextColor[variant](colors)}
         style={[styles.label, size === "sm" && styles.labelSm]}
       >
         {label}
@@ -107,6 +124,7 @@ export function Button({
     </TouchableOpacity>
   );
 }
+
 
 const styles = StyleSheet.create({
   button: {

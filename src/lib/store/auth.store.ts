@@ -1,4 +1,6 @@
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { create } from 'zustand';
+import { createJSONStorage, persist } from 'zustand/middleware';
 import type { Session, User } from '@supabase/supabase-js';
 import { supabase } from '../supabase/client';
 
@@ -25,37 +27,63 @@ interface AuthState {
   user: User | null;
   session: Session | null;
   profile: UserProfile | null;
+  onboardingSeen: boolean;
+  _hasHydrated: boolean;
   isLoading: boolean;
   setUser: (user: User | null) => void;
   setSession: (session: Session | null) => void;
   setProfile: (profile: UserProfile | null) => void;
+  setOnboardingSeen: (onboardingSeen: boolean) => void;
+  setHasHydrated: (state: boolean) => void;
   setLoading: (isLoading: boolean) => void;
   fetchProfile: (userId: string) => Promise<void>;
   signOut: () => void;
   clearAuth: () => void;
 }
 
-export const useAuthStore = create<AuthState>((set) => ({
-  user: null,
-  session: null,
-  profile: null,
-  isLoading: true,
-  setUser: (user) => set({ user }),
-  setSession: (session) => set({ session, user: session?.user ?? null }),
-  setProfile: (profile) => set({ profile }),
-  setLoading: (isLoading) => set({ isLoading }),
+export const useAuthStore = create<AuthState>()(
+  persist(
+    (set) => ({
+      user: null,
+      session: null,
+      profile: null,
+      onboardingSeen: false,
+      _hasHydrated: false,
+      isLoading: true,
+      setUser: (user) => set({ user }),
+      setSession: (session) =>
+        set((state) => ({
+          session,
+          user: session?.user ?? null,
+        })),
+      setProfile: (profile) => set({ profile }),
+      setOnboardingSeen: (onboardingSeen) => set({ onboardingSeen }),
+      setHasHydrated: (state) => set({ _hasHydrated: state }),
+      setLoading: (isLoading) => set({ isLoading }),
 
-  fetchProfile: async (userId: string) => {
-    const { data, error } = await supabase
-      .from('users')
-      .select('*')
-      .eq('id', userId)
-      .single();
-    if (!error && data) {
-      set({ profile: data as unknown as UserProfile });
+      fetchProfile: async (userId: string) => {
+        const { data, error } = await supabase
+          .from('users')
+          .select('*')
+          .eq('id', userId)
+          .single();
+        if (!error && data) {
+          set({ profile: data as unknown as UserProfile });
+        }
+      },
+
+      signOut: () => set({ user: null, session: null, profile: null }),
+      clearAuth: () => set({ user: null, session: null, profile: null }),
+    }),
+    {
+      name: 'pawtaker-auth',
+      storage: createJSONStorage(() => AsyncStorage),
+      partialize: (state) => ({
+        onboardingSeen: state.onboardingSeen,
+      }),
+      onRehydrateStorage: () => (state) => {
+        state?.setHasHydrated(true);
+      },
     }
-  },
-
-  signOut: () => set({ user: null, session: null, profile: null }),
-  clearAuth: () => set({ user: null, session: null, profile: null }),
-}));
+  )
+);

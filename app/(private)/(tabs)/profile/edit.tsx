@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { EditAvailabilityTab } from "@/src/features/profile/components/EditAvailabilityTab";
 import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab";
 import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -133,7 +134,10 @@ export default function EditProfileScreen() {
         {activeTab === "pets" && (
           <EditPetsTab
             pets={MOCK_PETS}
-            onAddPet={() => router.push("/(private)/pets/add")}
+            onAddPet={() => {
+              if (blockIfKycNotApproved()) return;
+              router.push("/(private)/pets/add");
+            }}
             onEditPet={(id) =>
               router.push({
                 pathname: "/(private)/pets/[id]/edit",
@@ -141,12 +145,13 @@ export default function EditProfileScreen() {
               })
             }
             onDeletePet={() => { }}
-            onLaunchPetRequest={(id) =>
+            onLaunchPetRequest={(id) => {
+              if (blockIfKycNotApproved()) return;
               router.push({
-                pathname: "/(private)/requests/create",
+                pathname: "/(private)/requests/create" as any,
                 params: { petId: id },
-              })
-            }
+              });
+            }}
             onSave={handleSave}
           />
         )}

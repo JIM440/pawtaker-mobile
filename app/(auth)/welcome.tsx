@@ -1,23 +1,237 @@
-import { View, Text, TouchableOpacity } from 'react-native';
-import { router } from 'expo-router';
-import { useTranslation } from 'react-i18next';
+import i18n from "@/src/lib/i18n";
+import { useRouter } from "expo-router";
+import React, { useMemo, useRef, useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  Modal,
+  Pressable,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from "react-native";
+
+import { Colors } from "@/src/constants/colors";
+import { useLanguageStore } from "@/src/lib/store/language.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+
+import { PageContainer } from "@/src/shared/components/layout/PageContainer";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
+import { ChevronDown } from "lucide-react-native";
+import { LocalSvg } from "react-native-svg/css";
+
+/** primary_logo.svg viewBox 388.09 × 97.73 */
+const LOGO_W = 120;
+const LOGO_H = 120;
+const PRIMARY_LOGO = require("@/assets/icons/logos/svg/coloured_favicon.svg");
 
 export default function WelcomeScreen() {
+  const router = useRouter();
   const { t } = useTranslation();
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+
+  const { language, setLanguage } = useLanguageStore();
+
+  const languageButtonRef = useRef<View | null>(null);
+  const [openMenu, setOpenMenu] = useState(false);
+  const [menuPosition, setMenuPosition] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+
+  const languageLabel = useMemo(
+    () =>
+      language === "fr"
+        ? t("settings.languageFrench", "Français")
+        : t("settings.languageEnglish", "English"),
+    [language, t],
+  );
+
+  const menuItems = useMemo(
+    () => [
+      { id: "en" as const, label: t("settings.languageEnglish", "English") },
+      { id: "fr" as const, label: t("settings.languageFrench", "Français") },
+    ],
+    [t],
+  );
 
   return (
-    <View className="flex-1 bg-background items-center justify-center px-6">
-      <Text className="text-3xl font-bold text-primary mb-2">{t('auth.welcome.title')}</Text>
-      <Text className="text-base text-text-secondary mb-12 text-center">{t('auth.welcome.subtitle')}</Text>
-      <TouchableOpacity
-        className="bg-primary w-full py-4 rounded-xl items-center mb-4"
-        onPress={() => router.push('/(auth)/signup/credentials')}
+    <PageContainer contentStyle={{ paddingTop: 48, paddingBottom: 48 }}>
+      <View
+        style={{
+          width: "100%",
+          flexDirection: "row",
+          justifyContent: "flex-end",
+          marginBottom: 24,
+        }}
       >
-        <Text className="text-white font-semibold text-base">{t('auth.welcome.getStarted')}</Text>
-      </TouchableOpacity>
-      <TouchableOpacity onPress={() => router.push('/(auth)/login')}>
-        <Text className="text-primary-light text-base">{t('auth.welcome.signIn')}</Text>
-      </TouchableOpacity>
-    </View>
+        <TouchableOpacity
+          ref={languageButtonRef}
+          accessibilityRole="button"
+          accessibilityLabel={t("settings.language")}
+          accessibilityHint={t("auth.welcome.languageHint")}
+          onPress={() => {
+            languageButtonRef.current?.measureInWindow(
+              (x, y, width, height) => {
+                setMenuPosition({ x, y, width, height });
+                setOpenMenu(true);
+              },
+            );
+          }}
+          activeOpacity={0.8}
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            paddingHorizontal: 10,
+            paddingVertical: 8,
+            borderRadius: 999,
+          }}
+        >
+          <Text style={{ fontSize: 14, color: colors.onSurface }}>
+            {languageLabel}
+          </Text>
+          <ChevronDown
+            size={14}
+            color={colors.onSurfaceVariant}
+            style={{ marginLeft: 6 }}
+          />
+        </TouchableOpacity>
+      </View>
+
+      <View
+        style={{
+          flex: 1,
+          width: "100%",
+          gap: 24,
+          paddingTop: 48,
+        }}
+      >
+        <LocalSvg
+          asset={PRIMARY_LOGO}
+          width={LOGO_W}
+          height={LOGO_H}
+          style={{
+            alignSelf: "center",
+          }}
+        />
+
+        <AppText
+          variant="headline"
+          color={colors.onSurfaceVariant}
+          style={{
+            textAlign: "center",
+            letterSpacing: -0.5,
+            marginBottom: 20,
+          }}
+        >
+          {t("auth.welcome.title")}
+        </AppText>
+
+        <Button
+          label={t("auth.welcome.signIn")}
+          onPress={() => router.push("/login")}
+          variant="outline"
+        />
+
+        <View
+          style={{
+            flexDirection: "row",
+            alignItems: "center",
+            width: "100%",
+            marginTop: 2,
+          }}
+        >
+          <View
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: colors.outlineVariant,
+            }}
+          />
+          <AppText
+            variant="label"
+            color={colors.onSurface}
+            style={{ marginHorizontal: 10 }}
+          >
+            {t("common.or")}
+          </AppText>
+          <View
+            style={{
+              flex: 1,
+              height: 1,
+              backgroundColor: colors.outlineVariant,
+            }}
+          />
+        </View>
+
+        <Button
+          label={t("auth.welcome.getStarted")}
+          onPress={() => router.push("/signup")}
+          variant="primary"
+        />
+      </View>
+
+      <Modal
+        transparent
+        visible={openMenu}
+        animationType="fade"
+        onRequestClose={() => setOpenMenu(false)}
+      >
+        <View style={{ flex: 1 }}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setOpenMenu(false)}
+          />
+          {menuPosition ? (
+            <View pointerEvents="box-none" style={StyleSheet.absoluteFill}>
+              <View
+                style={{
+                  position: "absolute",
+                  top: menuPosition.y + menuPosition.height + 30,
+                  right: 20,
+                  width: 180,
+                  borderRadius: 12,
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderWidth: 1,
+                  borderColor: colors.outlineVariant,
+                  shadowColor: "#000",
+                  shadowOpacity: 0.1,
+                  shadowOffset: { width: 0, height: 12 },
+                  shadowRadius: 16,
+                  elevation: 6,
+                  overflow: "hidden",
+                }}
+              >
+                {menuItems.map((item, idx) => (
+                  <TouchableOpacity
+                    key={item.id}
+                    onPress={() => {
+                      setLanguage(item.id);
+                      i18n.changeLanguage(item.id);
+                      setOpenMenu(false);
+                    }}
+                    activeOpacity={0.7}
+                    style={{
+                      paddingHorizontal: 16,
+                      paddingVertical: 12,
+                      borderBottomWidth: idx === 0 ? 1 : 0,
+                      borderBottomColor: colors.outlineVariant,
+                    }}
+                  >
+                    <Text style={{ fontSize: 14, color: colors.onSurface }}>
+                      {item.label}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </View>
+      </Modal>
+    </PageContainer>
   );
 }

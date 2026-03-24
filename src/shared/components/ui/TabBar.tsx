@@ -52,9 +52,9 @@ export function TabBar<Key extends string>({
                 paddingHorizontal:
                   SearchFilterStyles.filterPillPaddingHorizontal,
                 paddingVertical: SearchFilterStyles.filterPillPaddingVertical,
-                borderWidth: active ? 0 : 3,
+                borderWidth: active ? 0 : 1,
                 borderColor: colors.outlineVariant,
-                backgroundColor: active ? colors.primary : "transparent",
+                backgroundColor: active ? colors.surfaceContainerHighest : "transparent",
               },
             ]}
           >
@@ -63,7 +63,7 @@ export function TabBar<Key extends string>({
               color={
                 active
                   ? variant === "pill"
-                    ? colors.onPrimary
+                    ? colors.onSurfaceVariant
                     : colors.primary
                   : colors.onSurfaceVariant
               }

@@ -5,8 +5,17 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { Calendar, Clock, Heart, MapPin } from "lucide-react-native";
-import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import React, { useState } from "react";
+import { useTranslation } from "react-i18next";
+import {
+  LayoutChangeEvent,
+  NativeScrollEvent,
+  NativeSyntheticEvent,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 export type PetCardCaretaker = {
   name: string;
@@ -18,7 +27,7 @@ export type PetCardCaretaker = {
 };
 
 export type PetCardProps = {
-  imageSource: string | number | { uri: string };
+  imageSource: string | number | (string | number)[] | { uri: string };
   petName: string;
   breed: string;
   petType: string;
@@ -29,15 +38,18 @@ export type PetCardProps = {
   distance: string;
   description: string;
   caretaker: PetCardCaretaker;
+  tags?: string[];
   isFavorite?: boolean;
   onFavorite?: () => void;
   onApply?: () => void;
   onCaretakerPress?: () => void;
+  onPress?: () => void;
 };
 
 const CARD_RADIUS = 20;
 const IMAGE_HEIGHT = 160;
 const IMAGE_TOP_RADIUS = 16;
+const IMAGE_BOTTOM_RADIUS = 4;
 
 export function PetCard({
   imageSource,
@@ -51,143 +63,216 @@ export function PetCard({
   distance,
   description,
   caretaker,
+  tags = [],
   isFavorite = false,
   onFavorite,
   onApply,
   onCaretakerPress,
 }: PetCardProps) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
-  return (
-    <TouchableOpacity activeOpacity={0.9} onPress={onApply} disabled={!onApply}>
-      <View style={[styles.card, { backgroundColor: colors.surfaceBright }]}>
-        <View style={styles.imageWrap}>
-          <AppImage
-            source={
-              typeof imageSource === "string"
-                ? { uri: imageSource }
-                : imageSource
-            }
-            style={[
-              styles.image,
-              {
-                borderTopLeftRadius: IMAGE_TOP_RADIUS,
-                borderTopRightRadius: IMAGE_TOP_RADIUS,
-              },
-            ]}
-            contentFit="cover"
-          />
-        </View>
+  const [activeIndex, setActiveIndex] = useState(0);
+  const [containerWidth, setContainerWidth] = useState(0);
 
-        <View style={styles.body}>
-          <View style={styles.titleRow}>
-            <View style={styles.nameRow}>
-              <AppText variant="headline" style={styles.petName}>
-                {petName}
-              </AppText>
-              <View style={styles.breedRow}>
-                <AppText variant="caption" style={styles.breed}>
-                  {breed}
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {" "}
-                  •{" "}
-                </AppText>
-                <AppText variant="caption" style={styles.breed}>
-                  {petType}
-                </AppText>
-              </View>
-            </View>
+  const images = Array.isArray(imageSource) ? imageSource : [imageSource];
+  const hasMultipleImages = images.length > 1;
+
+  const onLayout = (event: LayoutChangeEvent) => {
+    setContainerWidth(event.nativeEvent.layout.width);
+  };
+
+  const handleScroll = (event: NativeSyntheticEvent<NativeScrollEvent>) => {
+    const offset = event.nativeEvent.contentOffset.x;
+    const index = Math.round(offset / containerWidth);
+    if (index !== activeIndex && index >= 0 && index < images.length) {
+      setActiveIndex(index);
+    }
+  };
+
+  return (
+    <View style={[styles.card, { backgroundColor: colors.surfaceBright }]}>
+      <View style={styles.imageWrap} onLayout={onLayout}>
+        <ScrollView
+          horizontal
+          pagingEnabled
+          showsHorizontalScrollIndicator={false}
+          onScroll={handleScroll}
+          scrollEventThrottle={16}
+          style={styles.swiper}
+        >
+          {images.map((img, index) => (
             <TouchableOpacity
-              onPress={onFavorite}
-              style={[
-                styles.favButton,
-                { backgroundColor: colors.surfaceContainer },
-              ]}
-              hitSlop={8}
+              key={index}
+              activeOpacity={0.9}
+              onPress={onApply}
+              disabled={!onApply}
+              style={[styles.slide, { width: containerWidth }]}
             >
-              <Heart
-                size={20}
-                color={isFavorite ? colors.primary : colors.onSurfaceVariant}
-                fill={isFavorite ? colors.primary : "transparent"}
+              <AppImage
+                source={typeof img === "string" ? { uri: img } : img}
+                style={[
+                  styles.image,
+                  {
+                    borderTopLeftRadius: IMAGE_TOP_RADIUS,
+                    borderTopRightRadius: IMAGE_TOP_RADIUS,
+                    borderBottomLeftRadius: IMAGE_BOTTOM_RADIUS,
+                    borderBottomRightRadius: IMAGE_BOTTOM_RADIUS,
+                  },
+                ]}
+                contentFit="cover"
               />
             </TouchableOpacity>
-          </View>
+          ))}
+        </ScrollView>
 
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Calendar size={16} color={colors.onSurface} />
-              <AppText variant="caption" style={styles.metaText}>
-                {dateRange}
+        {hasMultipleImages && (
+          <View style={styles.dotsContainer}>
+            {images.map((_, i) => (
+              <View
+                key={i}
+                style={[
+                  styles.dot,
+                  {
+                    backgroundColor:
+                      i === activeIndex ? "white" : "rgba(255,255,255,0.5)",
+                  },
+                ]}
+              />
+            ))}
+          </View>
+        )}
+      </View>
+
+      <TouchableOpacity
+        activeOpacity={0.9}
+        // onPress={onPress}
+        // disabled={!onPress}
+        style={styles.body}
+      >
+        <View style={styles.titleRow}>
+          <View style={styles.nameRow}>
+            <AppText variant="headline" style={styles.petName}>
+              {petName}
+            </AppText>
+            <View style={styles.breedRow}>
+              <AppText variant="caption" style={styles.breed}>
+                {breed}
+              </AppText>
+              <AppText variant="caption" color={colors.onSurfaceVariant}>
+                {" "}
+                •{" "}
+              </AppText>
+              <AppText variant="caption" style={styles.breed}>
+                {petType}
               </AppText>
             </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {" "}
-              •{" "}
-            </AppText>
-            <View style={styles.metaItem}>
-              <Clock size={16} color={colors.onSurface} />
-              <AppText variant="caption" style={styles.metaText}>
-                {time}
-              </AppText>
-            </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {" "}
-              •{" "}
-            </AppText>
+          </View>
+          <TouchableOpacity
+            onPress={onFavorite}
+            style={[
+              styles.favButton,
+              { backgroundColor: colors.surfaceContainer },
+            ]}
+            hitSlop={8}
+          >
+            <Heart
+              size={20}
+              color={isFavorite ? colors.primary : colors.onSurfaceVariant}
+              fill={isFavorite ? colors.primary : "transparent"}
+            />
+          </TouchableOpacity>
+        </View>
+
+        <View style={styles.metaRow}>
+          <View style={styles.metaItem}>
+            <Calendar size={16} color={colors.onSurfaceVariant} />
             <AppText variant="caption" style={styles.metaText}>
-              {careType}
+              {dateRange}
             </AppText>
           </View>
-
-          <View style={styles.locationRow}>
-            <MapPin size={16} color={colors.onSurface} />
-            <AppText
-              variant="caption"
-              style={styles.locationText}
-              numberOfLines={1}
-            >
-              {location}
-            </AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {" "}
-              •{" "}
-            </AppText>
+          <AppText variant="caption" color={colors.onSurfaceVariant}>
+            {" "}
+            •{" "}
+          </AppText>
+          <View style={styles.metaItem}>
+            <Clock size={16} color={colors.onSurfaceVariant} />
             <AppText variant="caption" style={styles.metaText}>
-              {distance}
+              {time}
             </AppText>
           </View>
+          <AppText variant="caption" color={colors.onSurfaceVariant}>
+            {" "}
+            •{" "}
+          </AppText>
+          <AppText variant="caption" style={styles.metaText}>
+            {careType}
+          </AppText>
+        </View>
 
+        <View style={styles.locationRow}>
+          <MapPin size={16} color={colors.onSurfaceVariant} />
           <AppText
             variant="caption"
-            color={colors.onSurfaceVariant}
-            numberOfLines={3}
-            style={styles.description}
+            style={styles.locationText}
+            numberOfLines={1}
           >
-            {description}
+            {location}
           </AppText>
-
-          <View style={styles.footer}>
-            <CaretakerInfo
-              name={caretaker.name}
-              avatarUri={caretaker.avatarUri}
-              rating={caretaker.rating}
-              reviewsCount={caretaker.reviewsCount}
-              petsCount={caretaker.petsCount}
-              onPress={onCaretakerPress}
-            />
-            <Button
-              label="Apply"
-              onPress={onApply}
-              style={styles.applyBtn}
-              fullWidth={false}
-              size="sm"
-            />
-          </View>
+          <AppText variant="caption" color={colors.onSurfaceVariant}>
+            {" "}
+            •{" "}
+          </AppText>
+          <AppText variant="caption" style={styles.metaText}>
+            {distance}
+          </AppText>
         </View>
-      </View>
-    </TouchableOpacity>
+
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          numberOfLines={3}
+          style={styles.description}
+        >
+          {description}
+        </AppText>
+
+        {tags.length > 0 && (
+          <View style={styles.tagsRow}>
+            {tags.map((tag, index) => (
+              <View
+                key={index}
+                style={[
+                  styles.tagPill,
+                  { backgroundColor: colors.surfaceContainer },
+                ]}
+              >
+                <AppText variant="caption" style={styles.tagText}>
+                  {tag}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        )}
+
+        <View style={styles.footer}>
+          <CaretakerInfo
+            name={caretaker.name}
+            avatarUri={caretaker.avatarUri}
+            rating={caretaker.rating}
+            reviewsCount={caretaker.reviewsCount}
+            petsCount={caretaker.petsCount}
+            onPress={onCaretakerPress}
+          />
+          <Button
+            label={t("requestDetails.apply")}
+            onPress={onApply}
+            style={styles.applyBtn}
+          />
+        </View>
+      </TouchableOpacity>
+    </View>
   );
 }
 
@@ -206,6 +291,26 @@ const styles = StyleSheet.create({
     width: "100%",
     height: "100%",
     backgroundColor: "#f0f0f0",
+  },
+  swiper: {
+    flex: 1,
+  },
+  slide: {
+    height: IMAGE_HEIGHT,
+  },
+  dotsContainer: {
+    position: "absolute",
+    bottom: 12,
+    left: 0,
+    right: 0,
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 6,
+  },
+  dot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
   body: {
     paddingHorizontal: 16,
@@ -275,13 +380,30 @@ const styles = StyleSheet.create({
   footer: {
     flexDirection: "row",
     alignItems: "center",
+    justifyContent: "space-between",
     gap: 10,
     marginTop: 8,
   },
   applyBtn: {
     minWidth: 72,
+    width: 115,
   },
   caretakerName: {
     fontSize: 16,
+  },
+  tagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 8,
+  },
+  tagPill: {
+    paddingHorizontal: 8,
+    paddingVertical: 999,
+    borderRadius: 8,
+  },
+  tagText: {
+    fontSize: 10,
+    fontWeight: "500",
   },
 });

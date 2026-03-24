@@ -4,7 +4,7 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { CaretakerInfo } from "@/src/shared/components/cards/CaretakerInfo";
 import { Star } from "lucide-react-native";
 import React from "react";
-import { StyleSheet, TouchableOpacity, View } from "react-native";
+import { StyleSheet, View } from "react-native";
 
 type ReviewCardProps = {
   rating: number;

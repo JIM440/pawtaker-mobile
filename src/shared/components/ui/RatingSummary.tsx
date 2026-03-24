@@ -21,50 +21,23 @@ export function RatingSummary({
 
   return (
     <View style={styles.row}>
-      <View
-        style={[
-          styles.pill,
-          { backgroundColor: colors.surfaceContainerHighest },
-        ]}
-      >
-        <AppText variant="caption" color={colors.onSurface}>
+      <View style={[styles.pill, { backgroundColor: colors.surfaceContainerHighest }]}>
+        <AppText variant="caption" color={colors.onSurface} style={{ fontWeight: '700' }}>
           {rating.toFixed(1)}
         </AppText>
-        <Star
-          size={12}
-          color={colors.onSurfaceVariant}
-          fill={colors.onSurfaceVariant}
-        />
+        <Star size={12} color={colors.primary} fill={colors.primary} />
       </View>
-      <View style={[styles.pill, { backgroundColor: colors.surfaceBright }]}>
-        <View
-          style={[
-            styles.inner,
-            {
-              backgroundColor: colors.tertiaryContainer,
-              borderColor: colors.outlineVariant,
-            },
-          ]}
-        >
-          <Handshake size={12} color={colors.tertiary} />
-          <AppText variant="caption" color={colors.onTertiaryContainer}>
-            {handshakes}
-          </AppText>
-        </View>
-        <View
-          style={[
-            styles.inner,
-            {
-              backgroundColor: colors.primaryContainer,
-              borderColor: colors.outlineVariant,
-            },
-          ]}
-        >
-          <PawPrint size={12} color={colors.onTertiary} />
-          <AppText variant="caption" color={colors.onTertiary}>
-            {paws}
-          </AppText>
-        </View>
+      <View style={[styles.pill, { backgroundColor: colors.surfaceContainerHighest }]}>
+        <Handshake size={14} color={colors.onSurfaceVariant} />
+        <AppText variant="caption" color={colors.onSurfaceVariant}>
+          {handshakes}
+        </AppText>
+      </View>
+      <View style={[styles.pill, { backgroundColor: colors.surfaceContainerHighest }]}>
+        <PawPrint size={14} color={colors.onSurfaceVariant} />
+        <AppText variant="caption" color={colors.onSurfaceVariant}>
+          {paws}
+        </AppText>
       </View>
     </View>
   );
