@@ -2,13 +2,18 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import React from "react";
 import { StyleSheet, View } from "react-native";
 
-export function ProfileBioTab() {
+type Props = {
+  bio?: string | null;
+  emptyMessage?: string;
+};
+
+export function ProfileBioTab({ bio, emptyMessage = "No bio yet." }: Props) {
+  const trimmedBio = bio?.trim();
+
   return (
     <View style={styles.container}>
       <AppText variant="body" style={styles.content}>
-        Hi! I&apos;m a passionate pet owner who loves connecting with fellow animal
-        lovers in the community. I&apos;m always happy to help care for your furry
-        friends and believe every pet deserves kindness and fun adventures!
+        {trimmedBio || emptyMessage}
       </AppText>
     </View>
   );

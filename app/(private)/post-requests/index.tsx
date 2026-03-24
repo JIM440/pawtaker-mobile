@@ -9,6 +9,8 @@ import {
   RequestPreviewCard,
   RequestPreviewRow,
 } from "@/src/features/post/components/request-preview-card";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
@@ -16,12 +18,14 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { DataState } from "@/src/shared/components/ui";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
-import { useRouter } from "expo-router";
-import React, { useState } from "react";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -37,29 +41,11 @@ function startOfDayMs(d: Date) {
   return x.getTime();
 }
 
-const MOCK_PETS = [
-  {
-    id: "1",
-    name: "Polo",
-    imageUri:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
-  },
-  {
-    id: "2",
-    name: "Luna",
-    imageUri:
-      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200",
-  },
-  {
-    id: "3",
-    name: "Bobby",
-    imageUri: "https://images.unsplash.com/photo-1552053831-71594a27632d?w=200",
-  },
-];
-
 export default function LaunchRequestWizardScreen() {
   const router = useRouter();
+  const params = useLocalSearchParams<{ petId?: string }>();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const { width: windowWidth } = useWindowDimensions();
   const columnWidth = getPetGridColumnWidth(
     windowWidth,
@@ -68,6 +54,11 @@ export default function LaunchRequestWizardScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
+  const [pets, setPets] = useState<
+    { id: string; name: string; imageUri: string | null }[]
+  >([]);
+  const [petsLoading, setPetsLoading] = useState(true);
+  const [petsError, setPetsError] = useState<string | null>(null);
   const [careTypes, setCareTypes] = useState<string[]>(["daytime"]);
   const [multiDay, setMultiDay] = useState(false);
   const [startDate, setStartDate] = useState<Date>(new Date());
@@ -99,7 +90,46 @@ export default function LaunchRequestWizardScreen() {
     days?: string;
     dateRange?: string;
   }>({});
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const progress = (step + 1) / TOTAL_STEPS;
+
+  const loadPets = async () => {
+    if (!user?.id) {
+      setPetsLoading(false);
+      return;
+    }
+    setPetsLoading(true);
+    setPetsError(null);
+    try {
+      const { data, error } = await supabase
+        .from("pets")
+        .select("id,name,avatar_url")
+        .eq("owner_id", user.id);
+      if (error) throw error;
+      const nextPets =
+        data?.map((p) => ({ id: p.id, name: p.name, imageUri: p.avatar_url })) ?? [];
+      setPets(nextPets);
+    } catch (err) {
+      setPetsError(err instanceof Error ? err.message : "Failed to load pets.");
+    } finally {
+      setPetsLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPets();
+  }, [user?.id]);
+
+  useEffect(() => {
+    if (params.petId && typeof params.petId === "string") {
+      setSelectedPet(params.petId);
+    }
+  }, [params.petId]);
+
+  const selectedPetData = useMemo(
+    () => pets.find((p) => p.id === selectedPet) ?? null,
+    [pets, selectedPet],
+  );
 
   const goBack = () => {
     if (step > 0) setStep((s) => s - 1);
@@ -152,12 +182,66 @@ export default function LaunchRequestWizardScreen() {
     return true;
   };
 
+  const mapCareTypeToDb = (value: string): "sitting" | "walking" | "boarding" => {
+    if (value === "playwalk") return "walking";
+    if (value === "overnight" || value === "vacation") return "boarding";
+    return "sitting";
+  };
+
+  const buildDescription = () => {
+    const chunks = [
+      specialNeeds.trim() ? `Special needs: ${specialNeeds.trim()}` : "",
+      `Yard: ${yardType}`,
+      `Age range: ${ageRange}`,
+      `Energy level: ${energyLevel}`,
+      days.length ? `Preferred days: ${days.join(", ")}` : "",
+    ].filter(Boolean);
+    return chunks.join("\n");
+  };
+
+  const launchRequest = async () => {
+    if (!user?.id || !selectedPet) {
+      Alert.alert(t("common.error", "Something went wrong"));
+      return;
+    }
+    setIsSubmitting(true);
+    try {
+      const start = new Date(startDate);
+      start.setHours(timeStart.getHours(), timeStart.getMinutes(), 0, 0);
+      const endBase = multiDay ? endDate : startDate;
+      const end = new Date(endBase);
+      end.setHours(timeEnd.getHours(), timeEnd.getMinutes(), 0, 0);
+
+      const { error } = await supabase.from("care_requests").insert({
+        owner_id: user.id,
+        pet_id: selectedPet,
+        taker_id: null,
+        care_type: mapCareTypeToDb(careTypes[0] ?? "daytime"),
+        status: "open",
+        start_date: start.toISOString(),
+        end_date: end.toISOString(),
+        points_offered: 0,
+        description: buildDescription() || null,
+      });
+
+      if (error) throw error;
+      router.replace("/(private)/(tabs)" as any);
+    } catch (err) {
+      Alert.alert(
+        t("common.error", "Something went wrong"),
+        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const goNext = () => {
     if (!validateCurrentStep()) return;
     if (step < TOTAL_STEPS - 1) {
       setStep((s) => s + 1);
     } else {
-      router.replace("/(private)/(tabs)" as any);
+      void launchRequest();
     }
   };
 
@@ -220,13 +304,31 @@ export default function LaunchRequestWizardScreen() {
             <AppText variant="title" style={styles.stepTitle}>
               Select pet
             </AppText>
-            {MOCK_PETS.length > 0 ? (
+            {petsLoading ? (
+              <DataState
+                title="Loading pets..."
+                message="Getting your pets from database."
+                mode="inline"
+              />
+            ) : null}
+            {petsError ? (
+              <DataState
+                title="Could not load pets"
+                message={petsError}
+                actionLabel="Retry"
+                mode="inline"
+                onAction={() => {
+                  void loadPets();
+                }}
+              />
+            ) : null}
+            {!petsLoading && !petsError && pets.length > 0 ? (
               <View style={styles.petRow}>
-                {MOCK_PETS.map((pet) => (
+                {pets.map((pet) => (
                   <PetGridTile
                     key={pet.id}
                     width={columnWidth}
-                    imageUri={pet.imageUri}
+                    imageUri={pet.imageUri || undefined}
                     name={pet.name}
                     selected={selectedPet === pet.id}
                     onPress={() => setSelectedPet(pet.id)}
@@ -235,7 +337,7 @@ export default function LaunchRequestWizardScreen() {
               </View>
             ) : null}
 
-            {MOCK_PETS.length > 0 ? (
+            {!petsLoading && !petsError && pets.length > 0 ? (
               <TouchableOpacity
                 accessibilityRole="button"
                 accessibilityLabel={t(
@@ -256,41 +358,26 @@ export default function LaunchRequestWizardScreen() {
                 </AppText>
               </TouchableOpacity>
             ) : null}
-            {MOCK_PETS.length === 0 ? (
-              <View style={styles.emptyState}>
-                <AppImage
-                  source={require("@/assets/illustrations/pets/no-pet.svg")}
-                  type="svg"
-                  width={200}
-                  height={188}
-                  style={styles.emptyIllustration}
-                />
-                <AppText variant="title" style={styles.emptyTitle}>
-                  Uh oh!
-                </AppText>
-                <AppText
-                  variant="body"
-                  color={colors.onSurfaceVariant}
-                  style={styles.emptySubtitle}
-                >
-                  You have not uploaded any pets yet
-                </AppText>
-                <Button
-                  label="Add a pet"
-                  variant="outline"
-                  onPress={() => router.push("/(private)/pets/add" as any)}
-                  style={styles.addPetPromptBtn}
-                  leftIcon={
-                    <AppText
-                      variant="title"
-                      color={colors.primary}
-                      style={{ fontSize: 20 }}
-                    >
-                      +
-                    </AppText>
-                  }
-                />
-              </View>
+            {!petsLoading && !petsError && pets.length === 0 ? (
+              <DataState
+                title={t("post.request.emptyPetsTitle", "No pets yet")}
+                message={t(
+                  "post.request.emptyPetsSubtitle",
+                  "You have not uploaded any pets yet",
+                )}
+                illustration={
+                  <AppImage
+                    source={require("@/assets/illustrations/pets/no-pet.svg")}
+                    type="svg"
+                    width={200}
+                    height={188}
+                    style={styles.emptyIllustration}
+                  />
+                }
+                actionLabel={t("post.request.addAPet", "Add a pet")}
+                onAction={() => router.push("/(private)/pets/add" as any)}
+                mode="inline"
+              />
             ) : null}
           </View>
         )}
@@ -457,8 +544,8 @@ export default function LaunchRequestWizardScreen() {
                   <AppImage
                     source={{
                       uri:
-                        MOCK_PETS.find((p) => p.id === selectedPet)?.imageUri ||
-                        MOCK_PETS[0].imageUri,
+                        selectedPetData?.imageUri ||
+                        "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
                     }}
                     style={styles.selectedPetThumb}
                     contentFit="cover"
@@ -469,7 +556,7 @@ export default function LaunchRequestWizardScreen() {
                     style={styles.previewPetName}
                     numberOfLines={1}
                   >
-                    {MOCK_PETS.find((p) => p.id === selectedPet)?.name || "—"}
+                    {selectedPetData?.name || "—"}
                   </AppText>
                   <TouchableOpacity
                     onPress={() => setStep(1)}
@@ -604,6 +691,8 @@ export default function LaunchRequestWizardScreen() {
           label={step === TOTAL_STEPS - 1 ? "Launch" : "Next"}
           onPress={goNext}
           fullWidth
+          loading={isSubmitting}
+          disabled={isSubmitting}
         />
       </View>
     </PageContainer>
@@ -646,23 +735,10 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyState: {
-    alignItems: "center",
-    paddingVertical: 40,
-    gap: 12,
+    paddingVertical: 16,
   },
   emptyIllustration: {
     marginBottom: 8,
-  },
-  emptyTitle: {
-    fontSize: 20,
-    fontWeight: "700",
-  },
-  emptySubtitle: {
-    textAlign: "center",
-  },
-  addPetPromptBtn: {
-    minWidth: 160,
-    borderRadius: 999,
   },
   switchRow: {
     flexDirection: "row",

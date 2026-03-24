@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -10,6 +11,7 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { FeedSkeleton } from "@/src/shared/components/skeletons";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { DataState } from "@/src/shared/components/ui";
 import {
   CARE_TYPE_KEYS,
   type CareTypeKey,
@@ -25,7 +27,7 @@ import {
 } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { MOCK_LIKED_PETS } from "@/src/features/my-care/constants";
+import { useEffect } from "react";
 import {
   FlatList,
   Modal,
@@ -37,100 +39,6 @@ import {
   View,
 } from "react-native";
 
-const MOCK_REQUESTS = [
-  {
-    id: "1",
-    imageSource:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800",
-    petName: "Polo",
-    breed: "Golden Retriever",
-    petType: "Dog",
-    dateRange: "Mar 14-18",
-    time: "8am-4pm",
-    careTypeKey: "daytime" as CareTypeKey,
-    location: "B-871 13th Ave, Campbell River, BC",
-    distance: "10km",
-    description:
-      "Polo is a friendly, high-energy Golden Retriever who thrives on activity. He is well-trained, loves long walks, and is a fetch enthusiast. Polo is great with people and looking for a companion who can keep up with his love for the outdoors!",
-    caretaker: {
-      id: "1",
-      name: "Jane Ambers",
-      rating: 4.1,
-      reviewsCount: 12,
-      petsCount: 17,
-    },
-    isFavorite: false,
-  },
-  {
-    id: "2",
-    imageSource:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800",
-    petName: "Polo",
-    breed: "Golden Retriever",
-    petType: "Dog",
-    dateRange: "Mar 14-18",
-    time: "8am-4pm",
-    careTypeKey: "daytime" as CareTypeKey,
-    location: "B-871 13th Ave, Campbell River, BC",
-    distance: "10km",
-    description:
-      "Polo is a friendly, high-energy Golden Retriever who thrives on activity. He is well-trained, loves long walks, and is a fetch enthusiast.",
-    caretaker: {
-      id: "1",
-      name: "Jane Ambers",
-      rating: 4.1,
-      reviewsCount: 12,
-      petsCount: 17,
-    },
-    isFavorite: true,
-  },
-  {
-    id: "3",
-    imageSource:
-      "https://images.unsplash.com/photo-1558788353-f76d92427f16?w=800",
-    petName: "Luna",
-    breed: "Siamese",
-    petType: "Cat",
-    dateRange: "Mar 21-22",
-    time: "10am-2pm",
-    careTypeKey: "playwalk" as CareTypeKey,
-    location: "Downtown Vancouver, BC",
-    distance: "4km",
-    description:
-      "Luna is a curious Siamese who loves gentle play and window watching. Looking for a short mid-day visit and play session.",
-    caretaker: {
-      id: "2",
-      name: "Alice Morgan",
-      rating: 4.6,
-      reviewsCount: 28,
-      petsCount: 3,
-    },
-    isFavorite: false,
-  },
-  {
-    id: "4",
-    imageSource:
-      "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=800",
-    petName: "Milo",
-    breed: "Beagle",
-    petType: "Dog",
-    dateRange: "Apr 01-05",
-    time: "7am-6pm",
-    careTypeKey: "daytime" as CareTypeKey,
-    location: "Burnaby, BC",
-    distance: "12km",
-    description:
-      "Milo is food-motivated and friendly. Needs daytime care with two walks and a quick check-in around noon.",
-    caretaker: {
-      id: "3",
-      name: "Clara Hudson",
-      rating: 4.2,
-      reviewsCount: 9,
-      petsCount: 1,
-    },
-    isFavorite: false,
-  },
-];
 
 /** Inclusive km range for feed filter (0 = no minimum). */
 const DISTANCE_MIN_KM = 0;
@@ -159,67 +67,29 @@ type Taker = {
   status: "available" | "unavailable";
 };
 
-const MOCK_TAKERS: Taker[] = [
-  {
-    id: "t1",
-    name: "Bob Majors",
-    avatar:
-      "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=400",
-    rating: 4.1,
-    species: "Dogs",
-    tags: ["daytime", "playwalk"],
-    location: "Syracuse, New York, US",
-    distance: "25km",
-    status: "available",
-  },
-  {
-    id: "t2",
-    name: "James Limeb...",
-    avatar:
-      "https://images.unsplash.com/photo-1523419409543-3e4f83b9b4c9?w=400",
-    rating: 4.1,
-    species: "Dogs • Cats",
-    tags: ["daytime", "playwalk"],
-    location: "Syracuse, New York, US",
-    distance: "25km",
-    status: "available",
-  },
-  {
-    id: "t3",
-    name: "Alice Morgan",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=400",
-    rating: 4.8,
-    species: "Cats",
-    tags: ["overnight", "daytime"],
-    location: "Vancouver, BC, CA",
-    distance: "6km",
-    status: "available",
-  },
-  {
-    id: "t4",
-    name: "Clara Hudson",
-    avatar:
-      "https://images.unsplash.com/photo-1500648767791-00dcc994a43e?w=400",
-    rating: 4.5,
-    species: "Dogs • Cats",
-    tags: ["daytime", "overnight", "playwalk"],
-    location: "Burnaby, BC, CA",
-    distance: "12km",
-    status: "available",
-  },
-];
+function isMissingBackendResourceError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybe = error as { code?: string; message?: string };
+  if (maybe.code === "42P01") return true;
+  const message = (maybe.message || "").toLowerCase();
+  return message.includes("does not exist") || message.includes("relation");
+}
+
 
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
-  const { profile } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const colors = Colors[resolvedTheme];
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [requests, setRequests] = useState<any[]>([]);
+  const [takers, setTakers] = useState<Taker[]>([]);
+  const [userPets, setUserPets] = useState<any[]>([]);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
-  const [favorites, setFavorites] = useState<Set<string>>(new Set(["2"]));
+  const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [openMenuTaker, setOpenMenuTaker] = useState<Taker | null>(null);
   const [menuPosition, setMenuPosition] = useState<{
     x: number;
@@ -228,9 +98,100 @@ export default function HomeScreen() {
     height: number;
   } | null>(null);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
-  const [selectedSeekingPet, setSelectedSeekingPet] = useState<
-    (typeof MOCK_LIKED_PETS)[number] | null
-  >(null);
+  const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(null);
+  const loadHomeData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const [{ data: reqData, error: reqError }, { data: usersData, error: usersError }, { data: myPets, error: petsError }] =
+        await Promise.all([
+          supabase.from("care_requests").select("*").eq("status", "open"),
+          supabase.from("users").select("*").neq("id", user.id).eq("kyc_status", "approved"),
+          supabase.from("pets").select("*").eq("owner_id", user.id),
+        ]);
+      if (reqError && !isMissingBackendResourceError(reqError)) throw reqError;
+      if (usersError && !isMissingBackendResourceError(usersError)) throw usersError;
+      if (petsError && !isMissingBackendResourceError(petsError)) throw petsError;
+
+      const ownerIds = Array.from(new Set((reqData ?? []).map((r: any) => r.owner_id)));
+      const petIds = Array.from(new Set((reqData ?? []).map((r: any) => r.pet_id)));
+
+      const [{ data: owners, error: ownersError }, { data: requestPets, error: requestPetsError }] = await Promise.all([
+        ownerIds.length
+          ? supabase.from("users").select("id,full_name,city").in("id", ownerIds)
+          : Promise.resolve({ data: [] } as any),
+        petIds.length
+          ? supabase.from("pets").select("*").in("id", petIds)
+          : Promise.resolve({ data: [] } as any),
+      ]);
+      if (ownersError && !isMissingBackendResourceError(ownersError)) throw ownersError;
+      if (requestPetsError && !isMissingBackendResourceError(requestPetsError)) throw requestPetsError;
+      const ownersById = (owners ?? []).reduce((acc: any, o: any) => ({ ...acc, [o.id]: o }), {});
+      const petsById = (requestPets ?? []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {});
+
+      setRequests(
+        (reqData ?? []).map((r: any) => {
+          const pet = petsById[r.pet_id];
+          const owner = ownersById[r.owner_id];
+          return {
+            id: r.id,
+            imageSource: pet?.avatar_url ?? "",
+            petName: pet?.name ?? "Pet",
+            breed: pet?.breed ?? "Unknown breed",
+            petType: pet?.species ?? "Pet",
+            dateRange:
+              r.start_date && r.end_date
+                ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
+                : "",
+            time: "",
+            careTypeKey:
+              r.care_type === "walking"
+                ? ("playwalk" as CareTypeKey)
+                : r.care_type === "boarding"
+                  ? ("overnight" as CareTypeKey)
+                  : ("daytime" as CareTypeKey),
+            location: owner?.city ?? "Location not set",
+            distance: "0km",
+            description: r.description ?? pet?.notes ?? "No description yet.",
+            caretaker: {
+              id: owner?.id ?? "",
+              name: owner?.full_name ?? "Owner",
+              rating: 0,
+              reviewsCount: 0,
+              petsCount: 0,
+            },
+          };
+        }),
+      );
+
+      setTakers(
+        (usersData ?? []).map((u: any) => ({
+          id: u.id,
+          name: u.full_name || "User",
+          avatar: u.avatar_url || "",
+          rating: 0,
+          species: "Pets",
+          tags: ["daytime"],
+          location: u.city || "Location not set",
+          distance: "0km",
+          status: "available" as const,
+        })),
+      );
+      setUserPets(myPets ?? []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load home data.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadHomeData();
+  }, [user?.id]);
   const [takerForSendRequest, setTakerForSendRequest] = useState<Taker | null>(
     null,
   );
@@ -339,7 +300,7 @@ export default function HomeScreen() {
   };
 
   const filteredRequests = useMemo(() => {
-    return MOCK_REQUESTS.filter((item) => {
+    return requests.filter((item) => {
       if (filter === "takers") return false;
       if (
         careTypeFilter.length > 0 &&
@@ -359,10 +320,10 @@ export default function HomeScreen() {
         item.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange, requests]);
 
   const filteredTakers = useMemo(() => {
-    return MOCK_TAKERS.filter((taker) => {
+    return takers.filter((taker) => {
       if (filter === "requests") return false;
       if (
         careTypeFilter.length > 0 &&
@@ -381,14 +342,44 @@ export default function HomeScreen() {
         taker.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange, takers]);
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
+  const HomeHeader = (
+    <View className="flex-row items-center justify-between pb-3">
+      <AppText
+        variant="headline"
+        style={{ fontSize: 22, letterSpacing: -0.1 }}
+      >
+        {t("app.name")}
+      </AppText>
+      <TouchableOpacity
+        className="relative pr-3"
+        hitSlop={12}
+        onPress={() => router.push("/(private)/(tabs)/(home)/notifications")}
+      >
+        <Bell size={24} color={colors.onSurface} />
+        <View
+          className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
+          style={{ backgroundColor: colors.primary }}
+        >
+          <AppText
+            variant="caption"
+            color={colors.onPrimary}
+            style={{ fontSize: 10, lineHeight: 12 }}
+          >
+            5
+          </AppText>
+        </View>
+      </TouchableOpacity>
+    </View>
+  );
 
   if (loading) {
     return (
       <PageContainer>
+        {HomeHeader}
         <ScrollView
           className="flex-1"
           contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
@@ -401,36 +392,26 @@ export default function HomeScreen() {
     );
   }
 
+  if (loadError) {
+    return (
+      <PageContainer>
+        {HomeHeader}
+        <DataState
+          title={t("common.error", "Something went wrong")}
+          message={loadError}
+          actionLabel={t("common.retry", "Retry")}
+          onAction={() => {
+            void loadHomeData();
+          }}
+          mode="full"
+        />
+      </PageContainer>
+    );
+  }
+
   return (
     <PageContainer>
-      {/* Header: PawTaker + Notifications */}
-      <View className="flex-row items-center justify-between pb-3">
-        <AppText
-          variant="headline"
-          style={{ fontSize: 22, letterSpacing: -0.1 }}
-        >
-          {t("app.name")}
-        </AppText>
-        <TouchableOpacity
-          className="relative pr-3"
-          hitSlop={12}
-          onPress={() => router.push("/(private)/(tabs)/(home)/notifications")}
-        >
-          <Bell size={24} color={colors.onSurface} />
-          <View
-            className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
-            style={{ backgroundColor: colors.primary }}
-          >
-            <AppText
-              variant="caption"
-              color={colors.onPrimary}
-              style={{ fontSize: 10, lineHeight: 12 }}
-            >
-              5
-            </AppText>
-          </View>
-        </TouchableOpacity>
-      </View>
+      {HomeHeader}
       {/* Pet cards list */}
       <FlatList
         data={filteredRequests}
@@ -881,7 +862,7 @@ export default function HomeScreen() {
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.sendRequestListContent}
             >
-              {MOCK_LIKED_PETS.filter((p) => p.isSeeking).map((pet) => {
+              {userPets.map((pet) => {
                 const selected = selectedSeekingPet?.id === pet.id;
                 return (
                   <TouchableOpacity
@@ -907,14 +888,14 @@ export default function HomeScreen() {
                         style={{ fontSize: 16, letterSpacing: -0.1 }}
                         numberOfLines={1}
                       >
-                        {pet.petName}
+                        {pet.name}
                       </AppText>
                       <AppText
                         variant="caption"
                         color={colors.onSurfaceVariant}
                         numberOfLines={1}
                       >
-                        {pet.seekingTime || "—"} • {pet.seekingDateRange || "—"}
+                        {pet.species || "Pet"} • {pet.breed || "Unknown breed"}
                       </AppText>
                     </View>
                   </TouchableOpacity>
@@ -934,15 +915,17 @@ export default function HomeScreen() {
                       threadId: "1",
                       mode: "seeking",
                       petName: selectedSeekingPet.petName,
-                      breed: selectedSeekingPet.breed,
+                      breed: selectedSeekingPet.breed ?? "",
                       date: selectedSeekingPet.seekingDateRange || "Mar 14-18",
                       time: selectedSeekingPet.seekingTime || "8am-4pm",
                       price: "25 pts/hr",
-                      offerId: selectedSeekingPet.requestId,
+                      offerId: selectedSeekingPet.id,
                     } as any,
                   });
                 }}
-                disabled={!selectedSeekingPet || !takerForSendRequest}
+                disabled={
+                  !selectedSeekingPet || !takerForSendRequest || userPets.length === 0
+                }
                 fullWidth
               />
             </View>

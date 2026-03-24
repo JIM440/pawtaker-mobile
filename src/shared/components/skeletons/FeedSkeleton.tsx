@@ -5,30 +5,34 @@ import { Colors } from '@/src/constants/colors';
 import { SearchFilterStyles } from '@/src/constants/searchFilter';
 import { Skeleton } from '@/src/shared/components/ui/Skeleton';
 
-const CARD_IMAGE_HEIGHT = 160;
+const CARD_IMAGE_HEIGHT = 180;
 const CARD_BODY_LINE_HEIGHT = 12;
 const CARD_RADIUS = 20;
 
 function PetCardSkeleton() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const bg = colors.surfaceContainer;
+  const bg = colors.surfaceContainerHighest;
 
   return (
     <View style={[styles.card, { backgroundColor: colors.surfaceBright }]}>
-      <View style={[styles.cardImage, { backgroundColor: bg }]} />
+      <Skeleton height={CARD_IMAGE_HEIGHT} width="100%" borderRadius={0} />
       <View style={styles.cardBody}>
+        <View style={styles.metaTopRow}>
+          <Skeleton height={22} width={84} borderRadius={999} />
+          <Skeleton height={22} width={74} borderRadius={999} />
+        </View>
         <View style={styles.cardTitleRow}>
-          <Skeleton height={CARD_BODY_LINE_HEIGHT} width={120} />
+          <Skeleton height={18} width={140} />
           <Skeleton height={24} width={24} borderRadius={12} />
         </View>
-        <Skeleton height={CARD_BODY_LINE_HEIGHT} width="80%" style={styles.cardLine} />
-        <Skeleton height={CARD_BODY_LINE_HEIGHT} width={180} style={styles.cardLine} />
-        <View style={styles.cardMeta}>
-          <Skeleton height={CARD_BODY_LINE_HEIGHT} width={60} />
-          <Skeleton height={CARD_BODY_LINE_HEIGHT} width={80} />
+        <Skeleton height={CARD_BODY_LINE_HEIGHT} width="86%" style={styles.cardLine} />
+        <Skeleton height={CARD_BODY_LINE_HEIGHT} width="72%" style={styles.cardLine} />
+        <View style={styles.cardMetaRow}>
+          <Skeleton height={10} width={90} />
+          <Skeleton height={10} width={48} />
         </View>
-        <View style={[styles.caretakerRow, { marginTop: 8 }]}>
+        <View style={[styles.caretakerRow, { marginTop: 10 }]}>
           <Skeleton height={28} width={28} borderRadius={14} />
           <Skeleton height={CARD_BODY_LINE_HEIGHT} width={100} style={{ marginLeft: 8 }} />
         </View>
@@ -44,29 +48,36 @@ export function FeedSkeleton() {
 
   return (
     <View style={styles.container}>
-      {/* Header row: title + bell placeholder */}
+      {/* Header row: app name + notification icon/badge */}
       <View style={styles.headerRow}>
-        <Skeleton height={28} width={140} />
-        <Skeleton height={24} width={24} borderRadius={12} />
+        <Skeleton height={28} width={110} />
+        <View>
+          <Skeleton height={24} width={24} borderRadius={12} />
+          <Skeleton height={14} width={14} borderRadius={7} style={styles.badgeDot} />
+        </View>
       </View>
 
       {/* Search + filter */}
       <View style={styles.searchFilterRow}>
-        <View style={[styles.searchBar, { backgroundColor: bg }]} />
-        <View style={[styles.filterButton, { backgroundColor: bg }]} />
+        <Skeleton height={SearchFilterStyles.searchBarHeight} width="100%" style={styles.searchBar} />
+        <Skeleton
+          height={SearchFilterStyles.filterButtonSize}
+          width={SearchFilterStyles.filterButtonSize}
+          borderRadius={SearchFilterStyles.filterButtonBorderRadius}
+        />
       </View>
 
       {/* Filter tabs */}
       <View style={styles.filterTabsRow}>
-        <Skeleton height={36} width={72} borderRadius={999} />
+        <Skeleton height={36} width={58} borderRadius={999} />
         <Skeleton height={36} width={88} borderRadius={999} />
-        <Skeleton height={36} width={72} borderRadius={999} />
+        <Skeleton height={36} width={74} borderRadius={999} />
       </View>
 
       {/* Section title */}
       <View style={styles.sectionTitleRow}>
-        <Skeleton height={18} width={160} />
-        <Skeleton height={14} width={60} style={{ marginLeft: 8 }} />
+        <Skeleton height={18} width={132} />
+        <Skeleton height={12} width={78} style={{ marginLeft: 8 }} />
       </View>
 
       {/* Pet cards */}
@@ -91,17 +102,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 10,
-    marginBottom: 8,
+    marginBottom: 10,
   },
   searchBar: {
     flex: 1,
-    height: SearchFilterStyles.searchBarHeight,
-    borderRadius: SearchFilterStyles.searchBarBorderRadius,
-  },
-  filterButton: {
-    width: SearchFilterStyles.filterButtonSize,
-    height: SearchFilterStyles.filterButtonSize,
-    borderRadius: SearchFilterStyles.filterButtonBorderRadius,
   },
   filterTabsRow: {
     flexDirection: 'row',
@@ -125,6 +129,11 @@ const styles = StyleSheet.create({
   cardBody: {
     padding: 16,
   },
+  metaTopRow: {
+    flexDirection: 'row',
+    gap: 8,
+    marginBottom: 12,
+  },
   cardTitleRow: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -133,7 +142,7 @@ const styles = StyleSheet.create({
   cardLine: {
     marginTop: 8,
   },
-  cardMeta: {
+  cardMetaRow: {
     flexDirection: 'row',
     gap: 12,
     marginTop: 8,
@@ -141,5 +150,10 @@ const styles = StyleSheet.create({
   caretakerRow: {
     flexDirection: 'row',
     alignItems: 'center',
+  },
+  badgeDot: {
+    position: 'absolute',
+    right: -4,
+    top: -2,
   },
 });

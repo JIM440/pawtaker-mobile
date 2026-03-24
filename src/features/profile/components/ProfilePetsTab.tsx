@@ -1,8 +1,9 @@
 import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
-import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { DataState } from "@/src/shared/components/ui";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 
 export type ProfilePet = {
@@ -30,29 +31,34 @@ export function ProfilePetsTab({
   showAddPetButton = true,
   onPetPress,
 }: Props) {
+  const { t } = useTranslation();
   const hasPets = pets.length > 0;
 
   if (!hasPets) {
     return (
       <View style={styles.emptyState}>
-        <View style={styles.emptyIllustration} />
-        <AppImage
-          source={require("@/assets/illustrations/pets/no-pet.svg")}
-          type="svg"
-          style={styles.emptyIllustration}
-          height={145}
+        <DataState
+          title={t("post.request.emptyPetsTitle", "No pets yet")}
+          message={t(
+            "post.request.emptyPetsSubtitle",
+            "You have not added any pets yet",
+          )}
+          illustration={
+            <AppImage
+              source={require("@/assets/illustrations/pets/no-pet.svg")}
+              type="svg"
+              style={styles.emptyIllustration}
+              height={145}
+            />
+          }
+          actionLabel={
+            showAddPetButton && onAddPet
+              ? t("post.request.addAPet", "+ Add a pet")
+              : undefined
+          }
+          onAction={showAddPetButton ? onAddPet : undefined}
+          mode="inline"
         />
-        <AppText variant="body" style={styles.emptyMessage}>
-          Uh oh! This user has not uploaded any pets yet
-        </AppText>
-        {showAddPetButton && onAddPet && (
-          <Button
-            label="+ Add a pet"
-            variant="outline"
-            onPress={onAddPet}
-            style={styles.addPetBtn}
-          />
-        )}
       </View>
     );
   }
@@ -102,16 +108,11 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   emptyState: {
-    alignItems: "center",
-    paddingVertical: 32,
-    paddingHorizontal: 16,
-    gap: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 8,
   },
   emptyIllustration: {
     width: 140,
     borderRadius: 16,
-  },
-  emptyMessage: {
-    textAlign: "center",
   },
 });

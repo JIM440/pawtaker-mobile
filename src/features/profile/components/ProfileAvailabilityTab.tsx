@@ -7,25 +7,34 @@ import React from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
 
-const MOCK_AVAILABILITY = {
-  avatarUri:
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-  name: "Jane Ambers",
-  rating: 4.1,
-  handshakes: 12,
-  paws: 17,
-  isAvailable: true,
-  petTypes: ["Cats", "Dog", "Bird"],
-  services: ["Daytime", "Play/walk"],
-  location: "Lake Placid, New York, US",
-  yardType: "Fenced yard",
-  isPetOwner: "Yes",
-  note: "Hi there! I'm Bob, a lifelong pet lover with years of experience caring for energetic pups and senior cats alike.",
-  time: "08:00 AM - 09:00 PM",
-  days: "Sat • Sun",
+type AvailabilityData = {
+  card: {
+    avatarUri: string | null;
+    name: string;
+    rating: number;
+    handshakes: number;
+    paws: number;
+    isAvailable: boolean;
+    petTypes: string[];
+    services: string[];
+    location: string;
+  };
+  yardType?: string;
+  isPetOwner?: string;
+  note?: string;
+  time?: string;
+  days?: string;
 };
 
-export function ProfileAvailabilityTab() {
+type Props = {
+  data: AvailabilityData;
+  emptyMessage?: string;
+};
+
+export function ProfileAvailabilityTab({
+  data,
+  emptyMessage = "No availability details yet.",
+}: Props) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -90,14 +99,14 @@ export function ProfileAvailabilityTab() {
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <AvailabilityPreviewCard {...MOCK_AVAILABILITY} />
+      <AvailabilityPreviewCard {...data.card} />
 
       <View style={styles.details}>
         <View style={styles.bio}>
           {/* Bio / Short note directly below card */}
           <DisplayField
             label={t("availability.note", "Short note")}
-            value={MOCK_AVAILABILITY.note}
+            value={data.note?.trim() || emptyMessage}
           />
         </View>
 
@@ -105,13 +114,13 @@ export function ProfileAvailabilityTab() {
         <View style={styles.row}>
           <DisplayField
             label={t("availability.timeOnly", "Time")}
-            value={MOCK_AVAILABILITY.time}
+            value={data.time || emptyMessage}
             icon={<Clock size={16} color={colors.primary} />}
             style={{ flex: 1.2 }}
           />
           <DisplayField
             label={t("availability.daysOnly", "Days")}
-            value={MOCK_AVAILABILITY.days}
+            value={data.days || emptyMessage}
             icon={<CalendarDays size={16} color={colors.primary} />}
             style={{ flex: 1 }}
           />
@@ -121,12 +130,12 @@ export function ProfileAvailabilityTab() {
         <View style={styles.row}>
           <PillField
             label={t("availability.yardType", "Yard Type")}
-            value={MOCK_AVAILABILITY.yardType}
+            value={data.yardType || emptyMessage}
             style={{ flex: 1 }}
           />
           <PillField
             label={t("availability.petOwner", "Pet Owner")}
-            value={MOCK_AVAILABILITY.isPetOwner}
+            value={data.isPetOwner || emptyMessage}
             style={{ flex: 1 }}
           />
         </View>

@@ -3,7 +3,10 @@ import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
+import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -18,6 +21,7 @@ import { Search } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
+  Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
@@ -41,6 +45,7 @@ export default function AddPetScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
+  const { user } = useAuthStore();
   const colors = Colors[resolvedTheme];
 
   useFocusEffect(
@@ -66,6 +71,7 @@ export default function AddPetScreen() {
   const [ageRange, setAgeRange] = useState<string | null>(null);
   const [energyLevel, setEnergyLevel] = useState<string | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     const backAction = () => {
@@ -120,6 +126,75 @@ export default function AddPetScreen() {
     } else {
       // final submit
       router.back();
+    }
+  };
+
+  const savePet = async (launchRequest: boolean) => {
+    if (!user?.id) {
+      Alert.alert(t("common.error", "Something went wrong"));
+      return;
+    }
+    if (!kind || !breed || !petName.trim()) {
+      Alert.alert(
+        t("common.error", "Something went wrong"),
+        t("pets.add.requiredFields", "Please complete required pet fields."),
+      );
+      return;
+    }
+
+    setIsSaving(true);
+    try {
+      let avatarUrl: string | null = null;
+      if (photos[0]) {
+        const uploaded = await uploadToCloudinary(photos[0]);
+        avatarUrl = uploaded.secure_url;
+      }
+
+      const details = [
+        petBio.trim(),
+        specialNeeds && specialNeedsText.trim()
+          ? `Special needs: ${specialNeedsText.trim()}`
+          : "",
+        yardType ? `Yard: ${yardType}` : "",
+        ageRange ? `Age range: ${ageRange}` : "",
+        energyLevel ? `Energy level: ${energyLevel}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const { data: insertedPet, error } = await supabase
+        .from("pets")
+        .insert({
+          owner_id: user.id,
+          name: petName.trim(),
+          species: kind,
+          breed,
+          avatar_url: avatarUrl,
+          notes: details || null,
+        })
+        .select("*")
+        .single();
+
+      if (error || !insertedPet) {
+        throw error ?? new Error("Could not save pet");
+      }
+
+      if (launchRequest) {
+        router.replace({
+          pathname: "/(private)/post-requests",
+          params: { petId: insertedPet.id },
+        });
+        return;
+      }
+
+      router.back();
+    } catch (err) {
+      Alert.alert(
+        t("common.error", "Something went wrong"),
+        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+      );
+    } finally {
+      setIsSaving(false);
     }
   };
 
@@ -304,15 +379,26 @@ export default function AddPetScreen() {
           </View>
         ) : (
           <View style={{ gap: 8 }}>
-            <Button label={t("common.save", "Save")} onPress={goNext} />
+            <Button
+              label={t("common.save", "Save")}
+              onPress={() => {
+                void savePet(false);
+              }}
+              loading={isSaving}
+              disabled={isSaving}
+            />
             <Button
               label={t(
                 "post.request.publish.publish",
                 "Save and Launch Care Request",
               )}
-              onPress={goNext}
+              onPress={() => {
+                void savePet(true);
+              }}
               variant="outline"
               fullWidth
+              loading={isSaving}
+              disabled={isSaving}
             />
           </View>
         )}
