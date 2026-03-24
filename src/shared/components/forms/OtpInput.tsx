@@ -16,7 +16,7 @@ type OtpInputProps = {
 export function OtpInput({
   value,
   onChangeText,
-  length = 6,
+  length = 8,
   error,
   showErrorOnlyAfterFocus = true,
 }: OtpInputProps) {
@@ -26,9 +26,9 @@ export function OtpInput({
   const [isFocused, setIsFocused] = useState(false);
   const [hasBeenFocused, setHasBeenFocused] = useState(false);
 
-  const boxWidth = 48;
-  const boxHeight = 56;
-  const boxGap = 12;
+  const boxWidth = 40;
+  const boxHeight = 52;
+  const boxGap = 8;
   const totalWidth = boxWidth * length + boxGap * (length - 1);
 
   const digits = useMemo(() => {

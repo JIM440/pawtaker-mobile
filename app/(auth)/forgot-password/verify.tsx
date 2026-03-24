@@ -32,7 +32,7 @@ export default function ForgotPasswordVerifyScreen() {
   const handleVerify = async () => {
     setError(null);
 
-    if (otp.length < 6) {
+    if (otp.length < 8) {
       setError(t("auth.forgotPassword.invalidCode"));
       return;
     }
