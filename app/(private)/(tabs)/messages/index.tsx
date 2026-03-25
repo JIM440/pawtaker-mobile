@@ -8,8 +8,8 @@ import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { ChatRow, ChatScreenSkeleton } from "@/src/shared/components/chat";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { PageContainer } from "@/src/shared/components/layout";
-import { AppText } from "@/src/shared/components/ui/AppText";
 import { DataState } from "@/src/shared/components/ui";
+import { AppText } from "@/src/shared/components/ui/AppText";
 import { useRouter } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
 import React, { useMemo, useState } from "react";
@@ -139,7 +139,9 @@ export default function MessagesScreen() {
       setChats(nextChats);
     } catch (err) {
       setLoadError(
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        err instanceof Error
+          ? err.message
+          : t("common.error", "Something went wrong"),
       );
     } finally {
       setLoading(false);
@@ -148,8 +150,11 @@ export default function MessagesScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadChats({ refresh: true });
-    setRefreshing(false);
+    try {
+      await loadChats({ refresh: true });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const filteredChats = useMemo(() => {
@@ -164,81 +169,90 @@ export default function MessagesScreen() {
 
   return (
     <PageContainer>
+      <View style={styles.header}>
+        <AppText variant="headline" style={ChatTypography.listScreenTitle}>
+          {t("messages.chatsTitle")}
+        </AppText>
+      </View>
+
+      <View style={styles.searchRow}>
+        <SearchField
+          containerStyle={styles.searchBar}
+          placeholder={t("messages.searchChats")}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
+        />
+        <TouchableOpacity
+          style={[
+            styles.filterBtn,
+            { backgroundColor: colors.surfaceContainerHighest },
+          ]}
+          hitSlop={8}
+        >
+          <SlidersHorizontal
+            size={SearchFilterStyles.searchIconSize}
+            color={colors.onSurface}
+          />
+        </TouchableOpacity>
+      </View>
+
       {loading ? (
         <ChatScreenSkeleton rowCount={8} />
-      ) : loadError ? (
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={loadError}
-          actionLabel={t("common.retry", "Retry")}
-          onAction={() => {
-            void loadChats();
-          }}
-          mode="full"
-        />
       ) : (
         <ScrollView
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          contentContainerStyle={styles.scrollContent}
           refreshControl={
-            <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+            <RefreshControl
+              refreshing={refreshing}
+              onRefresh={() => void onRefresh()}
+              tintColor={colors.primary}
+              colors={[colors.primary]}
+              progressBackgroundColor={colors.surfaceContainerLow}
+            />
           }
         >
-          <View style={styles.header}>
-            <AppText variant="headline" style={ChatTypography.listScreenTitle}>
-              {t("messages.chatsTitle")}
-            </AppText>
-          </View>
-
-          <View style={styles.searchRow}>
-            <SearchField
-              containerStyle={styles.searchBar}
-              placeholder={t("messages.searchChats")}
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-              rightSlot={<Search size={20} color={colors.onSurfaceVariant} />}
+          {loadError ? (
+            <DataState
+              title={t("common.error", "Something went wrong")}
+              message={loadError}
+              actionLabel={t("common.retry", "Retry")}
+              onAction={() => {
+                void loadChats();
+              }}
+              mode="full"
             />
-            <TouchableOpacity
-              style={[
-                styles.filterBtn,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-              hitSlop={8}
-            >
-              <SlidersHorizontal
-                size={SearchFilterStyles.searchIconSize}
-                color={colors.onSurface}
-              />
-            </TouchableOpacity>
-          </View>
-
-          <View style={styles.list}>
-            {filteredChats.length > 0 ? (
-              filteredChats.map((chat) => (
-                <ChatRow
-                  key={chat.threadId}
-                  threadId={chat.threadId}
-                  name={chat.name}
-                  avatarUri={chat.avatarUri ?? undefined}
-                  lastMessagePreview={chat.lastMessagePreview}
-                  timestamp={chat.timestamp}
-                  unreadCount={chat.unreadCount}
-                  onPress={() =>
-                    router.push(`/(private)/(tabs)/messages/${chat.threadId}`)
-                  }
+          ) : (
+            <View style={styles.list}>
+              {filteredChats.length > 0 ? (
+                filteredChats.map((chat) => (
+                  <ChatRow
+                    key={chat.threadId}
+                    threadId={chat.threadId}
+                    name={chat.name}
+                    avatarUri={chat.avatarUri ?? undefined}
+                    lastMessagePreview={chat.lastMessagePreview}
+                    timestamp={chat.timestamp}
+                    unreadCount={chat.unreadCount}
+                    onPress={() =>
+                      router.push(`/(private)/(tabs)/messages/${chat.threadId}`)
+                    }
+                  />
+                ))
+              ) : (
+                <DataState
+                  title={t("messages.noChatsTitle", "No chats yet")}
+                  message={t(
+                    "messages.noChatsSubtitle",
+                    "When you start a conversation, it will appear here.",
+                  )}
+                  mode="inline"
                 />
-              ))
-            ) : (
-              <DataState
-                title={t("messages.noChatsTitle", "No chats yet")}
-                message={t(
-                  "messages.noChatsSubtitle",
-                  "When you start a conversation, it will appear here.",
-                )}
-                mode="inline"
-              />
-            )}
-          </View>
+              )}
+            </View>
+          )}
         </ScrollView>
       )}
     </PageContainer>
@@ -246,6 +260,9 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollContent: {
+    flexGrow: 1,
+  },
   header: {
     paddingVertical: 8,
   },

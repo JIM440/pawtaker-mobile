@@ -88,6 +88,70 @@ export function FeedSkeleton() {
   );
 }
 
+/**
+ * Skeleton rows that match the pet-card feed layout,
+ * without duplicating the Home header/search/filter UI.
+ */
+export function FeedRequestsSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <View style={{ paddingBottom: 24 }}>
+      {[...Array(count)].map((_, i) => (
+        <PetCardSkeleton key={i} />
+      ))}
+    </View>
+  );
+}
+
+/** Horizontal taker row: avatar + text (matches `TakerCard` density). */
+function TakerRowSkeleton() {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+  return (
+    <View
+      style={[takerSkStyles.row, { backgroundColor: colors.surfaceBright }]}
+    >
+      <Skeleton height={64} width={64} borderRadius={32} />
+      <View style={takerSkStyles.col}>
+        <Skeleton height={16} width="55%" borderRadius={6} />
+        <Skeleton height={12} width="40%" borderRadius={4} style={{ marginTop: 8 }} />
+        <View style={takerSkStyles.chips}>
+          <Skeleton height={24} width={72} borderRadius={999} />
+          <Skeleton height={24} width={88} borderRadius={999} />
+        </View>
+      </View>
+    </View>
+  );
+}
+
+export function FeedTakersSkeleton({ count = 3 }: { count?: number }) {
+  return (
+    <View style={{ paddingBottom: 24, gap: 12 }}>
+      {[...Array(count)].map((_, i) => (
+        <TakerRowSkeleton key={i} />
+      ))}
+    </View>
+  );
+}
+
+const takerSkStyles = StyleSheet.create({
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    padding: 12,
+    borderRadius: 16,
+  },
+  col: {
+    flex: 1,
+    minWidth: 0,
+  },
+  chips: {
+    flexDirection: "row",
+    gap: 8,
+    marginTop: 10,
+  },
+});
+
 const styles = StyleSheet.create({
   container: {
     paddingBottom: 24,

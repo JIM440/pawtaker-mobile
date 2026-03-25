@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { supabase } from "@/src/lib/supabase/client";
 import { useSignupStore } from "@/src/lib/store/signup.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -87,6 +88,7 @@ export default function SignupProfileScreen() {
           onChangeText={setDisplayName}
           placeholder={t("auth.signup.profile.displayNamePlaceholder")}
           autoCapitalize="words"
+          maxLength={INPUT_LIMITS.name}
         />
         <TextField
           label={t("auth.signup.profile.locationLabel")}
@@ -94,6 +96,7 @@ export default function SignupProfileScreen() {
           onChangeText={setLocation}
           placeholder={t("auth.signup.profile.locationPlaceholder")}
           autoCapitalize="words"
+          maxLength={INPUT_LIMITS.location}
         />
         <TextField
           label={t("auth.signup.profile.bioLabel")}
@@ -101,6 +104,7 @@ export default function SignupProfileScreen() {
           onChangeText={setBio}
           placeholder={t("auth.signup.profile.bioPlaceholder")}
           multiline
+          maxLength={INPUT_LIMITS.bio}
         />
 
         {error && (

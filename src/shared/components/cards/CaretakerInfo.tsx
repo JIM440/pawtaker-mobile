@@ -26,6 +26,11 @@ export function CaretakerInfo({
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
+  const hasAvatar =
+    avatarUri != null &&
+    (typeof avatarUri !== "string" ||
+      avatarUri.trim().length > 0);
+
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -35,10 +40,12 @@ export function CaretakerInfo({
         { backgroundColor: colors.surfaceContainer },
       ]}
     >
-      {avatarUri != null ? (
+      {hasAvatar ? (
         <AppImage
           source={
-            typeof avatarUri === "string" ? { uri: avatarUri } : avatarUri
+            typeof avatarUri === "string"
+              ? { uri: avatarUri.trim() }
+              : avatarUri
           }
           style={styles.avatar}
         />

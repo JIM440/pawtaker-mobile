@@ -10,4 +10,5 @@ export { RadioGroup } from "./RadioGroup";
 export { Skeleton } from "./Skeleton";
 export { StarRatingInput } from "./StarRatingInput";
 export { DataState } from "../feedback/DataState";
+export { ResourceMissingState } from "../feedback/ResourceMissingState";
 

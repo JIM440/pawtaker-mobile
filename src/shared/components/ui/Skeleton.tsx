@@ -1,14 +1,7 @@
 import { Colors } from '@/src/constants/colors';
 import { useThemeStore } from '@/src/lib/store/theme.store';
-import React, { useEffect } from 'react';
-import { DimensionValue, ViewStyle } from 'react-native';
-import Animated, {
-  useAnimatedStyle,
-  useSharedValue,
-  withRepeat,
-  withSequence,
-  withTiming,
-} from 'react-native-reanimated';
+import React from 'react';
+import { DimensionValue, View, ViewStyle } from 'react-native';
 
 type SkeletonProps = {
   width?: DimensionValue;
@@ -18,36 +11,19 @@ type SkeletonProps = {
 };
 
 /**
- * Premium shimmering skeleton loader block.
- * Uses reactive opacity pulse for a high-end feel in absence of linear gradient.
+ * Static placeholder block for loading states (no pulse / fade animation).
  */
 export function Skeleton({
   width,
   height,
-  borderRadius = 12, // More modern default
+  borderRadius = 12,
   style,
 }: SkeletonProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const opacity = useSharedValue(0.4);
-
-  useEffect(() => {
-    opacity.value = withRepeat(
-      withSequence(
-        withTiming(0.8, { duration: 800 }),
-        withTiming(0.4, { duration: 800 })
-      ),
-      -1,
-      true
-    );
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-  }));
 
   return (
-    <Animated.View
+    <View
       style={[
         {
           backgroundColor: colors.surfaceContainerHighest,
@@ -56,7 +32,6 @@ export function Skeleton({
         width != null && { width },
         height != null && { height },
         style,
-        animatedStyle,
       ]}
     />
   );

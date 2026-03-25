@@ -4,13 +4,18 @@ import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
+import {
+  isResourceNotFound,
+  RESOURCE_NOT_FOUND,
+} from "@/src/lib/errors/resource-not-found";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { supabase } from "@/src/lib/supabase/client";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { DataState } from "@/src/shared/components/ui";
+import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
@@ -50,6 +55,7 @@ export default function PublicProfileScreen() {
   const loadPublicProfile = async (opts?: { refresh?: boolean }) => {
     if (!profileId) {
       setLoading(false);
+      setLoadError(RESOURCE_NOT_FOUND);
       return;
     }
     if (!opts?.refresh) setLoading(true);
@@ -63,9 +69,20 @@ export default function PublicProfileScreen() {
           supabase.from("reviews").select("*").eq("reviewee_id", profileId).order("created_at", { ascending: false }),
         ]);
       if (userError) throw userError;
-      setPublicProfile(userData ?? null);
+      if (!userData) {
+        setPublicProfile(null);
+        setPublicPets([]);
+        setPublicAvailability(null);
+        setPublicReviews([]);
+        setLoadError(RESOURCE_NOT_FOUND);
+        return;
+      }
+      setPublicProfile(userData);
       setPublicPets(petsData ?? []);
-      setPublicAvailability((availabilityData?.availability_json as Record<string, any> | null) ?? null);
+      const takerRow = availabilityData as { availability_json?: unknown } | null;
+      setPublicAvailability(
+        (takerRow?.availability_json as Record<string, any> | null) ?? null,
+      );
       setPublicReviews(reviewsData ?? []);
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load profile.");
@@ -80,15 +97,18 @@ export default function PublicProfileScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadPublicProfile({ refresh: true });
-    setRefreshing(false);
+    try {
+      await loadPublicProfile({ refresh: true });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const derived = useMemo(() => {
     return {
       avatarUri: publicProfile?.avatar_url || null,
       name: resolveDisplayName(publicProfile) || "User",
-      location: publicProfile?.city || "Location not set",
+      location: publicProfile?.city?.trim() || t("profile.noLocation", "No location"),
       points: publicProfile?.points_balance ?? 0,
       handshakes: 0,
       paws: publicReviews.length,
@@ -98,7 +118,7 @@ export default function PublicProfileScreen() {
           : 0,
       currentTask: undefined as string | undefined,
     };
-  }, [publicProfile, publicReviews]);
+  }, [publicProfile, publicReviews, t]);
 
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
@@ -121,6 +141,7 @@ export default function PublicProfileScreen() {
 
       <ScrollView
         style={styles.scroll}
+        contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -129,6 +150,15 @@ export default function PublicProfileScreen() {
       >
         {loading ? (
           <DataState title={t("common.loading", "Loading...")} mode="full" />
+        ) : isResourceNotFound(loadError) ? (
+          <ResourceMissingState
+            onBack={() => router.back()}
+            onHome={() =>
+              router.replace(
+                "/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0],
+              )
+            }
+          />
         ) : loadError ? (
           <DataState
             title={t("common.error", "Something went wrong")}
@@ -150,6 +180,8 @@ export default function PublicProfileScreen() {
           paws={derived.paws}
           rating={derived.rating}
           currentTask={derived.currentTask}
+          isAvailable={Boolean(publicAvailability?.available)}
+          isVerified={publicProfile?.kyc_status === "approved"}
           onAvatarPress={() => setAvatarViewerOpen(true)}
         />
 
@@ -174,7 +206,7 @@ export default function PublicProfileScreen() {
           <ProfilePetsTab
             pets={publicPets.map((pet) => ({
               id: pet.id,
-              imageSource: pet.avatar_url || "",
+              imageSource: petGalleryUrls(pet)[0] ?? "",
               petName: pet.name || "Pet",
               breed: pet.breed || "Unknown breed",
               petType: pet.species || "Pet",
@@ -207,36 +239,49 @@ export default function PublicProfileScreen() {
                 yardType: publicAvailability.yardType ?? "",
                 isPetOwner: publicAvailability.petOwner ?? "",
               }}
+              emptyMessage={t("profile.availability.publicEmptyMessage")}
             />
           ) : (
-            <DataState title="No availability yet" mode="inline" />
+            <DataState
+              title={t("profile.availability.emptyTitle")}
+              message={t("profile.availability.publicEmptyMessage")}
+            />
           )
         )}
         {activeTab === "bio" && <ProfileBioTab bio={publicProfile?.bio} />}
-        {activeTab === "reviews" && (
-          <ProfileReviewsTab
-            rating={derived.rating}
-            handshakes={derived.handshakes}
-            paws={derived.paws}
-            items={publicReviews.map((r) => ({
-              id: r.id,
-              reviewerId: r.reviewer_id,
-              name: "Reviewer",
-              avatar: null,
-              rating: r.rating ?? 0,
-              handshakes: 0,
-              paws: 0,
-              date: r.created_at ? new Date(r.created_at).toLocaleDateString() : "",
-              review: r.comment || "No review comment.",
-            }))}
-            onReviewerPress={(reviewerId) =>
-              router.push({
-                pathname: "/(private)/(tabs)/profile/users/[id]",
-                params: { id: reviewerId },
-              })
-            }
-          />
-        )}
+        {activeTab === "reviews" ? (
+          publicReviews.length === 0 ? (
+            <DataState
+              title={t("profile.reviewsTab.emptyTitle")}
+              message={t("profile.reviewsTab.emptyMessage")}
+            />
+          ) : (
+            <ProfileReviewsTab
+              rating={derived.rating}
+              handshakes={derived.handshakes}
+              paws={derived.paws}
+              items={publicReviews.map((r) => ({
+                id: r.id,
+                reviewerId: r.reviewer_id,
+                name: "Reviewer",
+                avatar: null,
+                rating: r.rating ?? 0,
+                handshakes: 0,
+                paws: 0,
+                date: r.created_at
+                  ? new Date(r.created_at).toLocaleDateString()
+                  : "",
+                review: r.comment || "No review comment.",
+              }))}
+              onReviewerPress={(reviewerId) => {
+                router.push({
+                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                  params: { id: reviewerId },
+                });
+              }}
+            />
+          )
+        ) : null}
           </>
         )}
       </ScrollView>
@@ -357,5 +402,8 @@ const styles = StyleSheet.create({
   },
   scroll: {
     flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
   },
 });

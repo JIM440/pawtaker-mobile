@@ -1,7 +1,9 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { supabase } from "@/src/lib/supabase/client";
+import type { TablesRow } from "@/src/lib/supabase/types";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { NotificationCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -35,6 +37,11 @@ type NotificationItem = {
   image?: string;
   data?: Record<string, any> | null;
 };
+
+/** Matches DB trigger `notify_kyc_rejected` (`type = 'kyc_rejected'`). */
+function isKycRejectionNotification(n: NotificationItem): boolean {
+  return n.type === "kyc_rejected";
+}
 
 export default function NotificationsScreen() {
   const { t } = useTranslation();
@@ -84,11 +91,12 @@ export default function NotificationsScreen() {
     try {
       const { data, error } = await supabase
         .from("notifications")
-        .select("*")
+        .select("id, user_id, type, title, body, data, read, created_at")
         .eq("user_id", user.id)
         .order("created_at", { ascending: false });
       if (error) throw error;
-      const mapped: NotificationItem[] = (data ?? []).map((item) => ({
+      const rows = (data ?? []) as TablesRow<"notifications">[];
+      const mapped: NotificationItem[] = rows.map((item) => ({
         id: item.id,
         title: item.title,
         body: item.body,
@@ -100,7 +108,10 @@ export default function NotificationsScreen() {
       setItems(mapped);
     } catch (err) {
       setLoadError(
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        errorMessageFromUnknown(
+          err,
+          t("common.error", "Something went wrong"),
+        ),
       );
     } finally {
       setLoading(false);
@@ -113,8 +124,11 @@ export default function NotificationsScreen() {
 
   const onRefresh = async () => {
     setRefreshing(true);
-    await loadNotifications({ refresh: true });
-    setRefreshing(false);
+    try {
+      await loadNotifications({ refresh: true });
+    } finally {
+      setRefreshing(false);
+    }
   };
 
   const filtered = useMemo(() => {
@@ -138,8 +152,33 @@ export default function NotificationsScreen() {
     if (!item) return;
 
     switch (item.type) {
+      case "pet_added":
+        router.push({
+          pathname: "/(private)/(tabs)/profile",
+          params: { tab: "pets", refreshPets: "true" },
+        });
+        break;
+      case "availability_posted":
+        router.push({
+          pathname: "/(private)/(tabs)/profile",
+          params: { tab: "availability", refreshAvailability: "true" },
+        });
+        break;
+      case "review_received":
+        router.push({
+          pathname: "/(private)/(tabs)/profile",
+          params: { tab: "reviews", refreshReviews: "true" },
+        });
+        break;
       case "chat":
-        router.push("/(private)/(tabs)/messages");
+        {
+          const threadId = item.data?.threadId;
+          if (threadId) {
+            router.push(`/(private)/(tabs)/messages/${threadId}` as any);
+          } else {
+            router.push("/(private)/(tabs)/messages");
+          }
+        }
         break;
       case "applied":
       case "care_given":
@@ -151,7 +190,7 @@ export default function NotificationsScreen() {
         router.push("/(private)/(tabs)/profile");
         break;
       case "kyc_rejected":
-        router.push("/(private)/kyc");
+        router.push("/(private)/kyc" as Parameters<typeof router.push>[0]);
         break;
       default:
         // Generic fallback
@@ -160,12 +199,10 @@ export default function NotificationsScreen() {
     }
   };
 
-  const handleNotificationAction = (id: string) => {
+  const handleKycResubmit = (id: string) => {
     const item = items.find((n) => n.id === id);
-    if (!item) return;
-    if (item.type === "kyc_rejected") {
-      router.push("/(private)/kyc");
-    }
+    if (!item || !isKycRejectionNotification(item)) return;
+    router.push("/(private)/kyc" as Parameters<typeof router.push>[0]);
   };
 
   const hasNotifications = filtered.length > 0;
@@ -242,7 +279,13 @@ export default function NotificationsScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surfaceContainerLow}
+          />
         }
       >
         <View style={styles.header}>
@@ -277,8 +320,14 @@ export default function NotificationsScreen() {
                 image={n.image}
                 isLast={index === filtered.length - 1}
                 onPress={handleNotificationPress}
-                actionLabel={n.type === "kyc_rejected" ? "Resubmit" : undefined}
-                onActionPress={handleNotificationAction}
+                actionLabel={
+                  isKycRejectionNotification(n)
+                    ? t("notifications.kycResubmit", "Resubmit")
+                    : undefined
+                }
+                onActionPress={
+                  isKycRejectionNotification(n) ? handleKycResubmit : undefined
+                }
                 onPressMenu={(id) => {
                   const btn = menuButtonRefs.current[id];
                   btn?.measureInWindow((x, y, width, height) => {

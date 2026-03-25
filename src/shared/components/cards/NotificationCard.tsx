@@ -7,12 +7,23 @@ import {
   Ellipsis,
   Handshake,
   PawPrint,
-  Shield
+  Shield,
+  Star
 } from "lucide-react-native";
 import React, { ForwardedRef, forwardRef } from "react";
-import { StyleSheet, TouchableOpacity, View, type StyleProp, type ViewStyle } from "react-native";
+import {
+  Pressable,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+  type StyleProp,
+  type ViewStyle,
+} from "react-native";
 
 export type NotificationType =
+  | "pet_added"
+  | "availability_posted"
+  | "review_received"
   | "verification"
   | "verification_complete"
   | "care_given"
@@ -72,6 +83,24 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
       ];
 
       switch (type) {
+        case "pet_added":
+          return (
+            <View style={containerStyle}>
+              <PawPrint size={20} color={colors.primary} />
+            </View>
+          );
+        case "availability_posted":
+          return (
+            <View style={containerStyle}>
+              <Handshake size={20} color={colors.primary} />
+            </View>
+          );
+        case "review_received":
+          return (
+            <View style={containerStyle}>
+              <Star size={20} color={colors.primary} fill={colors.primary} />
+            </View>
+          );
         case "verification":
         case "verification_complete":
         case "kyc_rejected":
@@ -103,15 +132,12 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
           );
         case "chat":
         case "applied":
-          return (
-            <AppImage
-              source={{
-                uri:
-                  image ??
-                  "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
-              }}
-              style={styles.itemAvatar}
-            />
+          return image ? (
+            <AppImage source={{ uri: image }} style={styles.itemAvatar} />
+          ) : (
+            <View style={containerStyle}>
+              <Activity size={20} color={colors.primary} />
+            </View>
           );
         default:
           return image ? (
@@ -124,75 +150,104 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
       }
     };
 
+    const cardStyle = {
+      ...styles.itemInner,
+      backgroundColor: unread ? colors.surfaceBright : "transparent",
+      borderTopColor: colors.outlineVariant,
+      borderTopWidth: 1,
+      borderBottomColor: colors.outlineVariant,
+      borderBottomWidth: isLast ? 1 : 0,
+    };
+
+    const fireCardPress = () => onPress?.(id);
+
     return (
-      <TouchableOpacity
-        activeOpacity={0.7}
-        onPress={() => onPress?.(id)}
-        disabled={!onPress}
-        style={{
-          ...styles.itemInner,
-          backgroundColor: unread ? colors.surfaceBright : "transparent",
-          borderTopColor: colors.outlineVariant,
-          borderTopWidth: 1,
-          borderBottomColor: colors.outlineVariant,
-          borderBottomWidth: isLast ? 1 : 0,
-        }}
-      >
-        {renderIcon()}
+      <View style={cardStyle}>
+        <View style={styles.mainRow}>
+          <Pressable
+            onPress={fireCardPress}
+            disabled={!onPress}
+            style={({ pressed }) => [
+              styles.iconTap,
+              onPress && pressed ? styles.mainPressed : null,
+            ]}
+          >
+            {renderIcon()}
+          </Pressable>
 
-        <View style={styles.itemContent}>
-          {/* Row 1: title (left) + time (right) */}
-          <View style={styles.row}>
-            <AppText
-              variant="body"
-              style={styles.itemTitle}
-              color={colors.onSurfaceVariant}
+          <View style={styles.itemContent}>
+            <Pressable
+              onPress={fireCardPress}
+              disabled={!onPress}
+              style={({ pressed }) =>
+                onPress && pressed ? styles.mainPressed : null
+              }
             >
-              {title}
-            </AppText>
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={styles.itemTime}
-            >
-              {time}
-            </AppText>
-          </View>
+              <View style={styles.row}>
+                <AppText
+                  variant="body"
+                  style={styles.itemTitle}
+                  color={colors.onSurfaceVariant}
+                >
+                  {title}
+                </AppText>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={styles.itemTime}
+                >
+                  {time}
+                </AppText>
+              </View>
+            </Pressable>
 
-          {/* Row 2: body text (left) + ellipsis (right) */}
-          <View style={styles.row}>
-            <AppText
-              variant="caption"
-              color={colors.onSurface}
-              style={styles.itemBody}
-            >
-              {body}
-            </AppText>
-            <TouchableOpacity
-              ref={ref as ForwardedRef<View>}
-              hitSlop={8}
-              onPress={() => onPressMenu?.(id)}
-            >
-              <Ellipsis size={24} color={colors.onSurfaceVariant} />
-            </TouchableOpacity>
-          </View>
-          {actionLabel && onActionPress ? (
-            <View style={styles.actionRow}>
-              <TouchableOpacity
-                onPress={() => onActionPress(id)}
-                style={[
-                  styles.actionButton,
-                  { borderColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLowest },
+            <View style={styles.row}>
+              <Pressable
+                onPress={fireCardPress}
+                disabled={!onPress}
+                style={({ pressed }) => [
+                  styles.bodyTap,
+                  onPress && pressed ? styles.mainPressed : null,
                 ]}
               >
-                <AppText variant="caption" color={colors.primary}>
-                  {actionLabel}
+                <AppText
+                  variant="caption"
+                  color={colors.onSurface}
+                  style={styles.itemBody}
+                >
+                  {body}
                 </AppText>
+              </Pressable>
+              <TouchableOpacity
+                ref={ref as ForwardedRef<View>}
+                hitSlop={8}
+                onPress={() => onPressMenu?.(id)}
+              >
+                <Ellipsis size={24} color={colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
-          ) : null}
+
+            {actionLabel && onActionPress ? (
+              <View style={styles.actionRow}>
+                <TouchableOpacity
+                  onPress={() => onActionPress(id)}
+                  style={[
+                    styles.actionButton,
+                    {
+                      borderColor: colors.outlineVariant,
+                      backgroundColor: colors.surfaceContainerLowest,
+                    },
+                  ]}
+                >
+                  <AppText variant="caption" color={colors.primary}>
+                    {actionLabel}
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            ) : null}
+          </View>
         </View>
-      </TouchableOpacity>
+      </View>
     );
   },
 );
@@ -201,15 +256,26 @@ NotificationCard.displayName = "NotificationCard";
 
 const styles = StyleSheet.create({
   itemInner: {
-    flexDirection: "row",
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  mainRow: {
+    flexDirection: "row",
+  },
+  iconTap: {
+    marginRight: 12,
+  },
+  mainPressed: {
+    opacity: 0.7,
+  },
+  bodyTap: {
+    flex: 1,
+    marginRight: 8,
   },
   itemAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    marginRight: 12,
   },
   itemContent: {
     flex: 1,

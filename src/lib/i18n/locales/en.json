@@ -25,7 +25,21 @@
     "previous": "Previous",
     "viewProfile": "View Profile",
     "sendRequest": "Send Request",
-    "skip": "Skip"
+    "skip": "Skip",
+    "notice": "Heads up",
+    "empty": "—",
+    "user": "User",
+    "saving": "Saving...",
+    "success": "Success",
+    "deleteConfirmTitle": "Delete pet?",
+    "deleteConfirmMessage": "This will permanently delete the pet from your account."
+  },
+  "home": {
+    "sendRequest": {
+      "needsOpenRequest": "Create an open care request for this pet first, then you can message a taker.",
+      "selectPetTitle": "Select Pet",
+      "sendingTo": "Sending request to “{{name}}”"
+    }
   },
   "pet": {
     "detail": {
@@ -33,13 +47,17 @@
       "about": "About {{name}}",
       "attributes": "Attributes",
       "specialNeeds": "Special needs",
+      "none": "None",
+      "noOpenRequest": "This pet doesn’t have an open care request right now.",
       "petOwner": "Pet owner",
       "helpWithPet": "Help with this pet"
     }
   },
   "notFound": {
-    "title": "Oops!",
-    "message": "We couldn't find the page you were looking for. It may have been moved or no longer exists."
+    "title": "Page not found",
+    "message": "This link doesn’t match anything in the app. It may be wrong or the screen may have moved.",
+    "resourceTitle": "This isn’t available anymore",
+    "resourceMessage": "It may have been deleted, closed, or the link is out of date. Try going back or open the home feed."
   },
   "app": {
     "name": "PawTaker"
@@ -125,6 +143,7 @@
         "firstName": "First name",
         "lastName": "Last name",
         "city": "City",
+        "zipCode": "ZIP Code",
         "bio": "Short Bio",
         "submit": "Continue",
         "displayNameLabel": "Display name",
@@ -189,6 +208,8 @@
       "title": "Reset Password",
       "subtitle": "Enter the email address associated with your account and we will send you a code to input to reset your password",
       "email": "Email address",
+      "emailLabel": "Email address",
+      "emailPlaceholder": "e.g., name@mail.com",
       "submit": "Send code",
       "resetting": "Resetting...",
       "success": "Code successfully sent to email!",
@@ -234,15 +255,22 @@
     "topTakers": "Top Takers",
     "recentRequests": "Recent Requests",
     "noTakers": "No takers found nearby",
+    "noRequestsTitle": "No requests near you",
+    "noRequestsSubtitle": "Try adjusting filters to find more.",
+    "noTakersTitle": "No caregivers available",
+    "noTakersSubtitle": "Try adjusting filters to find more.",
     "noPets": "No pets need care right now",
     "kycModal": {
       "title": "Let's get you verified",
-      "description": "To keep our pet community safe and unlock your ability to book sitters or be one yourself, we just need to quickly confirm your identity. It only takes 2 minutes!",
+      "description": "To keep our pet community safe — and so you can post requests, apply to pet-sitting jobs, and message other members — we need to quickly confirm your identity. It only takes a couple of minutes.",
       "maybeLater": "Maybe Later",
       "getVerified": "Get Verified",
       "pendingTitle": "Verification in progress",
-      "pendingDescription": "We're reviewing your documents. This usually takes 24–48 hours. You'll be able to post requests, add pets, and offer availability once you're approved.",
-      "pendingOk": "Got it"
+      "pendingDescription": "We're reviewing your documents. This usually takes 24–48 hours. Once approved, you can post requests, add pets, apply to pet-sitting jobs, and offer availability.",
+      "pendingOk": "Got it",
+      "rejectedTitle": "Verification needs another look",
+      "rejectedDescription": "We couldn’t approve your last submission. Please review the requirements and resubmit so you can apply for sits, message owners, and use the rest of the app.",
+      "resubmitVerification": "Resubmit verification"
     },
     "resultsLabel": "Results",
     "distanceKmRange": "{{min}}km–{{max}}km",
@@ -292,7 +320,9 @@
       "acceptDisclaimer": "By tapping Accept Offer, you approve that anyone in the community can contact you in our chat system.",
       "rateAndReview": "Rate & Review",
       "terminate": "Terminate Contract",
-      "terminatedDemo": "Agreement terminated (demo)",
+      "terminatedToast": "Agreement ended.",
+      "agreementEnded": "This agreement is closed.",
+      "needTaker": "A caregiver must be matched on this request before you can sign.",
       "active": "Active"
     },
     "checkin": {
@@ -309,9 +339,20 @@
       "comment": "Comment (optional)",
       "commentPlaceholder": "What went well? Anything others should know?",
       "submit": "Submit review",
+      "submitted": "Thanks! Your review was posted.",
+      "noContract": "No contract found for this care yet.",
+      "peerTask": "Care complete",
+      "careForPet": "Care for {{petName}}",
       "successTitle": "Thank you!",
       "successSubtitle": "Your review was submitted and helps others choose great caregivers."
     }
+    ,
+    "availabilityUpdateFailed": "Couldn't update availability. Please try again.",
+    "loadingGiven": "Loading care given...",
+    "loadingReceived": "Loading care received...",
+    "loadingLiked": "Loading liked pets...",
+    "likedEmptyTitle": "Nothing to show yet",
+    "likedEmptyMessage": "When you like care requests, they will appear here."
   },
   "offer": {
     "title": "Send offer",
@@ -319,8 +360,12 @@
     "recipient": "To",
     "forPet": "Pet: {{name}}",
     "pointsLabel": "Points offered",
+    "pointsPlaceholder": "0",
     "messageLabel": "Message",
     "messagePlaceholder": "Introduce yourself and confirm when you're available…",
+    "defaultProposalMessage": "I’d like to help with this care request.",
+    "sent": "Offer sent.",
+    "wrongRecipient": "You can’t send an offer on your own request.",
     "send": "Send offer"
   },
   "post": {
@@ -354,6 +399,7 @@
       },
       "selectPet": "Select pet",
       "addAnotherPet": "or add another pet",
+      "noDescription": "No description yet.",
       "validation": {
         "careTypeRequired": "Select at least one type of care.",
         "petRequired": "Select a pet to continue.",
@@ -405,6 +451,8 @@
       "petOwner": "Pet Owner",
       "note": "Short note",
       "save": "Save availability",
+      "saved": "Availability saved.",
+      "saveFailed": "Couldn't save your availability. Please try again.",
       "careStepTitle": "What type of care can you provide?",
       "hintsTitle": "Hints",
       "petKindQuestion": "What kind of pet?",
@@ -474,11 +522,20 @@
     "block": "Block",
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings.",
-    "blockedDemo": "Blocked (demo)"
+    "blockedToast": "User blocked.",
+    "chatUnavailable": "Chat unavailable",
+    "noMessagesTitle": "No messages yet",
+    "noMessagesSubtitle": "Start the conversation by sending your first message.",
+    "agreementAccepted": "Agreement accepted",
+    "noMessagesYet": "No messages yet.",
+    "noChatsTitle": "No chats yet",
+    "noChatsSubtitle": "When you start a conversation, it will appear here."
   },
   "requestDetails": {
     "title": "Request details",
+    "notFound": "Request not found.",
     "viewProfile": "View Profile",
+    "owner": "Owner",
     "details": "Details",
     "yardType": "Yard type",
     "careTypes": "Care types",
@@ -487,7 +544,9 @@
     "energyLevel": "Energy level",
     "specialNeeds": "Special needs",
     "apply": "Apply",
-    "applyNow": "Apply Now"
+    "applyNow": "Apply Now",
+    "applyConfirmTitle": "Applying for this pet?",
+    "applyConfirmBody": "A message with your availability details will be sent to this pet’s owner"
   },
   "filters": {
     "title": "Filters",
@@ -531,7 +590,12 @@
     "yardFenced": "Fenced yard",
     "yardHigh": "High Fence",
     "yardNone": "No yard",
-    "yardLabel": "Yard"
+    "yardLabel": "Yard",
+    "timeOnly": "Time",
+    "daysOnly": "Days",
+    "yardType": "Yard Type",
+    "petOwner": "Pet Owner",
+    "note": "Short note"
   },
   "settings": {
     "title": "Settings",
@@ -567,11 +631,27 @@
   },
   "profile": {
     "title": "Profile",
+    "noLocation": "No location",
+    "defaultName": "Pawtaker User",
+    "bio": {
+      "empty": "No bio yet."
+    },
+    "reviewsCount": "{{count}} reviews",
     "reviews": "Reviews",
+    "availability": {
+      "emptyTitle": "No availability yet",
+      "emptyMessage": "Create your availability from Edit Profile to show it here.",
+      "publicEmptyMessage": "This member hasn’t added availability details yet."
+    },
+    "reviewsTab": {
+      "emptyTitle": "No reviews yet",
+      "emptyMessage": "Reviews from the community will appear here after completed care."
+    },
     "points": "Points",
     "pets": {
       "title": "My Pets",
-      "launchRequest": "Launch pet request"
+      "launchRequest": "Launch pet request",
+      "tab": "Pets"
     },
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "They won't be able to see your profile, send you requests, or message you. You can unblock them later in Settings.",
@@ -586,7 +666,15 @@
       "discardTitle": "Discard changes?",
       "discardDescription": "If you go back now, your progress will be lost.",
       "keepEditing": "Keep Editing",
-      "discard": "Discard"
+      "discard": "Discard",
+      "galleryPermissionRequired": "Photo library access is required to choose an image.",
+      "locationRequired": "Please enter your location before saving.",
+      "availabilitySaved": "Availability updated successfully.",
+      "availabilityToast": "Availability updated.",
+      "availabilitySaveFailed": "Couldn't update availability. Please try again.",
+      "saved": "Profile updated successfully.",
+      "toast": "Profile updated.",
+      "saveFailed": "Couldn't save your profile changes. Please try again."
     },
     "emergencyContacts": {
       "title": "Emergency Contacts",
@@ -604,6 +692,7 @@
   },
   "notifications": {
     "title": "Notifications",
+    "kycResubmit": "Resubmit",
     "searchPlaceholder": "Search notifications",
     "noNotifications": "No notifications",
     "markAllRead": "Mark all as read",
@@ -635,6 +724,8 @@
     "add": {
       "title": "Add Pet",
       "whatKind": "What kind of pet?",
+      "kind": "Pet",
+      "requiredFields": "Please complete required pet fields.",
       "name": "Pet name",
       "species": "Species",
       "breed": "Breed (optional)",
@@ -644,7 +735,12 @@
       "submit": "Add pet",
       "yardType": "Yard Type",
       "energyLevel": "Energy Level",
-      "specialNeedsPlaceholder": "e.g., Needs insulin shots twice a day or is very shy around loud noises."
+      "specialNeedsPlaceholder": "e.g., Needs insulin shots twice a day or is very shy around loud noises.",
+      "breedSearch": "Search pet breed",
+      "bio": "Pet Short Bio",
+      "specialNeeds": "Pet Special Needs",
+      "saved": "Pet saved successfully.",
+      "saveFailed": "Couldn't save your pet. Please try again."
     },
     "profile": {
       "title": "Pet Profile",
@@ -656,7 +752,18 @@
       "kind": "Pet kind",
       "breed": "Breed",
       "specialNeeds": "Does your pet have special needs?",
-      "details": "Details"
+      "details": "Details",
+      "saved": "Pet updated successfully.",
+      "saveFailed": "Couldn't update this pet. Please try again.",
+      "petNotFound": "Pet not found.",
+      "loadFailed": "Couldn't load pet details. Please try again.",
+      "addPhotos": "+ Add pet photos",
+      "takeNewPhotos": "or take new photos"
+    }
+    ,
+    "delete": {
+      "success": "Pet deleted.",
+      "failed": "Couldn't delete this pet. Please try again."
     }
   },
   "errors": {

@@ -1,4 +1,6 @@
-import { ProfilePetCard } from "@/src/shared/components/cards";
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { LikedPetCard } from "@/src/shared/components/cards/LikedPetCard";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { Button } from "@/src/shared/components/ui/Button";
 import { DataState } from "@/src/shared/components/ui";
@@ -32,6 +34,8 @@ export function ProfilePetsTab({
   onPetPress,
 }: Props) {
   const { t } = useTranslation();
+  const { resolvedTheme } = useThemeStore();
+  const themeColors = Colors[resolvedTheme];
   const hasPets = pets.length > 0;
 
   if (!hasPets) {
@@ -47,7 +51,7 @@ export function ProfilePetsTab({
             <AppImage
               source={require("@/assets/illustrations/pets/no-pet.svg")}
               type="svg"
-              style={styles.emptyIllustration}
+              style={[styles.emptyIllustration, { backgroundColor: "transparent" }]}
               height={145}
             />
           }
@@ -75,17 +79,20 @@ export function ProfilePetsTab({
       )}
       <View style={styles.petListContainer}>
         {pets.map((pet) => (
-          <ProfilePetCard
+          <LikedPetCard
             key={pet.id}
+            colors={themeColors}
             imageSource={pet.imageSource}
             petName={pet.petName}
             breed={pet.breed}
             petType={pet.petType}
-            bio={pet.bio}
-            tags={pet.tags}
-            seekingDateRange={pet.seekingDateRange}
-            seekingTime={pet.seekingTime}
-            onPress={() => onPetPress?.(pet.id)}
+            dateRange={pet.seekingDateRange ?? ""}
+            time={pet.seekingTime ?? ""}
+            description={pet.bio}
+            tags={pet.tags ?? []}
+            isSeeking={Boolean(pet.seekingDateRange)}
+            showOverflowMenu={false}
+            onCardPress={() => onPetPress?.(pet.id)}
           />
         ))}
       </View>
@@ -102,6 +109,8 @@ const styles = StyleSheet.create({
   petListContainer: {
     marginTop: 12,
     gap: 12,
+    marginHorizontal: -16,
+    paddingHorizontal: 16,
   },
   addPetBtn: {
     marginTop: 8,

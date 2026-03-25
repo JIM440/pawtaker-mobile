@@ -2,14 +2,26 @@ import { Colors } from "@/src/constants/colors";
 import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
+import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { supabase } from "@/src/lib/supabase/client";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import type { TablesRow } from "@/src/lib/supabase/types";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { Button } from "@/src/shared/components/ui/Button";
 import { router, useLocalSearchParams } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Alert,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Input as AppInput } from "@/src/shared/components/ui/Input";
@@ -39,31 +51,197 @@ export default function EditPetScreen() {
   const colors = Colors[resolvedTheme];
   const { t } = useTranslation();
 
-  // TODO: replace with real data load by id
-  const [photos, setPhotos] = useState<string[]>([]);
-  const [petName, setPetName] = useState("Polo");
-  const [petBio, setPetBio] = useState(
-    "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch.",
-  );
+  const { user } = useAuthStore();
+  const [isLoading, setIsLoading] = useState(true);
+  const [isSaving, setIsSaving] = useState(false);
+  const showToast = useToastStore((s) => s.showToast);
 
-  const [yardType, setYardType] = useState("fenced yard");
-  const [ageRange, setAgeRange] = useState("1-3yrs");
-  const [energyLevel, setEnergyLevel] = useState("medium energy");
+  // Load real pet details by id
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [petName, setPetName] = useState("");
+  const [petBio, setPetBio] = useState("");
+
+  const [yardType, setYardType] = useState<string | null>(null);
+  const [ageRange, setAgeRange] = useState<string | null>(null);
+  const [energyLevel, setEnergyLevel] = useState<string | null>(null);
   const [specialNeeds, setSpecialNeeds] = useState(false);
   const [specialNeedsText, setSpecialNeedsText] = useState("");
 
-  const handleSave = () => {
-    // TODO: persist edited pet
-    router.back();
-  };
-
-  const [kind, setKind] = useState<PetKind>("Dog");
-  const [breed, setBreed] = useState<string>("Golden Retriever");
+  const [kind, setKind] = useState<PetKind | "">("");
+  const [breed, setBreed] = useState<string>("");
   const [breedQuery, setBreedQuery] = useState("");
   const [showBreedList, setShowBreedList] = useState(false);
 
+  const handleSave = async () => {
+    if (!user?.id || !_petId) return;
+    if (!kind || !breed || !petName.trim()) {
+      Alert.alert(
+        t("common.error", "Something went wrong"),
+        t("pets.add.requiredFields", "Please complete required pet fields."),
+      );
+      return;
+    }
+
+    try {
+      setIsSaving(true);
+
+      const nextUrls: string[] = [];
+      for (const p of photos) {
+        if (!p?.trim()) continue;
+        if (p.startsWith("file:") || p.startsWith("content:")) {
+          const uploaded = await uploadToCloudinary(p);
+          nextUrls.push(uploaded.secure_url);
+        } else {
+          nextUrls.push(p.trim());
+        }
+      }
+      const uploadedAvatarUrl = nextUrls[0] ?? null;
+
+      const details = [
+        petBio.trim(),
+        specialNeeds && specialNeedsText.trim()
+          ? `Special needs: ${specialNeedsText.trim()}`
+          : "",
+        yardType ? `Yard: ${yardType}` : "",
+        ageRange ? `Age range: ${ageRange}` : "",
+        energyLevel ? `Energy level: ${energyLevel}` : "",
+      ]
+        .filter(Boolean)
+        .join("\n");
+
+      const { error } = await supabase
+        .from("pets")
+        .update({
+          name: petName.trim(),
+          species: kind,
+          breed,
+          avatar_url: uploadedAvatarUrl,
+          photo_urls: nextUrls,
+          notes: details || null,
+        })
+        .eq("id", _petId)
+        .eq("owner_id", user.id);
+
+      if (error) throw error;
+
+      router.replace({
+        pathname: "/(private)/(tabs)/profile",
+        params: { tab: "pets", refreshPets: "true" },
+      });
+      showToast({
+        variant: "success",
+        message: t("pets.edit.saved", "Pet updated successfully."),
+        durationMs: 2400,
+      });
+    } catch (err) {
+      const details =
+        err instanceof Error ? err.message : t("common.error", "Something went wrong");
+      const friendly = t("pets.edit.saveFailed", "Couldn't update this pet. Please try again.");
+      showToast({ variant: "error", message: friendly, durationMs: 3200 });
+      Alert.alert(
+        t("common.error", "Something went wrong"),
+        `${friendly}\n\nDetails: ${details}`,
+      );
+    } finally {
+      setIsSaving(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!user?.id || !_petId) return;
+    let mounted = true;
+    void (async () => {
+      try {
+        setIsLoading(true);
+        const { data: petRaw, error } = await supabase
+          .from("pets")
+          .select("*")
+          .eq("id", _petId)
+          .eq("owner_id", user.id)
+          .maybeSingle();
+
+        if (error) throw error;
+        if (!mounted) return;
+        const pet = petRaw as TablesRow<"pets"> | null;
+        if (!pet) {
+          Alert.alert(
+            t("common.error", "Something went wrong"),
+            "Pet not found.",
+          );
+          showToast({
+            variant: "error",
+            message: t("pets.edit.petNotFound", "Pet not found."),
+            durationMs: 3200,
+          });
+          router.back();
+          return;
+        }
+
+        const gallery = petGalleryUrls(pet);
+        setPhotos(gallery.length > 0 ? gallery : []);
+        setPetName(pet.name ?? "");
+
+        const notes = typeof pet.notes === "string" ? pet.notes : "";
+        const lines = notes
+          .split("\n")
+          .map((l: string) => l.trim())
+          .filter(Boolean);
+
+        setPetBio(lines[0] ?? "");
+
+        const specialLine = lines.find((l: string) =>
+          l.toLowerCase().startsWith("special needs:"),
+        );
+        if (specialLine) {
+          setSpecialNeeds(true);
+          setSpecialNeedsText(
+            specialLine.replace(/special needs:\s*/i, ""),
+          );
+        } else {
+          setSpecialNeeds(false);
+          setSpecialNeedsText("");
+        }
+
+        const yardLine = lines.find((l: string) =>
+          l.toLowerCase().startsWith("yard:"),
+        );
+        if (yardLine) setYardType(yardLine.replace(/yard:\s*/i, ""));
+
+        const ageLine = lines.find((l: string) =>
+          l.toLowerCase().startsWith("age range:"),
+        );
+        if (ageLine) setAgeRange(ageLine.replace(/age range:\s*/i, ""));
+
+        const energyLine = lines.find((l: string) =>
+          l.toLowerCase().startsWith("energy level:"),
+        );
+        if (energyLine) setEnergyLevel(energyLine.replace(/energy level:\s*/i, ""));
+
+        setKind((pet.species as PetKind) || "");
+        setBreed(pet.breed ?? "");
+        setBreedQuery("");
+        setShowBreedList(false);
+      } catch (err) {
+        const details =
+          err instanceof Error ? err.message : t("common.error", "Something went wrong");
+        const friendly = t("pets.edit.loadFailed", "Couldn't load pet details. Please try again.");
+        showToast({ variant: "error", message: friendly, durationMs: 3200 });
+        Alert.alert(
+          t("common.error", "Something went wrong"),
+          `${friendly}\n\nDetails: ${details}`,
+        );
+        router.back();
+      } finally {
+        if (mounted) setIsLoading(false);
+      }
+    })();
+    return () => {
+      mounted = false;
+    };
+  }, [_petId, user?.id, t, router]);
+
   const filteredBreeds = useMemo(() => {
-    const baseBreeds = BREEDS_BY_KIND[kind] ?? [];
+    const baseBreeds = kind ? (BREEDS_BY_KIND[kind] ?? []) : [];
     const q = breedQuery.trim().toLowerCase();
     if (!q) return baseBreeds;
     return baseBreeds.filter((b: string) => b.toLowerCase().includes(q));
@@ -86,7 +264,7 @@ export default function EditPetScreen() {
           </AppText>
           <PetKindSelector
             options={Array.from(PET_TYPE_OPTIONS)}
-            selectedKeys={[kind]}
+            selectedKeys={kind ? [kind] : []}
             onToggle={(k) => {
               setKind(k as PetKind);
               setBreed("");
@@ -175,10 +353,16 @@ export default function EditPetScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={t("common.save", "Save")}
+          label={
+            isSaving
+              ? t("common.saving", "Saving...")
+              : t("common.save", "Save")
+          }
           variant="primary"
           fullWidth
-          onPress={handleSave}
+          onPress={() => void handleSave()}
+          loading={isSaving}
+          disabled={isSaving || isLoading}
         />
       </View>
     </PageContainer>

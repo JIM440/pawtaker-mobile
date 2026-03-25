@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { useState } from 'react';
 import {
   View,
   TouchableOpacity,
@@ -19,11 +19,16 @@ import { ChatTypography } from '@/src/constants/chatTypography';
 import { useAuthStore } from '@/src/lib/store/auth.store';
 import { supabase } from '@/src/lib/supabase/client';
 import { resolveDisplayName } from '@/src/lib/user/displayName';
+import type { Database, Json } from '@/src/lib/supabase/types';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
 import { Button } from '@/src/shared/components/ui/Button';
-import { DataState } from '@/src/shared/components/ui';
+import {
+  isResourceNotFound,
+  RESOURCE_NOT_FOUND,
+} from '@/src/lib/errors/resource-not-found';
+import { DataState, ResourceMissingState } from '@/src/shared/components/ui';
 
 type BubbleSide = 'left' | 'right';
 type MessageType = 'text' | 'image' | 'request';
@@ -43,6 +48,19 @@ type UiMessage = {
     offerId: string;
   };
 };
+
+type DbMessage = Database['public']['Tables']['messages']['Row'];
+/** Subset returned by thread message list query (not full row). */
+type MessageListRow = Pick<
+  DbMessage,
+  'id' | 'sender_id' | 'content' | 'type' | 'metadata' | 'created_at'
+>;
+
+function readMetadataString(metadata: Json | null | undefined, key: string) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const v = (metadata as Record<string, Json>)[key];
+  return typeof v === 'string' && v.trim() ? v : null;
+}
 
 function MessageBubble({
   message,
@@ -72,7 +90,7 @@ function MessageBubble({
   if (message.type === 'request') {
     const rd = message.requestData;
     const context = rd.context === 'seeking' ? 'seeking' : 'applying';
-    const offerId = String(rd.offerId ?? 1);
+    const offerId = typeof rd.offerId === 'string' ? rd.offerId.trim() : '';
     return (
       <View
         style={[
@@ -138,7 +156,9 @@ function MessageBubble({
             label={t("messages.viewOfferDetails")}
             size="sm"
             style={styles.requestCta}
+            disabled={!offerId}
             onPress={() => {
+              if (!offerId) return;
               if (context === 'seeking') {
                 router.push({
                   pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
@@ -260,10 +280,14 @@ export default function ThreadScreen() {
         .from('threads')
         .select('id,participant_ids,request_id')
         .eq('id', _threadId)
-        .single();
+        .maybeSingle();
       if (threadError) throw threadError;
+      if (!threadRow) {
+        setLoadError(RESOURCE_NOT_FOUND);
+        return;
+      }
 
-      const peerId = ((threadRow?.participant_ids ?? []) as string[]).find((id) => id !== user.id) ?? '';
+      const peerId = ((threadRow.participant_ids ?? []) as string[]).find((id) => id !== user.id) ?? '';
       const [{ data: peer }, { data: messages }, { data: req }] = await Promise.all([
         peerId
           ? supabase.from('users').select('id,full_name,avatar_url').eq('id', peerId).maybeSingle()
@@ -288,12 +312,17 @@ export default function ThreadScreen() {
         pet = petData;
       }
 
-      const uiMessages: UiMessage[] = (messages ?? []).map((m: any) => {
+      const uiMessages: UiMessage[] = (messages ?? []).map((m: MessageListRow) => {
         const side: BubbleSide = m.sender_id === user.id ? 'right' : 'left';
         const asRequest =
           (m.type === 'proposal' || m.type === 'agreement') &&
           (pet || petName || breed);
         if (asRequest) {
+          const metaRequestId = readMetadataString(m.metadata, 'requestId');
+          const offer =
+            offerId ??
+            metaRequestId ??
+            (typeof req?.id === 'string' ? req.id : '');
           return {
             id: m.id,
             side,
@@ -310,7 +339,7 @@ export default function ThreadScreen() {
               time: time ?? '',
               price: price ?? (req?.points_offered ? `${req.points_offered} pts` : ''),
               context,
-              offerId: offerId ?? String(req?.id ?? '1'),
+              offerId: offer,
             },
           };
         }
@@ -351,6 +380,8 @@ export default function ThreadScreen() {
         sender_id: user.id,
         content: body,
         type: 'text',
+        metadata: null,
+        read_at: null,
       });
       if (error) throw error;
       setInput('');
@@ -373,16 +404,47 @@ export default function ThreadScreen() {
       >
         {loading ? (
           <DataState title={t('common.loading', 'Loading...')} mode="full" />
+        ) : isResourceNotFound(loadError) ? (
+          <>
+            <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                <ChevronLeft size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+              <View style={styles.headerText}>
+                <AppText variant="body" numberOfLines={1} style={ChatTypography.threadHeaderName}>
+                  {t("messages.chatUnavailable")}
+                </AppText>
+              </View>
+              <View style={{ width: 40 }} />
+            </View>
+            <ResourceMissingState
+              onBack={() => router.back()}
+              onHome={() =>
+                router.replace(
+                  '/(private)/(tabs)/(home)' as Parameters<typeof router.replace>[0],
+                )
+              }
+            />
+          </>
         ) : loadError ? (
-          <DataState
-            title={t("common.error", "Something went wrong")}
-            message={loadError}
-            actionLabel={t("common.retry", "Retry")}
-            onAction={() => {
-              void loadThread();
-            }}
-            mode="full"
-          />
+          <>
+            <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                <ChevronLeft size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <View style={{ width: 40 }} />
+            </View>
+            <DataState
+              title={t("common.error", "Something went wrong")}
+              message={loadError}
+              actionLabel={t("common.retry", "Retry")}
+              onAction={() => {
+                void loadThread();
+              }}
+              mode="full"
+            />
+          </>
         ) : (
           <>
         {/* Header: back, avatar, name, subtitle, menu */}

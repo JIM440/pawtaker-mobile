@@ -69,14 +69,18 @@ export function PetCard({
   onApply,
   onCaretakerPress,
 }: PetCardProps) {
-  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-
+  const { t } = useTranslation();
   const [activeIndex, setActiveIndex] = useState(0);
   const [containerWidth, setContainerWidth] = useState(0);
 
-  const images = Array.isArray(imageSource) ? imageSource : [imageSource];
+  const rawImages = Array.isArray(imageSource) ? imageSource : [imageSource];
+  const images = rawImages.filter((img) => {
+    if (img == null) return false;
+    if (typeof img === "string") return img.trim().length > 0;
+    return true;
+  });
   const hasMultipleImages = images.length > 1;
 
   const onLayout = (event: LayoutChangeEvent) => {
@@ -97,21 +101,17 @@ export function PetCard({
         <ScrollView
           horizontal
           pagingEnabled
+          nestedScrollEnabled
           showsHorizontalScrollIndicator={false}
           onScroll={handleScroll}
           scrollEventThrottle={16}
           style={styles.swiper}
         >
-          {images.map((img, index) => (
-            <TouchableOpacity
-              key={index}
-              activeOpacity={0.9}
-              onPress={onApply}
-              disabled={!onApply}
-              style={[styles.slide, { width: containerWidth }]}
+          {images.length === 0 ? (
+            <View
+              style={[styles.slide, { width: Math.max(containerWidth, 1) }]}
             >
-              <AppImage
-                source={typeof img === "string" ? { uri: img } : img}
+              <View
                 style={[
                   styles.image,
                   {
@@ -119,12 +119,36 @@ export function PetCard({
                     borderTopRightRadius: IMAGE_TOP_RADIUS,
                     borderBottomLeftRadius: IMAGE_BOTTOM_RADIUS,
                     borderBottomRightRadius: IMAGE_BOTTOM_RADIUS,
+                    backgroundColor: colors.surfaceContainer,
                   },
                 ]}
-                contentFit="cover"
               />
-            </TouchableOpacity>
-          ))}
+            </View>
+          ) : (
+            images.map((img, index) => (
+              <TouchableOpacity
+                key={index}
+                activeOpacity={0.9}
+                onPress={onApply}
+                disabled={!onApply}
+                style={[styles.slide, { width: containerWidth }]}
+              >
+                <AppImage
+                  source={typeof img === "string" ? { uri: img } : img}
+                  style={[
+                    styles.image,
+                    {
+                      borderTopLeftRadius: IMAGE_TOP_RADIUS,
+                      borderTopRightRadius: IMAGE_TOP_RADIUS,
+                      borderBottomLeftRadius: IMAGE_BOTTOM_RADIUS,
+                      borderBottomRightRadius: IMAGE_BOTTOM_RADIUS,
+                    },
+                  ]}
+                  contentFit="cover"
+                />
+              </TouchableOpacity>
+            ))
+          )}
         </ScrollView>
 
         {hasMultipleImages && (
@@ -386,7 +410,7 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     minWidth: 72,
-    width: 115,
+    width: 100,
   },
   caretakerName: {
     fontSize: 16,

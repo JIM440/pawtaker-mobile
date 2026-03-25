@@ -20,6 +20,7 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Alert, BackHandler, ScrollView, StyleSheet, View } from "react-native";
+import { useToastStore } from "@/src/lib/store/toast.store";
 
 const TOTAL_STEPS = 8;
 
@@ -44,6 +45,7 @@ export default function AvailabilityWizardScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
+  const showToast = useToastStore((s) => s.showToast);
 
   const [careTypes, setCareTypes] = useState<string[]>([]);
   const [petKind, setPetKind] = useState<PetKindId | null>(null);
@@ -185,11 +187,28 @@ export default function AvailabilityWizardScreen() {
       );
 
       if (error) throw error;
-      router.replace("/(private)/(tabs)" as any);
+      showToast({
+        variant: "success",
+        message: t("post.availability.saved", "Availability saved."),
+        durationMs: 2400,
+      });
+      router.replace({
+        pathname: "/(private)/(tabs)/profile",
+        params: { tab: "availability", refreshAvailability: "true" },
+      });
     } catch (err) {
+      const details =
+        err instanceof Error
+          ? err.message
+          : t("common.error", "Something went wrong");
+      const friendly = t(
+        "post.availability.saveFailed",
+        "Couldn't save your availability. Please try again.",
+      );
+      showToast({ variant: "error", message: friendly, durationMs: 3200 });
       Alert.alert(
         t("common.error", "Something went wrong"),
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        `${friendly}\n\nDetails: ${details}`,
       );
     } finally {
       setIsSubmitting(false);
@@ -582,9 +601,11 @@ export default function AvailabilityWizardScreen() {
       <View style={styles.footer}>
         <Button
           label={
-            step === TOTAL_STEPS - 1
-              ? t("post.availability.publish")
-              : t("post.availability.next")
+            isSubmitting
+              ? t("common.saving", "Saving...")
+              : step === TOTAL_STEPS - 1
+                ? t("post.availability.publish")
+                : t("post.availability.next")
           }
           onPress={goNext}
           fullWidth

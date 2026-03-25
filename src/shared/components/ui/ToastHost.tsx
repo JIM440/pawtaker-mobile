@@ -4,37 +4,10 @@ import { CheckCircle2, Info, X, XCircle } from "lucide-react-native";
 import React, { useMemo } from "react";
 import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-
-/** Toast surface: light app → dark bar, dark app → light bar */
-const TOAST_BG = {
-  light: "#322F35",
-  dark: "#E6E0E9",
-} as const;
-
-/** Light-theme snackbar: inverse-on-surface (Figma M3 inverse-on-surface). */
-const TOAST_ON_SURFACE = {
-  light: "#F5EFF7",
-  dark: "#322F35",
-} as const;
+import { Colors } from "@/src/constants/colors";
 
 const iconSize = 18;
 const TOAST_HEIGHT = 48;
-
-/** Icon tints that stay readable on both toast surfaces */
-const ICON_TINT = {
-  light: {
-    success: "#A5D6A7",
-    error: "#FFAB91",
-    info: "#F5EFF7",
-    default: "#F5EFF7",
-  },
-  dark: {
-    success: "#2E7D32",
-    error: "#C62828",
-    info: TOAST_ON_SURFACE.dark,
-    default: TOAST_ON_SURFACE.dark,
-  },
-} as const;
 
 export function ToastHost() {
   const { resolvedTheme } = useThemeStore();
@@ -42,24 +15,39 @@ export function ToastHost() {
   const hideToast = useToastStore((s) => s.hideToast);
 
   const theme = resolvedTheme === "dark" ? "dark" : "light";
+  const palette = Colors[theme];
 
   const variantStyles = useMemo(() => {
-    const textColor = TOAST_ON_SURFACE[theme];
-    const bg = TOAST_BG[theme];
-    const icon = ICON_TINT[theme];
     if (!toast) {
-      return { bg, textColor, iconColor: icon.default };
+      return {
+        bg: palette.surfaceContainerHigh,
+        textColor: palette.onSurface,
+        iconColor: palette.onSurfaceVariant,
+      };
     }
-    const iconColor =
-      toast.variant === "success"
-        ? icon.success
-        : toast.variant === "error"
-          ? icon.error
-          : toast.variant === "info"
-            ? icon.info
-            : icon.default;
-    return { bg, textColor, iconColor };
-  }, [theme, toast]);
+
+    if (toast.variant === "success") {
+      return {
+        bg: palette.primaryContainer,
+        textColor: palette.onPrimaryContainer,
+        iconColor: palette.primary,
+      };
+    }
+
+    if (toast.variant === "error") {
+      return {
+        bg: palette.errorContainer,
+        textColor: palette.onErrorContainer,
+        iconColor: palette.error,
+      };
+    }
+
+    return {
+      bg: palette.surfaceContainerHigh,
+      textColor: palette.onSurface,
+      iconColor: palette.onSurfaceVariant,
+    };
+  }, [palette, toast]);
 
   if (!toast) return null;
 

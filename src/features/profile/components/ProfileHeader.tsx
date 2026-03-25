@@ -24,6 +24,7 @@ interface ProfileHeaderProps {
     rating: number;
     currentTask?: string;
     isAvailable?: boolean;
+    isVerified?: boolean;
     onAvatarPress?: () => void;
 }
 
@@ -36,7 +37,8 @@ export function ProfileHeader({
     paws,
     rating,
     currentTask,
-    isAvailable = true,
+    isAvailable = false,
+    isVerified = false,
     onAvatarPress,
 }: ProfileHeaderProps) {
     const { t } = useTranslation();
@@ -54,7 +56,7 @@ export function ProfileHeader({
                     uri={avatarUri}
                     name={name}
                     size={80}
-                    showOnlineBadge={isAvailable}
+                    showOnlineBadge={false}
                 />
             </TouchableOpacity>
 
@@ -75,11 +77,13 @@ export function ProfileHeader({
                 <AppText variant="headline" style={styles.userName}>
                     {name}
                 </AppText>
-                <BadgeCheck
-                    size={24}
-                    color={colors.surfaceContainerLowest}
-                    fill={colors.primary}
-                />
+                {isVerified && (
+                    <BadgeCheck
+                        size={24}
+                        color={colors.surfaceContainerLowest}
+                        fill={colors.primary}
+                    />
+                )}
             </View>
 
             <View style={styles.locationRow}>
@@ -199,12 +203,15 @@ const styles = StyleSheet.create({
     nameRow: {
         flexDirection: "row",
         alignItems: "center",
+        justifyContent: "center",
+        alignSelf: "stretch",
         gap: 6,
         marginBottom: 4,
+        paddingHorizontal: 8,
     },
     userName: {
-        maxWidth: 240,
         flexShrink: 1,
+        textAlign: "center",
         fontSize: 28,
         letterSpacing: -0.5,
         lineHeight: 36,

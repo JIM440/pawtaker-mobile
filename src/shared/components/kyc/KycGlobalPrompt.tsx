@@ -21,6 +21,12 @@ export function KycGlobalPrompt() {
     }
   }, [requestNonce, profile?.kyc_status]);
 
+  useEffect(() => {
+    if (isKycApproved(profile?.kyc_status)) {
+      setVisible(false);
+    }
+  }, [profile?.kyc_status]);
+
   return (
     <KycPromptModal visible={visible} onClose={() => setVisible(false)} />
   );

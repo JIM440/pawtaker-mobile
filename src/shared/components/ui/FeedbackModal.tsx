@@ -22,6 +22,8 @@ type FeedbackModalProps = {
   onPrimary: () => void | Promise<void>;
   secondaryLabel?: string;
   onSecondary?: () => void;
+  /** Cancel / secondary button style (Figma apply dialog uses tonal / primary-container). */
+  secondaryVariant?: "outline" | "secondary";
   /** When true, primary button uses danger styling */
   destructive?: boolean;
   /** Shows spinner on primary and blocks dismiss / secondary while true */
@@ -43,6 +45,7 @@ export function FeedbackModal({
   onPrimary,
   secondaryLabel,
   onSecondary,
+  secondaryVariant = "outline",
   destructive = false,
   primaryLoading = false,
   onRequestClose,
@@ -109,7 +112,7 @@ export function FeedbackModal({
               {secondaryLabel && onSecondary && (
                 <Button
                   label={secondaryLabel}
-                  variant="outline"
+                  variant={secondaryVariant}
                   fullWidth
                   onPress={onSecondary}
                   disabled={primaryLoading}

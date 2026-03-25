@@ -1,38 +1,29 @@
 import { Colors } from "@/src/constants/colors";
+import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import {
+  isResourceNotFound,
+  RESOURCE_NOT_FOUND,
+} from "@/src/lib/errors/resource-not-found";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { supabase } from "@/src/lib/supabase/client";
+import type { TablesRow } from "@/src/lib/supabase/types";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Calendar, Clock, MapPin } from "lucide-react-native";
-import React from "react";
+import { Calendar, Clock, MapPin, PawPrint } from "lucide-react-native";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
-
-// Mock data for a pet - in real app, fetch by id
-const MOCK_PET = {
-  id: "1",
-  images: [
-    "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800",
-    "https://images.unsplash.com/photo-1552053831-71594a27632d?w=800",
-  ],
-  name: "Polo",
-  breed: "Golden Retriever",
-  type: "Dog",
-  bio: "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch. He's well-trained and great with kids and other pets. He thrives on attention and loves to be around people.",
-  tags: ["fenced yard", "high energy", "1-3yrs"],
-  seekingDateRange: "Mar 14-Apr 02",
-  seekingTime: "8am-4pm",
-  location: "Lake Placid, New York, US",
-  specialNeeds: "None",
-  caretaker: {
-    id: "u1",
-    name: "Jane Ambers",
-    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-  }
-};
 
 export default function PetDetailScreen() {
   const { id: _petId } = useLocalSearchParams<{ id: string }>();
@@ -40,8 +31,136 @@ export default function PetDetailScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const showToast = useToastStore((s) => s.showToast);
 
-  const pet = MOCK_PET; // Use id to fetch real data
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [pet, setPet] = useState<any | null>(null);
+  const [owner, setOwner] = useState<any | null>(null);
+  const [openRequest, setOpenRequest] = useState<any | null>(null);
+
+  const load = useCallback(async () => {
+    if (!_petId) {
+      setLoading(false);
+      setError("Missing pet id.");
+      return;
+    }
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: petRaw, error: petError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("id", _petId)
+        .maybeSingle();
+      if (petError) throw petError;
+      const petRow = petRaw as TablesRow<"pets"> | null;
+      if (!petRow) {
+        setPet(null);
+        setOwner(null);
+        setOpenRequest(null);
+        setError(RESOURCE_NOT_FOUND);
+        return;
+      }
+
+      const [{ data: ownerRow, error: ownerError }, { data: reqRows, error: reqError }] =
+        await Promise.all([
+          supabase
+            .from("users")
+            .select("id,full_name,avatar_url,city,latitude,longitude")
+            .eq("id", petRow.owner_id)
+            .maybeSingle(),
+          supabase
+            .from("care_requests")
+            .select("id,status,start_date,end_date,care_type")
+            .eq("pet_id", petRow.id)
+            .eq("status", "open")
+            .order("created_at", { ascending: false })
+            .limit(1),
+        ]);
+      if (ownerError) throw ownerError;
+      if (reqError) throw reqError;
+
+      setPet(petRow);
+      setOwner(ownerRow ?? null);
+      setOpenRequest((reqRows?.[0] as any) ?? null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+    } finally {
+      setLoading(false);
+    }
+  }, [_petId, t]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  const parsedNotes = useMemo(() => parsePetNotes(pet?.notes), [pet?.notes]);
+
+  const images = useMemo(() => {
+    const uri = pet?.avatar_url as string | null | undefined;
+    return uri ? [uri] : [];
+  }, [pet?.avatar_url]);
+
+  const careTypeLabel = useMemo(() => {
+    const ct = openRequest?.care_type as string | undefined;
+    const key: CareTypeKey =
+      ct === "walking" ? "playwalk" : ct === "boarding" ? "overnight" : "daytime";
+    return t(`feed.careTypes.${key}`);
+  }, [openRequest?.care_type, t]);
+
+  const seekingDateRange = useMemo(() => {
+    if (!openRequest?.start_date || !openRequest?.end_date) return "";
+    return `${new Date(openRequest.start_date).toLocaleDateString()} - ${new Date(
+      openRequest.end_date,
+    ).toLocaleDateString()}`;
+  }, [openRequest?.end_date, openRequest?.start_date]);
+
+  const location = owner?.city?.trim() || t("profile.noLocation");
+
+  const ownerName = resolveDisplayName(owner) || t("requestDetails.owner", "Owner");
+
+  if (loading) {
+    return (
+      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+        <BackHeader title={t("common.loading", "Loading...")} />
+        <DataState title={t("common.loading", "Loading...")} mode="full" />
+      </PageContainer>
+    );
+  }
+
+  if (isResourceNotFound(error)) {
+    return (
+      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+        <BackHeader title="" onBack={() => router.back()} />
+        <ResourceMissingState
+          onBack={() => router.back()}
+          onHome={() =>
+            router.replace("/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0])
+          }
+        />
+      </PageContainer>
+    );
+  }
+
+  if (error || !pet) {
+    return (
+      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+        <BackHeader title="" onBack={() => router.back()} />
+        <DataState
+          title={t("common.error", "Something went wrong")}
+          message={error ?? undefined}
+          actionLabel={t("common.retry", "Retry")}
+          onAction={() => {
+            void load();
+          }}
+          mode="full"
+        />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
@@ -53,14 +172,25 @@ export default function PetDetailScreen() {
       >
         {/* Photo Gallery - Simple Swiper-like display */}
         <View style={styles.imageContainer}>
-          <AppImage
-            source={{ uri: pet.images[0] }}
-            style={styles.mainImage}
-            contentFit="cover"
-          />
-          {pet.images.length > 1 && (
+          {images[0] ? (
+            <AppImage
+              source={{ uri: images[0] }}
+              style={styles.mainImage}
+              contentFit="cover"
+            />
+          ) : (
+            <View
+              style={[
+                styles.mainImage,
+                { alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
+              <PawPrint size={34} color={colors.onSurfaceVariant} />
+            </View>
+          )}
+          {images.length > 1 && (
             <View style={styles.imageBadge}>
-              <AppText variant="caption" color="#fff">1/{pet.images.length}</AppText>
+              <AppText variant="caption" color="#fff">1/{images.length}</AppText>
             </View>
           )}
         </View>
@@ -69,67 +199,84 @@ export default function PetDetailScreen() {
           <View style={styles.headerRow}>
             <View>
               <AppText variant="headline" style={styles.petName}>{pet.name}</AppText>
-              <AppText variant="body" color={colors.onSurfaceVariant}>{pet.breed} • {pet.type}</AppText>
+              <AppText variant="body" color={colors.onSurfaceVariant}>
+                {pet.breed || t("pets.add.breed", "Breed")} • {pet.species || t("pets.add.kind", "Pet")}
+              </AppText>
             </View>
-            <View style={[styles.seekingPill, { backgroundColor: colors.tertiaryContainer }]}>
-              <AppText variant="caption" color={colors.onTertiaryContainer}>{t("pet.detail.seeking")}</AppText>
-            </View>
+            {openRequest ? (
+              <View style={[styles.seekingPill, { backgroundColor: colors.tertiaryContainer }]}>
+                <AppText variant="caption" color={colors.onTertiaryContainer}>{t("pet.detail.seeking")}</AppText>
+              </View>
+            ) : null}
           </View>
 
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <Calendar size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" color={colors.onSurfaceVariant}>{pet.seekingDateRange}</AppText>
+          {openRequest ? (
+            <View style={styles.metaRow}>
+              <View style={styles.metaItem}>
+                <Calendar size={16} color={colors.onSurfaceVariant} />
+                <AppText variant="caption" color={colors.onSurfaceVariant}>{seekingDateRange}</AppText>
+              </View>
+              <View style={styles.metaItem}>
+                <Clock size={16} color={colors.onSurfaceVariant} />
+                <AppText variant="caption" color={colors.onSurfaceVariant}>{careTypeLabel}</AppText>
+              </View>
             </View>
-            <View style={styles.metaItem}>
-              <Clock size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" color={colors.onSurfaceVariant}>{pet.seekingTime}</AppText>
-            </View>
-          </View>
+          ) : (
+            <AppText variant="caption" color={colors.onSurfaceVariant} style={{ marginBottom: 8 }}>
+              {t("pet.detail.noOpenRequest", "This pet doesn’t have an open care request right now.")}
+            </AppText>
+          )}
 
           <View style={styles.locationRow}>
             <MapPin size={16} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" color={colors.onSurfaceVariant}>{pet.location}</AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>{location}</AppText>
           </View>
 
           <View style={styles.section}>
             <AppText variant="title" style={styles.sectionTitle}>{t("pet.detail.about", { name: pet.name })}</AppText>
             <AppText variant="body" color={colors.onSurfaceVariant} style={styles.bio}>
-              {pet.bio}
+              {parsedNotes.bio ||
+                pet.notes ||
+                t("post.request.noDescription", "No description yet.")}
             </AppText>
           </View>
 
-          <View style={styles.section}>
-            <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>{t("pet.detail.attributes")}</AppText>
-            <View style={styles.tagsContainer}>
-              {pet.tags.map(tag => (
-                <View key={tag} style={[styles.tag, { backgroundColor: colors.surfaceContainerHighest }]}>
-                  <AppText variant="caption" color={colors.onSurface}>{tag}</AppText>
-                </View>
-              ))}
+          {parsedNotes.attributeTags.length ? (
+            <View style={styles.section}>
+              <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>{t("pet.detail.attributes")}</AppText>
+              <View style={styles.tagsContainer}>
+                {parsedNotes.attributeTags.map(tag => (
+                  <View key={tag} style={[styles.tag, { backgroundColor: colors.surfaceContainerHighest }]}>
+                    <AppText variant="caption" color={colors.onSurface}>{tag}</AppText>
+                  </View>
+                ))}
+              </View>
             </View>
-          </View>
+          ) : null}
 
           <View style={styles.section}>
             <AppText variant="label" color={colors.onSurfaceVariant} style={styles.sectionLabel}>{t("pet.detail.specialNeeds")}</AppText>
-            <AppText variant="body" color={colors.onSurfaceVariant}>{pet.specialNeeds}</AppText>
+            <AppText variant="body" color={colors.onSurfaceVariant}>
+              {parsedNotes.specialNeeds || t("pet.detail.none", "None")}
+            </AppText>
           </View>
 
           {/* Caretaker Info */}
           <View style={[styles.caretakerCard, { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant }]}>
-            <AppImage source={{ uri: pet.caretaker.avatar }} style={styles.caretakerAvatar} />
+            <UserAvatar uri={owner?.avatar_url} name={ownerName} size={48} />
             <View style={{ flex: 1 }}>
               <AppText variant="caption" color={colors.onSurfaceVariant}>{t("pet.detail.petOwner")}</AppText>
-              <AppText variant="body" style={{ fontWeight: '600' }}>{pet.caretaker.name}</AppText>
+              <AppText variant="body" style={{ fontWeight: '600' }}>{ownerName}</AppText>
             </View>
             <Button
               label={t("common.viewProfile")}
               variant="outline"
               size="sm"
+              disabled={!owner?.id}
               onPress={() =>
                 router.push({
                   pathname: "/(private)/(tabs)/profile/users/[id]",
-                  params: { id: pet.caretaker.id },
+                  params: { id: owner.id },
                 })
               }
             />
@@ -138,7 +285,26 @@ export default function PetDetailScreen() {
       </ScrollView>
 
       <View style={styles.footer}>
-        <Button label={t("pet.detail.helpWithPet")} fullWidth onPress={() => { }} />
+        <Button
+          label={t("pet.detail.helpWithPet")}
+          fullWidth
+          disabled={!openRequest?.id}
+          onPress={() => {
+            if (!openRequest?.id) {
+              showToast({
+                variant: "info",
+                message: t("pet.detail.noOpenRequest", "This pet doesn’t have an open care request right now."),
+                durationMs: 2600,
+              });
+              return;
+            }
+            if (blockIfKycNotApproved()) return;
+            router.push({
+              pathname: "/(private)/post-requests/[id]",
+              params: { id: openRequest.id },
+            });
+          }}
+        />
       </View>
     </PageContainer>
   );
