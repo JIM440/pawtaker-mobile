@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next";
 import {
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -43,6 +44,7 @@ export default function NotificationsScreen() {
   const colors = Colors[resolvedTheme];
 
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
 
@@ -69,13 +71,15 @@ export default function NotificationsScreen() {
     return `${days}d`;
   };
 
-  const loadNotifications = async () => {
+  const loadNotifications = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setItems([]);
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!opts?.refresh) {
+      setLoading(true);
+    }
     setLoadError(null);
     try {
       const { data, error } = await supabase
@@ -106,6 +110,12 @@ export default function NotificationsScreen() {
   React.useEffect(() => {
     void loadNotifications();
   }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadNotifications({ refresh: true });
+    setRefreshing(false);
+  };
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -231,6 +241,9 @@ export default function NotificationsScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
       >
         <View style={styles.header}>
           <SearchField

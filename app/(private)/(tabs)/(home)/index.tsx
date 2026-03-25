@@ -3,6 +3,7 @@ import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -32,6 +33,7 @@ import {
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
@@ -83,10 +85,12 @@ export default function HomeScreen() {
   const { user, profile } = useAuthStore();
   const colors = Colors[resolvedTheme];
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [requests, setRequests] = useState<any[]>([]);
   const [takers, setTakers] = useState<Taker[]>([]);
   const [userPets, setUserPets] = useState<any[]>([]);
+  const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -99,18 +103,24 @@ export default function HomeScreen() {
   } | null>(null);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
   const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(null);
-  const loadHomeData = async () => {
+  const loadHomeData = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!opts?.refresh) {
+      setLoading(true);
+    }
     setLoadError(null);
     try {
       const [{ data: reqData, error: reqError }, { data: usersData, error: usersError }, { data: myPets, error: petsError }] =
         await Promise.all([
           supabase.from("care_requests").select("*").eq("status", "open"),
-          supabase.from("users").select("*").neq("id", user.id).eq("kyc_status", "approved"),
+          supabase
+            .from("users")
+            .select("id,full_name,avatar_url,city,kyc_status")
+            .neq("id", user.id)
+            .eq("kyc_status", "approved"),
           supabase.from("pets").select("*").eq("owner_id", user.id),
         ]);
       if (reqError && !isMissingBackendResourceError(reqError)) throw reqError;
@@ -159,7 +169,7 @@ export default function HomeScreen() {
             description: r.description ?? pet?.notes ?? "No description yet.",
             caretaker: {
               id: owner?.id ?? "",
-              name: owner?.full_name ?? "Owner",
+              name: resolveDisplayName(owner) || "Owner",
               rating: 0,
               reviewsCount: 0,
               petsCount: 0,
@@ -171,7 +181,7 @@ export default function HomeScreen() {
       setTakers(
         (usersData ?? []).map((u: any) => ({
           id: u.id,
-          name: u.full_name || "User",
+          name: resolveDisplayName(u) || "User",
           avatar: u.avatar_url || "",
           rating: 0,
           species: "Pets",
@@ -192,6 +202,33 @@ export default function HomeScreen() {
   useEffect(() => {
     void loadHomeData();
   }, [user?.id]);
+
+  const loadNotificationCount = async () => {
+    if (!user?.id) {
+      setNotificationsUnreadCount(0);
+      return;
+    }
+    try {
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { head: true, count: "exact" })
+        .eq("user_id", user.id)
+        .eq("read", false);
+      setNotificationsUnreadCount(count ?? 0);
+    } catch {
+      setNotificationsUnreadCount(0);
+    }
+  };
+
+  useEffect(() => {
+    void loadNotificationCount();
+  }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadHomeData({ refresh: true });
+    setRefreshing(false);
+  };
   const [takerForSendRequest, setTakerForSendRequest] = useState<Taker | null>(
     null,
   );
@@ -360,18 +397,20 @@ export default function HomeScreen() {
         onPress={() => router.push("/(private)/(tabs)/(home)/notifications")}
       >
         <Bell size={24} color={colors.onSurface} />
-        <View
-          className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
-          style={{ backgroundColor: colors.primary }}
-        >
-          <AppText
-            variant="caption"
-            color={colors.onPrimary}
-            style={{ fontSize: 10, lineHeight: 12 }}
+        {notificationsUnreadCount > 0 ? (
+          <View
+            className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
+            style={{ backgroundColor: colors.primary }}
           >
-            5
-          </AppText>
-        </View>
+            <AppText
+              variant="caption"
+              color={colors.onPrimary}
+              style={{ fontSize: 10, lineHeight: 12 }}
+            >
+              {notificationsUnreadCount > 99 ? "99+" : notificationsUnreadCount}
+            </AppText>
+          </View>
+        ) : null}
       </TouchableOpacity>
     </View>
   );
@@ -419,6 +458,9 @@ export default function HomeScreen() {
         contentContainerStyle={{ paddingBottom: 24, gap: 8 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
         ListHeaderComponent={
           <>
             {/* Search + filter (Figma-aligned styles) */}

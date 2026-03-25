@@ -1,5 +1,5 @@
 -- App-level RPC endpoints for DB-first mobile screens.
--- Apply with Supabase migration tooling or run in SQL editor.
+-- Apply with Supabase migration tooling or run in SQL the .
 
 -- HOME FEED ENDPOINT
 create or replace function public.get_home_feed(
@@ -43,7 +43,7 @@ begin
         ),
         'owner', jsonb_build_object(
           'id', u.id,
-          'full_name', u.full_name,
+          'full_name', nullif(trim(u.full_name), ''),
           'city', u.city
         )
       )
@@ -67,7 +67,7 @@ begin
     jsonb_agg(
       jsonb_build_object(
         'id', u.id,
-        'name', u.full_name,
+        'name', nullif(trim(u.full_name), ''),
         'avatar', u.avatar_url,
         'location', u.city,
         'rating', 0,
@@ -157,7 +157,7 @@ begin
     jsonb_agg(
       jsonb_build_object(
         'id', c.id,
-        'person_name', u.full_name,
+        'person_name', nullif(trim(u.full_name), ''),
         'person_avatar', u.avatar_url,
         'pet', p.name,
         'care_type', cr.care_type,
@@ -177,7 +177,7 @@ begin
     jsonb_agg(
       jsonb_build_object(
         'id', c.id,
-        'person_name', u.full_name,
+        'person_name', nullif(trim(u.full_name), ''),
         'person_avatar', u.avatar_url,
         'pet', p.name,
         'care_type', cr.care_type,
@@ -279,7 +279,7 @@ begin
         'created_at', r.created_at,
         'reviewer', jsonb_build_object(
           'id', u.id,
-          'full_name', u.full_name,
+          'full_name', nullif(trim(u.full_name), ''),
           'avatar_url', u.avatar_url
         )
       )

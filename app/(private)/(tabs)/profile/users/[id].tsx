@@ -4,56 +4,33 @@ import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
+import { supabase } from "@/src/lib/supabase/client";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { DataState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MoreHorizontal } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
   View,
 } from "react-native";
 
-const PUBLIC_PROFILE = {
-  avatarUri:
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-  name: "Jane Ambers",
-  location: "Lake Placid, New York, US",
-  points: 58,
-  handshakes: 12,
-  paws: 17,
-  rating: 4.1,
-  currentTask: "Caring for Bob Majors",
-};
-
-const PUBLIC_PETS = [
-  {
-    id: "1",
-    imageSource:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
-    petName: "Polo",
-    breed: "Golden Retriever",
-    petType: "Dog",
-    bio: "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch. He's well-trained.",
-    tags: ["fenced yard", "high energy", "1-3yrs"],
-    seekingDateRange: "Mar 14-Apr 02",
-    seekingTime: "8am-4pm",
-  },
-];
-
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function PublicProfileScreen() {
-  const { id: _profileId } = useLocalSearchParams<{ id: string }>();
+  const { id: profileId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -62,6 +39,66 @@ export default function PublicProfileScreen() {
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
+  const [publicProfile, setPublicProfile] = useState<any | null>(null);
+  const [publicPets, setPublicPets] = useState<any[]>([]);
+  const [publicAvailability, setPublicAvailability] = useState<Record<string, any> | null>(null);
+  const [publicReviews, setPublicReviews] = useState<any[]>([]);
+
+  const loadPublicProfile = async (opts?: { refresh?: boolean }) => {
+    if (!profileId) {
+      setLoading(false);
+      return;
+    }
+    if (!opts?.refresh) setLoading(true);
+    setLoadError(null);
+    try {
+      const [{ data: userData, error: userError }, { data: petsData }, { data: availabilityData }, { data: reviewsData }] =
+        await Promise.all([
+          supabase.from("users").select("*").eq("id", profileId).maybeSingle(),
+          supabase.from("pets").select("*").eq("owner_id", profileId),
+          supabase.from("taker_profiles").select("*").eq("user_id", profileId).maybeSingle(),
+          supabase.from("reviews").select("*").eq("reviewee_id", profileId).order("created_at", { ascending: false }),
+        ]);
+      if (userError) throw userError;
+      setPublicProfile(userData ?? null);
+      setPublicPets(petsData ?? []);
+      setPublicAvailability((availabilityData?.availability_json as Record<string, any> | null) ?? null);
+      setPublicReviews(reviewsData ?? []);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadPublicProfile();
+  }, [profileId]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadPublicProfile({ refresh: true });
+    setRefreshing(false);
+  };
+
+  const derived = useMemo(() => {
+    return {
+      avatarUri: publicProfile?.avatar_url || null,
+      name: resolveDisplayName(publicProfile) || "User",
+      location: publicProfile?.city || "Location not set",
+      points: publicProfile?.points_balance ?? 0,
+      handshakes: 0,
+      paws: publicReviews.length,
+      rating:
+        publicReviews.length > 0
+          ? publicReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / publicReviews.length
+          : 0,
+      currentTask: undefined as string | undefined,
+    };
+  }, [publicProfile, publicReviews]);
 
   return (
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
@@ -86,16 +123,33 @@ export default function PublicProfileScreen() {
         style={styles.scroll}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
       >
+        {loading ? (
+          <DataState title={t("common.loading", "Loading...")} mode="full" />
+        ) : loadError ? (
+          <DataState
+            title={t("common.error", "Something went wrong")}
+            message={loadError}
+            actionLabel={t("common.retry", "Retry")}
+            onAction={() => {
+              void loadPublicProfile();
+            }}
+            mode="full"
+          />
+        ) : (
+          <>
         <ProfileHeader
-          name={PUBLIC_PROFILE.name}
-          avatarUri={PUBLIC_PROFILE.avatarUri}
-          location={PUBLIC_PROFILE.location}
-          points={PUBLIC_PROFILE.points}
-          handshakes={PUBLIC_PROFILE.handshakes}
-          paws={PUBLIC_PROFILE.paws}
-          rating={PUBLIC_PROFILE.rating}
-          currentTask={PUBLIC_PROFILE.currentTask}
+          name={derived.name}
+          avatarUri={derived.avatarUri}
+          location={derived.location}
+          points={derived.points}
+          handshakes={derived.handshakes}
+          paws={derived.paws}
+          rating={derived.rating}
+          currentTask={derived.currentTask}
           onAvatarPress={() => setAvatarViewerOpen(true)}
         />
 
@@ -117,15 +171,64 @@ export default function PublicProfileScreen() {
 
         {/* Tab content */}
         {activeTab === "pets" && (
-          <ProfilePetsTab pets={PUBLIC_PETS} showAddPetButton={false} />
+          <ProfilePetsTab
+            pets={publicPets.map((pet) => ({
+              id: pet.id,
+              imageSource: pet.avatar_url || "",
+              petName: pet.name || "Pet",
+              breed: pet.breed || "Unknown breed",
+              petType: pet.species || "Pet",
+              bio: pet.notes || "No pet bio yet.",
+            }))}
+            showAddPetButton={false}
+          />
         )}
-        {activeTab === "availability" && <ProfileAvailabilityTab />}
-        {activeTab === "bio" && <ProfileBioTab />}
+        {activeTab === "availability" && (
+          publicAvailability ? (
+            <ProfileAvailabilityTab
+              data={{
+                card: {
+                  avatarUri: derived.avatarUri,
+                  name: derived.name,
+                  rating: derived.rating,
+                  handshakes: derived.handshakes,
+                  paws: derived.paws,
+                  isAvailable: publicAvailability.available ?? false,
+                  petTypes: publicAvailability.petKinds ?? [],
+                  services: publicAvailability.services ?? [],
+                  location: derived.location,
+                },
+                note: publicAvailability.note ?? "",
+                time:
+                  publicAvailability.startTime && publicAvailability.endTime
+                    ? `${publicAvailability.startTime} - ${publicAvailability.endTime}`
+                    : "",
+                days: publicAvailability.days?.join(" • ") ?? "",
+                yardType: publicAvailability.yardType ?? "",
+                isPetOwner: publicAvailability.petOwner ?? "",
+              }}
+            />
+          ) : (
+            <DataState title="No availability yet" mode="inline" />
+          )
+        )}
+        {activeTab === "bio" && <ProfileBioTab bio={publicProfile?.bio} />}
         {activeTab === "reviews" && (
           <ProfileReviewsTab
-            rating={PUBLIC_PROFILE.rating}
-            handshakes={PUBLIC_PROFILE.handshakes}
-            paws={PUBLIC_PROFILE.paws}
+            rating={derived.rating}
+            handshakes={derived.handshakes}
+            paws={derived.paws}
+            items={publicReviews.map((r) => ({
+              id: r.id,
+              reviewerId: r.reviewer_id,
+              name: "Reviewer",
+              avatar: null,
+              rating: r.rating ?? 0,
+              handshakes: 0,
+              paws: 0,
+              date: r.created_at ? new Date(r.created_at).toLocaleDateString() : "",
+              review: r.comment || "No review comment.",
+            }))}
             onReviewerPress={(reviewerId) =>
               router.push({
                 pathname: "/(private)/(tabs)/profile/users/[id]",
@@ -133,6 +236,8 @@ export default function PublicProfileScreen() {
               })
             }
           />
+        )}
+          </>
         )}
       </ScrollView>
 
@@ -209,7 +314,7 @@ export default function PublicProfileScreen() {
       />
       <ImageViewerModal
         visible={avatarViewerOpen}
-        images={[{ uri: PUBLIC_PROFILE.avatarUri }]}
+        images={derived.avatarUri ? [{ uri: derived.avatarUri }] : []}
         onRequestClose={() => setAvatarViewerOpen(false)}
       />
     </PageContainer>

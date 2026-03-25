@@ -7,6 +7,7 @@ import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileRevi
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileSkeleton } from "@/src/shared/components/skeletons";
@@ -18,7 +19,7 @@ import { router } from "expo-router";
 import { Settings } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
@@ -28,6 +29,7 @@ export default function ProfileScreen() {
   const { user, profile, fetchProfile } = useAuthStore();
   const colors = Colors[resolvedTheme];
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [pets, setPets] = useState<any[]>([]);
@@ -37,13 +39,15 @@ export default function ProfileScreen() {
   const [completedContractsCount, setCompletedContractsCount] = useState(0);
   const [loadError, setLoadError] = useState<string | null>(null);
 
-  const loadProfileData = async () => {
+  const loadProfileData = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setLoading(false);
       return;
     }
     setLoadError(null);
-    setLoading(true);
+    if (!opts?.refresh) {
+      setLoading(true);
+    }
     try {
       if (!profile) await fetchProfile(user.id);
 
@@ -104,12 +108,18 @@ export default function ProfileScreen() {
     };
   }, [fetchProfile, profile, user?.id]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProfileData({ refresh: true });
+    setRefreshing(false);
+  };
+
   const profileData = useMemo(() => {
     const name =
-      profile?.full_name?.trim() ||
-      user?.user_metadata?.full_name ||
-      user?.email?.split("@")[0] ||
-      t("profile.defaultName", "Pawtaker User");
+      resolveDisplayName(profile ?? undefined, {
+        email: user?.email,
+        userMetadata: user?.user_metadata as Record<string, unknown> | undefined,
+      }).trim() || t("profile.defaultName", "Pawtaker User");
 
     return {
       avatarUri: profile?.avatar_url || null,
@@ -130,7 +140,7 @@ export default function ProfileScreen() {
     reviews,
     t,
     user?.email,
-    user?.user_metadata?.full_name,
+    user?.user_metadata,
   ]);
 
   const reviewsUiItems = useMemo(
@@ -140,7 +150,7 @@ export default function ProfileScreen() {
         return {
           id: item.id,
           reviewerId: item.reviewer_id,
-          name: reviewer?.full_name || "Anonymous",
+          name: resolveDisplayName(reviewer) || "Anonymous",
           avatar: reviewer?.avatar_url || null,
           rating: item.rating ?? 0,
           handshakes: 0,
@@ -251,6 +261,9 @@ export default function ProfileScreen() {
         contentContainerStyle={{ paddingBottom: 24 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
       >
         <ProfileHeader
           name={profileData.name}

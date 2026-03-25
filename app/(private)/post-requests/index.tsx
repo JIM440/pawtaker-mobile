@@ -26,6 +26,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -58,6 +59,7 @@ export default function LaunchRequestWizardScreen() {
     { id: string; name: string; imageUri: string | null }[]
   >([]);
   const [petsLoading, setPetsLoading] = useState(true);
+  const [petsRefreshing, setPetsRefreshing] = useState(false);
   const [petsError, setPetsError] = useState<string | null>(null);
   const [careTypes, setCareTypes] = useState<string[]>(["daytime"]);
   const [multiDay, setMultiDay] = useState(false);
@@ -93,12 +95,14 @@ export default function LaunchRequestWizardScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const progress = (step + 1) / TOTAL_STEPS;
 
-  const loadPets = async () => {
+  const loadPets = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setPetsLoading(false);
       return;
     }
-    setPetsLoading(true);
+    if (!opts?.refresh) {
+      setPetsLoading(true);
+    }
     setPetsError(null);
     try {
       const { data, error } = await supabase
@@ -119,6 +123,12 @@ export default function LaunchRequestWizardScreen() {
   useEffect(() => {
     void loadPets();
   }, [user?.id]);
+
+  const onRefreshPets = async () => {
+    setPetsRefreshing(true);
+    await loadPets({ refresh: true });
+    setPetsRefreshing(false);
+  };
 
   useEffect(() => {
     if (params.petId && typeof params.petId === "string") {
@@ -290,6 +300,12 @@ export default function LaunchRequestWizardScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={petsRefreshing}
+            onRefresh={() => void onRefreshPets()}
+          />
+        }
       >
         {step === 0 && (
           <CareTypeFirstStep

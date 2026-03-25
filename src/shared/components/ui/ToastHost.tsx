@@ -1,48 +1,65 @@
-import { Colors } from "@/src/constants/colors";
-import { useToastStore, type ToastVariant } from "@/src/lib/store/toast.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { CheckCircle2, Info, X, XCircle } from "lucide-react-native";
 import React, { useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 
+/** Toast surface: light app → dark bar, dark app → light bar */
+const TOAST_BG = {
+  light: "#322F35",
+  dark: "#E6E0E9",
+} as const;
+
+/** Light-theme snackbar: inverse-on-surface (Figma M3 inverse-on-surface). */
+const TOAST_ON_SURFACE = {
+  light: "#F5EFF7",
+  dark: "#322F35",
+} as const;
+
 const iconSize = 18;
+const TOAST_HEIGHT = 48;
+
+/** Icon tints that stay readable on both toast surfaces */
+const ICON_TINT = {
+  light: {
+    success: "#A5D6A7",
+    error: "#FFAB91",
+    info: "#F5EFF7",
+    default: "#F5EFF7",
+  },
+  dark: {
+    success: "#2E7D32",
+    error: "#C62828",
+    info: TOAST_ON_SURFACE.dark,
+    default: TOAST_ON_SURFACE.dark,
+  },
+} as const;
 
 export function ToastHost() {
   const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
   const toast = useToastStore((s) => s.toast);
   const hideToast = useToastStore((s) => s.hideToast);
 
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
+
   const variantStyles = useMemo(() => {
-    type VariantStyle = {
-      iconColor: string;
-      bg: string;
-      textColor: string;
-    };
-    const base: VariantStyle = {
-      iconColor: colors.primary,
-      bg: colors.surfaceContainerHighest,
-      textColor: colors.onSurface,
-    };
-
-    const byVariant: Record<ToastVariant, VariantStyle> = {
-      default: base,
-      info: base,
-      success: {
-        iconColor: colors.tertiary,
-        bg: colors.tertiaryContainer,
-        textColor: colors.onTertiaryContainer,
-      },
-      error: {
-        iconColor: colors.error,
-        bg: colors.errorContainer,
-        textColor: colors.onErrorContainer,
-      },
-    };
-
-    return toast ? byVariant[toast.variant] : base;
-  }, [colors, toast]);
+    const textColor = TOAST_ON_SURFACE[theme];
+    const bg = TOAST_BG[theme];
+    const icon = ICON_TINT[theme];
+    if (!toast) {
+      return { bg, textColor, iconColor: icon.default };
+    }
+    const iconColor =
+      toast.variant === "success"
+        ? icon.success
+        : toast.variant === "error"
+          ? icon.error
+          : toast.variant === "info"
+            ? icon.info
+            : icon.default;
+    return { bg, textColor, iconColor };
+  }, [theme, toast]);
 
   if (!toast) return null;
 
@@ -81,7 +98,7 @@ export function ToastHost() {
             hitSlop={10}
             style={styles.closeBtn}
           >
-            <X size={18} color={variantStyles.textColor} />
+            <X size={24} color={variantStyles.textColor} />
           </Pressable>
         </View>
       </View>
@@ -106,9 +123,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    height: TOAST_HEIGHT,
+    minHeight: TOAST_HEIGHT,
+    paddingLeft: 16,
+    paddingRight: 0,
+    borderRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   iconLeft: {
     width: 28,
@@ -121,11 +151,14 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   message: {
-    fontWeight: "600",
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "400",
+    letterSpacing: 0.25,
   },
   closeBtn: {
-    width: 28,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },

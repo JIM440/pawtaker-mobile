@@ -8,7 +8,6 @@ export interface Database {
           id: string;
           email: string;
           full_name: string | null;
-          display_name: string | null;
           avatar_url: string | null;
           bio: string | null;
           city: string | null;
@@ -34,7 +33,6 @@ export interface Database {
           id?: string;
           email: string;
           full_name?: string | null;
-          display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           city?: string | null;

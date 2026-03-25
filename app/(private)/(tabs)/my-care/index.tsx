@@ -11,6 +11,7 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 import { DataState } from '@/src/shared/components/ui';
 import { TabBar } from '@/src/shared/components/ui/TabBar';
 import { useToastStore } from '@/src/lib/store/toast.store';
+import { resolveDisplayName } from '@/src/lib/user/displayName';
 import {
   Handshake,
   MoreHorizontal,
@@ -23,6 +24,7 @@ import { useTranslation } from 'react-i18next';
 import {
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -53,6 +55,7 @@ export default function MyCareScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [available, setAvailable] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('given');
@@ -96,12 +99,14 @@ export default function MyCareScreen() {
     </View>
   );
 
-  const loadMyCareData = async () => {
+  const loadMyCareData = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setLoading(false);
       return;
     }
-    setLoading(true);
+    if (!opts?.refresh) {
+      setLoading(true);
+    }
     setLoadError(null);
     try {
       const [{ data: contracts }, { data: requests }, { data: pets }] = await Promise.all([
@@ -149,7 +154,7 @@ export default function MyCareScreen() {
           dayLabel: req?.start_date
             ? new Date(req.start_date).toLocaleDateString()
             : "",
-          caregiverName: peerUser?.full_name ?? "Caregiver",
+          caregiverName: resolveDisplayName(peerUser) || "Caregiver",
           caregiverAvatar: peerUser?.avatar_url ?? "",
           endsIn: req?.end_date
             ? new Date(req.end_date).toLocaleDateString()
@@ -180,7 +185,7 @@ export default function MyCareScreen() {
             ]);
             return {
               id: c.id,
-              personName: peer?.full_name ?? (forReceived ? "Taker" : "Pet owner"),
+              personName: resolveDisplayName(peer) || (forReceived ? "Taker" : "Pet owner"),
               personAvatar: peer?.avatar_url ?? "",
               handshakes: 0,
               paws: 0,
@@ -255,6 +260,12 @@ export default function MyCareScreen() {
     void loadMyCareData();
   }, [profile?.points_balance, user?.id]);
 
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadMyCareData({ refresh: true });
+    setRefreshing(false);
+  };
+
   if (loading) {
     return (
       <PageContainer scrollable={false} contentStyle={styles.pageContent}>
@@ -296,6 +307,9 @@ export default function MyCareScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
       >
 
         {/* Active Care Section */}

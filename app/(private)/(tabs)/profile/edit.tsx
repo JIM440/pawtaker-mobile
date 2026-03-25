@@ -6,6 +6,7 @@ import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -17,7 +18,7 @@ import { useRouter } from "expo-router";
 import { CircleAlert } from "lucide-react-native";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 type EditTab = "details" | "pets" | "availability";
 
@@ -33,6 +34,7 @@ export default function EditProfileScreen() {
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingAvailability, setIsSavingAvailability] = useState(false);
   const [isLoadingData, setIsLoadingData] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [pets, setPets] = useState<any[]>([]);
   const [availabilityInitialValues, setAvailabilityInitialValues] =
@@ -62,7 +64,7 @@ export default function EditProfileScreen() {
     const nextAvatar =
       profile.avatar_url ??
       "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200";
-    const nextUsername = profile.full_name ?? "";
+    const nextUsername = resolveDisplayName(profile) || "";
     const nextBio = profile.bio ?? "";
     const nextLocation = profile.city ?? "";
 
@@ -79,12 +81,14 @@ export default function EditProfileScreen() {
     };
   }, [fetchProfile, profile, user?.id]);
 
-  const loadProfileExtras = async () => {
+  const loadProfileExtras = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setIsLoadingData(false);
       return;
     }
-    setIsLoadingData(true);
+    if (!opts?.refresh) {
+      setIsLoadingData(true);
+    }
     setLoadError(null);
     try {
       const [{ data: petsData, error: petsError }, { data: takerProfileData, error: availabilityError }] =
@@ -132,6 +136,12 @@ export default function EditProfileScreen() {
   useEffect(() => {
     void loadProfileExtras();
   }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    await loadProfileExtras({ refresh: true });
+    setRefreshing(false);
+  };
 
   const isDirty =
     username !== initialValues.current.username ||
@@ -275,8 +285,9 @@ export default function EditProfileScreen() {
         uploadedAvatarUrl = uploaded.secure_url;
       }
 
+      const trimmedName = username.trim() || null;
       const payload = {
-        full_name: username.trim() || null,
+        full_name: trimmedName,
         bio: bio.trim() || null,
         city: location.trim() || null,
         avatar_url: uploadedAvatarUrl || null,
@@ -295,7 +306,7 @@ export default function EditProfileScreen() {
 
       setProfile(data);
       initialValues.current = {
-        username: data.full_name ?? "",
+        username: resolveDisplayName(data as { full_name?: string | null }) || "",
         bio: data.bio ?? "",
         zipCode: "",
         location: data.city ?? "",
@@ -346,6 +357,9 @@ export default function EditProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
       >
         {activeTab === "details" && (
           <EditDetailsTab
