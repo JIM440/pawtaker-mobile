@@ -3,6 +3,8 @@ import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PET_TYPE_OPTIONS } from "@/src/constants/pets";
 import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
 import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
@@ -17,7 +19,7 @@ import { RadioGroup } from "@/src/shared/components/ui/RadioGroup";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { BackHandler, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, BackHandler, ScrollView, StyleSheet, View } from "react-native";
 
 const TOTAL_STEPS = 8;
 
@@ -38,6 +40,7 @@ function formatEveryDaysLabel(
 export default function AvailabilityWizardScreen() {
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
@@ -59,6 +62,7 @@ export default function AvailabilityWizardScreen() {
   });
   const [note, setNote] = useState("");
   const [isAvailable, setIsAvailable] = useState(true);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [errors, setErrors] = useState<{
     careTypes?: string;
@@ -145,11 +149,58 @@ export default function AvailabilityWizardScreen() {
     return true;
   };
 
+  const formatTime = (d: Date) =>
+    `${String(d.getHours()).padStart(2, "0")}:${String(d.getMinutes()).padStart(2, "0")}`;
+
+  const publishAvailability = async () => {
+    if (!user?.id) {
+      Alert.alert(t("common.error", "Something went wrong"));
+      return;
+    }
+
+    setIsSubmitting(true);
+    try {
+      const availabilityJson = {
+        available: isAvailable,
+        services: careTypes,
+        days,
+        startTime: formatTime(startTime),
+        endTime: formatTime(endTime),
+        petOwner: isPetOwner,
+        yardType,
+        petKinds: petKind ? [petKind] : [],
+        note: note.trim(),
+      };
+
+      const { error } = await supabase.from("taker_profiles").upsert(
+        {
+          user_id: user.id,
+          accepted_species: petKind ? [petKind] : [],
+          max_pets: 0,
+          hourly_points: 0,
+          experience_years: 0,
+          availability_json: availabilityJson,
+        },
+        { onConflict: "user_id" },
+      );
+
+      if (error) throw error;
+      router.replace("/(private)/(tabs)" as any);
+    } catch (err) {
+      Alert.alert(
+        t("common.error", "Something went wrong"),
+        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+      );
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
   const goNext = () => {
     if (!validateCurrentStep()) return;
     if (step < TOTAL_STEPS - 1) setStep((s) => s + 1);
     else {
-      router.replace("/(private)/(tabs)" as any);
+      void publishAvailability();
     }
   };
 
@@ -537,6 +588,8 @@ export default function AvailabilityWizardScreen() {
           }
           onPress={goNext}
           fullWidth
+          loading={isSubmitting}
+          disabled={isSubmitting}
         />
       </View>
     </PageContainer>

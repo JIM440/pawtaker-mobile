@@ -43,7 +43,7 @@ export function ProfileSkeleton() {
         </View>
 
         {/* Tabs */}
-        <View style={[styles.tabBar, { borderBottomColor: colors.outlineVariant }]}>
+        <View style={styles.tabBar}>
           <Skeleton height={36} width={88} borderRadius={4} />
           <Skeleton height={36} width={100} borderRadius={4} />
           <Skeleton height={36} width={80} borderRadius={4} />
@@ -116,7 +116,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 8,
     marginBottom: 16,
-    borderBottomWidth: 1,
     paddingBottom: 8,
   },
   tabContent: {

@@ -38,24 +38,10 @@ export default function PrivateLayout() {
         <Stack.Screen name="post-requests" options={{ headerShown: false }} />
         <Stack.Screen name="post-availability" options={{ headerShown: false }} />
         <Stack.Screen name="offer" options={{ headerShown: false }} />
-        <Stack.Screen name="kyc" options={{ headerShown: false }} />
-        <Stack.Screen name="takers/[id]" options={{ title: "Taker" }} />
+        <Stack.Screen name="kyc/index" options={{ headerShown: false }} />
         <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />
         <Stack.Screen name="pets/[id]" options={{ title: "Pet Profile" }} />
         <Stack.Screen name="pets/[id]/edit" options={{ title: "Edit Pet" }} />
-        {/* Home stack: (tabs)/(home)/notifications, search — nested in (tabs) */}
-        <Stack.Screen
-          name="(tabs)/(home)/notifications"
-          options={{ title: "Notifications" }}
-        />
-        <Stack.Screen
-          name="(tabs)/(home)/search"
-          options={{ title: "Search" }}
-        />
-        <Stack.Screen
-          name="(tabs)/profile/users/[id]"
-          options={{ title: "Profile" }}
-        />
       </Stack>
     </SafeAreaView>
   );

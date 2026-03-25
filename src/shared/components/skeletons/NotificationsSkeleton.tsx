@@ -39,9 +39,9 @@ export function NotificationsSkeleton() {
       <View style={[styles.searchBar, { backgroundColor: colors.surfaceContainer }]} />
 
       {/* List */}
-      <View style={[styles.list, { borderBottomColor: colors.outlineVariant }]}>
+      <View style={styles.list}>
         {[1, 2, 3, 4, 5, 6].map((i) => (
-          <View key={i} style={[styles.itemWrap, { borderBottomColor: colors.outlineVariant }]}>
+          <View key={i} style={styles.itemWrap}>
             <NotificationRowSkeleton />
           </View>
         ))}
@@ -70,7 +70,6 @@ const styles = StyleSheet.create({
   },
   itemWrap: {
     paddingVertical: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   row: {
     flexDirection: 'row',

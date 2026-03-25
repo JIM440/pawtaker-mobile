@@ -1,55 +1,17 @@
 import { AppText } from '@/src/shared/components/ui/AppText';
 import React from 'react';
 import { CareRow, CareTable } from './CareTable';
-
-const MOCK_CARE_RECEIVED_ROWS = [
-    {
-        id: '1',
-        takerName: 'Alice Morgan',
-        takerAvatar: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?w=400',
-        handshakes: 12,
-        paws: 17,
-        pet: 'Polo',
-        careType: 'Daytime',
-        date: 'Mar 14-18',
-    },
-    {
-        id: '2',
-        takerName: 'Jane Ambers',
-        takerAvatar: 'https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200',
-        handshakes: 12,
-        paws: 17,
-        pet: 'Luna',
-        careType: 'Overnight',
-        date: 'Mar 18',
-    },
-    {
-        id: '3',
-        takerName: 'Elsa Magomette',
-        takerAvatar: 'https://images.unsplash.com/photo-1531123897727-8f129e16fd3c?w=200',
-        handshakes: 12,
-        paws: 17,
-        pet: 'Polo',
-        careType: 'Play/walk',
-        date: 'Feb 14-18',
-    }
-];
+import { EmptyState } from './EmptyState';
 
 interface CareReceivedTabProps {
     colors: any;
+    rows: CareRow[];
 }
 
-export function CareReceivedTab({ colors }: CareReceivedTabProps) {
-    const tableRows: CareRow[] = MOCK_CARE_RECEIVED_ROWS.map(r => ({
-        id: r.id,
-        personName: r.takerName,
-        personAvatar: r.takerAvatar,
-        handshakes: r.handshakes,
-        paws: r.paws,
-        pet: r.pet,
-        careType: r.careType,
-        date: r.date,
-    }));
+export function CareReceivedTab({ colors, rows }: CareReceivedTabProps) {
+    if (rows.length === 0) {
+        return <EmptyState colors={colors} variant="given" />;
+    }
 
     const footer = (
         <>
@@ -61,7 +23,7 @@ export function CareReceivedTab({ colors }: CareReceivedTabProps) {
     return (
         <CareTable
             colors={colors}
-            rows={tableRows}
+            rows={rows}
             headerLabel="Taker"
             footerText={footer}
         />

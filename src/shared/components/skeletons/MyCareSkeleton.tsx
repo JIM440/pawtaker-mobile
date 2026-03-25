@@ -126,7 +126,6 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 12,
     marginBottom: 16,
-    borderBottomWidth: 1,
     paddingBottom: 8,
   },
   table: {
@@ -142,7 +141,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingVertical: 12,
     gap: 12,
-    borderBottomWidth: StyleSheet.hairlineWidth,
   },
   colOwner: {
     flex: 1.4,

@@ -14,33 +14,61 @@ import { StyleSheet, View } from "react-native";
 import { PET_TYPE_OPTIONS } from "@/src/constants/pets";
 import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
 
-type Props = {
-  onSave?: () => void;
+export type AvailabilityFormValues = {
+  available: boolean;
+  services: string[];
+  days: string[];
+  startTime: Date;
+  endTime: Date;
+  petOwner: string;
+  yardType: string;
+  petKinds: string[];
+  note: string;
 };
 
-export function EditAvailabilityTab({ onSave }: Props) {
-  const { t } = useTranslation();
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
-  const [available, setAvailable] = useState(true);
-  const [services, setServices] = useState<string[]>(["daytime", "playwalk"]);
-  const [days, setDays] = useState<string[]>(["Sa", "Su"]);
-  const [startTime, setStartTime] = useState<Date>(() => {
+type Props = {
+  initialValues?: AvailabilityFormValues;
+  onSave?: (values: AvailabilityFormValues) => void;
+  isSaving?: boolean;
+};
+
+const defaultValues: AvailabilityFormValues = {
+  available: true,
+  services: [],
+  days: [],
+  startTime: (() => {
     const d = new Date();
     d.setHours(8, 0, 0, 0);
     return d;
-  });
-  const [endTime, setEndTime] = useState<Date>(() => {
+  })(),
+  endTime: (() => {
     const d = new Date();
     d.setHours(21, 0, 0, 0);
     return d;
-  });
-  const [petOwner, setPetOwner] = useState("yes");
-  const [yardType, setYardType] = useState("fenced yard");
-  const [petKinds, setPetKinds] = useState<string[]>(["Dog", "Cat"]);
-  const [note, setNote] = useState(
-    "Hi there! I'm Bob, a lifelong pet lover with years of experience caring for energetic pups and senior cats alike.",
-  );
+  })(),
+  petOwner: "no",
+  yardType: "",
+  petKinds: [],
+  note: "",
+};
+
+export function EditAvailabilityTab({
+  onSave,
+  initialValues = defaultValues,
+  isSaving = false,
+}: Props) {
+  const { t } = useTranslation();
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+  const [available, setAvailable] = useState(initialValues.available);
+  const [services, setServices] = useState<string[]>(initialValues.services);
+  const [days, setDays] = useState<string[]>(initialValues.days);
+  const [startTime, setStartTime] = useState<Date>(initialValues.startTime);
+  const [endTime, setEndTime] = useState<Date>(initialValues.endTime);
+  const [petOwner, setPetOwner] = useState(initialValues.petOwner);
+  const [yardType, setYardType] = useState(initialValues.yardType);
+  const [petKinds, setPetKinds] = useState<string[]>(initialValues.petKinds);
+  const [note, setNote] = useState(initialValues.note);
 
   const toggleService = (key: string) => {
     setServices((prev) =>
@@ -167,8 +195,22 @@ export function EditAvailabilityTab({ onSave }: Props) {
 
       <Button
         label={t("common.save", "Save")}
-        onPress={onSave}
+        onPress={() =>
+          onSave?.({
+            available,
+            services,
+            days,
+            startTime,
+            endTime,
+            petOwner,
+            yardType,
+            petKinds,
+            note,
+          })
+        }
         fullWidth
+        loading={isSaving}
+        disabled={isSaving}
       />
     </View>
   );

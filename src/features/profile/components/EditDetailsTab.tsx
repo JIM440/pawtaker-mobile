@@ -20,6 +20,8 @@ type EditDetailsTabProps = {
   onChangeLocation: (v: string) => void;
   onChooseImage?: () => void;
   onSave?: () => void;
+  saveLabel?: string;
+  isSaving?: boolean;
 };
 
 export function EditDetailsTab({
@@ -34,6 +36,8 @@ export function EditDetailsTab({
   onChangeLocation,
   onChooseImage,
   onSave,
+  saveLabel,
+  isSaving = false,
 }: EditDetailsTabProps) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -96,10 +100,12 @@ export function EditDetailsTab({
       </View>
 
       <Button
-        label={t("common.save", "Save")}
+        label={saveLabel ?? t("common.save", "Save")}
         onPress={onSave}
         style={styles.saveBtn}
         fullWidth
+        loading={isSaving}
+        disabled={isSaving}
       />
     </ScrollView>
   );

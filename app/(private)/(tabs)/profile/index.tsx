@@ -5,94 +5,152 @@ import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { supabase } from "@/src/lib/supabase/client";
+import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileSkeleton } from "@/src/shared/components/skeletons";
 import { AppText } from "@/src/shared/components/ui";
+import { DataState } from "@/src/shared/components/ui";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router } from "expo-router";
 import { Settings } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-
-const PROFILE = {
-  avatarUri:
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-  name: "Jane Ambers",
-  location: "Lake Placid, New York, US",
-  points: 58,
-  handshakes: 12,
-  paws: 17,
-  rating: 4.1,
-  currentTask: "Caring for Bob Majors",
-};
-
-const MOCK_PETS = [
-  {
-    id: "1",
-    imageSource:
-      "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
-    petName: "Polo",
-    breed: "Golden Retriever",
-    petType: "Dog",
-    bio: "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch. He's well-trained.",
-    tags: ["fenced yard", "high energy", "1-3yrs"],
-    seekingDateRange: "Mar 14-Apr 02",
-    seekingTime: "8am-4pm",
-  },
-  {
-    id: "2",
-    imageSource:
-      "https://images.unsplash.com/photo-1573865526739-10659fec78a5?w=200",
-    petName: "Bobby",
-    breed: "Tabby",
-    petType: "Cat",
-    bio: "Bobby is an independent and affectionate tabby cat. He enjoys her alone time but also loves cuddles.",
-    tags: ["indoors only", "calm", "1-3yrs"],
-  },
-  {
-    id: "3",
-    imageSource:
-      "https://images.unsplash.com/photo-1517849845537-4d257902454a?w=200",
-    petName: "Rex",
-    breed: "Mixed",
-    petType: "Dog",
-    bio: "Rex is a playful mixed-breed pup who loves the beach and meeting new people.",
-    tags: ["beach lover", "medium energy"],
-  },
-  {
-    id: "4",
-    imageSource:
-      "https://images.unsplash.com/photo-1518791841217-8f162f1e1131?w=200",
-    petName: "Luna",
-    breed: "Siamese",
-    petType: "Cat",
-    bio: "Luna is a curious Siamese cat who enjoys sunny windowsills and quiet naps.",
-    tags: ["indoor", "gentle"],
-  },
-  {
-    id: "5",
-    imageSource:
-      "https://images.unsplash.com/photo-1543852786-1cf6624b9987?w=200",
-    petName: "Milo",
-    breed: "Beagle",
-    petType: "Dog",
-    bio: "Milo is a food-motivated beagle with a great nose and a friendly attitude.",
-    tags: ["foodie", "good with kids"],
-  },
-];
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
+  const { user, profile, fetchProfile } = useAuthStore();
   const colors = Colors[resolvedTheme];
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+  const [pets, setPets] = useState<any[]>([]);
+  const [availability, setAvailability] = useState<Record<string, any> | null>(null);
+  const [reviews, setReviews] = useState<any[]>([]);
+  const [reviewersById, setReviewersById] = useState<Record<string, any>>({});
+  const [completedContractsCount, setCompletedContractsCount] = useState(0);
+  const [loadError, setLoadError] = useState<string | null>(null);
+
+  const loadProfileData = async () => {
+    if (!user?.id) {
+      setLoading(false);
+      return;
+    }
+    setLoadError(null);
+    setLoading(true);
+    try {
+      if (!profile) await fetchProfile(user.id);
+
+      const [{ data: petsData }, { data: takerProfileData }, { data: reviewsData }, { data: contractsData }] =
+        await Promise.all([
+          supabase.from("pets").select("*").eq("owner_id", user.id),
+          supabase.from("taker_profiles").select("*").eq("user_id", user.id).maybeSingle(),
+          supabase
+            .from("reviews")
+            .select("*")
+            .eq("reviewee_id", user.id)
+            .order("created_at", { ascending: false }),
+          supabase
+            .from("contracts")
+            .select("id")
+            .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
+            .eq("status", "completed"),
+        ]);
+
+      const reviewerIds = (reviewsData ?? []).map((r) => r.reviewer_id);
+      const uniqueReviewerIds = Array.from(new Set(reviewerIds));
+      let reviewerMap: Record<string, any> = {};
+
+      if (uniqueReviewerIds.length > 0) {
+        const { data: reviewerUsers } = await supabase
+          .from("users")
+          .select("id,full_name,avatar_url")
+          .in("id", uniqueReviewerIds);
+        reviewerMap =
+          reviewerUsers?.reduce(
+            (acc, item) => ({ ...acc, [item.id]: item }),
+            {} as Record<string, any>,
+          ) ?? {};
+      }
+
+      setPets(petsData ?? []);
+      setAvailability((takerProfileData?.availability_json as Record<string, any> | null) ?? null);
+      setReviews(reviewsData ?? []);
+      setReviewersById(reviewerMap);
+      setCompletedContractsCount((contractsData ?? []).length);
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : "Failed to load profile.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    let mounted = true;
+    const load = async () => {
+      await loadProfileData();
+      if (!mounted) return;
+    };
+
+    void load();
+    return () => {
+      mounted = false;
+    };
+  }, [fetchProfile, profile, user?.id]);
+
+  const profileData = useMemo(() => {
+    const name =
+      profile?.full_name?.trim() ||
+      user?.user_metadata?.full_name ||
+      user?.email?.split("@")[0] ||
+      t("profile.defaultName", "Pawtaker User");
+
+    return {
+      avatarUri: profile?.avatar_url || null,
+      name,
+      location: profile?.city || t("profile.locationUnknown", "Location not set"),
+      points: profile?.points_balance ?? 0,
+      handshakes: completedContractsCount,
+      paws: reviews.length,
+      rating:
+        reviews.length > 0
+          ? reviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / reviews.length
+          : 0,
+      currentTask: undefined as string | undefined,
+    };
+  }, [
+    completedContractsCount,
+    profile,
+    reviews,
+    t,
+    user?.email,
+    user?.user_metadata?.full_name,
+  ]);
+
+  const reviewsUiItems = useMemo(
+    () =>
+      reviews.map((item) => {
+        const reviewer = reviewersById[item.reviewer_id];
+        return {
+          id: item.id,
+          reviewerId: item.reviewer_id,
+          name: reviewer?.full_name || "Anonymous",
+          avatar: reviewer?.avatar_url || null,
+          rating: item.rating ?? 0,
+          handshakes: 0,
+          paws: 0,
+          date: new Date(item.created_at).toLocaleDateString(),
+          review: item.comment || "No review comment.",
+        };
+      }),
+    [reviewersById, reviews],
+  );
 
   if (loading) {
     return (
@@ -105,6 +163,52 @@ export default function ProfileScreen() {
         >
           <ProfileSkeleton />
         </ScrollView>
+      </PageContainer>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+        <View style={styles.header}>
+          <AppText
+            variant="bodyLarge"
+            style={styles.title}
+            color={colors.onSurface}
+          >
+            {t("profile.title", "Profile")}
+          </AppText>
+          <View style={styles.headerActions}>
+            <TouchableOpacity
+              onPress={() => router.push("/(private)/(tabs)/profile/edit")}
+              hitSlop={8}
+            >
+              <AppText
+                variant="body"
+                color={colors.onSurface}
+                style={styles.editLink}
+              >
+                {t("settings.editProfile", "Edit Profile")}
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              onPress={() => router.push("/(private)/(tabs)/profile/settings")}
+              hitSlop={12}
+              style={styles.settingsBtn}
+            >
+              <Settings size={24} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          </View>
+        </View>
+        <DataState
+          title={t("common.error", "Something went wrong")}
+          message={loadError}
+          mode="full"
+          actionLabel={t("common.retry", "Retry")}
+          onAction={() => {
+            void loadProfileData();
+          }}
+        />
       </PageContainer>
     );
   }
@@ -149,14 +253,14 @@ export default function ProfileScreen() {
         keyboardShouldPersistTaps="handled"
       >
         <ProfileHeader
-          name={PROFILE.name}
-          avatarUri={PROFILE.avatarUri}
-          location={PROFILE.location}
-          points={PROFILE.points}
-          handshakes={PROFILE.handshakes}
-          paws={PROFILE.paws}
-          rating={PROFILE.rating}
-          currentTask={PROFILE.currentTask}
+          name={profileData.name}
+          avatarUri={profileData.avatarUri}
+          location={profileData.location}
+          points={profileData.points}
+          handshakes={profileData.handshakes}
+          paws={profileData.paws}
+          rating={profileData.rating}
+          currentTask={profileData.currentTask}
           onAvatarPress={() => setAvatarViewerOpen(true)}
         />
 
@@ -179,7 +283,14 @@ export default function ProfileScreen() {
         {/* Tab content */}
         {activeTab === "pets" && (
           <ProfilePetsTab
-            pets={MOCK_PETS}
+            pets={pets.map((pet) => ({
+              id: pet.id,
+              imageSource: pet.avatar_url || "",
+              petName: pet.name || "Unnamed pet",
+              breed: pet.breed || "Unknown breed",
+              petType: pet.species || "Pet",
+              bio: pet.notes || "No pet bio yet.",
+            }))}
             onAddPet={() => {
               if (blockIfKycNotApproved()) return;
               router.push("/(private)/pets/add");
@@ -188,13 +299,57 @@ export default function ProfileScreen() {
             onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
           />
         )}
-        {activeTab === "availability" && <ProfileAvailabilityTab />}
-        {activeTab === "bio" && <ProfileBioTab />}
+        {activeTab === "availability" &&
+          (availability ? (
+            <ProfileAvailabilityTab
+              data={{
+                card: {
+                  avatarUri: profileData.avatarUri,
+                  name: profileData.name,
+                  rating: profileData.rating,
+                  handshakes: profileData.handshakes,
+                  paws: profileData.paws,
+                  isAvailable: availability?.available ?? false,
+                  petTypes:
+                    availability?.petKinds?.length > 0
+                      ? availability.petKinds
+                      : ["No pet types set yet"],
+                  services:
+                    availability?.services?.length > 0
+                      ? availability.services
+                      : ["No services set yet"],
+                  location: profileData.location,
+                },
+                note: availability?.note || "",
+                time:
+                  availability?.startTime && availability?.endTime
+                    ? `${availability.startTime} - ${availability.endTime}`
+                    : "",
+                days:
+                  availability?.days?.length > 0
+                    ? availability.days.join(" • ")
+                    : "",
+                yardType: availability?.yardType || "",
+                isPetOwner: availability?.petOwner || "",
+              }}
+              emptyMessage="No availability data yet."
+            />
+          ) : (
+            <DataState
+              title="No availability yet"
+              message="Create your availability from Edit Profile to show it here."
+            />
+          ))}
+        {activeTab === "bio" && (
+          <ProfileBioTab bio={profile?.bio} emptyMessage="No bio yet." />
+        )}
         {activeTab === "reviews" && (
           <ProfileReviewsTab
-            rating={PROFILE.rating}
-            handshakes={PROFILE.handshakes}
-            paws={PROFILE.paws}
+            rating={profileData.rating}
+            handshakes={profileData.handshakes}
+            paws={profileData.paws}
+            items={reviewsUiItems}
+            emptyMessage="No reviews yet."
             onReviewerPress={(id) =>
               router.push({
                 pathname: "/(private)/(tabs)/profile/users/[id]",
@@ -206,7 +361,7 @@ export default function ProfileScreen() {
       </ScrollView>
       <ImageViewerModal
         visible={avatarViewerOpen}
-        images={[{ uri: PROFILE.avatarUri }]}
+        images={profileData.avatarUri ? [{ uri: profileData.avatarUri }] : []}
         onRequestClose={() => setAvatarViewerOpen(false)}
       />
     </PageContainer>

@@ -4,6 +4,7 @@ import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { DataState } from "@/src/shared/components/ui";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
@@ -54,31 +55,23 @@ export function EditPetsTab({
     <View style={styles.container}>
       {pets.length === 0 ? (
         <View style={styles.empty}>
-          <AppImage
-            source={require("@/assets/illustrations/pets/no-pet.svg")}
-            type="svg"
-            style={styles.emptyIllustration}
-            height={145}
-          />
-          <AppText
-            variant="body"
-            color={colors.onSurface}
-            style={styles.emptyTitle}
-          >
-            {t("post.request.emptyPetsTitle", "Uh oh!")}
-          </AppText>
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.emptySubtitle}
-          >
-            {t("post.request.emptyPetsSubtitle", "You have not added any pets yet")}
-          </AppText>
-          <Button
-            label={t("post.request.addAPet", "+ Add a pet")}
-            variant="outline"
-            onPress={onAddPet}
-            style={styles.addBtn}
+          <DataState
+            title={t("post.request.emptyPetsTitle", "No pets yet")}
+            message={t(
+              "post.request.emptyPetsSubtitle",
+              "You have not added any pets yet",
+            )}
+            illustration={
+              <AppImage
+                source={require("@/assets/illustrations/pets/no-pet.svg")}
+                type="svg"
+                style={styles.emptyIllustration}
+                height={145}
+              />
+            }
+            actionLabel={t("post.request.addAPet", "+ Add a pet")}
+            onAction={onAddPet}
+            mode="inline"
           />
         </View>
       ) : (
@@ -218,19 +211,11 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   empty: {
-    alignItems: "center",
-    paddingVertical: 48,
-    gap: 12,
+    paddingVertical: 16,
   },
   emptyIllustration: {
     width: 140,
     borderRadius: 16,
-  },
-  emptyTitle: {
-    fontSize: 16,
-  },
-  emptySubtitle: {
-    textAlign: "center",
   },
   menuBackdrop: {
     flex: 1,

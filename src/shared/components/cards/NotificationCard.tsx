@@ -22,7 +22,8 @@ export type NotificationType =
   | "points"
   | "points_gained"
   | "chat"
-  | "applied";
+  | "applied"
+  | "kyc_rejected";
 
 export type NotificationCardProps = {
   id: string;
@@ -34,6 +35,8 @@ export type NotificationCardProps = {
   unread?: boolean;
   isLast?: boolean;
   onPress?: (id: string) => void;
+  actionLabel?: string;
+  onActionPress?: (id: string) => void;
   /**
    * Called when the overflow menu is pressed.
    */
@@ -41,7 +44,20 @@ export type NotificationCardProps = {
 };
 
 export const NotificationCard = forwardRef<View, NotificationCardProps>(
-  ({ id, title, body, time, unread, type, image, isLast, onPress, onPressMenu }, ref) => {
+  ({
+    id,
+    title,
+    body,
+    time,
+    unread,
+    type,
+    image,
+    isLast,
+    onPress,
+    onPressMenu,
+    actionLabel,
+    onActionPress,
+  }, ref) => {
     const { resolvedTheme } = useThemeStore();
     const colors = Colors[resolvedTheme];
 
@@ -58,6 +74,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
       switch (type) {
         case "verification":
         case "verification_complete":
+        case "kyc_rejected":
           return (
             <View style={containerStyle}>
               <Shield size={20} color={colors.primary} />
@@ -159,6 +176,21 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
               <Ellipsis size={24} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
           </View>
+          {actionLabel && onActionPress ? (
+            <View style={styles.actionRow}>
+              <TouchableOpacity
+                onPress={() => onActionPress(id)}
+                style={[
+                  styles.actionButton,
+                  { borderColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLowest },
+                ]}
+              >
+                <AppText variant="caption" color={colors.primary}>
+                  {actionLabel}
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          ) : null}
         </View>
       </TouchableOpacity>
     );
@@ -199,5 +231,15 @@ const styles = StyleSheet.create({
   },
   itemTime: {
     fontSize: 11,
+  },
+  actionRow: {
+    marginTop: 8,
+  },
+  actionButton: {
+    alignSelf: "flex-start",
+    borderWidth: 1,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 6,
   },
 });

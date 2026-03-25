@@ -1,5 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { NotificationCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -7,6 +9,7 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { NotificationsSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { DataState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
@@ -29,70 +32,19 @@ type NotificationItem = {
   unread?: boolean;
   type?: string;
   image?: string;
+  data?: Record<string, any> | null;
 };
 
 export default function NotificationsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const { user } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
-  const [loading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [query, setQuery] = useState("");
-
-  const mockNotifications = useMemo(
-    (): (NotificationItem & { type: string; image?: string })[] => [
-      {
-        id: "1",
-        title: t("notifications.mock.careEndingTitle"),
-        body: t("notifications.mock.careEndingBody"),
-        time: "1m",
-        unread: true,
-        type: "care_given",
-      },
-      {
-        id: "2",
-        title: t("notifications.mock.newChatTitle"),
-        body: t("notifications.mock.newChatBody"),
-        time: "1h",
-        unread: true,
-        type: "chat",
-        image:
-          "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=200",
-      },
-      {
-        id: "3",
-        title: t("notifications.mock.verificationTitle"),
-        body: t("notifications.mock.verificationBody"),
-        time: "3h",
-        type: "verification_complete",
-      },
-      {
-        id: "4",
-        title: t("notifications.mock.matchTitle"),
-        body: t("notifications.mock.matchBody"),
-        time: "5h",
-        type: "applied",
-        image:
-          "https://images.unsplash.com/photo-1502685104226-ee32379fefbe?w=200",
-      },
-      {
-        id: "5",
-        title: t("notifications.mock.pointsTitle"),
-        body: t("notifications.mock.pointsBody"),
-        time: "2d",
-        type: "points_gained",
-      },
-      {
-        id: "6",
-        title: t("notifications.mock.careSuccessTitle"),
-        body: t("notifications.mock.careSuccessBody"),
-        time: "3d",
-        type: "paws_given",
-      },
-    ],
-    [t],
-  );
 
   const [items, setItems] = useState<NotificationItem[]>([]);
   const [menuForId, setMenuForId] = useState<string | null>(null);
@@ -105,10 +57,55 @@ export default function NotificationsScreen() {
 
   const menuButtonRefs = useRef<Record<string, View | null>>({});
 
-  // Refresh mock list when locale changes (strings come from i18n)
+  const relativeTime = (isoDate: string) => {
+    const now = Date.now();
+    const diffMs = Math.max(0, now - new Date(isoDate).getTime());
+    const mins = Math.floor(diffMs / 60000);
+    if (mins < 1) return "now";
+    if (mins < 60) return `${mins}m`;
+    const hours = Math.floor(mins / 60);
+    if (hours < 24) return `${hours}h`;
+    const days = Math.floor(hours / 24);
+    return `${days}d`;
+  };
+
+  const loadNotifications = async () => {
+    if (!user?.id) {
+      setItems([]);
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data, error } = await supabase
+        .from("notifications")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
+      if (error) throw error;
+      const mapped: NotificationItem[] = (data ?? []).map((item) => ({
+        id: item.id,
+        title: item.title,
+        body: item.body,
+        time: relativeTime(item.created_at),
+        unread: !item.read,
+        type: item.type,
+        data: (item.data as Record<string, any> | null) ?? null,
+      }));
+      setItems(mapped);
+    } catch (err) {
+      setLoadError(
+        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
   React.useEffect(() => {
-    setItems(mockNotifications);
-  }, [mockNotifications]);
+    void loadNotifications();
+  }, [user?.id]);
 
   const filtered = useMemo(() => {
     if (!query.trim()) return items;
@@ -143,10 +140,21 @@ export default function NotificationsScreen() {
       case "verification_complete":
         router.push("/(private)/(tabs)/profile");
         break;
+      case "kyc_rejected":
+        router.push("/(private)/kyc");
+        break;
       default:
         // Generic fallback
         router.push("/(private)/(tabs)/profile");
         break;
+    }
+  };
+
+  const handleNotificationAction = (id: string) => {
+    const item = items.find((n) => n.id === id);
+    if (!item) return;
+    if (item.type === "kyc_rejected") {
+      router.push("/(private)/kyc");
     }
   };
 
@@ -155,7 +163,8 @@ export default function NotificationsScreen() {
 
   if (loading) {
     return (
-      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+        <BackHeader title={t("notifications.title")} onBack={() => router.back()} />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -164,7 +173,27 @@ export default function NotificationsScreen() {
         >
           <NotificationsSkeleton />
         </ScrollView>
-      </View>
+      </PageContainer>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <PageContainer>
+        <BackHeader
+          title={t("notifications.title")}
+          onBack={() => router.back()}
+        />
+        <DataState
+          title={t("common.error", "Something went wrong")}
+          message={loadError}
+          mode="full"
+          actionLabel={t("common.retry", "Retry")}
+          onAction={() => {
+            void loadNotifications();
+          }}
+        />
+      </PageContainer>
     );
   }
 
@@ -172,6 +201,7 @@ export default function NotificationsScreen() {
     <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
       {/* Header with back button and notification title/badge */}
       <BackHeader
+        onBack={() => router.back()}
         title={
           <View style={styles.titleRow}>
             <AppText
@@ -234,6 +264,8 @@ export default function NotificationsScreen() {
                 image={n.image}
                 isLast={index === filtered.length - 1}
                 onPress={handleNotificationPress}
+                actionLabel={n.type === "kyc_rejected" ? "Resubmit" : undefined}
+                onActionPress={handleNotificationAction}
                 onPressMenu={(id) => {
                   const btn = menuButtonRefs.current[id];
                   btn?.measureInWindow((x, y, width, height) => {
@@ -245,28 +277,23 @@ export default function NotificationsScreen() {
             ))}
           </View>
         ) : (
-          <View style={styles.emptyState}>
-            <AppImage
-              source={require("@/assets/illustrations/pets/no-notification-graphic.svg")}
-              type="svg"
-              style={styles.emptyIllustration}
-              height={145}
-            />
-            <AppText
-              variant="body"
-              color={colors.onSurface}
-              style={styles.emptyTitle}
-            >
-              {t("notifications.emptyTitle")}
-            </AppText>
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={styles.emptySubtitle}
-            >
-              {t("notifications.emptySubtitle")}
-            </AppText>
-          </View>
+          <DataState
+            title={t("notifications.emptyTitle")}
+            message={t("notifications.emptySubtitle")}
+            illustration={
+              <AppImage
+                source={require("@/assets/illustrations/pets/no-notification-graphic.svg")}
+                type="svg"
+                style={styles.emptyIllustration}
+                height={145}
+              />
+            }
+            actionLabel={t("common.retry", "Retry")}
+            onAction={() => {
+              void loadNotifications();
+            }}
+            mode="full"
+          />
         )}
       </ScrollView>
 
@@ -357,23 +384,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: SearchFilterStyles.searchBarPaddingHorizontal,
   },
   list: {},
-  emptyState: {
-    alignItems: "center",
-    justifyContent: "center",
-    paddingTop: 72,
-    paddingHorizontal: 32,
-  },
   emptyIllustration: {
     width: 140,
     borderRadius: 16,
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    marginBottom: 4,
-    textAlign: "center",
-  },
-  emptySubtitle: {
-    textAlign: "center",
+    marginBottom: 8,
   },
   menuOverlay: {
     flex: 1,
