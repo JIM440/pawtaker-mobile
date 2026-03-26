@@ -4,6 +4,7 @@ import { useRouter } from "expo-router";
 import { useTranslation } from "react-i18next";
 
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useForgotPasswordStore } from "@/src/lib/store/forgotPassword.store";
 import { PageContainer } from "@/src/shared/components/layout/PageContainer";
@@ -96,6 +97,7 @@ export default function ForgotPasswordNewPasswordScreen() {
             textContentType="newPassword"
             autoComplete="password-new"
             error={passwordError ?? undefined}
+            maxLength={INPUT_LIMITS.password}
             rightIcon={
               formError ? (
                 <CircleX size={20} color={colors.error} />

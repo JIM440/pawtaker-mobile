@@ -15,7 +15,6 @@ import { X } from "lucide-react-native";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
   Alert,
   Image,
   Pressable,
@@ -54,7 +53,6 @@ export default function KycScreen() {
     KycDocSlotKey | "selfie" | null
   >(null);
   const [submitting, setSubmitting] = useState(false);
-  const [progress, setProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const docOptions: {
@@ -187,17 +185,13 @@ export default function KycScreen() {
 
     setSubmitting(true);
     setError(null);
-    setProgress(t("auth.kyc.submit.progressUploadingDocs"));
     try {
       const front = await uploadToCloudinary(frontUri);
       let back: { secure_url: string; public_id: string } | null = null;
       if (requiresBack && backUri) {
-        setProgress(t("auth.kyc.submit.progressUploadingBack"));
         back = await uploadToCloudinary(backUri);
       }
-      setProgress(t("auth.kyc.submit.progressUploadingSelfie"));
       const selfie = await uploadToCloudinary(selfieUri);
-      setProgress(t("auth.kyc.submit.progressSubmitting"));
 
       const { error: insertError } = await supabase
         .from("kyc_submissions")
@@ -229,7 +223,6 @@ export default function KycScreen() {
       );
     } finally {
       setSubmitting(false);
-      setProgress(null);
     }
   };
 
@@ -308,6 +301,7 @@ export default function KycScreen() {
       {uri ? (
         <TouchableOpacity
           onPress={onRemove}
+          disabled={submitting}
           hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
           style={{
             position: "absolute",
@@ -322,6 +316,7 @@ export default function KycScreen() {
             alignItems: "center",
             justifyContent: "center",
             zIndex: 2,
+            opacity: submitting ? 0.45 : 1,
           }}
         >
           <X size={16} color={colors.textPrimary} />
@@ -331,6 +326,7 @@ export default function KycScreen() {
   );
 
   const handleHeaderBack = () => {
+    if (submitting) return;
     if (page === 1) {
       setPage(0);
       return;
@@ -546,6 +542,7 @@ export default function KycScreen() {
                 {selfieUri ? (
                   <TouchableOpacity
                     onPress={() => setSelfieUri(null)}
+                    disabled={submitting}
                     hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
                     style={{
                       position: "absolute",
@@ -560,6 +557,7 @@ export default function KycScreen() {
                       alignItems: "center",
                       justifyContent: "center",
                       zIndex: 2,
+                      opacity: submitting ? 0.45 : 1,
                     }}
                   >
                     <X size={16} color={colors.textPrimary} />
@@ -576,21 +574,6 @@ export default function KycScreen() {
               >
                 {error}
               </AppText>
-            ) : null}
-            {submitting && progress ? (
-              <View
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  gap: 8,
-                  marginBottom: 12,
-                }}
-              >
-                <ActivityIndicator size="small" color={colors.primary} />
-                <AppText variant="body" color={colors.textSecondary}>
-                  {progress}
-                </AppText>
-              </View>
             ) : null}
 
             <Button
@@ -620,10 +603,17 @@ export default function KycScreen() {
               onPress={() => goToPage(0)}
               fullWidth
               style={{ flex: 1 }}
+              disabled={submitting}
             />
           )}
           <Button
-            label={page === 0 ? t("common.next") : t("common.submit")}
+            label={
+              page === 0
+                ? t("common.next")
+                : submitting
+                  ? t("auth.kyc.submit.progressSubmitting", "Submitting…")
+                  : t("common.submit")
+            }
             onPress={() => (page === 0 ? goToPage(1) : submitKyc())}
             disabled={page === 0 ? !canGoSelfie : !canSubmit || submitting}
             loading={page === 1 && submitting}

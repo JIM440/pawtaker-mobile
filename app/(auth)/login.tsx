@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { signInWithGoogleNative } from "@/src/lib/supabase/google-auth";
@@ -163,6 +164,7 @@ export default function LoginScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           error={emailError ?? undefined}
+          maxLength={INPUT_LIMITS.email}
         />
         <TextField
           label={t("auth.login.passwordLabel")}
@@ -176,6 +178,7 @@ export default function LoginScreen() {
           textContentType="password"
           autoComplete="password"
           error={passwordError ?? undefined}
+          maxLength={INPUT_LIMITS.password}
         />
 
         {error ? (

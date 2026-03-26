@@ -2,16 +2,26 @@ import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { supabase } from "@/src/lib/supabase/client";
+import {
+  errorMessageFromUnknown,
+  isMissingBackendResourceError,
+} from "@/src/lib/supabase/errors";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
 import { PageContainer } from "@/src/shared/components/layout";
-import { FeedSkeleton } from "@/src/shared/components/skeletons";
+import {
+  FeedRequestsSkeleton,
+  FeedTakersSkeleton,
+} from "@/src/shared/components/skeletons/FeedSkeleton";
+import { DataState } from "@/src/shared/components/ui";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { DataState } from "@/src/shared/components/ui";
 import {
   CARE_TYPE_KEYS,
   type CareTypeKey,
@@ -19,26 +29,22 @@ import {
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
-import {
-  Bell,
-  Search,
-  SlidersHorizontal,
-  Star,
-} from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import { Bell, Search, SlidersHorizontal } from "lucide-react-native";
+import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useEffect } from "react";
 import {
+  Alert,
   FlatList,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TextInput,
   TouchableOpacity,
+  TouchableWithoutFeedback,
   View,
 } from "react-native";
-
 
 /** Inclusive km range for feed filter (0 = no minimum). */
 const DISTANCE_MIN_KM = 0;
@@ -51,6 +57,12 @@ function parseDistanceKm(s: string): number {
 
 function clampKm(n: number): number {
   return Math.max(DISTANCE_MIN_KM, Math.min(DISTANCE_MAX_KM, Math.round(n)));
+}
+
+/** `taker_profiles.availability_json` — matches DB trigger shape (`available` boolean). */
+function isTakerAvailableFromJson(availabilityJson: unknown): boolean {
+  if (!availabilityJson || typeof availabilityJson !== "object") return false;
+  return (availabilityJson as Record<string, unknown>)["available"] === true;
 }
 
 type FilterTab = "all" | "requests" | "takers";
@@ -67,26 +79,30 @@ type Taker = {
   status: "available" | "unavailable";
 };
 
-function isMissingBackendResourceError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const maybe = error as { code?: string; message?: string };
-  if (maybe.code === "42P01") return true;
-  const message = (maybe.message || "").toLowerCase();
-  return message.includes("does not exist") || message.includes("relation");
-}
-
-
 export default function HomeScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const { user, profile } = useAuthStore();
   const colors = Colors[resolvedTheme];
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+
   const [requests, setRequests] = useState<any[]>([]);
+  const [requestsLoading, setRequestsLoading] = useState(false);
+  const [requestsError, setRequestsError] = useState<string | null>(null);
+  const [requestsLoaded, setRequestsLoaded] = useState(false);
+
   const [takers, setTakers] = useState<Taker[]>([]);
+  const [takersLoading, setTakersLoading] = useState(false);
+  const [takersError, setTakersError] = useState<string | null>(null);
+  const [takersLoaded, setTakersLoaded] = useState(false);
+
   const [userPets, setUserPets] = useState<any[]>([]);
+  const [userPetsLoading, setUserPetsLoading] = useState(false);
+  const [userPetsError, setUserPetsError] = useState<string | null>(null);
+  const [userPetsLoaded, setUserPetsLoaded] = useState(false);
+
+  const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -98,40 +114,61 @@ export default function HomeScreen() {
     height: number;
   } | null>(null);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
-  const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(null);
-  const loadHomeData = async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
+  const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(
+    null,
+  );
+  const [sendRequestBusy, setSendRequestBusy] = useState(false);
+  /** Subtitle under each pet in send-request modal: open-request dates • care type, or species • breed. */
+  const [petSendSubtitleById, setPetSendSubtitleById] = useState<
+    Record<string, string>
+  >({});
+
+  const loadRequestsTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setRequestsLoading(true);
+    setRequestsError(null);
     try {
-      const [{ data: reqData, error: reqError }, { data: usersData, error: usersError }, { data: myPets, error: petsError }] =
-        await Promise.all([
-          supabase.from("care_requests").select("*").eq("status", "open"),
-          supabase.from("users").select("*").neq("id", user.id).eq("kyc_status", "approved"),
-          supabase.from("pets").select("*").eq("owner_id", user.id),
-        ]);
+      const { data: reqData, error: reqError } = await supabase
+        .from("care_requests")
+        .select("*")
+        .eq("status", "open");
       if (reqError && !isMissingBackendResourceError(reqError)) throw reqError;
-      if (usersError && !isMissingBackendResourceError(usersError)) throw usersError;
-      if (petsError && !isMissingBackendResourceError(petsError)) throw petsError;
 
-      const ownerIds = Array.from(new Set((reqData ?? []).map((r: any) => r.owner_id)));
-      const petIds = Array.from(new Set((reqData ?? []).map((r: any) => r.pet_id)));
+      const ownerIds = Array.from(
+        new Set((reqData ?? []).map((r: any) => r.owner_id)),
+      );
+      const petIds = Array.from(
+        new Set((reqData ?? []).map((r: any) => r.pet_id)),
+      );
 
-      const [{ data: owners, error: ownersError }, { data: requestPets, error: requestPetsError }] = await Promise.all([
+      const [
+        { data: owners, error: ownersError },
+        { data: requestPets, error: requestPetsError },
+      ] = await Promise.all([
         ownerIds.length
-          ? supabase.from("users").select("id,full_name,city").in("id", ownerIds)
-          : Promise.resolve({ data: [] } as any),
+          ? supabase
+              .from("users")
+              .select("id,full_name,city,avatar_url")
+              .in("id", ownerIds)
+          : Promise.resolve({ data: [], error: null }),
         petIds.length
           ? supabase.from("pets").select("*").in("id", petIds)
-          : Promise.resolve({ data: [] } as any),
+          : Promise.resolve({ data: [], error: null }),
       ]);
-      if (ownersError && !isMissingBackendResourceError(ownersError)) throw ownersError;
-      if (requestPetsError && !isMissingBackendResourceError(requestPetsError)) throw requestPetsError;
-      const ownersById = (owners ?? []).reduce((acc: any, o: any) => ({ ...acc, [o.id]: o }), {});
-      const petsById = (requestPets ?? []).reduce((acc: any, p: any) => ({ ...acc, [p.id]: p }), {});
+
+      if (ownersError && !isMissingBackendResourceError(ownersError))
+        throw ownersError;
+      if (requestPetsError && !isMissingBackendResourceError(requestPetsError))
+        throw requestPetsError;
+
+      const ownersById = (owners ?? []).reduce(
+        (acc: any, o: any) => ({ ...acc, [o.id]: o }),
+        {},
+      );
+      const petsById = (requestPets ?? []).reduce(
+        (acc: any, p: any) => ({ ...acc, [p.id]: p }),
+        {},
+      );
 
       setRequests(
         (reqData ?? []).map((r: any) => {
@@ -139,7 +176,8 @@ export default function HomeScreen() {
           const owner = ownersById[r.owner_id];
           return {
             id: r.id,
-            imageSource: pet?.avatar_url ?? "",
+            petId: r.pet_id as string,
+            imageSource: petGalleryUrls(pet ?? {}),
             petName: pet?.name ?? "Pet",
             breed: pet?.breed ?? "Unknown breed",
             petType: pet?.species ?? "Pet",
@@ -154,12 +192,17 @@ export default function HomeScreen() {
                 : r.care_type === "boarding"
                   ? ("overnight" as CareTypeKey)
                   : ("daytime" as CareTypeKey),
-            location: owner?.city ?? "Location not set",
+            location: owner?.city?.trim() || t("profile.noLocation", "No location"),
             distance: "0km",
             description: r.description ?? pet?.notes ?? "No description yet.",
             caretaker: {
               id: owner?.id ?? "",
-              name: owner?.full_name ?? "Owner",
+              name: resolveDisplayName(owner) || "Owner",
+              avatarUri:
+                typeof owner?.avatar_url === "string" &&
+                owner.avatar_url.trim().length > 0
+                  ? owner.avatar_url.trim()
+                  : null,
               rating: 0,
               reviewsCount: 0,
               petsCount: 0,
@@ -167,31 +210,252 @@ export default function HomeScreen() {
           };
         }),
       );
+      setRequestsLoaded(true);
+    } catch (err) {
+      setRequestsError(
+        errorMessageFromUnknown(err, "Failed to load requests."),
+      );
+    } finally {
+      setRequestsLoading(false);
+    }
+  };
+
+  const loadTakersTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setTakersLoading(true);
+    setTakersError(null);
+    try {
+      // Takers who appear in the feed must have a taker_profiles row; users is only for display + KYC.
+      // Include the current user so sole/approved takers still see themselves in the directory (others could see none).
+      const { data: profilesRaw, error: profilesError } = await supabase
+        .from("taker_profiles")
+        .select("user_id, availability_json, accepted_species");
+      if (profilesError && !isMissingBackendResourceError(profilesError))
+        throw profilesError;
+
+      const profileRows = profilesRaw ?? [];
+      const userIds = profileRows.map((p) => p.user_id);
+      if (userIds.length === 0) {
+        setTakers([]);
+        setTakersLoaded(true);
+        return;
+      }
+
+      const { data: usersData, error: usersError } = await supabase
+        .from("users")
+        .select("id,full_name,avatar_url,city,kyc_status")
+        .in("id", userIds)
+        .eq("kyc_status", "approved");
+      if (usersError && !isMissingBackendResourceError(usersError))
+        throw usersError;
+
+      const profileByUserId = profileRows.reduce(
+        (acc, row) => {
+          acc[row.user_id] = row;
+          return acc;
+        },
+        {} as Record<
+          string,
+          (typeof profileRows)[number]
+        >,
+      );
 
       setTakers(
-        (usersData ?? []).map((u: any) => ({
-          id: u.id,
-          name: u.full_name || "User",
-          avatar: u.avatar_url || "",
-          rating: 0,
-          species: "Pets",
-          tags: ["daytime"],
-          location: u.city || "Location not set",
-          distance: "0km",
-          status: "available" as const,
-        })),
+        (usersData ?? []).map((u: any) => {
+          const tp = profileByUserId[u.id];
+          const species =
+            tp?.accepted_species?.length === 1
+              ? tp.accepted_species[0]!
+              : "Pets";
+          const avatarTrimmed =
+            typeof u.avatar_url === "string" ? u.avatar_url.trim() : "";
+          return {
+            id: u.id,
+            name: resolveDisplayName(u) || "User",
+            avatar: avatarTrimmed,
+            rating: 0,
+            species,
+            tags: ["daytime"] as CareTypeKey[],
+            location: u.city?.trim() || t("profile.noLocation", "No location"),
+            distance: "0km",
+            status: isTakerAvailableFromJson(tp?.availability_json)
+              ? ("available" as const)
+              : ("unavailable" as const),
+          };
+        }),
       );
-      setUserPets(myPets ?? []);
+      setTakersLoaded(true);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load home data.");
+      setTakersError(errorMessageFromUnknown(err, "Failed to load takers."));
     } finally {
-      setLoading(false);
+      setTakersLoading(false);
+    }
+  };
+
+  const loadUserPets = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setUserPetsLoading(true);
+    setUserPetsError(null);
+    try {
+      const { data: myPets, error: petsError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("owner_id", user.id);
+      if (petsError && !isMissingBackendResourceError(petsError))
+        throw petsError;
+      setUserPets(myPets ?? []);
+      setUserPetsLoaded(true);
+    } catch (err) {
+      setUserPetsError(
+        errorMessageFromUnknown(err, "Failed to load your pets."),
+      );
+    } finally {
+      setUserPetsLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadHomeData();
+    if (!user?.id) return;
+
+    const shouldLoadRequests = filter === "all" || filter === "requests";
+    if (
+      shouldLoadRequests &&
+      !requestsLoading &&
+      !requestsLoaded &&
+      !requestsError
+    ) {
+      void loadRequestsTab();
+    }
+
+    const shouldLoadTakers = filter === "all" || filter === "takers";
+    if (shouldLoadTakers && !takersLoading && !takersLoaded && !takersError) {
+      void loadTakersTab();
+    }
+  }, [
+    user?.id,
+    filter,
+    requestsLoading,
+    requestsLoaded,
+    requestsError,
+    takersLoading,
+    takersLoaded,
+    takersError,
+  ]);
+
+  useEffect(() => {
+    if (!sendRequestOpen) return;
+    if (userPetsLoaded || userPetsLoading || userPetsError) return;
+    void loadUserPets();
+  }, [
+    sendRequestOpen,
+    user?.id,
+    userPetsLoaded,
+    userPetsLoading,
+    userPetsError,
+  ]);
+
+  useEffect(() => {
+    if (!sendRequestOpen || !user?.id) {
+      setPetSendSubtitleById({});
+      return;
+    }
+    const ids = (userPets as { id?: string }[])
+      .map((p) => p.id)
+      .filter(Boolean) as string[];
+    if (!ids.length) {
+      setPetSendSubtitleById({});
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase
+        .from("care_requests")
+        .select("pet_id,start_date,end_date,care_type,created_at")
+        .eq("owner_id", user.id)
+        .eq("status", "open")
+        .in("pet_id", ids)
+        .order("created_at", { ascending: false });
+      if (cancelled || error) return;
+      const bestByPet: Record<string, any> = {};
+      for (const row of data ?? []) {
+        const pid = row.pet_id as string;
+        if (!bestByPet[pid]) bestByPet[pid] = row;
+      }
+      const next: Record<string, string> = {};
+      for (const p of userPets as any[]) {
+        const pid = p.id as string;
+        const r = bestByPet[pid];
+        if (!r) {
+          next[pid] = [p.species || "Pet", p.breed || "—"]
+            .filter(Boolean)
+            .join(" · ");
+          continue;
+        }
+        const d1 = r.start_date ? new Date(r.start_date as string) : null;
+        const d2 = r.end_date ? new Date(r.end_date as string) : null;
+        const datePart =
+          d1 && d2
+            ? `${d1.toLocaleDateString(undefined, { month: "short", day: "numeric" })}-${d2.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+            : d1
+              ? d1.toLocaleDateString(undefined, {
+                  month: "short",
+                  day: "numeric",
+                })
+              : "";
+        const careKey =
+          r.care_type === "walking"
+            ? "playwalk"
+            : r.care_type === "boarding"
+              ? "overnight"
+              : "daytime";
+        const carePart = t(`feed.careTypes.${careKey}` as any);
+        next[pid] = [datePart, carePart].filter(Boolean).join(" · ");
+      }
+      if (!cancelled) setPetSendSubtitleById(next);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [sendRequestOpen, user?.id, userPets, t]);
+
+  const loadNotificationCount = async () => {
+    if (!user?.id) {
+      setNotificationsUnreadCount(0);
+      return;
+    }
+    try {
+      const { count } = await supabase
+        .from("notifications")
+        .select("id", { head: true, count: "exact" })
+        .eq("user_id", user.id)
+        .eq("read", false);
+      setNotificationsUnreadCount(count ?? 0);
+    } catch {
+      setNotificationsUnreadCount(0);
+    }
+  };
+
+  useEffect(() => {
+    void loadNotificationCount();
   }, [user?.id]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (filter === "all" || filter === "requests") {
+        await loadRequestsTab({ refresh: true });
+      }
+      if (filter === "all" || filter === "takers") {
+        await loadTakersTab({ refresh: true });
+      }
+      if (sendRequestOpen) {
+        await loadUserPets({ refresh: true });
+      }
+      await loadNotificationCount();
+    } finally {
+      setRefreshing(false);
+    }
+  };
   const [takerForSendRequest, setTakerForSendRequest] = useState<Taker | null>(
     null,
   );
@@ -348,10 +612,7 @@ export default function HomeScreen() {
   const showTakers = filter === "all" || filter === "takers";
   const HomeHeader = (
     <View className="flex-row items-center justify-between pb-3">
-      <AppText
-        variant="headline"
-        style={{ fontSize: 22, letterSpacing: -0.1 }}
-      >
+      <AppText variant="headline" style={{ fontSize: 22, letterSpacing: -0.1 }}>
         {t("app.name")}
       </AppText>
       <TouchableOpacity
@@ -360,65 +621,43 @@ export default function HomeScreen() {
         onPress={() => router.push("/(private)/(tabs)/(home)/notifications")}
       >
         <Bell size={24} color={colors.onSurface} />
-        <View
-          className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
-          style={{ backgroundColor: colors.primary }}
-        >
-          <AppText
-            variant="caption"
-            color={colors.onPrimary}
-            style={{ fontSize: 10, lineHeight: 12 }}
+        {notificationsUnreadCount > 0 ? (
+          <View
+            className="absolute bottom-4 right-1 min-w-[16px] h-[16px] rounded-full items-center justify-center px-1"
+            style={{ backgroundColor: colors.primary }}
           >
-            5
-          </AppText>
-        </View>
+            <AppText
+              variant="caption"
+              color={colors.onPrimary}
+              style={{ fontSize: 10, lineHeight: 12 }}
+            >
+              {notificationsUnreadCount > 99 ? "99+" : notificationsUnreadCount}
+            </AppText>
+          </View>
+        ) : null}
       </TouchableOpacity>
     </View>
   );
-
-  if (loading) {
-    return (
-      <PageContainer>
-        {HomeHeader}
-        <ScrollView
-          className="flex-1"
-          contentContainerStyle={{ paddingHorizontal: 16, paddingBottom: 100 }}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
-        >
-          <FeedSkeleton />
-        </ScrollView>
-      </PageContainer>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <PageContainer>
-        {HomeHeader}
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={loadError}
-          actionLabel={t("common.retry", "Retry")}
-          onAction={() => {
-            void loadHomeData();
-          }}
-          mode="full"
-        />
-      </PageContainer>
-    );
-  }
 
   return (
     <PageContainer>
       {HomeHeader}
       {/* Pet cards list */}
       <FlatList
-        data={filteredRequests}
+        data={showRequests ? filteredRequests : []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 24, gap: 8 }}
+        contentContainerStyle={{ paddingBottom: 24, gap: 8, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surfaceContainerLow}
+          />
+        }
         ListHeaderComponent={
           <>
             {/* Search + filter (Figma-aligned styles) */}
@@ -647,46 +886,88 @@ export default function HomeScreen() {
               style={styles.filterTabs}
             />
 
-            {showRequests && (
-              <View style={styles.resultsHeader}>
-                {careTypeFilter.length > 0 ||
-                distanceRange.min > DISTANCE_MIN_KM ||
-                distanceRange.max < DISTANCE_MAX_KM ? (
-                  <View style={styles.resultsRow}>
-                    <AppText variant="title" style={{ fontSize: 16 }}>
-                      {t("feed.resultsLabel")}:{" "}
-                    </AppText>
-                    <AppText
-                      variant="body"
-                      color={colors.onSurfaceVariant}
-                      style={{ fontWeight: "600", flex: 1, flexShrink: 1 }}
-                      numberOfLines={1}
-                      ellipsizeMode="tail"
-                    >
-                      {[
-                        ...careTypeFilter.map((k) => t(`feed.careTypes.${k}`)),
-                        t("feed.distanceKmRange", {
-                          min: distanceRange.min,
-                          max: distanceRange.max,
-                        }),
-                      ].join(", ")}
-                    </AppText>
-                  </View>
-                ) : (
-                  <View className="flex-row items-center gap-2">
-                    <AppText
-                      variant="title"
-                      style={{ fontSize: 16, letterSpacing: -0.1 }}
-                    >
-                      {t("feed.requestsNearYou")}
-                    </AppText>
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {filteredRequests.length} {t("feed.petsInArea")}
-                    </AppText>
-                  </View>
-                )}
-              </View>
-            )}
+            {showRequests ? (
+              requestsLoading || (!requestsLoaded && !requestsError) ? (
+                <FeedRequestsSkeleton count={3} />
+              ) : requestsError ? (
+                <DataState
+                  title={t("common.error", "Something went wrong")}
+                  message={requestsError}
+                  actionLabel={t("common.retry", "Retry")}
+                  onAction={() => {
+                    setRequestsError(null);
+                    setRequestsLoaded(false);
+                    void loadRequestsTab({ refresh: true });
+                  }}
+                  mode="inline"
+                />
+              ) : filteredRequests.length === 0 ? (
+                <DataState
+                  title={t("feed.noRequestsTitle", "No requests near you")}
+                  message={t(
+                    "feed.noRequestsSubtitle",
+                    "Try adjusting filters to find more.",
+                  )}
+                  illustration={
+                    <AppImage
+                      source={require("@/assets/illustrations/pets/no-care.svg")}
+                      type="svg"
+                      style={styles.emptyIllustration}
+                      height={145}
+                    />
+                  }
+                  mode="inline"
+                />
+              ) : (
+                <View style={styles.resultsHeader}>
+                  {careTypeFilter.length > 0 ||
+                  distanceRange.min > DISTANCE_MIN_KM ||
+                  distanceRange.max < DISTANCE_MAX_KM ? (
+                    <View style={styles.resultsRow}>
+                      <AppText variant="title" style={{ fontSize: 16 }}>
+                        {t("feed.resultsLabel")}:{" "}
+                      </AppText>
+                      <AppText
+                        variant="body"
+                        color={colors.onSurfaceVariant}
+                        style={{
+                          fontWeight: "600",
+                          flex: 1,
+                          flexShrink: 1,
+                        }}
+                        numberOfLines={1}
+                        ellipsizeMode="tail"
+                      >
+                        {[
+                          ...careTypeFilter.map((k) =>
+                            t(`feed.careTypes.${k}`),
+                          ),
+                          t("feed.distanceKmRange", {
+                            min: distanceRange.min,
+                            max: distanceRange.max,
+                          }),
+                        ].join(", ")}
+                      </AppText>
+                    </View>
+                  ) : (
+                    <View className="flex-row items-center gap-2">
+                      <AppText
+                        variant="title"
+                        style={{ fontSize: 16, letterSpacing: -0.1 }}
+                      >
+                        {t("feed.requestsNearYou")}
+                      </AppText>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                      >
+                        {filteredRequests.length} {t("feed.petsInArea")}
+                      </AppText>
+                    </View>
+                  )}
+                </View>
+              )
+            ) : null}
           </>
         }
         renderItem={({ item }) =>
@@ -709,57 +990,102 @@ export default function HomeScreen() {
                 if (blockIfKycNotApproved()) return;
                 router.push(`/(private)/post-requests/${item.id}` as any);
               }}
-              onPress={() => router.push(`/(private)/pets/${item.id}` as any)}
-              onCaretakerPress={() =>
+              onPress={() =>
+                item.petId
+                  ? router.push(`/(private)/pets/${item.petId}` as any)
+                  : undefined
+              }
+              onCaretakerPress={() => {
+                if (!item.caretaker?.id) return;
                 router.push({
                   pathname: "/(private)/(tabs)/profile/users/[id]",
-                  params: { id: item.caretaker.id ?? "1" },
-                })
-              }
+                  params: { id: item.caretaker.id },
+                });
+              }}
             />
           ) : null
         }
         ListFooterComponent={
           showTakers ? (
-            <View className="mt-6">
-              <View className="flex-row items-center gap-2 mb-3">
-                <AppText
-                  variant="title"
-                  style={{ fontSize: 16, letterSpacing: -0.1 }}
-                >
-                  {t("feed.takersNearYou")}
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {filteredTakers.length} {t("feed.takersAvailable")}
-                </AppText>
-              </View>
-
-              <View className="gap-3">
-                {filteredTakers.map((taker) => (
-                  <TakerCard
-                    key={taker.id}
-                    taker={{
-                      ...taker,
-                      tags: taker.tags.map((tag) => t(`feed.careTypes.${tag}`)),
-                    }}
-                    onPress={() =>
-                      router.push({
-                        pathname: "/(private)/(tabs)/profile/users/[id]",
-                        params: { id: taker.id },
-                      })
-                    }
-                    onMenuPress={(ref) => {
-                      ref?.measureInWindow(
-                        (x: number, y: number, width: number, height: number) => {
-                          setMenuPosition({ x, y, width, height });
-                          setOpenMenuTaker(taker);
-                        },
-                      );
-                    }}
+            takersLoading || (!takersLoaded && !takersError) ? (
+              <FeedTakersSkeleton count={4} />
+            ) : takersError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={takersError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setTakersError(null);
+                  setTakersLoaded(false);
+                  void loadTakersTab({ refresh: true });
+                }}
+                mode="inline"
+              />
+            ) : filteredTakers.length === 0 ? (
+              <DataState
+                title={t("feed.noTakersTitle", "No caregivers available")}
+                message={t(
+                  "feed.noTakersSubtitle",
+                  "Try adjusting filters to find more.",
+                )}
+                illustration={
+                  <AppImage
+                    source={require("@/assets/illustrations/pets/no-care.svg")}
+                    type="svg"
+                    style={styles.emptyIllustration}
+                    height={145}
                   />
-                ))}
+                }
+                mode="inline"
+              />
+            ) : (
+              <View className="mt-6">
+                <View className="flex-row items-center gap-2 mb-3">
+                  <AppText
+                    variant="title"
+                    style={{ fontSize: 16, letterSpacing: -0.1 }}
+                  >
+                    {t("feed.takersNearYou")}
+                  </AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>
+                    {filteredTakers.length} {t("feed.takersAvailable")}
+                  </AppText>
+                </View>
+
+                <View className="gap-3">
+                  {filteredTakers.map((taker) => (
+                    <TakerCard
+                      key={taker.id}
+                      taker={{
+                        ...taker,
+                        tags: taker.tags.map((tag) =>
+                          t(`feed.careTypes.${tag}`),
+                        ),
+                      }}
+                      onPress={() =>
+                        router.push({
+                          pathname: "/(private)/(tabs)/profile/users/[id]",
+                          params: { id: taker.id },
+                        })
+                      }
+                      onMenuPress={(ref) => {
+                        ref?.measureInWindow(
+                          (
+                            x: number,
+                            y: number,
+                            width: number,
+                            height: number,
+                          ) => {
+                            setMenuPosition({ x, y, width, height });
+                            setOpenMenuTaker(taker);
+                          },
+                        );
+                      }}
+                    />
+                  ))}
+                </View>
               </View>
-            </View>
+            )
           ) : null
         }
       />
@@ -775,10 +1101,7 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setOpenMenuTaker(null)}
       >
-        <Pressable
-          className="flex-1"
-          onPress={() => setOpenMenuTaker(null)}
-        >
+        <Pressable className="flex-1" onPress={() => setOpenMenuTaker(null)}>
           {menuPosition && openMenuTaker && (
             <View
               style={{
@@ -816,19 +1139,21 @@ export default function HomeScreen() {
                   {t("common.viewProfile", "View Profile")}
                 </AppText>
               </Pressable>
-              <Pressable
-                style={{ paddingHorizontal: 16, paddingVertical: 12 }}
-                onPress={() => {
-                  setTakerForSendRequest(openMenuTaker);
-                  setOpenMenuTaker(null);
-                  setSelectedSeekingPet(null);
-                  setSendRequestOpen(true);
-                }}
-              >
-                <AppText variant="body" color={colors.onSurface}>
-                  {t("common.sendRequest", "Send Request")}
-                </AppText>
-              </Pressable>
+              {openMenuTaker.id !== user?.id ? (
+                <Pressable
+                  style={{ paddingHorizontal: 16, paddingVertical: 12 }}
+                  onPress={() => {
+                    setTakerForSendRequest(openMenuTaker);
+                    setOpenMenuTaker(null);
+                    setSelectedSeekingPet(null);
+                    setSendRequestOpen(true);
+                  }}
+                >
+                  <AppText variant="body" color={colors.onSurface}>
+                    {t("common.sendRequest", "Send Request")}
+                  </AppText>
+                </Pressable>
+              ) : null}
             </View>
           )}
         </Pressable>
@@ -840,97 +1165,298 @@ export default function HomeScreen() {
         animationType="fade"
         onRequestClose={() => setSendRequestOpen(false)}
       >
-        <Pressable
-          style={styles.sendRequestOverlay}
-          onPress={() => setSendRequestOpen(false)}
-        >
-          <View
-            style={[
-              styles.sendRequestCard,
-              { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant },
-            ]}
-          >
-            <AppText
-              variant="title"
-              color={colors.onSurface}
-              style={styles.sendRequestTitle}
-            >
-              Select a pet you are seeking
-            </AppText>
+        <TouchableWithoutFeedback onPress={() => setSendRequestOpen(false)}>
+          <View style={styles.sendRequestOverlay}>
+            <TouchableWithoutFeedback>
+              <View
+                style={[
+                  styles.sendRequestCard,
+                  {
+                    backgroundColor: colors.surfaceBright,
+                    borderColor: colors.outlineVariant,
+                  },
+                ]}
+              >
+                <AppText
+                  variant="title"
+                  color={colors.onSurface}
+                  style={styles.sendRequestTitle}
+                >
+                  {t("home.sendRequest.selectPetTitle", "Select Pet")}
+                </AppText>
 
-            <ScrollView
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.sendRequestListContent}
-            >
-              {userPets.map((pet) => {
-                const selected = selectedSeekingPet?.id === pet.id;
-                return (
-                  <TouchableOpacity
-                    key={pet.id}
-                    activeOpacity={0.9}
-                    onPress={() => setSelectedSeekingPet(pet)}
-                    style={[
-                      styles.petPickRow,
-                      {
-                        backgroundColor: selected
-                          ? colors.surfaceContainerHighest
-                          : colors.surfaceContainerLow,
-                        borderColor: selected
-                          ? colors.primary
-                          : colors.outlineVariant,
-                      },
-                    ]}
-                  >
-                    <View style={{ flex: 1, minWidth: 0 }}>
-                      <AppText
-                        variant="headline"
-                        color={colors.onSurface}
-                        style={{ fontSize: 16, letterSpacing: -0.1 }}
-                        numberOfLines={1}
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  contentContainerStyle={styles.sendRequestListContent}
+                >
+                  {userPets.map((pet: any) => {
+                    const selected = selectedSeekingPet?.id === pet.id;
+                    const subtitle =
+                      petSendSubtitleById[pet.id as string] ||
+                      `${pet.species || "Pet"} · ${pet.breed || "—"}`;
+                    const uri =
+                      typeof pet.avatar_url === "string"
+                        ? pet.avatar_url.trim()
+                        : "";
+                    return (
+                      <TouchableOpacity
+                        key={pet.id}
+                        activeOpacity={0.9}
+                        onPress={() => setSelectedSeekingPet(pet)}
+                        style={[
+                          styles.sendRequestPetRow,
+                          {
+                            borderColor: selected
+                              ? colors.primary
+                              : colors.outlineVariant,
+                            backgroundColor: selected
+                              ? colors.surfaceContainerHighest
+                              : colors.surfaceContainerLow,
+                          },
+                        ]}
                       >
-                        {pet.name}
-                      </AppText>
-                      <AppText
-                        variant="caption"
-                        color={colors.onSurfaceVariant}
-                        numberOfLines={1}
-                      >
-                        {pet.species || "Pet"} • {pet.breed || "Unknown breed"}
-                      </AppText>
-                    </View>
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
+                        <View
+                          style={[
+                            styles.sendRequestRadioOuter,
+                            { borderColor: colors.primary },
+                          ]}
+                        >
+                          {selected ? (
+                            <View
+                              style={[
+                                styles.sendRequestRadioInner,
+                                { backgroundColor: colors.primary },
+                              ]}
+                            />
+                          ) : null}
+                        </View>
+                        {uri ? (
+                          <AppImage
+                            source={{ uri }}
+                            style={styles.sendRequestPetThumb}
+                            contentFit="cover"
+                          />
+                        ) : (
+                          <View
+                            style={[
+                              styles.sendRequestPetThumb,
+                              {
+                                backgroundColor: colors.surfaceContainerHighest,
+                              },
+                            ]}
+                          />
+                        )}
+                        <View style={{ flex: 1, minWidth: 0 }}>
+                          <AppText
+                            variant="headline"
+                            color={colors.onSurface}
+                            style={styles.sendRequestPetName}
+                            numberOfLines={1}
+                          >
+                            {pet.name}
+                          </AppText>
+                          <AppText
+                            variant="caption"
+                            color={colors.onSurfaceVariant}
+                            numberOfLines={2}
+                            style={styles.sendRequestPetMeta}
+                          >
+                            {subtitle}
+                          </AppText>
+                        </View>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </ScrollView>
 
-            <View style={styles.sendRequestFooter}>
-              <Button
-                label={t("common.sendRequest", "Send request")}
-                onPress={() => {
-                  if (!selectedSeekingPet || !takerForSendRequest) return;
-                  setSendRequestOpen(false);
-                  router.push({
-                    pathname: "/(private)/(tabs)/messages/[threadId]" as any,
-                    params: {
-                      threadId: "1",
-                      mode: "seeking",
-                      petName: selectedSeekingPet.petName,
-                      breed: selectedSeekingPet.breed ?? "",
-                      date: selectedSeekingPet.seekingDateRange || "Mar 14-18",
-                      time: selectedSeekingPet.seekingTime || "8am-4pm",
-                      price: "25 pts/hr",
-                      offerId: selectedSeekingPet.id,
-                    } as any,
-                  });
-                }}
-                disabled={
-                  !selectedSeekingPet || !takerForSendRequest || userPets.length === 0
-                }
-                fullWidth
-              />
-            </View>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={styles.sendRequestSendingTo}
+                >
+                  {t("home.sendRequest.sendingTo", {
+                    name:
+                      takerForSendRequest?.name?.trim() ||
+                      t("common.user", "User"),
+                  })}
+                </AppText>
+
+                <View style={styles.sendRequestActions}>
+                  <Button
+                    label={t("common.cancel", "Cancel")}
+                    variant="secondary"
+                    fullWidth={false}
+                    onPress={() => setSendRequestOpen(false)}
+                    disabled={sendRequestBusy}
+                    style={styles.sendRequestActionBtn}
+                  />
+                  <Button
+                    label={t("common.sendRequest", "Send request")}
+                    variant="primary"
+                    fullWidth={false}
+                    onPress={() => {
+                      void (async () => {
+                        if (
+                          !selectedSeekingPet ||
+                          !takerForSendRequest ||
+                          !user?.id
+                        )
+                          return;
+                        if (sendRequestBusy) return;
+                        setSendRequestBusy(true);
+                        try {
+                          const petId = selectedSeekingPet.id as string;
+                          const takerId = takerForSendRequest.id;
+
+                          const { data: openReqRows, error: openReqErr } =
+                            await supabase
+                              .from("care_requests")
+                              .select(
+                                "id,pet_id,owner_id,start_date,end_date,points_offered,care_type",
+                              )
+                              .eq("owner_id", user.id)
+                              .eq("pet_id", petId)
+                              .eq("status", "open")
+                              .order("created_at", { ascending: false })
+                              .limit(1);
+                          if (
+                            openReqErr &&
+                            !isMissingBackendResourceError(openReqErr)
+                          )
+                            throw openReqErr;
+                          const openReq = openReqRows?.[0] as any | undefined;
+                          if (!openReq?.id) {
+                            Alert.alert(
+                              t("common.notice", "Heads up"),
+                              t(
+                                "home.sendRequest.needsOpenRequest",
+                                "Create an open care request for this pet first, then you can message a taker.",
+                              ),
+                            );
+                            router.push({
+                              pathname: "/(private)/post-requests",
+                              params: { petId },
+                            } as any);
+                            setSendRequestOpen(false);
+                            return;
+                          }
+
+                          const requestId = openReq.id as string;
+                          const participants = [user.id, takerId].sort();
+
+                          let threadId: string | null = null;
+                          const { data: existing, error: existingError } =
+                            await supabase
+                              .from("threads")
+                              .select("id")
+                              .eq("request_id", requestId)
+                              .contains("participant_ids", participants)
+                              .maybeSingle();
+                          if (
+                            existingError &&
+                            !isMissingBackendResourceError(existingError)
+                          )
+                            throw existingError;
+                          if (existing?.id) {
+                            threadId = existing.id;
+                          } else {
+                            const { data: inserted, error: insertError } =
+                              await supabase
+                                .from("threads")
+                                .insert({
+                                  participant_ids: participants,
+                                  request_id: requestId,
+                                })
+                                .select("id")
+                                .single();
+                            if (
+                              insertError &&
+                              !isMissingBackendResourceError(insertError)
+                            )
+                              throw insertError;
+                            threadId = inserted?.id ?? null;
+                          }
+                          if (!threadId)
+                            throw new Error("Could not create chat thread.");
+
+                          const petName =
+                            selectedSeekingPet.name ??
+                            t("pets.add.name", "Pet");
+                          const breed = selectedSeekingPet.breed ?? "";
+                          const dateRange =
+                            openReq.start_date && openReq.end_date
+                              ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(
+                                  openReq.end_date,
+                                ).toLocaleDateString()}`
+                              : "";
+                          const price =
+                            typeof openReq.points_offered === "number"
+                              ? `${openReq.points_offered} pts`
+                              : "";
+
+                          const { error: msgError } = await supabase
+                            .from("messages")
+                            .insert({
+                              thread_id: threadId,
+                              sender_id: user.id,
+                              content: t("common.sendRequest", "Send request"),
+                              type: "proposal",
+                              metadata: { requestId },
+                            });
+                          if (
+                            msgError &&
+                            !isMissingBackendResourceError(msgError)
+                          )
+                            throw msgError;
+
+                          await supabase
+                            .from("threads")
+                            .update({
+                              last_message_at: new Date().toISOString(),
+                            })
+                            .eq("id", threadId);
+
+                          setSendRequestOpen(false);
+                          router.push({
+                            pathname:
+                              "/(private)/(tabs)/messages/[threadId]" as any,
+                            params: {
+                              threadId,
+                              mode: "seeking",
+                              petName,
+                              breed,
+                              date: dateRange,
+                              time: "",
+                              price,
+                              offerId: requestId,
+                            } as any,
+                          });
+                        } catch (err) {
+                          Alert.alert(
+                            t("common.error", "Something went wrong"),
+                            err instanceof Error
+                              ? err.message
+                              : t("common.error", "Something went wrong"),
+                          );
+                        } finally {
+                          setSendRequestBusy(false);
+                        }
+                      })();
+                    }}
+                    disabled={
+                      !selectedSeekingPet ||
+                      !takerForSendRequest ||
+                      userPets.length === 0 ||
+                      sendRequestBusy
+                    }
+                    loading={sendRequestBusy}
+                    style={styles.sendRequestActionBtn}
+                  />
+                </View>
+              </View>
+            </TouchableWithoutFeedback>
           </View>
-        </Pressable>
+        </TouchableWithoutFeedback>
       </Modal>
     </PageContainer>
   );
@@ -969,6 +1495,11 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     gap: 4,
+  },
+  emptyIllustration: {
+    width: 140,
+    borderRadius: 16,
+    backgroundColor: "transparent",
   },
   rangeLabels: {
     flexDirection: "row",
@@ -1074,9 +1605,16 @@ const styles = StyleSheet.create({
   },
   sendRequestOverlay: {
     flex: 1,
-    backgroundColor: "transparent",
+    backgroundColor: "rgba(0,0,0,0.45)",
     alignItems: "center",
     justifyContent: "center",
+    paddingHorizontal: 16,
+  },
+  sendRequestSendingTo: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 4,
+    textAlign: "center",
   },
   sendRequestCard: {
     width: "92%",
@@ -1084,28 +1622,72 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     maxHeight: "70%",
     overflow: "hidden",
+    shadowColor: "#000",
+    shadowOpacity: 0.2,
+    shadowRadius: 12,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
   },
   sendRequestTitle: {
     paddingHorizontal: 16,
     paddingTop: 16,
     paddingBottom: 8,
+    textAlign: "center",
+    fontSize: 16,
+    fontWeight: "700",
+    letterSpacing: -0.2,
   },
   sendRequestListContent: {
     paddingHorizontal: 16,
-    paddingBottom: 10,
-    gap: 10,
+    paddingVertical: 8,
+    gap: 12,
   },
-  petPickRow: {
+  sendRequestPetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
     borderWidth: 1,
-    borderRadius: 14,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 10,
   },
-  sendRequestFooter: {
+  sendRequestRadioOuter: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    borderWidth: 2,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendRequestRadioInner: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+  },
+  sendRequestPetThumb: {
+    width: 32,
+    height: 32,
+    borderRadius: 5,
+  },
+  sendRequestPetName: {
+    fontSize: 12,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  sendRequestPetMeta: {
+    fontSize: 12,
+    lineHeight: 13,
+    marginTop: 2,
+    letterSpacing: -0.2,
+  },
+  sendRequestActions: {
+    flexDirection: "row",
+    gap: 16,
     paddingHorizontal: 16,
     paddingBottom: 16,
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: "transparent",
+    paddingTop: 12,
+  },
+  sendRequestActionBtn: {
+    flex: 1,
   },
 });

@@ -1,7 +1,8 @@
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { Button } from "@/src/shared/components/ui/Button";
 import { Input } from "@/src/shared/components/ui/Input";
 import React from "react";
@@ -47,10 +48,11 @@ export function EditDetailsTab({
     <ScrollView contentContainerStyle={styles.container}>
       {/* Avatar + Choose image */}
       <View style={styles.avatarRow}>
-        <AppImage
-          source={{ uri: avatarUri }}
-          style={styles.avatar}
-          contentFit="cover"
+        <UserAvatar
+          uri={avatarUri.trim() ? avatarUri : null}
+          name={username}
+          size={80}
+          showOnlineBadge={false}
         />
         <TouchableOpacity onPress={onChooseImage} activeOpacity={0.7}>
           <AppText
@@ -68,6 +70,7 @@ export function EditDetailsTab({
         label={t("auth.signup.profile.firstName", "Username")}
         value={username}
         onChangeText={onChangeUsername}
+        maxLength={INPUT_LIMITS.name}
       />
 
       {/* Short Bio */}
@@ -77,6 +80,7 @@ export function EditDetailsTab({
         onChangeText={onChangeBio}
         inputStyle={styles.textArea}
         multiline
+        maxLength={INPUT_LIMITS.bio}
       />
 
       {/* ZIP Code + Location row */}
@@ -87,6 +91,7 @@ export function EditDetailsTab({
             value={zipCode}
             onChangeText={onChangeZipCode}
             keyboardType="number-pad"
+            maxLength={INPUT_LIMITS.zipCode}
           />
         </View>
 
@@ -95,6 +100,7 @@ export function EditDetailsTab({
             label={t("auth.signup.profile.city", "Location")}
             value={location}
             onChangeText={onChangeLocation}
+            maxLength={INPUT_LIMITS.location}
           />
         </View>
       </View>
@@ -122,11 +128,6 @@ const styles = StyleSheet.create({
     alignItems: "center",
     gap: 12,
     marginBottom: 4,
-  },
-  avatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
   },
   chooseImageText: {
     textDecorationLine: "underline",

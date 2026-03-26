@@ -22,10 +22,12 @@ import { DataState } from "@/src/shared/components/ui";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { PawPrint } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Alert,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -58,6 +60,7 @@ export default function LaunchRequestWizardScreen() {
     { id: string; name: string; imageUri: string | null }[]
   >([]);
   const [petsLoading, setPetsLoading] = useState(true);
+  const [petsRefreshing, setPetsRefreshing] = useState(false);
   const [petsError, setPetsError] = useState<string | null>(null);
   const [careTypes, setCareTypes] = useState<string[]>(["daytime"]);
   const [multiDay, setMultiDay] = useState(false);
@@ -93,12 +96,14 @@ export default function LaunchRequestWizardScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const progress = (step + 1) / TOTAL_STEPS;
 
-  const loadPets = async () => {
+  const loadPets = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
       setPetsLoading(false);
       return;
     }
-    setPetsLoading(true);
+    if (!opts?.refresh) {
+      setPetsLoading(true);
+    }
     setPetsError(null);
     try {
       const { data, error } = await supabase
@@ -119,6 +124,12 @@ export default function LaunchRequestWizardScreen() {
   useEffect(() => {
     void loadPets();
   }, [user?.id]);
+
+  const onRefreshPets = async () => {
+    setPetsRefreshing(true);
+    await loadPets({ refresh: true });
+    setPetsRefreshing(false);
+  };
 
   useEffect(() => {
     if (params.petId && typeof params.petId === "string") {
@@ -290,6 +301,12 @@ export default function LaunchRequestWizardScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={petsRefreshing}
+            onRefresh={() => void onRefreshPets()}
+          />
+        }
       >
         {step === 0 && (
           <CareTypeFirstStep
@@ -328,7 +345,7 @@ export default function LaunchRequestWizardScreen() {
                   <PetGridTile
                     key={pet.id}
                     width={columnWidth}
-                    imageUri={pet.imageUri || undefined}
+                    imageUri={pet.imageUri ?? ""}
                     name={pet.name}
                     selected={selectedPet === pet.id}
                     onPress={() => setSelectedPet(pet.id)}
@@ -541,15 +558,22 @@ export default function LaunchRequestWizardScreen() {
 
               <RequestPreviewRow label={t("post.request.preview.pet")}>
                 <View style={styles.previewPetRow}>
-                  <AppImage
-                    source={{
-                      uri:
-                        selectedPetData?.imageUri ||
-                        "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=200",
-                    }}
-                    style={styles.selectedPetThumb}
-                    contentFit="cover"
-                  />
+                  {selectedPetData?.imageUri ? (
+                    <AppImage
+                      source={{ uri: selectedPetData.imageUri }}
+                      style={styles.selectedPetThumb}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.selectedPetThumb,
+                        { alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceContainerHighest },
+                      ]}
+                    >
+                      <PawPrint size={18} color={colors.onSurfaceVariant} />
+                    </View>
+                  )}
                   <AppText
                     variant="body"
                     color={colors.onSurface}

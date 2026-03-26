@@ -28,7 +28,21 @@
     "submit": "Envoyer",
     "viewProfile": "Voir le profil",
     "sendRequest": "Envoyer une demande",
-    "skip": "Passer"
+    "skip": "Passer",
+    "notice": "Information",
+    "empty": "—",
+    "user": "Utilisateur",
+    "saving": "Enregistrement…",
+    "success": "Succès",
+    "deleteConfirmTitle": "Supprimer cet animal ?",
+    "deleteConfirmMessage": "Cela supprimera définitivement l’animal de votre compte."
+  },
+  "home": {
+    "sendRequest": {
+      "needsOpenRequest": "Créez d'abord une demande de garde ouverte pour cet animal, puis vous pourrez contacter un gardien.",
+      "selectPetTitle": "Choisir un animal",
+      "sendingTo": "Envoi d’une demande à « {{name}} »"
+    }
   },
   "pet": {
     "detail": {
@@ -36,13 +50,17 @@
       "about": "À propos de {{name}}",
       "attributes": "Attributs",
       "specialNeeds": "Besoins particuliers",
+      "none": "Aucun",
+      "noOpenRequest": "Cet animal n'a pas de demande de garde ouverte pour le moment.",
       "petOwner": "Propriétaire",
       "helpWithPet": "Aider cet animal"
     }
   },
   "notFound": {
-    "title": "Oups !",
-    "message": "Cette page est introuvable. Elle a peut-être été déplacée ou n'existe plus."
+    "title": "Page introuvable",
+    "message": "Ce lien ne correspond à rien dans l’app. Il est peut‑être incorrect ou l’écran a changé.",
+    "resourceTitle": "Ce contenu n’est plus disponible",
+    "resourceMessage": "Il a peut‑être été supprimé, fermé, ou le lien est expiré. Revenez en arrière ou ouvrez l’accueil."
   },
   "auth": {
     "orContinueWith": "ou continuer avec",
@@ -125,6 +143,7 @@
         "firstName": "Prénom",
         "lastName": "Nom de famille",
         "city": "Ville",
+        "zipCode": "Code postal",
         "bio": "Bio courte",
         "submit": "Continuer",
         "displayNameLabel": "Nom d'affichage",
@@ -189,6 +208,8 @@
       "title": "Réinitialiser le mot de passe",
       "subtitle": "Entrez l'adresse e-mail associee a votre compte et nous vous enverrons un code a saisir pour reinitialiser votre mot de passe",
       "email": "Adresse e-mail",
+      "emailLabel": "Adresse e-mail",
+      "emailPlaceholder": "ex. name@mail.com",
       "submit": "Envoyer le code",
       "resetting": "Reinitialisation...",
       "success": "Code envoyé à votre e-mail !",
@@ -234,15 +255,22 @@
     "topTakers": "Meilleurs gardiens",
     "recentRequests": "Demandes récentes",
     "noTakers": "Aucun gardien trouvé à proximité",
+    "noRequestsTitle": "Aucune demande à proximité",
+    "noRequestsSubtitle": "Essayez d'ajuster les filtres pour en trouver plus.",
+    "noTakersTitle": "Aucun gardien disponible",
+    "noTakersSubtitle": "Essayez d'ajuster les filtres pour en trouver plus.",
     "noPets": "Aucun animal n'a besoin de soins pour l'instant",
     "kycModal": {
       "title": "Vérifions votre identité",
-      "description": "Pour protéger la communauté et débloquer la réservation ou le rôle de gardien, nous devons confirmer rapidement votre identité. Cela ne prend que 2 minutes !",
+      "description": "Pour protéger la communauté — et vous permettre de publier des demandes, postuler comme gardien et écrire aux autres membres — nous devons confirmer rapidement votre identité. Cela ne prend que quelques minutes.",
       "maybeLater": "Plus tard",
       "getVerified": "Me faire vérifier",
       "pendingTitle": "Vérification en cours",
-      "pendingDescription": "Nous examinons vos documents. Cela prend généralement 24 à 48 heures. Vous pourrez publier des demandes, ajouter des animaux et proposer votre disponibilité une fois approuvé.",
-      "pendingOk": "Compris"
+      "pendingDescription": "Nous examinons vos documents. Cela prend généralement 24 à 48 heures. Une fois approuvé, vous pourrez publier des demandes, ajouter des animaux, postuler comme gardien et proposer votre disponibilité.",
+      "pendingOk": "Compris",
+      "rejectedTitle": "Vérification à renvoyer",
+      "rejectedDescription": "Nous n’avons pas pu approuver votre dernier envoi. Veuillez vérifier les exigences et renvoyer une vérification pour postuler, écrire aux propriétaires et utiliser le reste de l’app.",
+      "resubmitVerification": "Renvoyer la vérification"
     },
     "resultsLabel": "Résultats",
     "distanceKmRange": "{{min}}km–{{max}}km",
@@ -292,7 +320,9 @@
       "acceptDisclaimer": "En appuyant sur Accepter l'offre, vous acceptez que toute personne de la communauté puisse vous contacter dans notre système de chat.",
       "rateAndReview": "Noter et évaluer",
       "terminate": "Résilier le contrat",
-      "terminatedDemo": "Accord résilié (démo)",
+      "terminatedToast": "Accord terminé.",
+      "agreementEnded": "Cet accord est clos.",
+      "needTaker": "Un gardien doit être associé à cette demande avant de pouvoir signer.",
       "active": "Actif"
     },
     "checkin": {
@@ -309,9 +339,19 @@
       "comment": "Commentaire (optionnel)",
       "commentPlaceholder": "Qu'est-ce qui s'est bien passé ? Que devraient savoir les autres ?",
       "submit": "Soumettre l'avis",
+      "submitted": "Merci ! Votre avis a été publié.",
+      "noContract": "Aucun contrat trouvé pour cette garde pour le moment.",
+      "peerTask": "Garde terminée",
+      "careForPet": "Garde de {{petName}}",
       "successTitle": "Merci !",
       "successSubtitle": "Votre avis a été envoyé et aide les autres à choisir des gardiens de confiance."
-    }
+    },
+    "availabilityUpdateFailed": "Impossible de mettre à jour la disponibilité. Veuillez réessayer.",
+    "loadingGiven": "Chargement des soins donnés...",
+    "loadingReceived": "Chargement des soins reçus...",
+    "loadingLiked": "Chargement des animaux aimés...",
+    "likedEmptyTitle": "Rien à afficher pour le moment",
+    "likedEmptyMessage": "Lorsque vous aimez une demande, elle apparaîtra ici."
   },
   "offer": {
     "title": "Envoyer une offre",
@@ -319,8 +359,12 @@
     "recipient": "À",
     "forPet": "Animal : {{name}}",
     "pointsLabel": "Points proposés",
+    "pointsPlaceholder": "0",
     "messageLabel": "Message",
     "messagePlaceholder": "Présentez-vous et indiquez vos disponibilités…",
+    "defaultProposalMessage": "Je souhaite aider pour cette demande de garde.",
+    "sent": "Offre envoyée.",
+    "wrongRecipient": "Vous ne pouvez pas envoyer d’offre sur votre propre demande.",
     "send": "Envoyer l'offre"
   },
   "post": {
@@ -354,6 +398,7 @@
       },
       "selectPet": "Choisir un animal",
       "addAnotherPet": "ou ajouter un autre animal",
+      "noDescription": "Aucune description pour le moment.",
       "validation": {
         "careTypeRequired": "Sélectionnez au moins un type de garde.",
         "petRequired": "Sélectionnez un animal pour continuer.",
@@ -405,6 +450,8 @@
       "petOwner": "Propriétaire d'animaux",
       "note": "Note courte",
       "save": "Enregistrer la disponibilité",
+      "saved": "Disponibilité enregistrée.",
+      "saveFailed": "Impossible d’enregistrer votre disponibilité. Veuillez réessayer.",
       "careStepTitle": "De quel type de garde pouvez-vous offrir ?",
       "hintsTitle": "Conseils",
       "petKindQuestion": "Quel type d’animal ?",
@@ -474,11 +521,20 @@
     "block": "Bloquer",
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
     "blockConfirmDescription": "Il ou elle ne pourra plus vous envoyer de messages. Vous pourrez débloquer plus tard dans Paramètres.",
-    "blockedDemo": "Utilisateur bloqué (démo)"
+    "blockedToast": "Utilisateur bloqué.",
+    "chatUnavailable": "Discussion indisponible",
+    "noMessagesTitle": "Pas encore de messages",
+    "noMessagesSubtitle": "Envoyez le premier message pour démarrer la conversation.",
+    "agreementAccepted": "Accord accepté",
+    "noMessagesYet": "Aucun message pour le moment.",
+    "noChatsTitle": "Aucune discussion",
+    "noChatsSubtitle": "Démarrez une conversation : elle apparaîtra ici."
   },
   "requestDetails": {
     "title": "Détails de la demande",
+    "notFound": "Demande introuvable.",
     "viewProfile": "Voir le profil",
+    "owner": "Propriétaire",
     "details": "Détails",
     "yardType": "Type de jardin",
     "careTypes": "Types de garde",
@@ -487,7 +543,9 @@
     "energyLevel": "Niveau d'énergie",
     "specialNeeds": "Besoins particuliers",
     "apply": "Postuler",
-    "applyNow": "Postuler"
+    "applyNow": "Postuler",
+    "applyConfirmTitle": "Postuler pour cet animal ?",
+    "applyConfirmBody": "Un message avec vos disponibilités sera envoyé au propriétaire de cet animal"
   },
   "filters": {
     "title": "Filtres",
@@ -531,7 +589,12 @@
     "yardFenced": "Jardin clôturé",
     "yardHigh": "Haute clôture",
     "yardNone": "Pas de jardin",
-    "yardLabel": "Jardin"
+    "yardLabel": "Jardin",
+    "timeOnly": "Heure",
+    "daysOnly": "Jours",
+    "yardType": "Type de jardin",
+    "petOwner": "Propriétaire d’animal",
+    "note": "Note courte"
   },
   "settings": {
     "title": "Paramètres",
@@ -567,11 +630,27 @@
   },
   "profile": {
     "title": "profil",
+    "noLocation": "Aucun lieu",
+    "defaultName": "Utilisateur Pawtaker",
+    "bio": {
+      "empty": "Pas encore de bio."
+    },
+    "reviewsCount": "{{count}} avis",
     "reviews": "Avis",
+    "availability": {
+      "emptyTitle": "Pas encore de disponibilité",
+      "emptyMessage": "Ajoutez votre disponibilité depuis Modifier le profil pour l’afficher ici.",
+      "publicEmptyMessage": "Ce membre n’a pas encore renseigné sa disponibilité."
+    },
+    "reviewsTab": {
+      "emptyTitle": "Pas encore d’avis",
+      "emptyMessage": "Les avis de la communauté apparaîtront ici après des gardes terminées."
+    },
     "points": "Points",
     "pets": {
       "title": "Mes animaux",
-      "launchRequest": "Lancer une demande"
+      "launchRequest": "Lancer une demande",
+      "tab": "Animaux"
     },
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
     "blockConfirmDescription": "Il ou elle ne pourra plus voir votre profil, vous envoyer des demandes ou des messages. Vous pourrez débloquer plus tard dans Paramètres.",
@@ -586,7 +665,15 @@
       "discardTitle": "Annuler les modifications ?",
       "discardDescription": "Si vous revenez en arrière, votre progression sera perdue.",
       "keepEditing": "Continuer",
-      "discard": "Annuler"
+      "discard": "Annuler",
+      "galleryPermissionRequired": "L'accès à la galerie est requis pour choisir une image.",
+      "locationRequired": "Veuillez saisir votre localisation avant d’enregistrer.",
+      "availabilitySaved": "Disponibilité mise à jour avec succès.",
+      "availabilityToast": "Disponibilité mise à jour.",
+      "availabilitySaveFailed": "Impossible de mettre à jour la disponibilité. Veuillez réessayer.",
+      "saved": "Profil mis à jour avec succès.",
+      "toast": "Profil mis à jour.",
+      "saveFailed": "Impossible d’enregistrer vos modifications de profil. Veuillez réessayer."
     },
     "emergencyContacts": {
       "title": "Contacts d'urgence",
@@ -604,6 +691,7 @@
   },
   "notifications": {
     "title": "Notifications",
+    "kycResubmit": "Soumettre à nouveau",
     "searchPlaceholder": "Rechercher dans les notifications",
     "noNotifications": "Aucune notification",
     "markAllRead": "Tout marquer comme lu",
@@ -635,13 +723,23 @@
     "add": {
       "title": "Ajouter un animal",
       "whatKind": "Quel type d’animal ?",
+      "kind": "Animal",
+      "requiredFields": "Veuillez compléter les champs requis pour l’animal.",
       "name": "Nom de l'animal",
       "species": "Espèce",
       "breed": "Race (optionnel)",
       "age": "Âge (années)",
+      "yardType": "Type de jardin",
+      "energyLevel": "Niveau d'énergie",
       "weight": "Poids (kg)",
       "notes": "Notes spéciales",
-      "submit": "Ajouter l'animal"
+      "bio": "Brève description de l’animal",
+      "specialNeeds": "Besoins particuliers de l’animal",
+      "specialNeedsPlaceholder": "ex. Besoin d’injections d’insuline deux fois par jour ou très timide avec les bruits forts.",
+      "breedSearch": "Rechercher la race",
+      "submit": "Ajouter l'animal",
+      "saved": "Animal enregistré avec succès.",
+      "saveFailed": "Impossible d’enregistrer cet animal. Veuillez réessayer."
     },
     "profile": {
       "title": "Profil de l'animal",
@@ -649,7 +747,21 @@
       "info": "Informations"
     },
     "edit": {
-      "title": "Modifier l'animal"
+      "title": "Modifier l'animal",
+      "kind": "Type d’animal",
+      "breed": "Race",
+      "specialNeeds": "Votre animal a-t-il des besoins particuliers ?",
+      "details": "Détails",
+      "saved": "Animal mis à jour avec succès.",
+      "saveFailed": "Impossible de mettre à jour cet animal. Veuillez réessayer.",
+      "petNotFound": "Animal introuvable.",
+      "loadFailed": "Impossible de charger les détails de l’animal. Veuillez réessayer.",
+      "addPhotos": "+ Ajouter des photos de l’animal",
+      "takeNewPhotos": "ou prendre de nouvelles photos"
+    },
+    "delete": {
+      "success": "Animal supprimé.",
+      "failed": "Impossible de supprimer cet animal. Veuillez réessayer."
     }
   },
   "errors": {

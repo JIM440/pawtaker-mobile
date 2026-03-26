@@ -31,13 +31,65 @@ type Props = {
   emptyMessage?: string;
 };
 
+function SectionCard({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
+  return (
+    <View
+      style={[
+        styles.sectionCard,
+        {
+          backgroundColor: colors.surfaceBright,
+          borderColor: colors.outlineVariant,
+        },
+      ]}
+    >
+      {children}
+    </View>
+  );
+}
+
 export function ProfileAvailabilityTab({
   data,
-  emptyMessage = "No availability details yet.",
+  emptyMessage,
 }: Props) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+
+  const resolvedEmptyMessage =
+    emptyMessage ?? t("profile.availability.emptyMessage");
+  const emptyTitle = t("profile.availability.emptyTitle", "No availability yet");
+
+  const isEffectivelyEmpty =
+    !data.note?.trim() &&
+    !data.time?.trim() &&
+    !data.days?.trim() &&
+    !data.yardType?.trim() &&
+    !data.isPetOwner?.trim() &&
+    (data.card.petTypes?.length ?? 0) === 0 &&
+    (data.card.services?.length ?? 0) === 0;
+
+  if (isEffectivelyEmpty) {
+    return (
+      <View style={styles.container}>
+        <AppText variant="title" color={colors.onSurface} style={styles.emptyTitle}>
+          {emptyTitle}
+        </AppText>
+        <AppText
+          variant="body"
+          color={colors.onSurfaceVariant}
+          style={styles.emptyMessage}
+        >
+          {resolvedEmptyMessage}
+        </AppText>
+      </View>
+    );
+  }
 
   const DisplayField = ({
     label,
@@ -47,7 +99,7 @@ export function ProfileAvailabilityTab({
   }: {
     label: string;
     value: string;
-    style?: any;
+    style?: object;
     icon?: React.ReactNode;
   }) => (
     <View style={[styles.field, style]}>
@@ -74,7 +126,7 @@ export function ProfileAvailabilityTab({
   }: {
     label: string;
     value: string;
-    style?: any;
+    style?: object;
   }) => (
     <View style={[styles.field, style]}>
       <AppText
@@ -87,10 +139,7 @@ export function ProfileAvailabilityTab({
       <View
         style={[styles.pill, { backgroundColor: colors.surfaceVariant }]}
       >
-        <AppText
-          variant="caption"
-          color={colors.onSurface}
-        >
+        <AppText variant="caption" color={colors.onSurface}>
           {value}
         </AppText>
       </View>
@@ -101,43 +150,44 @@ export function ProfileAvailabilityTab({
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
       <AvailabilityPreviewCard {...data.card} />
 
-      <View style={styles.details}>
-        <View style={styles.bio}>
-          {/* Bio / Short note directly below card */}
+      <View style={styles.cardStack}>
+        <SectionCard>
           <DisplayField
             label={t("availability.note", "Short note")}
-            value={data.note?.trim() || emptyMessage}
+            value={data.note?.trim() || resolvedEmptyMessage}
           />
+        </SectionCard>
+
+        <View style={styles.row}>
+          <SectionCard>
+            <DisplayField
+              label={t("availability.timeOnly", "Time")}
+              value={data.time || resolvedEmptyMessage}
+              icon={<Clock size={16} color={colors.primary} />}
+            />
+          </SectionCard>
+          <SectionCard>
+            <DisplayField
+              label={t("availability.daysOnly", "Days")}
+              value={data.days || resolvedEmptyMessage}
+              icon={<CalendarDays size={16} color={colors.primary} />}
+            />
+          </SectionCard>
         </View>
 
-        {/* Time & Days in one line */}
         <View style={styles.row}>
-          <DisplayField
-            label={t("availability.timeOnly", "Time")}
-            value={data.time || emptyMessage}
-            icon={<Clock size={16} color={colors.primary} />}
-            style={{ flex: 1.2 }}
-          />
-          <DisplayField
-            label={t("availability.daysOnly", "Days")}
-            value={data.days || emptyMessage}
-            icon={<CalendarDays size={16} color={colors.primary} />}
-            style={{ flex: 1 }}
-          />
-        </View>
-
-        {/* Yard Type and Pet Owner in one line */}
-        <View style={styles.row}>
-          <PillField
-            label={t("availability.yardType", "Yard Type")}
-            value={data.yardType || emptyMessage}
-            style={{ flex: 1 }}
-          />
-          <PillField
-            label={t("availability.petOwner", "Pet Owner")}
-            value={data.isPetOwner || emptyMessage}
-            style={{ flex: 1 }}
-          />
+          <SectionCard>
+            <PillField
+              label={t("availability.yardType", "Yard Type")}
+              value={data.yardType || resolvedEmptyMessage}
+            />
+          </SectionCard>
+          <SectionCard>
+            <PillField
+              label={t("availability.petOwner", "Pet Owner")}
+              value={data.isPetOwner || resolvedEmptyMessage}
+            />
+          </SectionCard>
         </View>
       </View>
     </ScrollView>
@@ -145,16 +195,30 @@ export function ProfileAvailabilityTab({
 }
 
 const styles = StyleSheet.create({
-  bio: {
-    paddingBottom: 16
-  },
   container: {
     paddingHorizontal: 16,
   },
-  details: {
-    marginTop: 20,
-    gap: 16,
+  emptyTitle: {
+    marginTop: 12,
+    fontSize: 18,
+    fontWeight: "700",
+    marginBottom: 6,
+  },
+  emptyMessage: {
+    fontSize: 14,
+    lineHeight: 20,
+  },
+  cardStack: {
+    marginTop: 16,
+    gap: 12,
     paddingBottom: 40,
+  },
+  sectionCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 14,
+    flex: 1,
+    minWidth: 0,
   },
   field: {
     gap: 4,
@@ -176,7 +240,7 @@ const styles = StyleSheet.create({
   },
   row: {
     flexDirection: "row",
-    gap: 16,
+    gap: 12,
   },
   label: {
     fontSize: 12,
@@ -187,6 +251,6 @@ const styles = StyleSheet.create({
   content: {
     lineHeight: 22,
     fontSize: 14,
+    flex: 1,
   },
 });
-

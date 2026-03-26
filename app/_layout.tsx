@@ -22,6 +22,7 @@ import i18n from "../src/lib/i18n";
 import { useAuthStore } from "../src/lib/store/auth.store";
 import { useLanguageStore } from "../src/lib/store/language.store";
 import { useThemeStore } from "../src/lib/store/theme.store";
+import { NetworkStatusBar } from "../src/shared/components/ui/NetworkStatusBar";
 import { ToastHost } from "../src/shared/components/ui/ToastHost";
 
 // Keep native splash visible until fonts load, theme + language are rehydrated from AsyncStorage
@@ -161,6 +162,7 @@ export default function RootLayout() {
             </Stack.Protected>
           </Stack>
           <ToastHost />
+          <NetworkStatusBar />
           <StatusBar style={resolvedTheme === "dark" ? "light" : "dark"} />
         </I18nextProvider>
       </QueryClientProvider>

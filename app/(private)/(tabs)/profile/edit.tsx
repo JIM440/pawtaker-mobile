@@ -3,21 +3,32 @@ import { AvailabilityFormValues, EditAvailabilityTab } from "@/src/features/prof
 import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab";
 import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
 import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
+import type { UserProfile } from "@/src/lib/store/auth.store";
+import type { TablesRow } from "@/src/lib/supabase/types";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { DataState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import {
+  EditAvailabilityFormSkeleton,
+  EditProfileDetailsSkeleton,
+  ProfilePetsTabSkeleton,
+} from "@/src/shared/components/skeletons/ProfileTabSkeletons";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import * as ImagePicker from "expo-image-picker";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { useRouter } from "expo-router";
 import { CircleAlert } from "lucide-react-native";
-import React, { useEffect, useRef, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, ScrollView, StyleSheet, View } from "react-native";
+import { Alert, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 type EditTab = "details" | "pets" | "availability";
 
@@ -27,42 +38,59 @@ export default function EditProfileScreen() {
   const { resolvedTheme } = useThemeStore();
   const { user, profile, fetchProfile, setProfile } = useAuthStore();
   const colors = Colors[resolvedTheme];
+  const showToast = useToastStore((s) => s.showToast);
 
   const [activeTab, setActiveTab] = useState<EditTab>("details");
   const [showDiscard, setShowDiscard] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingAvailability, setIsSavingAvailability] = useState(false);
-  const [isLoadingData, setIsLoadingData] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [pets, setPets] = useState<any[]>([]);
+  const [petsLoading, setPetsLoading] = useState(false);
+  const [petsError, setPetsError] = useState<string | null>(null);
+  const [petsLoaded, setPetsLoaded] = useState(false);
+
   const [availabilityInitialValues, setAvailabilityInitialValues] =
     useState<AvailabilityFormValues | null>(null);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(
+    null,
+  );
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
 
-  // Form state
-  const [avatarUri, setAvatarUri] = useState(
-    "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200",
-  );
-  const [username, setUsername] = useState("Jane Ambers");
-  const [bio, setBio] = useState(
-    "I own a golden retriever. His name is Polo. I love him so much. Then I have Bobby a very cunning and smart cat",
-  );
-  const [zipCode, setZipCode] = useState("00501");
-  const [location, setLocation] = useState("Lake Placid, New York, US");
+  const [detailsLoading, setDetailsLoading] = useState(true);
+  const [detailsError, setDetailsError] = useState<string | null>(null);
+
+  // Form state (details)
+  // Start empty and populate ONLY from the DB profile so we never show dummy data.
+  const [avatarUri, setAvatarUri] = useState("");
+  const [username, setUsername] = useState("");
+  const [bio, setBio] = useState("");
+  const [zipCode, setZipCode] = useState("");
+  const [location, setLocation] = useState("");
 
   const initialValues = useRef({ username, bio, zipCode, location });
 
   useEffect(() => {
-    if (!profile && user?.id) {
-      void fetchProfile(user.id);
+    // Details form fetch happens only when the "details" tab is active.
+    if (!user?.id || activeTab !== "details") return;
+
+    if (!profile) {
+      setDetailsLoading(true);
+      setDetailsError(null);
+      void fetchProfile(user.id).finally(() => {
+        // If `fetchProfile` didn't populate the store, we'll just keep the UI empty.
+        // (We avoid showing dummy values.)
+        setDetailsLoading(false);
+      });
       return;
     }
 
-    if (!profile) return;
+    setDetailsLoading(false);
+    setDetailsError(null);
 
-    const nextAvatar =
-      profile.avatar_url ??
-      "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=200";
-    const nextUsername = profile.full_name ?? "";
+    const nextAvatar = profile.avatar_url ?? "";
+    const nextUsername = resolveDisplayName(profile) || "";
     const nextBio = profile.bio ?? "";
     const nextLocation = profile.city ?? "";
 
@@ -77,61 +105,198 @@ export default function EditProfileScreen() {
       zipCode: "",
       location: nextLocation,
     };
-  }, [fetchProfile, profile, user?.id]);
+  }, [fetchProfile, profile, user?.id, activeTab]);
 
-  const loadProfileExtras = async () => {
-    if (!user?.id) {
-      setIsLoadingData(false);
-      return;
+  const defaultAvailabilityValues = useMemo<AvailabilityFormValues>(() => {
+    const startTime = (() => {
+      const d = new Date();
+      d.setHours(8, 0, 0, 0);
+      return d;
+    })();
+    const endTime = (() => {
+      const d = new Date();
+      d.setHours(21, 0, 0, 0);
+      return d;
+    })();
+    return {
+      available: true,
+      services: [],
+      days: [],
+      startTime,
+      endTime,
+      petOwner: "no",
+      yardType: "",
+      petKinds: [],
+      note: "",
+    };
+  }, []);
+
+  const parseTime = (value: string | undefined, fallbackHour: number) => {
+    const d = new Date();
+    if (!value) {
+      d.setHours(fallbackHour, 0, 0, 0);
+      return d;
     }
-    setIsLoadingData(true);
-    setLoadError(null);
-    try {
-      const [{ data: petsData, error: petsError }, { data: takerProfileData, error: availabilityError }] =
-        await Promise.all([
-          supabase.from("pets").select("*").eq("owner_id", user.id),
-          supabase.from("taker_profiles").select("*").eq("user_id", user.id).maybeSingle(),
-        ]);
-      if (petsError) throw petsError;
-      if (availabilityError) throw availabilityError;
+    const [h, m] = value.split(":");
+    d.setHours(Number(h || fallbackHour), Number(m || 0), 0, 0);
+    return d;
+  };
 
-      setPets(petsData ?? []);
+  const loadPetsTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setPetsLoading(true);
+    setPetsError(null);
+    try {
+      const { data, error } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("owner_id", user.id);
+      if (error) throw error;
+      setPets(data ?? []);
+      setPetsLoaded(true);
+    } catch (err) {
+      setPetsError(err instanceof Error ? err.message : "Failed to load pets.");
+    } finally {
+      setPetsLoading(false);
+    }
+  };
+
+  const loadAvailabilityTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setAvailabilityLoading(true);
+    setAvailabilityError(null);
+    try {
+      const { data: takerRaw, error } = await supabase
+        .from("taker_profiles")
+        .select("*")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      if (error) throw error;
+      const data = takerRaw as TablesRow<"taker_profiles"> | null;
 
       const availabilityRaw =
-        (takerProfileData?.availability_json as Record<string, any> | null) ?? null;
+        (data?.availability_json as Record<string, any> | null) ?? null;
 
-      const parseTime = (value: string | undefined, fallbackHour: number) => {
-        const d = new Date();
-        if (!value) {
-          d.setHours(fallbackHour, 0, 0, 0);
-          return d;
-        }
-        const [h, m] = value.split(":");
-        d.setHours(Number(h || fallbackHour), Number(m || 0), 0, 0);
-        return d;
-      };
+      // If the user has not posted availability yet, show an empty state in the edit tab.
+      if (!availabilityRaw) {
+        setAvailabilityInitialValues(null);
+        setAvailabilityLoaded(true);
+        return;
+      }
 
       setAvailabilityInitialValues({
-        available: availabilityRaw?.available ?? false,
-        services: availabilityRaw?.services ?? [],
-        days: availabilityRaw?.days ?? [],
+        available: availabilityRaw?.available ?? defaultAvailabilityValues.available,
+        services: availabilityRaw?.services ?? defaultAvailabilityValues.services,
+        days: availabilityRaw?.days ?? defaultAvailabilityValues.days,
         startTime: parseTime(availabilityRaw?.startTime, 8),
         endTime: parseTime(availabilityRaw?.endTime, 21),
-        petOwner: availabilityRaw?.petOwner ?? "no",
-        yardType: availabilityRaw?.yardType ?? "",
-        petKinds: availabilityRaw?.petKinds ?? [],
-        note: availabilityRaw?.note ?? "",
+        petOwner: availabilityRaw?.petOwner ?? defaultAvailabilityValues.petOwner,
+        yardType: availabilityRaw?.yardType ?? defaultAvailabilityValues.yardType,
+        petKinds: availabilityRaw?.petKinds ?? defaultAvailabilityValues.petKinds,
+        note: availabilityRaw?.note ?? defaultAvailabilityValues.note,
       });
+      setAvailabilityLoaded(true);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load profile edit data.");
+      setAvailabilityError(
+        err instanceof Error
+          ? err.message
+          : "Failed to load availability.",
+      );
     } finally {
-      setIsLoadingData(false);
+      setAvailabilityLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadProfileExtras();
-  }, [user?.id]);
+    if (!user?.id) return;
+    if (activeTab === "pets" && !petsLoading && !petsLoaded && !petsError) {
+      void loadPetsTab();
+    }
+    if (
+      activeTab === "availability" &&
+      !availabilityLoading &&
+      !availabilityLoaded &&
+      !availabilityError
+    ) {
+      void loadAvailabilityTab();
+    }
+  }, [
+    activeTab,
+    user?.id,
+    petsLoading,
+    petsError,
+    petsLoaded,
+    availabilityLoading,
+    availabilityError,
+    availabilityLoaded,
+  ]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      if (activeTab === "pets") await loadPetsTab({ refresh: true });
+      else if (activeTab === "availability")
+        await loadAvailabilityTab({ refresh: true });
+      // details tab relies on auth profile; refresh triggers it via store already.
+      else if (activeTab === "details" && user?.id) await fetchProfile(user.id);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const handleDeletePet = async (petId: string) => {
+    if (!user?.id) return;
+    Alert.alert(
+      t("common.deleteConfirmTitle", "Delete pet?"),
+      t(
+        "common.deleteConfirmMessage",
+        "This will permanently delete the pet from your account.",
+      ),
+      [
+        { text: t("common.cancel", "Cancel"), style: "cancel" },
+        {
+          text: t("common.delete", "Delete"),
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const { error } = await supabase
+                .from("pets")
+                .delete()
+                .eq("id", petId)
+                .eq("owner_id", user.id);
+              if (error) throw error;
+
+              showToast({
+                variant: "success",
+                message: t("pets.delete.success", "Pet deleted."),
+                durationMs: 2400,
+              });
+
+              router.replace({
+                pathname: "/(private)/(tabs)/profile",
+                params: { tab: "pets", refreshPets: "true" },
+              });
+            } catch (err) {
+              const details = errorMessageFromUnknown(
+                err,
+                t("common.error", "Something went wrong"),
+                t("errors.networkError", "Network error. Check your connection."),
+              );
+              const friendly = t(
+                "pets.delete.failed",
+                "Couldn't delete this pet. Please try again.",
+              );
+              showToast({
+                variant: "error",
+                message: details === friendly ? friendly : `${friendly} ${details}`,
+                durationMs: 3200,
+              });
+            }
+          },
+        },
+      ],
+    );
+  };
 
   const isDirty =
     username !== initialValues.current.username ||
@@ -147,51 +312,17 @@ export default function EditProfileScreen() {
     }
   };
 
-  if (isLoadingData) {
-    return (
-      <PageContainer>
-        <BackHeader
-          onBack={() => router.back()}
-          title={t("profile.edit.title", "Edit Profile")}
-        />
-        <DataState
-          title={t("common.loading", "Loading...")}
-          message={t("profile.edit.loading", "Loading profile data...")}
-          mode="full"
-        />
-      </PageContainer>
-    );
-  }
-
-  if (loadError) {
-    return (
-      <PageContainer>
-        <BackHeader
-          onBack={() => router.back()}
-          title={t("profile.edit.title", "Edit Profile")}
-        />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={loadError}
-          mode="full"
-          actionLabel={t("common.retry", "Retry")}
-          onAction={() => {
-            void loadProfileExtras();
-          }}
-        />
-      </PageContainer>
-    );
-  }
-
   const handleChooseImage = async () => {
     const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (!permission.granted) {
-      Alert.alert(
-        t(
+      showToast({
+        variant: "error",
+        message: t(
           "profile.edit.galleryPermissionRequired",
           "Photo library access is required to choose an image.",
         ),
-      );
+        durationMs: 3200,
+      });
       return;
     }
 
@@ -243,16 +374,30 @@ export default function EditProfileScreen() {
       if (error) throw error;
 
       setAvailabilityInitialValues(values);
-      Alert.alert(
-        t("common.success", "Success"),
-        t("profile.edit.availabilitySaved", "Availability updated successfully."),
-      );
-      router.back();
+      showToast({
+        variant: "success",
+        message: t("profile.edit.availabilityToast", "Availability updated."),
+        durationMs: 2400,
+      });
+      router.replace({
+        pathname: "/(private)/(tabs)/profile",
+        params: { tab: "availability", refreshAvailability: "true" },
+      });
     } catch (err) {
-      Alert.alert(
+      const details = errorMessageFromUnknown(
+        err,
         t("common.error", "Something went wrong"),
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        t("errors.networkError", "Network error. Check your connection."),
       );
+      const friendly = t(
+        "profile.edit.availabilitySaveFailed",
+        "Couldn't update availability. Please try again.",
+      );
+      showToast({
+        variant: "error",
+        message: details === friendly ? friendly : `${friendly} ${details}`,
+        durationMs: 3200,
+      });
     } finally {
       setIsSavingAvailability(false);
     }
@@ -260,7 +405,20 @@ export default function EditProfileScreen() {
 
   const handleSave = async () => {
     if (!user?.id) {
-      Alert.alert(t("common.error", "Something went wrong"));
+      showToast({
+        variant: "error",
+        message: t("common.error", "Something went wrong"),
+        durationMs: 3200,
+      });
+      return;
+    }
+
+    if (!location.trim()) {
+      const msg = t(
+        "profile.edit.locationRequired",
+        "Please enter your location before saving.",
+      );
+      showToast({ variant: "error", message: msg, durationMs: 3200 });
       return;
     }
 
@@ -275,8 +433,9 @@ export default function EditProfileScreen() {
         uploadedAvatarUrl = uploaded.secure_url;
       }
 
+      const trimmedName = username.trim() || null;
       const payload = {
-        full_name: username.trim() || null,
+        full_name: trimmedName,
         bio: bio.trim() || null,
         city: location.trim() || null,
         avatar_url: uploadedAvatarUrl || null,
@@ -293,23 +452,35 @@ export default function EditProfileScreen() {
         throw error ?? new Error("Profile update failed");
       }
 
-      setProfile(data);
+      setProfile(data as unknown as UserProfile);
+      const saved = data as TablesRow<"users">;
       initialValues.current = {
-        username: data.full_name ?? "",
-        bio: data.bio ?? "",
+        username: resolveDisplayName(saved as { full_name?: string | null }) || "",
+        bio: saved.bio ?? "",
         zipCode: "",
-        location: data.city ?? "",
+        location: saved.city ?? "",
       };
-      Alert.alert(
-        t("common.success", "Success"),
-        t("profile.edit.saved", "Profile updated successfully."),
-      );
+      showToast({
+        variant: "success",
+        message: t("profile.edit.toast", "Profile updated."),
+        durationMs: 2400,
+      });
       router.back();
     } catch (err) {
-      Alert.alert(
+      const details = errorMessageFromUnknown(
+        err,
         t("common.error", "Something went wrong"),
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        t("errors.networkError", "Network error. Check your connection."),
       );
+      const friendly = t(
+        "profile.edit.saveFailed",
+        "Couldn't save your profile changes. Please try again.",
+      );
+      showToast({
+        variant: "error",
+        message: details === friendly ? friendly : `${friendly} ${details}`,
+        durationMs: 3200,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -346,73 +517,146 @@ export default function EditProfileScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+        }
       >
         {activeTab === "details" && (
-          <EditDetailsTab
-            avatarUri={avatarUri}
-            username={username}
-            bio={bio}
-            zipCode={zipCode}
-            location={location}
-            onChangeUsername={setUsername}
-            onChangeBio={setBio}
-            onChangeZipCode={setZipCode}
-            onChangeLocation={setLocation}
-            onChooseImage={() => {
-              void handleChooseImage();
-            }}
-            onSave={handleSave}
-            saveLabel={isSaving ? t("common.loading", "Loading...") : t("common.save", "Save")}
-            isSaving={isSaving}
-          />
+          <>
+            {detailsLoading ? (
+              <EditProfileDetailsSkeleton />
+            ) : detailsError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={detailsError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  if (user?.id) void fetchProfile(user.id);
+                }}
+                mode="inline"
+              />
+            ) : (
+              <EditDetailsTab
+                avatarUri={avatarUri}
+                username={username}
+                bio={bio}
+                zipCode={zipCode}
+                location={location}
+                onChangeUsername={setUsername}
+                onChangeBio={setBio}
+                onChangeZipCode={setZipCode}
+                onChangeLocation={setLocation}
+                onChooseImage={() => {
+                  void handleChooseImage();
+                }}
+                onSave={handleSave}
+                saveLabel={
+                  isSaving
+                    ? t("common.saving", "Saving...")
+                    : t("common.save", "Save")
+                }
+                isSaving={isSaving}
+              />
+            )}
+          </>
         )}
         {activeTab === "pets" && (
-          <EditPetsTab
-            pets={pets.map((pet) => ({
-              id: pet.id,
-              imageSource: pet.avatar_url || "",
-              petName: pet.name || "Unnamed pet",
-              breed: pet.breed || "Unknown breed",
-              petType: pet.species || "Pet",
-              bio: pet.notes || "No pet bio yet.",
-            }))}
-            onAddPet={() => {
-              if (blockIfKycNotApproved()) return;
-              router.push("/(private)/pets/add");
-            }}
-            onEditPet={(id) =>
-              router.push({
-                pathname: "/(private)/pets/[id]/edit",
-                params: { id },
-              })
-            }
-            onDeletePet={() => { }}
-            onLaunchPetRequest={(id) => {
-              if (blockIfKycNotApproved()) return;
-              router.push({
-                pathname: "/(private)/requests/create" as any,
-                params: { petId: id },
-              });
-            }}
-            onSave={handleSave}
-          />
+          <>
+            {petsLoading ? (
+              <ProfilePetsTabSkeleton count={2} />
+            ) : petsError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={petsError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setPetsError(null);
+                  setPetsLoaded(false);
+                  void loadPetsTab({ refresh: true });
+                }}
+                mode="inline"
+              />
+            ) : (
+              <EditPetsTab
+                pets={pets.map((pet) => ({
+                  id: pet.id,
+                  imageSource: petGalleryUrls(pet)[0] ?? "",
+                  petName: pet.name || "Unnamed pet",
+                  breed: pet.breed || "Unknown breed",
+                  petType: pet.species || "Pet",
+                  bio: pet.notes || "No pet bio yet.",
+                }))}
+                onAddPet={() => {
+                  if (blockIfKycNotApproved()) return;
+                  router.push("/(private)/pets/add");
+                }}
+                onEditPet={(id) =>
+                  router.push({
+                    pathname: "/(private)/pets/[id]/edit",
+                    params: { id },
+                  })
+                }
+                onDeletePet={(id) => {
+                  void handleDeletePet(id);
+                }}
+                onLaunchPetRequest={(id) => {
+                  if (blockIfKycNotApproved()) return;
+                  router.push({
+                    pathname: "/(private)/requests/create" as any,
+                    params: { petId: id },
+                  });
+                }}
+                onSave={handleSave}
+              />
+            )}
+          </>
         )}
         {activeTab === "availability" && (
-          <EditAvailabilityTab
-            key={
-              availabilityInitialValues
-                ? JSON.stringify({
-                  d: availabilityInitialValues.days,
-                  s: availabilityInitialValues.services,
-                  p: availabilityInitialValues.petKinds,
-                  n: availabilityInitialValues.note,
-                })
-                : "availability-default"
-            }
-            initialValues={availabilityInitialValues ?? undefined}
-            onSave={handleSaveAvailability}
-            isSaving={isSavingAvailability}
-          />
+          <>
+            {availabilityLoading ? (
+              <EditAvailabilityFormSkeleton />
+            ) : availabilityError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={availabilityError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setAvailabilityError(null);
+                  setAvailabilityLoaded(false);
+                  void loadAvailabilityTab({ refresh: true });
+                }}
+                mode="inline"
+              />
+            ) : (
+              availabilityInitialValues ? (
+                <EditAvailabilityTab
+                  key={JSON.stringify({
+                    d: availabilityInitialValues.days,
+                    s: availabilityInitialValues.services,
+                    p: availabilityInitialValues.petKinds,
+                    n: availabilityInitialValues.note,
+                  })}
+                  initialValues={availabilityInitialValues}
+                  onSave={handleSaveAvailability}
+                  isSaving={isSavingAvailability}
+                  saveLabel={
+                    isSavingAvailability
+                      ? t("common.saving", "Saving...")
+                      : t("common.save", "Save")
+                  }
+                />
+              ) : (
+                <DataState
+                  title={t("profile.availability.emptyTitle", "No availability yet")}
+                  message={t(
+                    "profile.availability.emptyMessage",
+                    "You haven't posted availability yet. Publish availability to show it here.",
+                  )}
+                  mode="inline"
+                />
+              )
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -446,6 +690,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: 32,
   },
 });

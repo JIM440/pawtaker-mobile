@@ -30,6 +30,7 @@ type Props = {
   initialValues?: AvailabilityFormValues;
   onSave?: (values: AvailabilityFormValues) => void;
   isSaving?: boolean;
+  saveLabel?: string;
 };
 
 const defaultValues: AvailabilityFormValues = {
@@ -56,6 +57,7 @@ export function EditAvailabilityTab({
   onSave,
   initialValues = defaultValues,
   isSaving = false,
+  saveLabel,
 }: Props) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -194,7 +196,7 @@ export function EditAvailabilityTab({
       </View>
 
       <Button
-        label={t("common.save", "Save")}
+        label={saveLabel ?? t("common.save", "Save")}
         onPress={() =>
           onSave?.({
             available,

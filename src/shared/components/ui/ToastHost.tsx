@@ -1,48 +1,53 @@
-import { Colors } from "@/src/constants/colors";
-import { useToastStore, type ToastVariant } from "@/src/lib/store/toast.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { CheckCircle2, Info, X, XCircle } from "lucide-react-native";
 import React, { useMemo } from "react";
-import { Pressable, StyleSheet, View } from "react-native";
+import { Platform, Pressable, StyleSheet, View } from "react-native";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { Colors } from "@/src/constants/colors";
 
 const iconSize = 18;
+const TOAST_HEIGHT = 48;
 
 export function ToastHost() {
   const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
   const toast = useToastStore((s) => s.toast);
   const hideToast = useToastStore((s) => s.hideToast);
 
+  const theme = resolvedTheme === "dark" ? "dark" : "light";
+  const palette = Colors[theme];
+
   const variantStyles = useMemo(() => {
-    type VariantStyle = {
-      iconColor: string;
-      bg: string;
-      textColor: string;
-    };
-    const base: VariantStyle = {
-      iconColor: colors.primary,
-      bg: colors.surfaceContainerHighest,
-      textColor: colors.onSurface,
-    };
+    if (!toast) {
+      return {
+        bg: palette.surfaceContainerHigh,
+        textColor: palette.onSurface,
+        iconColor: palette.onSurfaceVariant,
+      };
+    }
 
-    const byVariant: Record<ToastVariant, VariantStyle> = {
-      default: base,
-      info: base,
-      success: {
-        iconColor: colors.tertiary,
-        bg: colors.tertiaryContainer,
-        textColor: colors.onTertiaryContainer,
-      },
-      error: {
-        iconColor: colors.error,
-        bg: colors.errorContainer,
-        textColor: colors.onErrorContainer,
-      },
-    };
+    if (toast.variant === "success") {
+      return {
+        bg: palette.primaryContainer,
+        textColor: palette.onPrimaryContainer,
+        iconColor: palette.primary,
+      };
+    }
 
-    return toast ? byVariant[toast.variant] : base;
-  }, [colors, toast]);
+    if (toast.variant === "error") {
+      return {
+        bg: palette.errorContainer,
+        textColor: palette.onErrorContainer,
+        iconColor: palette.error,
+      };
+    }
+
+    return {
+      bg: palette.surfaceContainerHigh,
+      textColor: palette.onSurface,
+      iconColor: palette.onSurfaceVariant,
+    };
+  }, [palette, toast]);
 
   if (!toast) return null;
 
@@ -81,7 +86,7 @@ export function ToastHost() {
             hitSlop={10}
             style={styles.closeBtn}
           >
-            <X size={18} color={variantStyles.textColor} />
+            <X size={24} color={variantStyles.textColor} />
           </Pressable>
         </View>
       </View>
@@ -106,9 +111,22 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     width: "100%",
-    paddingVertical: 12,
-    paddingHorizontal: 14,
-    borderRadius: 12,
+    height: TOAST_HEIGHT,
+    minHeight: TOAST_HEIGHT,
+    paddingLeft: 16,
+    paddingRight: 0,
+    borderRadius: 4,
+    ...Platform.select({
+      ios: {
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.15,
+        shadowRadius: 8,
+      },
+      android: {
+        elevation: 6,
+      },
+    }),
   },
   iconLeft: {
     width: 28,
@@ -121,11 +139,14 @@ const styles = StyleSheet.create({
     paddingRight: 8,
   },
   message: {
-    fontWeight: "600",
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
+    fontWeight: "400",
+    letterSpacing: 0.25,
   },
   closeBtn: {
-    width: 28,
+    width: 48,
+    height: 48,
     alignItems: "center",
     justifyContent: "center",
   },

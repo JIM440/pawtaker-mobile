@@ -1,3 +1,7 @@
+/**
+ * Supabase `public` schema typings. UUIDs and timestamptz are strings from PostgREST.
+ * `date` columns are ISO date strings (`YYYY-MM-DD`). `numeric` columns are `number` in JS.
+ */
 export type Json = string | number | boolean | null | { [key: string]: Json } | Json[];
 
 export interface Database {
@@ -8,7 +12,6 @@ export interface Database {
           id: string;
           email: string;
           full_name: string | null;
-          display_name: string | null;
           avatar_url: string | null;
           bio: string | null;
           city: string | null;
@@ -34,7 +37,6 @@ export interface Database {
           id?: string;
           email: string;
           full_name?: string | null;
-          display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           city?: string | null;
@@ -64,13 +66,29 @@ export interface Database {
           name: string;
           species: string;
           breed: string | null;
+          /** DB `numeric` */
           age_years: number | null;
+          /** DB `numeric` */
           weight_kg: number | null;
           avatar_url: string | null;
+          /** Ordered gallery URLs for carousel; empty means use `avatar_url` only. */
+          photo_urls: string[] | null;
           notes: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['pets']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          owner_id: string;
+          name: string;
+          species: string;
+          breed?: string | null;
+          age_years?: number | null;
+          weight_kg?: number | null;
+          avatar_url?: string | null;
+          photo_urls?: string[];
+          notes?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['pets']['Insert']>;
         Relationships: never[];
       };
@@ -80,15 +98,32 @@ export interface Database {
           owner_id: string;
           pet_id: string;
           taker_id: string | null;
-          care_type: 'sitting' | 'walking' | 'boarding';
-          status: 'open' | 'matched' | 'active' | 'completed' | 'cancelled';
+          /** DB `text` — app uses e.g. sitting, walking, boarding */
+          care_type: string;
+          /** DB `text`, default `open` */
+          status: string;
+          /** DB `date` */
           start_date: string;
+          /** DB `date` */
           end_date: string;
+          /** DB `integer`, default 0 */
           points_offered: number;
           description: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['care_requests']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          owner_id: string;
+          pet_id: string;
+          taker_id?: string | null;
+          care_type: string;
+          status?: string;
+          start_date: string;
+          end_date: string;
+          points_offered?: number;
+          description?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['care_requests']['Insert']>;
         Relationships: never[];
       };
@@ -98,12 +133,23 @@ export interface Database {
           request_id: string;
           owner_id: string;
           taker_id: string;
+          /** DB `boolean`, default false */
           signed_owner: boolean;
           signed_taker: boolean;
-          status: 'draft' | 'signed' | 'active' | 'completed';
+          /** DB `text`, default `draft` */
+          status: string;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['contracts']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          request_id: string;
+          owner_id: string;
+          taker_id: string;
+          signed_owner?: boolean;
+          signed_taker?: boolean;
+          status?: string;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['contracts']['Insert']>;
         Relationships: never[];
       };
@@ -112,11 +158,19 @@ export interface Database {
           id: string;
           contract_id: string;
           taker_id: string;
+          /** DB `text[]`, default `{}` */
           photo_urls: string[];
           note: string | null;
           checked_in_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['check_ins']['Row'], 'id'>;
+        Insert: {
+          id?: string;
+          contract_id: string;
+          taker_id: string;
+          photo_urls?: string[];
+          note?: string | null;
+          checked_in_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['check_ins']['Insert']>;
         Relationships: never[];
       };
@@ -126,11 +180,20 @@ export interface Database {
           contract_id: string;
           reviewer_id: string;
           reviewee_id: string;
+          /** DB `numeric` */
           rating: number;
           comment: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['reviews']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          contract_id: string;
+          reviewer_id: string;
+          reviewee_id: string;
+          rating: number;
+          comment?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['reviews']['Insert']>;
         Relationships: never[];
       };
@@ -140,12 +203,23 @@ export interface Database {
           thread_id: string;
           sender_id: string;
           content: string;
-          type: 'text' | 'proposal' | 'agreement' | 'image';
+          /** DB `text`, default `text` — app uses e.g. `proposal` */
+          type: string;
+          /** DB `jsonb` */
           metadata: Json | null;
           read_at: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['messages']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          thread_id: string;
+          sender_id: string;
+          content: string;
+          type?: string;
+          metadata?: Json | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['messages']['Insert']>;
         Relationships: never[];
       };
@@ -157,7 +231,13 @@ export interface Database {
           last_message_at: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['threads']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          participant_ids: string[];
+          request_id?: string | null;
+          last_message_at?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['threads']['Insert']>;
         Relationships: never[];
       };
@@ -165,14 +245,28 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
+          /** DB `text[]`, default `{}` */
           accepted_species: string[];
+          /** DB `integer`, default 1 */
           max_pets: number;
+          /** DB `jsonb`, default `{}` */
           availability_json: Json;
+          /** DB `integer`, default 0 */
           hourly_points: number;
+          /** DB `numeric`, default 0 */
           experience_years: number;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['taker_profiles']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          accepted_species?: string[];
+          max_pets?: number;
+          availability_json?: Json;
+          hourly_points?: number;
+          experience_years?: number;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['taker_profiles']['Insert']>;
         Relationships: never[];
       };
@@ -183,11 +277,22 @@ export interface Database {
           type: string;
           title: string;
           body: string;
+          /** DB `jsonb` */
           data: Json | null;
+          /** DB `boolean`, default false */
           read: boolean;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['notifications']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          type: string;
+          title: string;
+          body: string;
+          data?: Json | null;
+          read?: boolean;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['notifications']['Insert']>;
         Relationships: never[];
       };
@@ -200,7 +305,14 @@ export interface Database {
           relationship: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['emergency_contacts']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          name: string;
+          phone: string;
+          relationship?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['emergency_contacts']['Insert']>;
         Relationships: never[];
       };
@@ -208,24 +320,26 @@ export interface Database {
         Row: {
           id: string;
           user_id: string;
-          document_type: 'passport' | 'drivers_license' | 'national_id';
+          document_type: string;
           front_url: string;
           back_url: string | null;
           selfie_url: string | null;
-          status: 'pending' | 'approved' | 'rejected';
+          /** DB `text`, default `pending` */
+          status: string;
           reviewer_notes: string | null;
-          submitted_at: string;
+          submitted_at: string | null;
           reviewed_at: string | null;
         };
         Insert: {
+          id?: string;
           user_id: string;
-          document_type: 'passport' | 'drivers_license' | 'national_id';
+          document_type: string;
           front_url: string;
           back_url?: string | null;
           selfie_url?: string | null;
-          status?: 'pending' | 'approved' | 'rejected';
+          status?: string;
           reviewer_notes?: string | null;
-          submitted_at?: string;
+          submitted_at?: string | null;
           reviewed_at?: string | null;
         };
         Update: Partial<Database['public']['Tables']['kyc_submissions']['Insert']>;
@@ -236,12 +350,20 @@ export interface Database {
           id: string;
           user_id: string;
           amount: number;
-          type: 'earn' | 'spend' | 'bonus' | 'refund';
+          type: string;
           description: string;
           contract_id: string | null;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['point_transactions']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          amount: number;
+          type: string;
+          description: string;
+          contract_id?: string | null;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['point_transactions']['Insert']>;
         Relationships: never[];
       };
@@ -252,10 +374,19 @@ export interface Database {
           reported_user_id: string;
           reason: string;
           details: string | null;
-          status: 'open' | 'reviewed' | 'resolved';
+          /** DB `text`, default `open` */
+          status: string;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['reports']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          reporter_id: string;
+          reported_user_id: string;
+          reason: string;
+          details?: string | null;
+          status?: string;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['reports']['Insert']>;
         Relationships: never[];
       };
@@ -264,10 +395,16 @@ export interface Database {
           id: string;
           user_id: string;
           token: string;
-          platform: 'ios' | 'android';
+          platform: string;
           created_at: string;
         };
-        Insert: Omit<Database['public']['Tables']['push_tokens']['Row'], 'id' | 'created_at'>;
+        Insert: {
+          id?: string;
+          user_id: string;
+          token: string;
+          platform: string;
+          created_at?: string;
+        };
         Update: Partial<Database['public']['Tables']['push_tokens']['Insert']>;
         Relationships: never[];
       };
@@ -277,3 +414,7 @@ export interface Database {
     Enums: Record<string, never>;
   };
 }
+
+/** Strongly typed row for a public table (use when `select('*')` infers as {}). */
+export type TablesRow<T extends keyof Database["public"]["Tables"]> =
+  Database["public"]["Tables"][T]["Row"];

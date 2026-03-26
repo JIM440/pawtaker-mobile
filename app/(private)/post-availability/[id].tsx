@@ -1,54 +1,57 @@
-import { Colors } from '@/src/constants/colors';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { Button } from '@/src/shared/components/ui/Button';
-import { RatingSummary } from '@/src/shared/components/ui/RatingSummary';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
+import { Colors } from "@/src/constants/colors";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { ensureCareContractForRequest } from "@/src/lib/contracts/ensureCareContract";
+import {
+  isResourceNotFound,
+  RESOURCE_NOT_FOUND,
+} from "@/src/lib/errors/resource-not-found";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { supabase } from "@/src/lib/supabase/client";
+import type { TablesRow } from "@/src/lib/supabase/types";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
+import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { RatingSummary } from "@/src/shared/components/ui/RatingSummary";
+import { useFocusEffect } from "@react-navigation/native";
+import { useLocalSearchParams, useRouter } from "expo-router";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import {
   ChevronLeft,
   EllipsisVertical,
   MapPin,
-} from 'lucide-react-native';
-import React from 'react';
-import { useTranslation } from 'react-i18next';
-import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
-import { useToastStore } from '@/src/lib/store/toast.store';
-
-const MOCK_OFFER = {
-  petName: 'Polo',
-  taker: {
-    name: 'Bob Majors',
-    avatarUri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200',
-    available: true,
-    rating: 4.1,
-    handshakes: 12,
-    paws: 17,
-    petTypes: 'Cats • Dog • Bird',
-    careOffering: 'Daytime • Play/walk',
-    location: 'Syracuse, New York, US',
-  },
-  details: {
-    yardType: 'fenced yard',
-    active: 'Sat, Sun | 8AM-4PM',
-    careTypes: 'Daytime, Play/walk',
-    petOwner: 'Yes',
-  },
-  note:
-    "Hi there! I'm Bob, a lifelong pet lover with 5 years of experience caring for energetic pups and senior cats alike. Whether it's a high-energy hike or a quiet afternoon, I prioritize your pet's routine and safety. I offer premium care with regular updates and photos.",
-};
+} from "lucide-react-native";
+import React, { useCallback, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Modal, Pressable, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import { useToastStore } from "@/src/lib/store/toast.store";
 
 export default function ViewOfferScreen() {
-  const { id, accepted: acceptedParam } = useLocalSearchParams<{
+  const { id: requestId, accepted: acceptedParam } = useLocalSearchParams<{
     id: string;
     accepted?: string;
   }>();
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const offer = MOCK_OFFER;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const [reqRow, setReqRow] = useState<any | null>(null);
+  const [petRow, setPetRow] = useState<any | null>(null);
+  const [ownerId, setOwnerId] = useState<string | null>(null);
+  const [takerId, setTakerId] = useState<string | null>(null);
+  const [takerUser, setTakerUser] = useState<any | null>(null);
+  const [takerProfile, setTakerProfile] = useState<any | null>(null);
+  const [takerReviews, setTakerReviews] = useState<any[]>([]);
+  const [contractId, setContractId] = useState<string | null>(null);
+
   const [acceptedConfirmOpen, setAcceptedConfirmOpen] = React.useState(false);
   const [accepted, setAccepted] = React.useState(
     () => acceptedParam === '1' || acceptedParam === 'true',
@@ -56,6 +59,299 @@ export default function ViewOfferScreen() {
   const [actionsOpen, setActionsOpen] = React.useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = React.useState(false);
   const showToast = useToastStore((s) => s.showToast);
+
+  const load = useCallback(async () => {
+    if (!requestId) {
+      setLoading(false);
+      setError("Missing request id.");
+      return;
+    }
+    if (!user?.id) {
+      setLoading(false);
+      setError(t("common.error", "Something went wrong"));
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: requestRaw, error: reqError } = await supabase
+        .from("care_requests")
+        .select("*")
+        .eq("id", requestId)
+        .maybeSingle();
+      if (reqError) throw reqError;
+      const request = requestRaw as TablesRow<"care_requests"> | null;
+      if (!request) {
+        setReqRow(null);
+        setPetRow(null);
+        setOwnerId(null);
+        setTakerId(null);
+        setTakerUser(null);
+        setTakerProfile(null);
+        setTakerReviews([]);
+        setError(RESOURCE_NOT_FOUND);
+        return;
+      }
+
+      const oId = request.owner_id as string;
+      setOwnerId(oId);
+
+      if (user.id !== oId) {
+        setError(t("offer.wrongRecipient", "Only the pet owner can view this offer."));
+        setReqRow(request);
+        setPetRow(null);
+        setTakerId(null);
+        setTakerUser(null);
+        setTakerProfile(null);
+        setTakerReviews([]);
+        return;
+      }
+
+      let applicantId = request.taker_id as string | null;
+
+      if (!applicantId) {
+        const { data: threads, error: threadsError } = await supabase
+          .from("threads")
+          .select("id,participant_ids,last_message_at,request_id")
+          .eq("request_id", requestId)
+          .order("last_message_at", { ascending: false, nullsFirst: false })
+          .limit(25);
+        if (threadsError) throw threadsError;
+
+        const peerFromParticipants = () => {
+          for (const th of threads ?? []) {
+            const parts = (th.participant_ids ?? []) as string[];
+            if (!parts.includes(oId)) continue;
+            const peer = parts.find((p) => p && p !== oId) ?? null;
+            if (peer) return peer;
+          }
+          return null;
+        };
+
+        const threadIds = (threads ?? []).map((th) => th.id).filter(Boolean);
+        let proposalSenderId: string | null = null;
+        if (threadIds.length) {
+          const { data: proposalSenders, error: proposalError } = await supabase
+            .from("messages")
+            .select("sender_id,created_at")
+            .eq("type", "proposal")
+            .in("thread_id", threadIds)
+            .neq("sender_id", oId)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          if (proposalError) throw proposalError;
+          proposalSenderId = proposalSenders?.[0]?.sender_id ?? null;
+        }
+
+        applicantId = proposalSenderId || peerFromParticipants();
+      }
+
+      const [{ data: pet, error: petError }, { data: tUser, error: tUserError }, { data: tProfile, error: tpError }, { data: reviews, error: revError }] =
+        await Promise.all([
+          supabase.from("pets").select("*").eq("id", request.pet_id).maybeSingle(),
+          applicantId
+            ? supabase
+                .from("users")
+                .select(
+                  "id,full_name,avatar_url,city,bio,points_balance,care_given_count,care_received_count",
+                )
+                .eq("id", applicantId)
+                .maybeSingle()
+            : Promise.resolve({ data: null } as any),
+          applicantId
+            ? supabase.from("taker_profiles").select("*").eq("user_id", applicantId).maybeSingle()
+            : Promise.resolve({ data: null } as any),
+          applicantId
+            ? supabase.from("reviews").select("rating").eq("reviewee_id", applicantId)
+            : Promise.resolve({ data: [] } as any),
+        ]);
+
+      if (petError) throw petError;
+      if (tUserError) throw tUserError;
+      if (tpError) throw tpError;
+      if (revError) throw revError;
+
+      setReqRow(request);
+      setPetRow(pet ?? null);
+      setTakerId(applicantId);
+      setTakerUser(tUser ?? null);
+      setTakerProfile(tProfile ?? null);
+      setTakerReviews(reviews ?? []);
+
+      if (applicantId) {
+        const { data: existingContract, error: contractErr } = await supabase
+          .from("contracts")
+          .select("id")
+          .eq("request_id", requestId)
+          .maybeSingle();
+        if (contractErr) throw contractErr;
+        setContractId((existingContract?.id as string | undefined) ?? null);
+      } else {
+        setContractId(null);
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+    } finally {
+      setLoading(false);
+    }
+  }, [requestId, t, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  const availability = useMemo(() => {
+    const raw = takerProfile?.availability_json;
+    return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, any>) : null;
+  }, [takerProfile?.availability_json]);
+
+  const formatDaysTime = useMemo(() => {
+    const days = Array.isArray(availability?.days) ? (availability.days as string[]) : [];
+    const start = typeof availability?.startTime === "string" ? availability.startTime : "";
+    const end = typeof availability?.endTime === "string" ? availability.endTime : "";
+    const dayLabel =
+      days.length > 0
+        ? days.join(", ")
+        : t("common.empty", "—");
+    const timeLabel =
+      start && end ? `${start}-${end}` : t("common.empty", "—");
+    return `${dayLabel} | ${timeLabel}`;
+  }, [availability?.days, availability?.endTime, availability?.startTime, t]);
+
+  const mapServiceKeyToLabel = useCallback(
+    (key: string) => {
+      const k = key === "playwalk" ? "playwalk" : key === "overnight" ? "overnight" : key === "vacation" ? "vacation" : key === "daytime" ? "daytime" : key;
+      return t(`feed.careTypes.${k}` as any);
+    },
+    [t],
+  );
+
+  const careOfferingLabel = useMemo(() => {
+    const services = Array.isArray(availability?.services) ? (availability.services as string[]) : [];
+    if (!services.length) return t("common.empty", "—");
+    return services.map(mapServiceKeyToLabel).join(" • ");
+  }, [availability?.services, mapServiceKeyToLabel, t]);
+
+  const careTypesDetail = useMemo(() => {
+    const services = Array.isArray(availability?.services) ? (availability.services as string[]) : [];
+    if (!services.length) return t("common.empty", "—");
+    return services.map(mapServiceKeyToLabel).join(", ");
+  }, [availability?.services, mapServiceKeyToLabel, t]);
+
+  const petOwnerDetail = useMemo(() => {
+    const v = availability?.petOwner;
+    if (v === "yes" || v === true) return t("post.availability.ownerYes");
+    if (v === "no" || v === false) return t("post.availability.ownerNo");
+    return t("common.empty", "—");
+  }, [availability?.petOwner, t]);
+
+  const yardDetail = useMemo(() => {
+    const y = typeof availability?.yardType === "string" ? availability.yardType : null;
+    if (!y) {
+      const parsed = parsePetNotes(takerUser?.bio);
+      return parsed.yardType ?? t("common.empty", "—");
+    }
+    return y;
+  }, [availability?.yardType, t, takerUser?.bio]);
+
+  const petTypesLabel = useMemo(() => {
+    const species = Array.isArray(takerProfile?.accepted_species)
+      ? (takerProfile.accepted_species as string[])
+      : [];
+    if (!species.length) return t("common.empty", "—");
+    return species.join(" • ");
+  }, [t, takerProfile?.accepted_species]);
+
+  const note = useMemo(() => {
+    const n = typeof availability?.note === "string" ? availability.note.trim() : "";
+    if (n) return n;
+    const bio = typeof takerUser?.bio === "string" ? takerUser.bio.trim() : "";
+    return bio || t("profile.bio.empty", "No bio yet.");
+  }, [availability?.note, t, takerUser?.bio]);
+
+  const rating = useMemo(() => {
+    if (!takerReviews.length) return 0;
+    return takerReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / takerReviews.length;
+  }, [takerReviews]);
+
+  const offer = useMemo(() => {
+    const name = resolveDisplayName(takerUser) || t("common.user", "User");
+    return {
+      petName: petRow?.name || t("pets.add.name", "Pet"),
+      taker: {
+        name,
+        avatarUri: (takerUser?.avatar_url as string | null | undefined) ?? "",
+        available: Boolean(availability?.available),
+        rating,
+        handshakes: takerUser?.care_given_count ?? 0,
+        paws: takerUser?.care_received_count ?? 0,
+        petTypes: petTypesLabel,
+        careOffering: careOfferingLabel,
+        location: takerUser?.city?.trim() || t("profile.noLocation"),
+      },
+      details: {
+        yardType: yardDetail,
+        active: formatDaysTime,
+        careTypes: careTypesDetail,
+        petOwner: petOwnerDetail,
+      },
+      note,
+    };
+  }, [
+    availability?.available,
+    careOfferingLabel,
+    careTypesDetail,
+    formatDaysTime,
+    note,
+    petRow?.name,
+    petOwnerDetail,
+    petTypesLabel,
+    rating,
+    t,
+    takerUser,
+    yardDetail,
+  ]);
+
+  if (loading) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <DataState title={t("common.loading", "Loading...")} mode="full" />
+      </View>
+    );
+  }
+
+  if (isResourceNotFound(error)) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <BackHeader title="" onBack={() => router.back()} />
+        <ResourceMissingState
+          onBack={() => router.back()}
+          onHome={() =>
+            router.replace("/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0])
+          }
+        />
+      </View>
+    );
+  }
+
+  if (error || !reqRow) {
+    return (
+      <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <DataState
+          title={t("common.error", "Something went wrong")}
+          message={error ?? undefined}
+          actionLabel={t("common.retry", "Retry")}
+          onAction={() => {
+            void load();
+          }}
+          mode="full"
+        />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -72,7 +368,13 @@ export default function ViewOfferScreen() {
             <AppText variant="body" style={styles.titleLabel}>
               {t("messages.applyingFor")}
             </AppText>
-            <TouchableOpacity>
+            <TouchableOpacity
+              disabled={!petRow?.id}
+              onPress={() => {
+                if (!petRow?.id) return;
+                router.push({ pathname: "/(private)/pets/[id]", params: { id: petRow.id } });
+              }}
+            >
               <AppText variant="title" color={colors.primary} style={styles.titleLink}>
                 {offer.petName}
               </AppText>
@@ -83,19 +385,25 @@ export default function ViewOfferScreen() {
         {/* Taker profile card */}
         <TouchableOpacity
           activeOpacity={0.9}
-          onPress={() =>
+          onPress={() => {
+            if (!takerId) return;
             router.push({
               pathname: "/(private)/(tabs)/profile/users/[id]",
-              params: { id: id ?? "t1" },
-            })
-          }
+              params: { id: takerId },
+            });
+          }}
+          disabled={!takerId}
           style={[styles.takerCard, { backgroundColor: colors.surfaceContainerLowest }]}
         >
-          <AppImage
-            source={{ uri: offer.taker.avatarUri }}
-            style={[styles.takerAvatar, { backgroundColor: colors.surfaceContainer }]}
-            contentFit="cover"
-          />
+          {offer.taker.avatarUri ? (
+            <AppImage
+              source={{ uri: offer.taker.avatarUri }}
+              style={[styles.takerAvatar, { backgroundColor: colors.surfaceContainer }]}
+              contentFit="cover"
+            />
+          ) : (
+            <View style={[styles.takerAvatar, { backgroundColor: colors.surfaceContainer }]} />
+          )}
           <View style={styles.takerBody}>
             <View style={styles.takerTitleRow}>
               <AppText variant="title" numberOfLines={1} style={styles.takerName}>
@@ -194,7 +502,15 @@ export default function ViewOfferScreen() {
               style={styles.actionItem}
               onPress={() => {
                 setActionsOpen(false);
-                router.push(`/(private)/(tabs)/my-care/review/${id}` as any);
+                if (!contractId) {
+                  showToast({
+                    variant: "error",
+                    message: t("myCare.review.noContract", "No completed contract found to review yet."),
+                    durationMs: 3200,
+                  });
+                  return;
+                }
+                router.push(`/(private)/(tabs)/my-care/review/${contractId}` as any);
               }}
             >
               <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
@@ -211,7 +527,7 @@ export default function ViewOfferScreen() {
                 setAccepted(false);
                 showToast({
                   variant: 'info',
-                  message: t("myCare.contract.terminatedDemo"),
+                  message: t("myCare.contract.terminatedToast", "Agreement ended."),
                   durationMs: 3000,
                 });
               }}
@@ -249,7 +565,7 @@ export default function ViewOfferScreen() {
           setShowBlockConfirm(false);
           showToast({
             variant: 'info',
-            message: t("messages.blockedDemo"),
+            message: t("messages.blockedToast", "User blocked."),
             durationMs: 3000,
           });
         }}
@@ -265,10 +581,31 @@ export default function ViewOfferScreen() {
         secondaryLabel={t("common.cancel")}
         onPrimary={() => {
           setAcceptedConfirmOpen(false);
-          router.push({
-            pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
-            params: { id: id ?? "1", accepted: "1" } as any,
-          });
+          if (blockIfKycNotApproved()) return;
+          void (async () => {
+            try {
+              if (!requestId || !ownerId || !takerId) {
+                throw new Error(t("common.error", "Something went wrong"));
+              }
+              const cid = await ensureCareContractForRequest({
+                requestId,
+                ownerId,
+                takerId,
+              });
+              setContractId(cid);
+              setAccepted(true);
+              router.push({
+                pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
+                params: { id: cid, accepted: "1" } as any,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+                durationMs: 3200,
+              });
+            }
+          })();
         }}
         onSecondary={() => setAcceptedConfirmOpen(false)}
         onRequestClose={() => setAcceptedConfirmOpen(false)}

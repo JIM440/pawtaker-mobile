@@ -53,6 +53,7 @@ export function UserAvatar({
             <AppText
                 style={{
                     fontSize: size * 0.4,
+                    lineHeight: size * 0.4,
                     fontWeight: "600",
                 }}
                 color={colors.onSurfaceVariant}
@@ -87,6 +88,7 @@ export function UserAvatar({
 const styles = StyleSheet.create({
     container: {
         position: "relative",
+        overflow: "hidden",
     },
     image: {
         backgroundColor: "transparent",
@@ -94,6 +96,7 @@ const styles = StyleSheet.create({
     initialsContainer: {
         alignItems: "center",
         justifyContent: "center",
+        overflow: "hidden",
     },
     onlineBadge: {
         position: "absolute",

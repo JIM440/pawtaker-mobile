@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { useSignupStore } from "@/src/lib/store/signup.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -247,6 +248,7 @@ export default function SignupScreen() {
           autoCapitalize="none"
           autoCorrect={false}
           error={emailError ?? undefined}
+          maxLength={INPUT_LIMITS.email}
         />
         <TextField
           label={t("auth.signup.credentials.passwordLabel")}
@@ -260,6 +262,7 @@ export default function SignupScreen() {
           textContentType="newPassword"
           autoComplete="password-new"
           error={passwordError ?? undefined}
+          maxLength={INPUT_LIMITS.password}
         />
         <TextField
           label={t("auth.signup.credentials.confirmPasswordLabel")}
@@ -273,6 +276,7 @@ export default function SignupScreen() {
           textContentType="newPassword"
           autoComplete="password-new"
           error={confirmPasswordError ?? undefined}
+          maxLength={INPUT_LIMITS.password}
         />
         <TextField
           label={t("auth.signup.credentials.usernameLabel")}
@@ -285,6 +289,7 @@ export default function SignupScreen() {
           autoCapitalize="words"
           autoCorrect={false}
           error={usernameError ?? undefined}
+          maxLength={INPUT_LIMITS.name}
         />
 
         {error ? (

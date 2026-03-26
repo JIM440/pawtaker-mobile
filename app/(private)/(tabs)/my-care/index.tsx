@@ -1,16 +1,22 @@
 import { Colors } from '@/src/constants/colors';
 import { blockIfKycNotApproved } from '@/src/lib/kyc/kyc-gate';
 import { useAuthStore } from '@/src/lib/store/auth.store';
+import {
+  errorMessageFromUnknown,
+  isMissingBackendResourceError,
+} from '@/src/lib/supabase/errors';
+import { petGalleryUrls } from '@/src/lib/pets/petGalleryUrls';
 import { supabase } from '@/src/lib/supabase/client';
+import type { TablesRow } from '@/src/lib/supabase/types';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { PageContainer } from '@/src/shared/components/layout';
-import { MyCareSkeleton } from '@/src/shared/components/skeletons';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppSwitch } from '@/src/shared/components/ui/AppSwitch';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { DataState } from '@/src/shared/components/ui';
 import { TabBar } from '@/src/shared/components/ui/TabBar';
 import { useToastStore } from '@/src/lib/store/toast.store';
+import { resolveDisplayName } from '@/src/lib/user/displayName';
 import {
   Handshake,
   MoreHorizontal,
@@ -21,8 +27,10 @@ import {
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
+  Alert,
   Modal,
   Pressable,
+  RefreshControl,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -38,43 +46,122 @@ import { useRouter } from 'expo-router';
 // Constants
 type TabId = 'given' | 'received' | 'liked';
 
-function isMissingBackendResourceError(error: unknown): boolean {
-  if (!error || typeof error !== "object") return false;
-  const maybe = error as { code?: string; message?: string };
-  if (maybe.code === "42P01") return true;
-  const message = (maybe.message || "").toLowerCase();
-  return message.includes("does not exist") || message.includes("relation");
-}
-
 export default function MyCareScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user, profile } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [loading, setLoading] = useState(true);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
   const [available, setAvailable] = useState(false);
+  const [availabilityLoading, setAvailabilityLoading] = useState(false);
+  const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
   const [activeTab, setActiveTab] = useState<TabId>('given');
   const [menuVisible, setMenuVisible] = useState(false);
+
   const [hasActiveCare, setHasActiveCare] = useState(false);
   const [activeCare, setActiveCare] = useState<any | null>(null);
+
+  const [activeCareLoading, setActiveCareLoading] = useState(false);
+  const [activeCareLoaded, setActiveCareLoaded] = useState(false);
+  const [activeCareError, setActiveCareError] = useState<string | null>(null);
+
   const [careGivenRows, setCareGivenRows] = useState<any[]>([]);
+  const [givenLoading, setGivenLoading] = useState(false);
+  const [givenLoaded, setGivenLoaded] = useState(false);
+  const [givenError, setGivenError] = useState<string | null>(null);
+
   const [careReceivedRows, setCareReceivedRows] = useState<any[]>([]);
+  const [receivedLoading, setReceivedLoading] = useState(false);
+  const [receivedLoaded, setReceivedLoaded] = useState(false);
+  const [receivedError, setReceivedError] = useState<string | null>(null);
+
   const [likedPets, setLikedPets] = useState<any[]>([]);
+
+  const [likedLoading, setLikedLoading] = useState(false);
+  const [likedLoaded, setLikedLoaded] = useState(false);
+  const [likedError, setLikedError] = useState<string | null>(null);
+
   const [stats, setStats] = useState({ points: 0, careGiven: 0, careReceived: 0 });
 
   const showToast = useToastStore((s) => s.showToast);
 
   const onAvailableChange = (value: boolean) => {
-    setAvailable(value);
-    if (value) {
-      showToast({
-        variant: 'success',
-        message: `${t('myCare.nowAvailableSnackbar')} ${t('myCare.availableHighlight')}`,
-        durationMs: 3200,
-      });
-    }
+    if (!user?.id || value === available) return;
+    void (async () => {
+      const previous = available;
+      setAvailabilityLoading(true);
+      // Optimistic UI: the switch should move immediately, then rollback on failure.
+      setAvailable(value);
+      try {
+        const { data: row, error: rowErr } = await supabase
+          .from('taker_profiles')
+          .select(
+            'availability_json,accepted_species,max_pets,hourly_points,experience_years',
+          )
+          .eq('user_id', user.id)
+          .maybeSingle();
+
+        if (rowErr && !isMissingBackendResourceError(rowErr)) throw rowErr;
+
+        const baseAvailabilityJson: Record<string, any> = row?.availability_json
+          ? (row.availability_json as Record<string, any>)
+          : {
+            available: value,
+            services: [],
+            days: [],
+            startTime: '08:00',
+            endTime: '21:00',
+            petOwner: 'no',
+            yardType: '',
+            petKinds: [],
+            note: '',
+          };
+
+        const nextAvailabilityJson = {
+          ...baseAvailabilityJson,
+          available: value,
+        };
+
+        const { error: upsertErr } = await supabase
+          .from('taker_profiles')
+          .upsert(
+            {
+              user_id: user.id,
+              accepted_species: (row?.accepted_species ?? []) as any,
+              max_pets: row?.max_pets ?? 0,
+              hourly_points: row?.hourly_points ?? 0,
+              experience_years: row?.experience_years ?? 0,
+              availability_json: nextAvailabilityJson,
+            },
+            { onConflict: 'user_id' },
+          );
+
+        if (upsertErr) throw upsertErr;
+
+        setAvailable(value);
+        if (value) {
+          showToast({
+            variant: 'success',
+            message: `${t('myCare.nowAvailableSnackbar')} ${t('myCare.availableHighlight')}`,
+            durationMs: 3200,
+          });
+        }
+      } catch (err) {
+        setAvailable(previous);
+        const details = errorMessageFromUnknown(
+          err,
+          t("common.error", "Something went wrong"),
+        );
+        const friendly = t("myCare.availabilityUpdateFailed", "Couldn't update availability. Please try again.");
+        Alert.alert(
+          t('common.error', 'Something went wrong'),
+          `${friendly}\n\nDetails: ${details}`,
+        );
+      } finally {
+        setAvailabilityLoading(false);
+      }
+    })();
   };
 
   const tabs: { id: TabId; label: string }[] = [
@@ -90,203 +177,479 @@ export default function MyCareScreen() {
         <AppText variant="body" color={colors.onSurfaceVariant}>{t('myCare.available')}</AppText>
         <AppSwitch
           value={available}
+          disabled={availabilityLoading}
           onValueChange={onAvailableChange}
         />
       </View>
     </View>
   );
 
-  const loadMyCareData = async () => {
-    if (!user?.id) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
+  const loadMyAvailability = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh && !availabilityLoaded) setAvailabilityLoading(true);
     try {
-      const [{ data: contracts }, { data: requests }, { data: pets }] = await Promise.all([
-        supabase
-          .from("contracts")
-          .select("*")
-          .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`),
-        supabase
-          .from("care_requests")
-          .select("*")
-          .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`),
-        supabase.from("pets").select("*").eq("owner_id", user.id),
-      ]);
-      // Treat missing resources as empty-state content instead of hard errors.
-      const safeContracts = contracts ?? [];
-      const safeRequests = requests ?? [];
-      const safePets = pets ?? [];
+      const { data: row, error: rowErr } = await supabase
+        .from('taker_profiles')
+        .select('availability_json')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
-      const activeContract = safeContracts.find((c: any) => c.status === "active") ?? null;
-      setHasActiveCare(Boolean(activeContract));
+      if (rowErr && !isMissingBackendResourceError(rowErr)) throw rowErr;
 
-      let nextActiveCare: any = null;
-      if (activeContract) {
-        const req = safeRequests.find((r: any) => r.id === activeContract.request_id);
-        const peerId =
-          activeContract.owner_id === user.id
-            ? activeContract.taker_id
-            : activeContract.owner_id;
-        const [{ data: peerUser }, { data: pet }] = await Promise.all([
-          peerId
-            ? supabase
-              .from("users")
-              .select("id,full_name,avatar_url")
-              .eq("id", peerId)
-              .maybeSingle()
-            : Promise.resolve({ data: null } as any),
-          req?.pet_id
-            ? supabase.from("pets").select("*").eq("id", req.pet_id).maybeSingle()
-            : Promise.resolve({ data: null } as any),
-        ]);
+      const availabilityRaw =
+        (row?.availability_json as Record<string, any> | null) ?? null;
+      setAvailable(Boolean(availabilityRaw?.available));
+      setAvailabilityLoaded(true);
+    } catch {
+      setAvailable(false);
+      setAvailabilityLoaded(true);
+    } finally {
+      setAvailabilityLoading(false);
+    }
+  };
 
-        nextActiveCare = {
-          petName: pet?.name ?? "Pet",
-          careType: req?.care_type ?? "care",
-          dayLabel: req?.start_date
-            ? new Date(req.start_date).toLocaleDateString()
-            : "",
-          caregiverName: peerUser?.full_name ?? "Caregiver",
-          caregiverAvatar: peerUser?.avatar_url ?? "",
-          endsIn: req?.end_date
-            ? new Date(req.end_date).toLocaleDateString()
-            : "",
-        };
-      }
-      setActiveCare(nextActiveCare);
+  const loadActiveCareCard = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setActiveCareLoading(true);
+    setActiveCareError(null);
+    try {
+      const { data: contracts, error: contractsError } = await supabase
+        .from("contracts")
+        .select("*")
+        .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
+        .eq("status", "active");
 
-      const givenContracts = safeContracts.filter((c: any) => c.taker_id === user.id);
-      const receivedContracts = safeContracts.filter((c: any) => c.owner_id === user.id);
+      if (contractsError && !isMissingBackendResourceError(contractsError))
+        throw contractsError;
 
-      const mapContractsToRows = async (items: any[], forReceived: boolean) => {
-        const rows = await Promise.all(
-          items.map(async (c: any) => {
-            const req = safeRequests.find((r: any) => r.id === c.request_id);
-            const peerId = forReceived ? c.taker_id : c.owner_id;
-            const [{ data: peer }, { data: pet }] = await Promise.all([
-              peerId
-                ? supabase
-                  .from("users")
-                  .select("id,full_name,avatar_url")
-                  .eq("id", peerId)
-                  .maybeSingle()
-                : Promise.resolve({ data: null } as any),
-              req?.pet_id
-                ? supabase.from("pets").select("name").eq("id", req.pet_id).maybeSingle()
-                : Promise.resolve({ data: null } as any),
-            ]);
-            return {
-              id: c.id,
-              personName: peer?.full_name ?? (forReceived ? "Taker" : "Pet owner"),
-              personAvatar: peer?.avatar_url ?? "",
-              handshakes: 0,
-              paws: 0,
-              pet: pet?.name ?? "Pet",
-              careType: req?.care_type ?? "care",
-              date: c.created_at ? new Date(c.created_at).toLocaleDateString() : "",
-            };
-          }),
-        );
-        return rows;
-      };
-
-      const [givenRows, receivedRows] = await Promise.all([
-        mapContractsToRows(givenContracts, false),
-        mapContractsToRows(receivedContracts, true),
-      ]);
-
-      setCareGivenRows(givenRows);
-      setCareReceivedRows(receivedRows);
-      setLikedPets(
-        safeRequests
-          .filter((r: any) => r.owner_id !== user.id && r.status === "open")
-          .slice(0, 8)
-          .map((r: any) => {
-            const pet = safePets.find((p: any) => p.id === r.pet_id);
-            return {
-              id: r.id,
-              requestId: r.id,
-              imageSource: pet?.avatar_url ?? "",
-              petName: pet?.name ?? "Pet",
-              breed: pet?.breed ?? "Unknown breed",
-              petType: pet?.species ?? "Pet",
-              bio: pet?.notes ?? "No details yet.",
-              tags: [],
-              seekingDateRange:
-                r.start_date && r.end_date
-                  ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
-                  : "",
-              seekingTime: "",
-              isSeeking: true,
-            };
-          }),
-      );
-
-      setStats({
-        points: profile?.points_balance ?? 0,
-        careGiven: givenContracts.length,
-        careReceived: receivedContracts.length,
-      });
-    } catch (err) {
-      if (isMissingBackendResourceError(err)) {
-        setActiveCare(null);
+      const safeContracts = (contracts ?? []) as TablesRow<'contracts'>[];
+      const activeContract = safeContracts[0] ?? null;
+      if (!activeContract) {
         setHasActiveCare(false);
-        setCareGivenRows([]);
-        setCareReceivedRows([]);
-        setLikedPets([]);
-        setStats({
-          points: profile?.points_balance ?? 0,
-          careGiven: 0,
-          careReceived: 0,
-        });
-        setLoadError(null);
+        setActiveCare(null);
+        setActiveCareLoaded(true);
         return;
       }
-      setLoadError(err instanceof Error ? err.message : "Failed to load my care.");
+
+      const { data: reqRaw, error: reqError } = await supabase
+        .from("care_requests")
+        .select("*")
+        .eq("id", activeContract.request_id)
+        .maybeSingle();
+
+      if (reqError && !isMissingBackendResourceError(reqError))
+        throw reqError;
+      const req = reqRaw as TablesRow<"care_requests"> | null;
+
+      const peerId =
+        activeContract.owner_id === user.id
+          ? activeContract.taker_id
+          : activeContract.owner_id;
+
+      const [{ data: peerUser, error: peerErr }, { data: pet, error: petErr }] =
+        await Promise.all([
+          peerId
+            ? supabase
+                .from("users")
+                .select("id,full_name,avatar_url")
+                .eq("id", peerId)
+                .maybeSingle()
+            : Promise.resolve({ data: null, error: null } as any),
+          req?.pet_id
+            ? supabase.from("pets").select("*").eq("id", req.pet_id).maybeSingle()
+            : Promise.resolve({ data: null, error: null } as any),
+        ]);
+
+      if (peerErr && !isMissingBackendResourceError(peerErr)) throw peerErr;
+      if (petErr && !isMissingBackendResourceError(petErr)) throw petErr;
+
+      setHasActiveCare(true);
+      setActiveCare({
+        petName: pet?.name ?? "Pet",
+        careType: req?.care_type ?? "care",
+        dayLabel: req?.start_date
+          ? new Date(req.start_date).toLocaleDateString()
+          : "",
+        caregiverName: resolveDisplayName(peerUser) || "Caregiver",
+        caregiverAvatar: peerUser?.avatar_url ?? "",
+        endsIn: req?.end_date ? new Date(req.end_date).toLocaleDateString() : "",
+      });
+      setActiveCareLoaded(true);
+    } catch (err) {
+      if (isMissingBackendResourceError(err)) {
+        setHasActiveCare(false);
+        setActiveCare(null);
+        setActiveCareError(null);
+        setActiveCareLoaded(true);
+        return;
+      }
+      setActiveCareError(
+        errorMessageFromUnknown(err, "Failed to load active care."),
+      );
     } finally {
-      setLoading(false);
+      setActiveCareLoading(false);
+    }
+  };
+
+  const loadCareGivenTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setGivenLoading(true);
+    setGivenError(null);
+    try {
+      const { data: contracts, error: contractsError } = await supabase
+        .from("contracts")
+        .select("*")
+        .eq("taker_id", user.id);
+
+      if (contractsError && !isMissingBackendResourceError(contractsError))
+        throw contractsError;
+
+      const safeContracts = (contracts ?? []) as TablesRow<"contracts">[];
+      if (safeContracts.length === 0) {
+        setCareGivenRows([]);
+        setStats((s) => ({ ...s, careGiven: 0 }));
+        setGivenLoaded(true);
+        return;
+      }
+
+      const requestIds = Array.from(
+        new Set(safeContracts.map((c: any) => c.request_id).filter(Boolean)),
+      );
+      const peerIds = Array.from(
+        new Set(safeContracts.map((c: any) => c.owner_id).filter(Boolean)),
+      );
+
+      const { data: requests, error: requestsError } = requestIds.length
+        ? await supabase
+            .from("care_requests")
+            .select("id,pet_id,care_type")
+            .in("id", requestIds)
+        : { data: [], error: null };
+
+      if (requestsError && !isMissingBackendResourceError(requestsError))
+        throw requestsError;
+
+      const petIds = Array.from(
+        new Set((requests ?? []).map((r: any) => r.pet_id).filter(Boolean)),
+      );
+
+      const { data: peers, error: peersError } = peerIds.length
+        ? await supabase
+            .from("users")
+            .select("id,full_name,avatar_url")
+            .in("id", peerIds)
+        : { data: [], error: null };
+
+      if (peersError && !isMissingBackendResourceError(peersError))
+        throw peersError;
+
+      const { data: pets, error: petsError } = petIds.length
+        ? await supabase
+            .from("pets")
+            .select("id,name")
+            .in("id", petIds)
+        : { data: [], error: null };
+
+      if (petsError && !isMissingBackendResourceError(petsError))
+        throw petsError;
+
+      const reqById = (requests ?? []).reduce<Record<string, unknown>>(
+        (acc, r: any) => ({ ...acc, [r.id]: r }),
+        {},
+      );
+      const peersById = (peers ?? []).reduce<Record<string, unknown>>(
+        (acc, u: any) => ({ ...acc, [u.id]: u }),
+        {},
+      );
+      const petsById = (pets ?? []).reduce<Record<string, unknown>>(
+        (acc, p: any) => ({ ...acc, [p.id]: p }),
+        {},
+      );
+
+      const rows = safeContracts.map((c: any) => {
+        const peer = peersById[c.owner_id] as any;
+        const req = reqById[c.request_id] as any;
+        const pet = req?.pet_id ? (petsById[req.pet_id] as any) : null;
+        return {
+          id: c.id,
+          ownerName: resolveDisplayName(peer) || "Pet owner",
+          ownerAvatar: peer?.avatar_url ?? "",
+          handshakes: 0,
+          paws: 0,
+          pet: pet?.name ?? "Pet",
+          careType: req?.care_type ?? "care",
+          date: c.created_at ? new Date(c.created_at).toLocaleDateString() : "",
+        };
+      });
+
+      setCareGivenRows(rows);
+      setStats((s) => ({ ...s, careGiven: rows.length }));
+      setGivenLoaded(true);
+    } catch (err) {
+      if (isMissingBackendResourceError(err)) {
+        setCareGivenRows([]);
+        setGivenLoaded(true);
+        setGivenError(null);
+        setStats((s) => ({ ...s, careGiven: 0 }));
+        return;
+      }
+      setGivenError(
+        errorMessageFromUnknown(err, "Failed to load care given."),
+      );
+    } finally {
+      setGivenLoading(false);
+    }
+  };
+
+  const loadCareReceivedTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setReceivedLoading(true);
+    setReceivedError(null);
+    try {
+      const { data: contracts, error: contractsError } = await supabase
+        .from("contracts")
+        .select("*")
+        .eq("owner_id", user.id);
+
+      if (contractsError && !isMissingBackendResourceError(contractsError))
+        throw contractsError;
+
+      const safeContracts = (contracts ?? []) as TablesRow<"contracts">[];
+      if (safeContracts.length === 0) {
+        setCareReceivedRows([]);
+        setStats((s) => ({ ...s, careReceived: 0 }));
+        setReceivedLoaded(true);
+        return;
+      }
+
+      const requestIds = Array.from(
+        new Set(safeContracts.map((c: any) => c.request_id).filter(Boolean)),
+      );
+      const peerIds = Array.from(
+        new Set(safeContracts.map((c: any) => c.taker_id).filter(Boolean)),
+      );
+
+      const { data: requests, error: requestsError } = requestIds.length
+        ? await supabase
+            .from("care_requests")
+            .select("id,pet_id,care_type")
+            .in("id", requestIds)
+        : { data: [], error: null };
+
+      if (requestsError && !isMissingBackendResourceError(requestsError))
+        throw requestsError;
+
+      const petIds = Array.from(
+        new Set((requests ?? []).map((r: any) => r.pet_id).filter(Boolean)),
+      );
+
+      const { data: peers, error: peersError } = peerIds.length
+        ? await supabase
+            .from("users")
+            .select("id,full_name,avatar_url")
+            .in("id", peerIds)
+        : { data: [], error: null };
+
+      if (peersError && !isMissingBackendResourceError(peersError))
+        throw peersError;
+
+      const { data: pets, error: petsError } = petIds.length
+        ? await supabase
+            .from("pets")
+            .select("id,name")
+            .in("id", petIds)
+        : { data: [], error: null };
+
+      if (petsError && !isMissingBackendResourceError(petsError))
+        throw petsError;
+
+      const reqById = (requests ?? []).reduce<Record<string, unknown>>(
+        (acc, r: any) => ({ ...acc, [r.id]: r }),
+        {},
+      );
+      const peersById = (peers ?? []).reduce<Record<string, unknown>>(
+        (acc, u: any) => ({ ...acc, [u.id]: u }),
+        {},
+      );
+      const petsById = (pets ?? []).reduce<Record<string, unknown>>(
+        (acc, p: any) => ({ ...acc, [p.id]: p }),
+        {},
+      );
+
+      const rows = safeContracts.map((c: any) => {
+        const peer = peersById[c.taker_id] as any;
+        const req = reqById[c.request_id] as any;
+        const pet = req?.pet_id ? (petsById[req.pet_id] as any) : null;
+        return {
+          id: c.id,
+          personName: resolveDisplayName(peer) || "Taker",
+          personAvatar: peer?.avatar_url ?? "",
+          handshakes: 0,
+          paws: 0,
+          pet: pet?.name ?? "Pet",
+          careType: req?.care_type ?? "care",
+          date: c.created_at ? new Date(c.created_at).toLocaleDateString() : "",
+        };
+      });
+
+      setCareReceivedRows(rows);
+      setStats((s) => ({ ...s, careReceived: rows.length }));
+      setReceivedLoaded(true);
+    } catch (err) {
+      if (isMissingBackendResourceError(err)) {
+        setCareReceivedRows([]);
+        setReceivedLoaded(true);
+        setReceivedError(null);
+        setStats((s) => ({ ...s, careReceived: 0 }));
+        return;
+      }
+      setReceivedError(
+        errorMessageFromUnknown(err, "Failed to load care received."),
+      );
+    } finally {
+      setReceivedLoading(false);
+    }
+  };
+
+  const loadLikedTab = async (opts?: { refresh?: boolean }) => {
+    if (!user?.id) return;
+    if (!opts?.refresh) setLikedLoading(true);
+    setLikedError(null);
+    try {
+      const { data: requests, error: requestsError } = await supabase
+        .from("care_requests")
+        .select("id,pet_id,start_date,end_date,owner_id,status")
+        .neq("owner_id", user.id)
+        .eq("status", "open");
+
+      if (requestsError && !isMissingBackendResourceError(requestsError))
+        throw requestsError;
+
+      const safeRequests = requests ?? [];
+      if (safeRequests.length === 0) {
+        setLikedPets([]);
+        setLikedLoaded(true);
+        return;
+      }
+
+      const petIds = Array.from(
+        new Set(safeRequests.map((r: any) => r.pet_id).filter(Boolean)),
+      );
+
+      const { data: pets, error: petsError } = petIds.length
+        ? await supabase
+            .from("pets")
+            .select("id,avatar_url,name,breed,species,notes")
+            .in("id", petIds)
+        : { data: [], error: null };
+
+      if (petsError && !isMissingBackendResourceError(petsError))
+        throw petsError;
+
+      const petsById = (pets ?? []).reduce<Record<string, unknown>>(
+        (acc, p: any) => ({ ...acc, [p.id]: p }),
+        {},
+      );
+
+      const liked = safeRequests.slice(0, 8).map((r: any) => {
+        const pet = petsById[r.pet_id] as any;
+        return {
+          id: r.id,
+          requestId: r.id,
+          imageSource: petGalleryUrls(pet ?? {})[0] ?? "",
+          petName: pet?.name ?? "Pet",
+          breed: pet?.breed ?? "Unknown breed",
+          petType: pet?.species ?? "Pet",
+          bio: pet?.notes ?? "No details yet.",
+          tags: [],
+          seekingDateRange:
+            r.start_date && r.end_date
+              ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
+              : "",
+          seekingTime: "",
+          isSeeking: true,
+        };
+      });
+
+      setLikedPets(liked);
+      setLikedLoaded(true);
+    } catch (err) {
+      if (isMissingBackendResourceError(err)) {
+        setLikedPets([]);
+        setLikedLoaded(true);
+        setLikedError(null);
+        return;
+      }
+      setLikedError(
+        errorMessageFromUnknown(err, "Failed to load liked pets."),
+      );
+    } finally {
+      setLikedLoading(false);
     }
   };
 
   useEffect(() => {
-    void loadMyCareData();
-  }, [profile?.points_balance, user?.id]);
+    setStats((s) => ({ ...s, points: profile?.points_balance ?? 0 }));
+  }, [profile?.points_balance]);
 
-  if (loading) {
-    return (
-      <PageContainer scrollable={false} contentStyle={styles.pageContent}>
-        {Header}
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <MyCareSkeleton />
-        </ScrollView>
-      </PageContainer>
-    );
-  }
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!availabilityLoaded && !availabilityLoading) {
+      void loadMyAvailability();
+    }
+  }, [user?.id, availabilityLoaded, availabilityLoading]);
 
-  if (loadError) {
-    return (
-      <PageContainer scrollable={false} contentStyle={styles.pageContent}>
-        {Header}
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={loadError}
-          actionLabel={t("common.retry", "Retry")}
-          onAction={() => {
-            void loadMyCareData();
-          }}
-          mode="full"
-        />
-      </PageContainer>
-    );
-  }
+  useEffect(() => {
+    if (!user?.id) return;
+    if (!activeCareLoaded && !activeCareLoading) {
+      void loadActiveCareCard();
+    }
+  }, [user?.id, activeCareLoaded, activeCareLoading]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+
+    if (activeTab === "given" && !givenLoaded && !givenLoading && !givenError) {
+      void loadCareGivenTab();
+    }
+    if (
+      activeTab === "received" &&
+      !receivedLoaded &&
+      !receivedLoading &&
+      !receivedError
+    ) {
+      void loadCareReceivedTab();
+    }
+    if (activeTab === "liked" && !likedLoaded && !likedLoading && !likedError) {
+      void loadLikedTab();
+    }
+  }, [
+    activeTab,
+    user?.id,
+    givenLoaded,
+    givenLoading,
+    givenError,
+    receivedLoaded,
+    receivedLoading,
+    receivedError,
+    likedLoaded,
+    likedLoading,
+    likedError,
+  ]);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try {
+      await loadMyAvailability({ refresh: true });
+      await loadActiveCareCard({ refresh: true });
+      if (activeTab === "given") await loadCareGivenTab({ refresh: true });
+      if (activeTab === "received")
+        await loadCareReceivedTab({ refresh: true });
+      if (activeTab === "liked") await loadLikedTab({ refresh: true });
+    } finally {
+      setRefreshing(false);
+    }
+  };
 
   return (
     <PageContainer scrollable={false} contentStyle={styles.pageContent}>
@@ -296,6 +659,15 @@ export default function MyCareScreen() {
         contentContainerStyle={styles.scrollContent}
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+            tintColor={colors.primary}
+            colors={[colors.primary]}
+            progressBackgroundColor={colors.surfaceContainerLow}
+          />
+        }
       >
 
         {/* Active Care Section */}
@@ -433,20 +805,96 @@ export default function MyCareScreen() {
 
         {/* Tab content */}
         {activeTab === 'given' && (
-          <CareGivenTab colors={colors as any} rows={careGivenRows} />
+          <>
+            {givenLoading ? (
+              <DataState
+                title={t("common.loading", "Loading...")}
+                message={t("myCare.loadingGiven", "Loading care given...")}
+              />
+            ) : givenError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={givenError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setGivenError(null);
+                  setGivenLoaded(false);
+                  void loadCareGivenTab({ refresh: true });
+                }}
+              />
+            ) : (
+              <CareGivenTab colors={colors as any} rows={careGivenRows} />
+            )}
+          </>
         )}
         {activeTab === 'received' && (
-          <CareReceivedTab colors={colors as any} rows={careReceivedRows} />
+          <>
+            {receivedLoading ? (
+              <DataState
+                title={t("common.loading", "Loading...")}
+                message={t("myCare.loadingReceived", "Loading care received...")}
+              />
+            ) : receivedError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={receivedError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setReceivedError(null);
+                  setReceivedLoaded(false);
+                  void loadCareReceivedTab({ refresh: true });
+                }}
+              />
+            ) : (
+              <CareReceivedTab colors={colors as any} rows={careReceivedRows} />
+            )}
+          </>
         )}
         {activeTab === 'liked' && (
-          <LikedTab
-            colors={colors as any}
-            pets={likedPets}
-            onApply={(requestId) => {
-              if (blockIfKycNotApproved()) return;
-              router.push(`/(private)/post-requests/${requestId}` as any);
-            }}
-          />
+          <>
+            {likedLoading ? (
+              <DataState
+                title={t("common.loading", "Loading...")}
+                message={t("myCare.loadingLiked", "Loading liked pets...")}
+              />
+            ) : likedError ? (
+              <DataState
+                title={t("common.error", "Something went wrong")}
+                message={likedError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setLikedError(null);
+                  setLikedLoaded(false);
+                  void loadLikedTab({ refresh: true });
+                }}
+              />
+            ) : likedPets.length === 0 ? (
+              <DataState
+                title={t("myCare.likedEmptyTitle", "Nothing to show yet")}
+                message={t(
+                  "myCare.likedEmptyMessage",
+                  "When you like care requests, they will appear here.",
+                )}
+                illustration={
+                  <AppImage
+                    source={require('@/assets/illustrations/pets/no-care.svg')}
+                    type="svg"
+                    height={145}
+                    style={{ width: 140, borderRadius: 16, backgroundColor: "transparent" }}
+                  />
+                }
+              />
+            ) : (
+              <LikedTab
+                colors={colors as any}
+                pets={likedPets}
+                onApply={(requestId) => {
+                  if (blockIfKycNotApproved()) return;
+                  router.push(`/(private)/post-requests/${requestId}` as any);
+                }}
+              />
+            )}
+          </>
         )}
       </ScrollView>
 
@@ -463,6 +911,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
+    flexGrow: 1,
     paddingBottom: 120,
     paddingHorizontal: 16,
   },

@@ -6,17 +6,17 @@ import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelecto
 import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { Input } from "@/src/shared/components/ui/Input";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
-import { useRouter } from "expo-router";
 import { useFocusEffect } from "@react-navigation/native";
+import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -27,7 +27,7 @@ import {
   StyleSheet,
   Text,
   TouchableOpacity,
-  View
+  View,
 } from "react-native";
 
 type Step = "kind" | "breed" | "details";
@@ -47,6 +47,7 @@ export default function AddPetScreen() {
   const { resolvedTheme } = useThemeStore();
   const { user } = useAuthStore();
   const colors = Colors[resolvedTheme];
+  const showToast = useToastStore((s) => s.showToast);
 
   useFocusEffect(
     useCallback(() => {
@@ -61,10 +62,8 @@ export default function AddPetScreen() {
   const [breedQuery, setBreedQuery] = useState("");
   const [breed, setBreed] = useState<string | null>(null);
 
-  const [petName, setPetName] = useState("Polo");
-  const [petBio, setPetBio] = useState(
-    "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch. He's well-trained Retriever",
-  );
+  const [petName, setPetName] = useState("");
+  const [petBio, setPetBio] = useState("");
   const [specialNeeds, setSpecialNeeds] = useState(false);
   const [specialNeedsText, setSpecialNeedsText] = useState("");
   const [yardType, setYardType] = useState<string | null>(null);
@@ -144,11 +143,18 @@ export default function AddPetScreen() {
 
     setIsSaving(true);
     try {
-      let avatarUrl: string | null = null;
-      if (photos[0]) {
-        const uploaded = await uploadToCloudinary(photos[0]);
-        avatarUrl = uploaded.secure_url;
+      const uploadedUrls: string[] = [];
+      for (const uri of photos) {
+        if (!uri?.trim()) continue;
+        const trimmed = uri.trim();
+        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+          uploadedUrls.push(trimmed);
+          continue;
+        }
+        const uploaded = await uploadToCloudinary(trimmed);
+        uploadedUrls.push(uploaded.secure_url);
       }
+      const avatarUrl = uploadedUrls[0] ?? null;
 
       const details = [
         petBio.trim(),
@@ -162,7 +168,7 @@ export default function AddPetScreen() {
         .filter(Boolean)
         .join("\n");
 
-      const { data: insertedPet, error } = await supabase
+      const { data: insertedRaw, error } = await supabase
         .from("pets")
         .insert({
           owner_id: user.id,
@@ -170,16 +176,23 @@ export default function AddPetScreen() {
           species: kind,
           breed,
           avatar_url: avatarUrl,
+          photo_urls: uploadedUrls,
           notes: details || null,
         })
         .select("*")
         .single();
 
-      if (error || !insertedPet) {
+      if (error || !insertedRaw) {
         throw error ?? new Error("Could not save pet");
       }
+      const insertedPet = insertedRaw as { id: string };
 
       if (launchRequest) {
+        showToast({
+          variant: "success",
+          message: t("pets.add.saved", "Pet saved successfully."),
+          durationMs: 2400,
+        });
         router.replace({
           pathname: "/(private)/post-requests",
           params: { petId: insertedPet.id },
@@ -187,11 +200,28 @@ export default function AddPetScreen() {
         return;
       }
 
-      router.back();
+      showToast({
+        variant: "success",
+        message: t("pets.add.saved", "Pet saved successfully."),
+        durationMs: 2400,
+      });
+      router.replace({
+        pathname: "/(private)/(tabs)/profile",
+        params: { tab: "pets", refreshPets: "true" },
+      });
     } catch (err) {
+      const details =
+        err instanceof Error
+          ? err.message
+          : t("common.error", "Something went wrong");
+      const friendly = t(
+        "pets.add.saveFailed",
+        "Couldn't save your pet. Please try again.",
+      );
+      showToast({ variant: "error", message: friendly, durationMs: 3200 });
       Alert.alert(
         t("common.error", "Something went wrong"),
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        `${friendly}\n\nDetails: ${details}`,
       );
     } finally {
       setIsSaving(false);
@@ -208,9 +238,7 @@ export default function AddPetScreen() {
       <BackHeader
         title=""
         onBack={handleBack}
-        rightSlot={<StepProgress progress={progress} width={150} />
-
-        }
+        rightSlot={<StepProgress progress={progress} width={150} />}
       />
 
       {step === "kind" && (
@@ -247,10 +275,11 @@ export default function AddPetScreen() {
             What breed is your pet?
           </AppText>
           {kind && (
-            <View style={{
-              marginBottom: 16,
-
-            }}>
+            <View
+              style={{
+                marginBottom: 16,
+              }}
+            >
               <AppText style={{ color: colors.onSurface, fontSize: 12 }}>
                 Your pet is a:{" "}
                 <Text
@@ -271,10 +300,14 @@ export default function AddPetScreen() {
             value={breedQuery}
             onChangeText={setBreedQuery}
             rightIcon={<Search size={22} color={colors.onSurfaceVariant} />}
-            containerStyle={{ ...styles.searchField, backgroundColor: colors.surfaceContainerLow, marginBottom: 12 }}
+            containerStyle={{
+              ...styles.searchField,
+              backgroundColor: colors.surfaceContainerLow,
+              marginBottom: 12,
+            }}
             inputStyle={{ paddingTop: 0, paddingBottom: 0 }}
-            onFocus={() => { }}
-            onBlur={() => { }}
+            onFocus={() => {}}
+            onBlur={() => {}}
           />
           <View
             style={[
@@ -380,7 +413,11 @@ export default function AddPetScreen() {
         ) : (
           <View style={{ gap: 8 }}>
             <Button
-              label={t("common.save", "Save")}
+              label={
+                isSaving
+                  ? t("common.saving", "Saving...")
+                  : t("common.save", "Save")
+              }
               onPress={() => {
                 void savePet(false);
               }}
@@ -388,10 +425,14 @@ export default function AddPetScreen() {
               disabled={isSaving}
             />
             <Button
-              label={t(
-                "post.request.publish.publish",
-                "Save and Launch Care Request",
-              )}
+              label={
+                isSaving
+                  ? t("common.saving", "Saving...")
+                  : t(
+                      "post.request.publish.publish",
+                      "Save and Launch Care Request",
+                    )
+              }
               onPress={() => {
                 void savePet(true);
               }}
@@ -426,7 +467,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 16,
     marginBottom: 10,
-    borderWidth: 0
+    borderWidth: 0,
   },
   breedList: {
     borderRadius: 12,

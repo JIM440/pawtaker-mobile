@@ -1,6 +1,8 @@
 import { Colors } from "@/src/constants/colors";
 import { tabPerfScreenOptions } from "@/src/constants/navigation";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Tabs, usePathname, useRouter } from "expo-router";
@@ -30,8 +32,41 @@ export default function TabsLayout() {
   const colors = Colors[resolvedTheme];
   const router = useRouter();
   const pathname = usePathname();
+  const { user } = useAuthStore();
   const [showPostModal, setShowPostModal] = useState(false);
+  const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const activePillBg = colors.primaryContainer;
+
+  const loadUnreadCounts = async () => {
+    if (!user?.id) {
+      setMessageUnreadCount(0);
+      return;
+    }
+    try {
+      const { data: threads } = await supabase
+        .from("threads")
+        .select("id,participant_ids")
+        .contains("participant_ids", [user.id]);
+      const threadIds = (threads ?? []).map((t) => t.id);
+      if (!threadIds.length) {
+        setMessageUnreadCount(0);
+        return;
+      }
+      const { count } = await supabase
+        .from("messages")
+        .select("id", { head: true, count: "exact" })
+        .in("thread_id", threadIds)
+        .neq("sender_id", user.id)
+        .is("read_at", null);
+      setMessageUnreadCount(count ?? 0);
+    } catch {
+      setMessageUnreadCount(0);
+    }
+  };
+
+  React.useEffect(() => {
+    void loadUnreadCounts();
+  }, [pathname, user?.id]);
 
   return (
     <>
@@ -151,6 +186,7 @@ export default function TabsLayout() {
           name="messages"
           options={{
             title: t("messages.title"),
+            tabBarBadge: messageUnreadCount > 0 ? messageUnreadCount : undefined,
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{

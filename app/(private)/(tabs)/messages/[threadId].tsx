@@ -16,41 +16,51 @@ import { ChevronLeft, Send, EllipsisVertical, Upload, Calendar, Clock } from 'lu
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { ChatTypography } from '@/src/constants/chatTypography';
+import { useAuthStore } from '@/src/lib/store/auth.store';
+import { supabase } from '@/src/lib/supabase/client';
+import { resolveDisplayName } from '@/src/lib/user/displayName';
+import type { Database, Json } from '@/src/lib/supabase/types';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
 import { Button } from '@/src/shared/components/ui/Button';
+import {
+  isResourceNotFound,
+  RESOURCE_NOT_FOUND,
+} from '@/src/lib/errors/resource-not-found';
+import { DataState, ResourceMissingState } from '@/src/shared/components/ui';
 
 type BubbleSide = 'left' | 'right';
 type MessageType = 'text' | 'image' | 'request';
-
-const MOCK_THREAD = {
-  userId: 't1',
-  name: 'Bob Majors',
-  subtitle: 'Caring for Emma',
-  avatarUri: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=100',
-  messages: [
-    { id: 'date-1', type: 'date' as any, text: 'Monday, March 14' },
-    { id: '1', side: 'right' as BubbleSide, type: 'text' as MessageType, text: 'Hi Bob! Are you still available for the daytime care next week?' },
-    { id: '2', side: 'left' as BubbleSide, type: 'text' as MessageType, text: 'Yes, i\'ll be available. I just saw your request!' },
-    { 
-      id: '3', 
-      side: 'left' as BubbleSide, 
-      type: 'request' as MessageType, 
-      requestData: {
-        petName: 'Emma',
-        breed: 'Golden Retriever',
-        date: 'Mar 14-18',
-        time: '8am-4pm',
-        price: '25 pts/hr',
-        context: 'applying',
-        offerId: '1',
-      }
-    },
-    { id: 'date-2', type: 'date' as any, text: 'Today' },
-    { id: '4', side: 'right' as BubbleSide, type: 'text' as MessageType, text: 'Great! I\'ll confirm the booking now.' },
-  ],
+type UiMessage = {
+  id: string;
+  side: BubbleSide;
+  type: MessageType;
+  text?: string;
+  timeLabel: string;
+  requestData?: {
+    petName: string;
+    breed: string;
+    date: string;
+    time: string;
+    price: string;
+    context: 'seeking' | 'applying';
+    offerId: string;
+  };
 };
+
+type DbMessage = Database['public']['Tables']['messages']['Row'];
+/** Subset returned by thread message list query (not full row). */
+type MessageListRow = Pick<
+  DbMessage,
+  'id' | 'sender_id' | 'content' | 'type' | 'metadata' | 'created_at'
+>;
+
+function readMetadataString(metadata: Json | null | undefined, key: string) {
+  if (!metadata || typeof metadata !== 'object' || Array.isArray(metadata)) return null;
+  const v = (metadata as Record<string, Json>)[key];
+  return typeof v === 'string' && v.trim() ? v : null;
+}
 
 function MessageBubble({
   message,
@@ -80,7 +90,7 @@ function MessageBubble({
   if (message.type === 'request') {
     const rd = message.requestData;
     const context = rd.context === 'seeking' ? 'seeking' : 'applying';
-    const offerId = String(rd.offerId ?? 1);
+    const offerId = typeof rd.offerId === 'string' ? rd.offerId.trim() : '';
     return (
       <View
         style={[
@@ -146,7 +156,9 @@ function MessageBubble({
             label={t("messages.viewOfferDetails")}
             size="sm"
             style={styles.requestCta}
+            disabled={!offerId}
             onPress={() => {
+              if (!offerId) return;
               if (context === 'seeking') {
                 router.push({
                   pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
@@ -198,7 +210,7 @@ function MessageBubble({
           { marginTop: 4, alignSelf: isRight ? 'flex-end' : 'flex-start' },
         ]}
       >
-        10:45 AM
+        {message.timeLabel}
       </AppText>
     </View>
   );
@@ -226,43 +238,162 @@ export default function ThreadScreen() {
   }>();
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [input, setInput] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
-  const thread = React.useMemo(() => {
-    const context = mode === 'seeking' ? 'seeking' : 'applying';
-    const next = {
-      ...MOCK_THREAD,
-      messages: MOCK_THREAD.messages.map((m) => {
-        if (m.type !== 'request') return m;
-        const requestData = m.requestData ?? {
-          petName: "Polo",
-          breed: "Golden Retriever",
-          date: "Mar 14-18",
-          time: "8am-4pm",
-          price: "25 pts/hr",
-          context: "applying",
-          offerId: "1",
-        };
+  const [thread, setThread] = useState<{
+    userId: string;
+    name: string;
+    subtitle: string;
+    avatarUri: string | null;
+    messages: UiMessage[];
+  }>({
+    userId: "",
+    name: "User",
+    subtitle: "",
+    avatarUri: null,
+    messages: [],
+  });
+
+  const context = mode === 'seeking' ? 'seeking' : 'applying';
+
+  const formatTime = (iso?: string) => {
+    if (!iso) return '';
+    return new Date(iso).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
+  };
+
+  const loadThread = async () => {
+    if (!user?.id || !_threadId) {
+      setLoading(false);
+      return;
+    }
+    setLoading(true);
+    setLoadError(null);
+    try {
+      const { data: threadRow, error: threadError } = await supabase
+        .from('threads')
+        .select('id,participant_ids,request_id')
+        .eq('id', _threadId)
+        .maybeSingle();
+      if (threadError) throw threadError;
+      if (!threadRow) {
+        setLoadError(RESOURCE_NOT_FOUND);
+        return;
+      }
+
+      const peerId = ((threadRow.participant_ids ?? []) as string[]).find((id) => id !== user.id) ?? '';
+      const [{ data: peer }, { data: messages }, { data: req }] = await Promise.all([
+        peerId
+          ? supabase.from('users').select('id,full_name,avatar_url').eq('id', peerId).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        supabase
+          .from('messages')
+          .select('id,sender_id,content,type,metadata,created_at')
+          .eq('thread_id', _threadId)
+          .order('created_at', { ascending: true }),
+        threadRow?.request_id
+          ? supabase.from('care_requests').select('id,pet_id,start_date,end_date,points_offered').eq('id', threadRow.request_id).maybeSingle()
+          : Promise.resolve({ data: null } as any),
+      ]);
+
+      let pet: any = null;
+      if (req?.pet_id) {
+        const { data: petData } = await supabase
+          .from('pets')
+          .select('id,name,breed')
+          .eq('id', req.pet_id)
+          .maybeSingle();
+        pet = petData;
+      }
+
+      const uiMessages: UiMessage[] = (messages ?? []).map((m: MessageListRow) => {
+        const side: BubbleSide = m.sender_id === user.id ? 'right' : 'left';
+        const asRequest =
+          (m.type === 'proposal' || m.type === 'agreement') &&
+          (pet || petName || breed);
+        if (asRequest) {
+          const metaRequestId = readMetadataString(m.metadata, 'requestId');
+          const offer =
+            offerId ??
+            metaRequestId ??
+            (typeof req?.id === 'string' ? req.id : '');
+          return {
+            id: m.id,
+            side,
+            type: 'request',
+            timeLabel: formatTime(m.created_at),
+            requestData: {
+              petName: petName ?? pet?.name ?? 'Pet',
+              breed: breed ?? pet?.breed ?? 'Unknown breed',
+              date:
+                date ??
+                (req?.start_date && req?.end_date
+                  ? `${new Date(req.start_date).toLocaleDateString()} - ${new Date(req.end_date).toLocaleDateString()}`
+                  : ''),
+              time: time ?? '',
+              price: price ?? (req?.points_offered ? `${req.points_offered} pts` : ''),
+              context,
+              offerId: offer,
+            },
+          };
+        }
         return {
-          ...m,
-          requestData: {
-            ...requestData,
-            petName: petName ?? requestData.petName,
-            breed: breed ?? requestData.breed,
-            date: date ?? requestData.date,
-            time: time ?? requestData.time,
-            price: price ?? requestData.price,
-            context,
-            offerId: offerId ?? requestData.offerId,
-          },
+          id: m.id,
+          side,
+          type: 'text',
+          text: m.content ?? '',
+          timeLabel: formatTime(m.created_at),
         };
-      }),
-    };
-    return next;
-  }, [mode, petName, breed, date, time, price, offerId]);
+      });
+
+      setThread({
+        userId: peer?.id ?? peerId,
+        name: resolveDisplayName(peer) || 'User',
+        subtitle: pet?.name ? `Caring for ${pet.name}` : '',
+        avatarUri: peer?.avatar_url ?? null,
+        messages: uiMessages,
+      });
+    } catch (err) {
+      setLoadError(err instanceof Error ? err.message : 'Failed to load thread.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  React.useEffect(() => {
+    void loadThread();
+  }, [_threadId, user?.id]);
+
+  const sendMessage = async () => {
+    if (!user?.id || !_threadId || !input.trim() || sending) return;
+    const body = input.trim();
+    setSending(true);
+    try {
+      const { error } = await supabase.from('messages').insert({
+        thread_id: _threadId,
+        sender_id: user.id,
+        content: body,
+        type: 'text',
+        metadata: null,
+        read_at: null,
+      });
+      if (error) throw error;
+      setInput('');
+      await supabase
+        .from('threads')
+        .update({ last_message_at: new Date().toISOString() })
+        .eq('id', _threadId);
+      await loadThread();
+    } finally {
+      setSending(false);
+    }
+  };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
@@ -271,6 +402,51 @@ export default function ThreadScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
+        {loading ? (
+          <DataState title={t('common.loading', 'Loading...')} mode="full" />
+        ) : isResourceNotFound(loadError) ? (
+          <>
+            <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                <ChevronLeft size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+              <View style={styles.headerText}>
+                <AppText variant="body" numberOfLines={1} style={ChatTypography.threadHeaderName}>
+                  {t("messages.chatUnavailable")}
+                </AppText>
+              </View>
+              <View style={{ width: 40 }} />
+            </View>
+            <ResourceMissingState
+              onBack={() => router.back()}
+              onHome={() =>
+                router.replace(
+                  '/(private)/(tabs)/(home)' as Parameters<typeof router.replace>[0],
+                )
+              }
+            />
+          </>
+        ) : loadError ? (
+          <>
+            <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
+                <ChevronLeft size={24} color={colors.onSurface} />
+              </TouchableOpacity>
+              <View style={{ flex: 1 }} />
+              <View style={{ width: 40 }} />
+            </View>
+            <DataState
+              title={t("common.error", "Something went wrong")}
+              message={loadError}
+              actionLabel={t("common.retry", "Retry")}
+              onAction={() => {
+                void loadThread();
+              }}
+              mode="full"
+            />
+          </>
+        ) : (
+          <>
         {/* Header: back, avatar, name, subtitle, menu */}
         <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>
           <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
@@ -402,13 +578,24 @@ export default function ThreadScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          {thread.messages.map((msg) => (
-            <MessageBubble
-              key={msg.id}
-              message={msg}
-              colors={colors}
+          {thread.messages.length > 0 ? (
+            thread.messages.map((msg) => (
+              <MessageBubble
+                key={msg.id}
+                message={msg}
+                colors={colors}
+              />
+            ))
+          ) : (
+            <DataState
+              title={t("messages.noMessagesTitle", "No messages yet")}
+              message={t(
+                "messages.noMessagesSubtitle",
+                "Start the conversation by sending your first message.",
+              )}
+              mode="inline"
             />
-          ))}
+          )}
         </ScrollView>
 
         {/* Input */}
@@ -440,10 +627,16 @@ export default function ThreadScreen() {
           <TouchableOpacity
             style={[styles.sendBtn, { backgroundColor: colors.secondaryContainer }]}
             hitSlop={8}
+            onPress={() => {
+              void sendMessage();
+            }}
+            disabled={sending || !input.trim()}
           >
             <Send size={24} color={colors.onSecondaryContainer} />
           </TouchableOpacity>
         </View>
+        </>
+        )}
       </KeyboardAvoidingView>
     </View>
   );

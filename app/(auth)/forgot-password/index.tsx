@@ -1,5 +1,7 @@
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { useForgotPasswordStore } from "@/src/lib/store/forgotPassword.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { TextField } from "@/src/shared/components/forms/TextField";
@@ -20,12 +22,12 @@ export default function ForgotPasswordEmailScreen() {
   const colors = Colors[resolvedTheme];
 
   const { email: storedEmail, setEmail } = useForgotPasswordStore();
+  const showToast = useToastStore((s) => s.showToast);
 
   const [email, setEmailLocal] = useState(storedEmail);
   const [touched, setTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
-  const [showSentToast, setShowSentToast] = useState(false);
 
   useEffect(() => {
     setEmailLocal(storedEmail);
@@ -65,9 +67,12 @@ export default function ForgotPasswordEmailScreen() {
       return;
     }
 
-    setShowSentToast(true);
+    showToast({
+      variant: "success",
+      message: t("auth.forgotPassword.success"),
+      durationMs: 1200,
+    });
     setTimeout(() => {
-      setShowSentToast(false);
       router.replace("/(auth)/forgot-password/verify");
     }, 900);
   };
@@ -114,6 +119,7 @@ export default function ForgotPasswordEmailScreen() {
             autoCapitalize="none"
             autoCorrect={false}
             error={emailError ?? undefined}
+            maxLength={INPUT_LIMITS.email}
             rightIcon={
               formError ? <CircleX size={20} color={colors.error} /> : undefined
             }
@@ -165,24 +171,6 @@ export default function ForgotPasswordEmailScreen() {
         </View>
       </ScrollView>
 
-      {showSentToast ? (
-        <View
-          style={{
-            position: "absolute",
-            left: 16,
-            right: 16,
-            bottom: 20,
-            borderRadius: 4,
-            backgroundColor: "#322F35",
-            paddingHorizontal: 16,
-            paddingVertical: 14,
-          }}
-        >
-          <AppText variant="body" color="#F5EFF7">
-            {t("auth.forgotPassword.success")}
-          </AppText>
-        </View>
-      ) : null}
     </PageContainer>
   );
 }

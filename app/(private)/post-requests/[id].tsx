@@ -1,11 +1,24 @@
 import { Colors } from "@/src/constants/colors";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import {
+  isResourceNotFound,
+  RESOURCE_NOT_FOUND,
+} from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { supabase } from "@/src/lib/supabase/client";
+import type { TablesRow } from "@/src/lib/supabase/types";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Calendar,
@@ -16,7 +29,7 @@ import {
   PawPrint,
   Star,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Dimensions,
@@ -33,70 +46,345 @@ const H_PADDING = 16;
 const IMAGE_WIDTH = SCREEN_WIDTH - H_PADDING * 2;
 const IMAGE_HEIGHT = 216;
 
-const MOCK_REQUEST = {
-  id: "1",
-  images: [
-    "https://images.unsplash.com/photo-1587300003388-59208cc962cb?w=800",
-    "https://images.unsplash.com/photo-1583512603805-3cc6b41a3ec0?w=800",
-    "https://images.unsplash.com/photo-1534361960057-19889db9621e?w=800",
-  ],
-  petName: "Polo",
-  breed: "Golden Retriever",
-  petType: "Dog",
-  dateRange: "Mar 14-Mar 18",
-  time: "8am-4pm",
-  careType: "Daytime",
-  location: "Lake Placid, New York, US",
-  distance: "5km",
-  description:
-    "Polo is a friendly and energetic golden retriever who loves long walks and playing fetch. He's well-trained and a great entertainer. Loves people and other pets",
-  owner: {
-    id: "1",
-    name: "Jane Ambers",
-    avatar:
-      "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?w=200",
-    rating: 4.1,
-    handshakes: 12,
-    paws: 17,
-  },
-  details: {
-    yardType: "fenced yard",
-    age: "3-8 yrs",
-    energyLevel: "medium energy",
-  },
-  specialNeeds:
-    "Needs insulin shots twice a day or is very shy around loud noises. Strictly no human food; tends to eat grass if not watched. Needs insulin shots twice a day or is very shy around loud noises.",
-};
+function toRad(d: number) {
+  return (d * Math.PI) / 180;
+}
+
+function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+  const R = 6371;
+  const dLat = toRad(b.lat - a.lat);
+  const dLon = toRad(b.lon - a.lon);
+  const lat1 = toRad(a.lat);
+  const lat2 = toRad(b.lat);
+  const h =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
+  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
+  return R * c;
+}
 
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
-  const request = MOCK_REQUEST;
-  const imageCount = request.images.length;
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [reqRow, setReqRow] = useState<any | null>(null);
+  const [pet, setPet] = useState<any | null>(null);
+  const [owner, setOwner] = useState<any | null>(null);
+  const [viewer, setViewer] = useState<any | null>(null);
+  const [ownerReviews, setOwnerReviews] = useState<any[]>([]);
+  const [applying, setApplying] = useState(false);
+  const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
 
-  const onApplyNow = () => {
+  const load = useCallback(async () => {
+    if (!id) {
+      setLoading(false);
+      setError("Missing request id.");
+      return;
+    }
+    if (!user?.id) {
+      setLoading(false);
+      setError(t("common.error", "Something went wrong"));
+      return;
+    }
+
+    setLoading(true);
+    setError(null);
+    try {
+      const { data: requestRaw, error: reqError } = await supabase
+        .from("care_requests")
+        .select("*")
+        .eq("id", id)
+        .maybeSingle();
+      if (reqError) throw reqError;
+      const request = requestRaw as TablesRow<"care_requests"> | null;
+      if (!request) {
+        setReqRow(null);
+        setPet(null);
+        setOwner(null);
+        setOwnerReviews([]);
+        setError(RESOURCE_NOT_FOUND);
+        return;
+      }
+
+      const [{ data: petRow, error: petError }, { data: ownerRow, error: ownerError }, { data: meRow, error: meError }, { data: reviews, error: reviewsError }] =
+        await Promise.all([
+          supabase.from("pets").select("*").eq("id", request.pet_id).maybeSingle(),
+          supabase
+            .from("users")
+            .select(
+              "id,full_name,avatar_url,city,latitude,longitude,points_balance,care_given_count,care_received_count",
+            )
+            .eq("id", request.owner_id)
+            .maybeSingle(),
+          supabase
+            .from("users")
+            .select("id,latitude,longitude")
+            .eq("id", user.id)
+            .maybeSingle(),
+          supabase.from("reviews").select("rating").eq("reviewee_id", request.owner_id),
+        ]);
+      if (petError) throw petError;
+      if (ownerError) throw ownerError;
+      if (meError) throw meError;
+      if (reviewsError) throw reviewsError;
+
+      if (!petRow || !ownerRow) {
+        setReqRow(null);
+        setPet(null);
+        setOwner(null);
+        setViewer(null);
+        setOwnerReviews([]);
+        setError(RESOURCE_NOT_FOUND);
+        return;
+      }
+
+      setReqRow(request);
+      setPet(petRow);
+      setOwner(ownerRow);
+      setViewer(meRow ?? null);
+      setOwnerReviews(reviews ?? []);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+    } finally {
+      setLoading(false);
+    }
+  }, [id, t, user?.id]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void load();
+    }, [load]),
+  );
+
+  const parsedPetNotes = useMemo(() => parsePetNotes(pet?.notes), [pet?.notes]);
+
+  const images = useMemo(() => {
+    const uri = pet?.avatar_url as string | null | undefined;
+    return uri ? [uri] : [];
+  }, [pet?.avatar_url]);
+
+  useEffect(() => {
+    setCurrentImageIndex(0);
+  }, [id, images.length]);
+
+  const careTypeKey: CareTypeKey = useMemo(() => {
+    const ct = reqRow?.care_type as string | undefined;
+    if (ct === "walking") return "playwalk";
+    if (ct === "boarding") return "overnight";
+    return "daytime";
+  }, [reqRow?.care_type]);
+
+  const dateRange = useMemo(() => {
+    if (!reqRow?.start_date || !reqRow?.end_date) return "";
+    return `${new Date(reqRow.start_date).toLocaleDateString()} - ${new Date(
+      reqRow.end_date,
+    ).toLocaleDateString()}`;
+  }, [reqRow?.end_date, reqRow?.start_date]);
+
+  const careTypeLabel = t(`feed.careTypes.${careTypeKey}`);
+
+  const location =
+    owner?.city?.trim() || t("profile.noLocation");
+
+  const distanceLabel = useMemo(() => {
+    const olat = owner?.latitude;
+    const olon = owner?.longitude;
+    const vlat = viewer?.latitude;
+    const vlon = viewer?.longitude;
+    if (
+      typeof olat !== "number" ||
+      typeof olon !== "number" ||
+      typeof vlat !== "number" ||
+      typeof vlon !== "number"
+    ) {
+      return "";
+    }
+    const km = haversineKm({ lat: vlat, lon: vlon }, { lat: olat, lon: olon });
+    if (!Number.isFinite(km)) return "";
+    return `${km < 10 ? km.toFixed(1) : Math.round(km)}km`;
+  }, [owner?.latitude, owner?.longitude, viewer?.latitude, viewer?.longitude]);
+
+  const description =
+    (reqRow?.description as string | null | undefined)?.trim() ||
+    parsedPetNotes.bio ||
+    (typeof pet?.notes === "string" ? pet.notes : "") ||
+    t("post.request.noDescription", "No description yet.");
+
+  const ownerRating =
+    ownerReviews.length > 0
+      ? ownerReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / ownerReviews.length
+      : 0;
+
+  const request = {
+    petName: pet?.name ?? t("pets.add.name", "Pet"),
+    breed: pet?.breed ?? t("pets.add.breed", "Breed"),
+    petType: pet?.species ?? t("pets.add.kind", "Pet"),
+    dateRange,
+    time: "",
+    careType: careTypeLabel,
+    location,
+    distance: distanceLabel,
+    description,
+    owner: {
+      id: owner?.id ?? "",
+      name: resolveDisplayName(owner) || t("requestDetails.owner", "Owner"),
+      avatar: owner?.avatar_url ?? "",
+      rating: ownerRating,
+      handshakes: owner?.care_given_count ?? 0,
+      paws: owner?.care_received_count ?? 0,
+    },
+    details: {
+      yardType: parsedPetNotes.yardType ?? t("common.empty", "—"),
+      age: parsedPetNotes.ageRange ?? t("common.empty", "—"),
+      energyLevel: parsedPetNotes.energyLevel ?? t("common.empty", "—"),
+    },
+    specialNeeds:
+      parsedPetNotes.specialNeeds || t("pet.detail.none", "None"),
+  };
+
+  const imageCount = Math.max(images.length, 1);
+
+  const isOwner = Boolean(user?.id && reqRow?.owner_id && user.id === reqRow.owner_id);
+
+  const openApplyConfirm = () => {
     if (blockIfKycNotApproved()) return;
-    // Navigate to chat with an "Applying for ..." request card.
-    // Thread screen reads these params to render the correct message card.
+    if (!user?.id || !id || !reqRow?.owner_id) return;
+    if (isOwner) return;
+    setApplyConfirmOpen(true);
+  };
+
+  const runApply = async () => {
+    if (blockIfKycNotApproved()) {
+      setApplyConfirmOpen(false);
+      return;
+    }
+    if (!user?.id || !id || !reqRow?.owner_id) return;
+    const ownerId = reqRow.owner_id as string;
+    const participants = [user.id, ownerId].sort();
+
+    let threadId: string | null = null;
+
+    const { data: existing, error: existingError } = await supabase
+      .from("threads")
+      .select("id,participant_ids,request_id")
+      .eq("request_id", id)
+      .contains("participant_ids", participants)
+      .maybeSingle();
+    if (existingError) throw existingError;
+    if (existing?.id) {
+      threadId = existing.id;
+    } else {
+      const { data: inserted, error: insertError } = await supabase
+        .from("threads")
+        .insert({
+          participant_ids: participants,
+          request_id: id,
+        })
+        .select("id")
+        .single();
+      if (insertError) throw insertError;
+      threadId = inserted.id;
+    }
+
+    if (!threadId) throw new Error("Could not create chat thread.");
+
+    const price =
+      typeof reqRow.points_offered === "number"
+        ? `${reqRow.points_offered} pts`
+        : "";
+
+    const { error: msgError } = await supabase.from("messages").insert({
+      thread_id: threadId,
+      sender_id: user.id,
+      content: t("requestDetails.applyNow"),
+      type: "proposal",
+      metadata: {
+        requestId: id,
+        pointsOffered: reqRow.points_offered ?? null,
+      },
+    });
+    if (msgError) throw msgError;
+
+    await supabase
+      .from("threads")
+      .update({ last_message_at: new Date().toISOString() })
+      .eq("id", threadId);
+
+    setApplyConfirmOpen(false);
     router.push({
       pathname: "/(private)/(tabs)/messages/[threadId]" as any,
       params: {
-        threadId: "1",
+        threadId,
         mode: "applying",
         petName: request.petName,
         breed: request.breed,
         date: request.dateRange,
         time: request.time,
-        price: "25 pts/hr",
-        offerId: id ?? "1",
+        price,
+        offerId: id,
       } as any,
     });
   };
+
+  const onApplyConfirmed = () => {
+    void (async () => {
+      setApplying(true);
+      try {
+        await runApply();
+      } catch (err) {
+        setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+      } finally {
+        setApplying(false);
+      }
+    })();
+  };
+
+  if (loading) {
+    return (
+      <PageContainer>
+        <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+        <DataState title={t("common.loading", "Loading...")} mode="full" />
+      </PageContainer>
+    );
+  }
+
+  if (isResourceNotFound(error)) {
+    return (
+      <PageContainer>
+        <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+        <ResourceMissingState
+          onBack={() => router.back()}
+          onHome={() =>
+            router.replace("/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0])
+          }
+        />
+      </PageContainer>
+    );
+  }
+
+  if (error || !reqRow || !pet || !owner) {
+    return (
+      <PageContainer>
+        <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+        <DataState
+          title={t("common.error", "Something went wrong")}
+          message={error ?? undefined}
+          actionLabel={t("common.retry", "Retry")}
+          onAction={() => {
+            void load();
+          }}
+          mode="full"
+        />
+      </PageContainer>
+    );
+  }
 
   return (
     <PageContainer>
@@ -110,7 +398,7 @@ export default function RequestDetailScreen() {
           {/* Image carousel */}
           <View style={styles.carouselWrap}>
             <FlatList
-              data={request.images}
+              data={images.length ? images : [""]}
               horizontal
               pagingEnabled
               snapToInterval={SCREEN_WIDTH}
@@ -131,11 +419,20 @@ export default function RequestDetailScreen() {
                   }}
                   style={styles.carouselItem}
                 >
-                  <AppImage
-                    source={{ uri: item }}
-                    style={[styles.carouselImage, { width: IMAGE_WIDTH }]}
-                    contentFit="cover"
-                  />
+                  {item ? (
+                    <AppImage
+                      source={{ uri: item }}
+                      style={[styles.carouselImage, { width: IMAGE_WIDTH }]}
+                      contentFit="cover"
+                    />
+                  ) : (
+                    <View
+                      style={[
+                        styles.carouselImage,
+                        { width: IMAGE_WIDTH, backgroundColor: colors.surfaceContainerHighest },
+                      ]}
+                    />
+                  )}
                 </TouchableOpacity>
               )}
               keyExtractor={(_, i) => String(i)}
@@ -153,7 +450,7 @@ export default function RequestDetailScreen() {
               </View>
             </View>
             <View style={styles.dots}>
-              {request.images.map((_, i) => (
+              {(images.length ? images : [""]).map((_, i) => (
                 <View
                   key={i}
                   style={[
@@ -170,13 +467,25 @@ export default function RequestDetailScreen() {
           {/* Pet name, breed, favorite */}
           <View style={styles.nameRow}>
             <View style={styles.nameBreedRow}>
-              <AppText
-                variant="headline"
-                color={colors.onSurface}
-                style={styles.petName}
+              <TouchableOpacity
+                disabled={!pet?.id}
+                activeOpacity={0.7}
+                onPress={() => {
+                  if (!pet?.id) return;
+                  router.push({
+                    pathname: "/(private)/pets/[id]",
+                    params: { id: pet.id },
+                  });
+                }}
               >
-                {request.petName}
-              </AppText>
+                <AppText
+                  variant="headline"
+                  color={colors.onSurface}
+                  style={styles.petName}
+                >
+                  {request.petName}
+                </AppText>
+              </TouchableOpacity>
               <View style={styles.breedRow}>
                 <AppText variant="caption" color={colors.onSurface}>
                   {request.breed}
@@ -256,17 +565,21 @@ export default function RequestDetailScreen() {
                 {request.location}
               </AppText>
             </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {" "}
-              •{" "}
-            </AppText>
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={styles.metaText}
-            >
-              {request.distance}
-            </AppText>
+            {request.distance ? (
+              <>
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {" "}
+                  •{" "}
+                </AppText>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={styles.metaText}
+                >
+                  {request.distance}
+                </AppText>
+              </>
+            ) : null}
           </View>
 
           {/* Description */}
@@ -408,12 +721,31 @@ export default function RequestDetailScreen() {
           <View style={styles.fixedFooterInner}>
             <Button
               label={t("requestDetails.applyNow")}
-              onPress={onApplyNow}
+              onPress={openApplyConfirm}
               style={styles.applyBtn}
+              loading={applying}
+              disabled={applying || isOwner}
             />
           </View>
         </View>
       </View>
+
+      <FeedbackModal
+        visible={applyConfirmOpen}
+        onRequestClose={() => !applying && setApplyConfirmOpen(false)}
+        icon={<PawPrint size={24} color={colors.primary} strokeWidth={2} />}
+        title={t("requestDetails.applyConfirmTitle", "Applying for this pet?")}
+        description={t(
+          "requestDetails.applyConfirmBody",
+          "A message with your availability details will be sent to this pet’s owner",
+        )}
+        secondaryLabel={t("common.cancel", "Cancel")}
+        onSecondary={() => !applying && setApplyConfirmOpen(false)}
+        secondaryVariant="secondary"
+        primaryLabel={t("common.continue", "Continue")}
+        onPrimary={onApplyConfirmed}
+        primaryLoading={applying}
+      />
     </PageContainer>
   );
 }

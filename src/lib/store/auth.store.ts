@@ -70,9 +70,12 @@ export const useAuthStore = create<AuthState>()(
           .from('users')
           .select('*')
           .eq('id', userId)
-          .single();
-        if (!error && data) {
+          .maybeSingle();
+        if (error) return;
+        if (data) {
           set({ profile: data as unknown as UserProfile });
+        } else {
+          set({ profile: null });
         }
       },
 

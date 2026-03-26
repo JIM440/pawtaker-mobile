@@ -35,7 +35,8 @@ export function ProfileAvatar({
             .slice(0, 2)
         : "?";
 
-    if (!uri) {
+    const resolvedUri = typeof uri === "string" ? uri.trim() : uri;
+    if (!resolvedUri) {
         return (
             <View
                 style={[
@@ -64,7 +65,7 @@ export function ProfileAvatar({
 
     return (
         <AppImage
-            source={{ uri }}
+            source={{ uri: resolvedUri }}
             style={[
                 {
                     width: size,

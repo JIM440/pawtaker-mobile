@@ -2,7 +2,9 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ReviewCard } from "@/src/shared/components/cards/ReviewCard";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { Star } from "lucide-react-native";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { FlatList, StyleSheet, View } from "react-native";
 
 type Props = {
@@ -38,10 +40,14 @@ export function ProfileReviewsTab({
   emptyMessage = "No reviews yet.",
   scrollEnabled = false,
 }: Props) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
   const hasItems = items.length > 0;
+  const displayRating = hasItems
+    ? items.reduce((sum, i) => sum + (i.rating ?? 0), 0) / items.length
+    : rating;
 
   return (
     <FlatList
@@ -52,7 +58,7 @@ export function ProfileReviewsTab({
           rating={item.rating}
           text={item.review}
           reviewerName={item.name}
-          reviewerAvatar={item.avatar ?? undefined}
+          reviewerAvatar={item.avatar ?? ""}
           handshakes={item.handshakes}
           paws={item.paws}
           dateLabel={item.date}
@@ -64,17 +70,34 @@ export function ProfileReviewsTab({
       contentContainerStyle={styles.list}
       scrollEnabled={scrollEnabled}
       ListHeaderComponent={
-        <>
-          <View style={styles.headerRow}>
-            <View style={styles.score}>
-              <View style={styles.scoreMeta}>
-                <AppText variant="caption" color={colors.onSurface}>
-                  {hasItems ? `${items.length} reviews` : emptyMessage}
-                </AppText>
-              </View>
-            </View>
+        <View
+          style={[
+            styles.summaryCard,
+            {
+              backgroundColor: colors.surfaceBright,
+              borderColor: colors.outlineVariant,
+            },
+          ]}
+        >
+          <View style={styles.summaryTop}>
+            <AppText variant="title" color={colors.onSurface} style={styles.scoreNum}>
+              {hasItems ? displayRating.toFixed(1) : "—"}
+            </AppText>
+            <Star size={22} color={colors.tertiary} fill={colors.tertiary} />
           </View>
-        </>
+          <AppText variant="caption" color={colors.onSurfaceVariant}>
+            {hasItems
+              ? t("profile.reviewsCount", "{{count}} reviews", {
+                  count: items.length,
+                })
+              : emptyMessage}
+          </AppText>
+          {(handshakes > 0 || paws > 0) && (
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {`${handshakes} · ${paws}`}
+            </AppText>
+          )}
+        </View>
       }
       showsVerticalScrollIndicator={false}
     />
@@ -82,31 +105,24 @@ export function ProfileReviewsTab({
 }
 
 const styles = StyleSheet.create({
-  headerRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    justifyContent: "space-between",
-    marginBottom: 4,
+  summaryCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    marginBottom: 12,
+    gap: 8,
   },
-  score: {
+  summaryTop: {
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
   },
-  scoreValue: {
-    fontSize: 24,
-  },
-  scoreMeta: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 4,
-  },
-  stats: {
-    alignItems: "flex-end",
-    gap: 2,
+  scoreNum: {
+    fontSize: 28,
+    letterSpacing: -0.5,
   },
   list: {
-    gap: 8,
+    gap: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
