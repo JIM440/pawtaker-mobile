@@ -116,6 +116,32 @@ export default function RootLayout() {
     return () => subscription.unsubscribe();
   }, []);
 
+  // Realtime: re-fetch profile whenever the users row changes remotely
+  // (e.g. admin approves KYC — kyc_status flips to 'approved' without user doing anything)
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channel = supabase
+      .channel(`profile:${session.user.id}`)
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'users',
+          filter: `id=eq.${session.user.id}`,
+        },
+        () => {
+          void fetchProfile(session.user.id);
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [session?.user?.id]);
+
   const ready =
     fontsLoaded && !isLoading && themeHydrated && langHydrated && authHydrated;
 
