@@ -3,13 +3,14 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { ProfileAvatar } from "@/src/shared/components/ui/ProfileAvatar";
 import {
-    Handshake,
-    MapPin,
-    MoreHorizontal,
-    PawPrint,
-    Star,
+  Handshake,
+  MapPin,
+  MoreHorizontal,
+  PawPrint,
+  Star,
 } from "lucide-react-native";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export type TakerCardProps = {
@@ -31,6 +32,7 @@ export type TakerCardProps = {
 };
 
 export function TakerCard({ taker, onPress, onMenuPress }: TakerCardProps) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const menuBtnRef = React.useRef<any>(null);
@@ -62,7 +64,7 @@ export function TakerCard({ taker, onPress, onMenuPress }: TakerCardProps) {
                   ]}
                 >
                   <AppText variant="caption" color={colors.onTertiaryContainer}>
-                    Available
+                    {t("feed.takerAvailable", "Available")}
                   </AppText>
                 </View>
               )}

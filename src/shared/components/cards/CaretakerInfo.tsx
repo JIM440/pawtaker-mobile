@@ -28,8 +28,7 @@ export function CaretakerInfo({
 
   const hasAvatar =
     avatarUri != null &&
-    (typeof avatarUri !== "string" ||
-      avatarUri.trim().length > 0);
+    (typeof avatarUri !== "string" || avatarUri.trim().length > 0);
 
   return (
     <TouchableOpacity
@@ -67,29 +66,35 @@ export function CaretakerInfo({
           {name}
         </AppText>
         <View style={styles.statsRow}>
-          <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.rating}>
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            style={styles.rating}
+          >
             {rating.toFixed(1)}
           </AppText>
           <Star size={10} color={colors.tertiary} fill={colors.tertiary} />
           <View
-            style={[
-              styles.statPill,
-              { backgroundColor: colors.surfaceBright },
-            ]}
+            style={[styles.statPill, { backgroundColor: colors.surfaceBright }]}
           >
             <Handshake size={12} color={colors.tertiary} />
-            <AppText variant="caption" color={colors.onSurface} style={styles.rating}>
+            <AppText
+              variant="caption"
+              color={colors.onSurface}
+              style={styles.rating}
+            >
               {reviewsCount}
             </AppText>
           </View>
           <View
-            style={[
-              styles.statPill,
-              { backgroundColor: colors.surfaceBright },
-            ]}
+            style={[styles.statPill, { backgroundColor: colors.surfaceBright }]}
           >
             <PawPrint size={12} color={colors.tertiary} />
-            <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.rating}>
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={styles.rating}
+            >
               {petsCount}
             </AppText>
           </View>
@@ -127,7 +132,7 @@ const styles = StyleSheet.create({
   },
   name: {
     fontSize: 14,
-    lineHeight: 16
+    lineHeight: 16,
   },
   statsRow: {
     flexDirection: "row",
@@ -135,7 +140,7 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   rating: {
-    lineHeight: 14
+    lineHeight: 14,
   },
   statPill: {
     flexDirection: "row",

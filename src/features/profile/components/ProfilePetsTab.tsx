@@ -1,9 +1,9 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { LikedPetCard } from "@/src/shared/components/cards/LikedPetCard";
+import { DataState } from "@/src/shared/components/ui";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { Button } from "@/src/shared/components/ui/Button";
-import { DataState } from "@/src/shared/components/ui";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
@@ -15,6 +15,9 @@ export type ProfilePet = {
   breed: string;
   petType: string;
   bio: string;
+  yardType?: string | null;
+  ageRange?: string | null;
+  energyLevel?: string | null;
   tags?: string[];
   seekingDateRange?: string;
   seekingTime?: string;
@@ -51,7 +54,10 @@ export function ProfilePetsTab({
             <AppImage
               source={require("@/assets/illustrations/pets/no-pet.svg")}
               type="svg"
-              style={[styles.emptyIllustration, { backgroundColor: "transparent" }]}
+              style={[
+                styles.emptyIllustration,
+                { backgroundColor: "transparent" },
+              ]}
               height={145}
             />
           }
@@ -89,6 +95,9 @@ export function ProfilePetsTab({
             dateRange={pet.seekingDateRange ?? ""}
             time={pet.seekingTime ?? ""}
             description={pet.bio}
+            yardType={pet.yardType}
+            ageRange={pet.ageRange}
+            energyLevel={pet.energyLevel}
             tags={pet.tags ?? []}
             isSeeking={Boolean(pet.seekingDateRange)}
             showOverflowMenu={false}
@@ -115,6 +124,7 @@ const styles = StyleSheet.create({
   addPetBtn: {
     marginTop: 8,
     gap: 8,
+    borderWidth: 0,
   },
   emptyState: {
     paddingVertical: 16,

@@ -9,6 +9,7 @@ import { BackHeader } from "@/src/shared/components/layout";
 import { PageContainer } from "@/src/shared/components/layout/PageContainer";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import {
   validatePassword,
   validatePasswordMatch,
@@ -19,14 +20,7 @@ import { Ionicons } from "@expo/vector-icons";
 import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Linking, ScrollView, Text, TouchableOpacity, View } from "react-native";
 import { LocalSvg } from "react-native-svg/css";
 
 export default function SignupScreen() {
@@ -53,6 +47,10 @@ export default function SignupScreen() {
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [infoModal, setInfoModal] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
 
   const openLegal = (kind: "terms" | "privacy") => {
     const url =
@@ -62,12 +60,18 @@ export default function SignupScreen() {
     if (url) {
       void Linking.openURL(url);
     } else {
-      Alert.alert(t("app.name"), t("auth.legalPagesUnavailable"));
+      setInfoModal({
+        title: t("app.name"),
+        description: t("auth.legalPagesUnavailable"),
+      });
     }
   };
 
   const onSocialPress = () => {
-    Alert.alert(t("app.name"), t("auth.socialSignInComingSoon"));
+    setInfoModal({
+      title: t("app.name"),
+      description: t("auth.socialSignInComingSoon"),
+    });
   };
 
   const handleGoogleSignIn = async () => {
@@ -432,6 +436,15 @@ export default function SignupScreen() {
           .
         </Text>
       </ScrollView>
+
+      <FeedbackModal
+        visible={infoModal !== null}
+        title={infoModal?.title ?? ""}
+        description={infoModal?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setInfoModal(null)}
+        onRequestClose={() => setInfoModal(null)}
+      />
     </PageContainer>
   );
 }

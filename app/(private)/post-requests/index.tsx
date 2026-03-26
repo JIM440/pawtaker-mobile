@@ -9,6 +9,8 @@ import {
   RequestPreviewCard,
   RequestPreviewRow,
 } from "@/src/features/post/components/request-preview-card";
+import { computeCarePoints } from "@/src/lib/points/carePoints";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -19,6 +21,7 @@ import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { DataState } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -26,7 +29,6 @@ import { PawPrint } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -94,6 +96,10 @@ export default function LaunchRequestWizardScreen() {
     dateRange?: string;
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [launchFeedback, setLaunchFeedback] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
   const progress = (step + 1) / TOTAL_STEPS;
 
   const loadPets = async (opts?: { refresh?: boolean }) => {
@@ -108,11 +114,15 @@ export default function LaunchRequestWizardScreen() {
     try {
       const { data, error } = await supabase
         .from("pets")
-        .select("id,name,avatar_url")
+        .select("id,name,photo_urls")
         .eq("owner_id", user.id);
       if (error) throw error;
       const nextPets =
-        data?.map((p) => ({ id: p.id, name: p.name, imageUri: p.avatar_url })) ?? [];
+        data?.map((p) => ({
+          id: p.id,
+          name: p.name,
+          imageUri: petGalleryUrls(p)[0] ?? null,
+        })) ?? [];
       setPets(nextPets);
     } catch (err) {
       setPetsError(err instanceof Error ? err.message : "Failed to load pets.");
@@ -193,12 +203,6 @@ export default function LaunchRequestWizardScreen() {
     return true;
   };
 
-  const mapCareTypeToDb = (value: string): "sitting" | "walking" | "boarding" => {
-    if (value === "playwalk") return "walking";
-    if (value === "overnight" || value === "vacation") return "boarding";
-    return "sitting";
-  };
-
   const buildDescription = () => {
     const chunks = [
       specialNeeds.trim() ? `Special needs: ${specialNeeds.trim()}` : "",
@@ -212,7 +216,10 @@ export default function LaunchRequestWizardScreen() {
 
   const launchRequest = async () => {
     if (!user?.id || !selectedPet) {
-      Alert.alert(t("common.error", "Something went wrong"));
+      setLaunchFeedback({
+        title: t("common.error", "Something went wrong"),
+        description: t("common.error", "Something went wrong"),
+      });
       return;
     }
     setIsSubmitting(true);
@@ -223,25 +230,35 @@ export default function LaunchRequestWizardScreen() {
       const end = new Date(endBase);
       end.setHours(timeEnd.getHours(), timeEnd.getMinutes(), 0, 0);
 
+      const primaryCare = careTypes[0] ?? "daytime";
+      const pointsOffered = computeCarePoints(
+        primaryCare,
+        start.toISOString(),
+        end.toISOString(),
+      );
+
       const { error } = await supabase.from("care_requests").insert({
         owner_id: user.id,
         pet_id: selectedPet,
         taker_id: null,
-        care_type: mapCareTypeToDb(careTypes[0] ?? "daytime"),
+        care_type: primaryCare,
         status: "open",
         start_date: start.toISOString(),
         end_date: end.toISOString(),
-        points_offered: 0,
+        points_offered: pointsOffered,
         description: buildDescription() || null,
       });
 
       if (error) throw error;
       router.replace("/(private)/(tabs)" as any);
     } catch (err) {
-      Alert.alert(
-        t("common.error", "Something went wrong"),
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
-      );
+      setLaunchFeedback({
+        title: t("common.error", "Something went wrong"),
+        description:
+          err instanceof Error
+            ? err.message
+            : t("common.error", "Something went wrong"),
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -719,6 +736,15 @@ export default function LaunchRequestWizardScreen() {
           disabled={isSubmitting}
         />
       </View>
+
+      <FeedbackModal
+        visible={launchFeedback !== null}
+        title={launchFeedback?.title ?? ""}
+        description={launchFeedback?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setLaunchFeedback(null)}
+        onRequestClose={() => setLaunchFeedback(null)}
+      />
     </PageContainer>
   );
 }

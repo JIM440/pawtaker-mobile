@@ -28,6 +28,9 @@ export function LikedTab({ colors, pets, onApply }: LikedTabProps) {
                     dateRange={pet.seekingDateRange}
                     time={pet.seekingTime}
                     description={pet.bio}
+                    yardType={pet.yardType}
+                    ageRange={pet.ageRange}
+                    energyLevel={pet.energyLevel}
                     tags={pet.tags}
                     onApply={() => onApply(pet.requestId)}
                     onRemove={() => handleRemove(pet.id)}

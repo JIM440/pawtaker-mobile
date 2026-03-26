@@ -15,6 +15,8 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
+import { ProfilePetsTabSkeleton } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
@@ -149,7 +151,10 @@ export default function PublicProfileScreen() {
         }
       >
         {loading ? (
-          <DataState title={t("common.loading", "Loading...")} mode="full" />
+          <>
+            <ProfileHeaderAndTabsSkeleton />
+            <ProfilePetsTabSkeleton count={2} />
+          </>
         ) : isResourceNotFound(loadError) ? (
           <ResourceMissingState
             onBack={() => router.back()}

@@ -248,6 +248,8 @@
     "takersNearYou": "Takers near you:",
     "petsInArea": "pets in your area",
     "takersAvailable": "takers available",
+    "takerSpeciesFallback": "Pets",
+    "takerAvailable": "Available",
     "filterAll": "All",
     "filterRequests": "Requests",
     "filterTakers": "Takers",
@@ -651,7 +653,8 @@
     "pets": {
       "title": "My Pets",
       "launchRequest": "Launch pet request",
-      "tab": "Pets"
+      "tab": "Pets",
+      "seekingBadge": "Seeking"
     },
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "They won't be able to see your profile, send you requests, or message you. You can unblock them later in Settings.",

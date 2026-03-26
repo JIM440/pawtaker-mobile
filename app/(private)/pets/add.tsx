@@ -3,7 +3,11 @@ import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
-import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
+import {
+  CLOUDINARY_GALLERY_UPLOAD_PRESET,
+  uploadToCloudinary,
+} from "@/src/lib/cloudinary/upload";
+import { isRemotePetPhotoUri } from "@/src/lib/pets/petGalleryUrls";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -13,6 +17,7 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { Input } from "@/src/shared/components/ui/Input";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { useFocusEffect } from "@react-navigation/native";
@@ -21,7 +26,6 @@ import { Search } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   BackHandler,
   ScrollView,
   StyleSheet,
@@ -71,6 +75,10 @@ export default function AddPetScreen() {
   const [energyLevel, setEnergyLevel] = useState<string | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
+  const [feedbackDialog, setFeedbackDialog] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
 
   useEffect(() => {
     const backAction = () => {
@@ -130,14 +138,20 @@ export default function AddPetScreen() {
 
   const savePet = async (launchRequest: boolean) => {
     if (!user?.id) {
-      Alert.alert(t("common.error", "Something went wrong"));
+      setFeedbackDialog({
+        title: t("common.error", "Something went wrong"),
+        description: t("common.error", "Something went wrong"),
+      });
       return;
     }
     if (!kind || !breed || !petName.trim()) {
-      Alert.alert(
-        t("common.error", "Something went wrong"),
-        t("pets.add.requiredFields", "Please complete required pet fields."),
-      );
+      setFeedbackDialog({
+        title: t("common.error", "Something went wrong"),
+        description: t(
+          "pets.add.requiredFields",
+          "Please complete required pet fields.",
+        ),
+      });
       return;
     }
 
@@ -147,15 +161,16 @@ export default function AddPetScreen() {
       for (const uri of photos) {
         if (!uri?.trim()) continue;
         const trimmed = uri.trim();
-        if (trimmed.startsWith("http://") || trimmed.startsWith("https://")) {
+        if (isRemotePetPhotoUri(trimmed)) {
           uploadedUrls.push(trimmed);
           continue;
         }
-        const uploaded = await uploadToCloudinary(trimmed);
+        const uploaded = await uploadToCloudinary(
+          trimmed,
+          CLOUDINARY_GALLERY_UPLOAD_PRESET,
+        );
         uploadedUrls.push(uploaded.secure_url);
       }
-      const avatarUrl = uploadedUrls[0] ?? null;
-
       const details = [
         petBio.trim(),
         specialNeeds && specialNeedsText.trim()
@@ -175,7 +190,6 @@ export default function AddPetScreen() {
           name: petName.trim(),
           species: kind,
           breed,
-          avatar_url: avatarUrl,
           photo_urls: uploadedUrls,
           notes: details || null,
         })
@@ -218,11 +232,10 @@ export default function AddPetScreen() {
         "pets.add.saveFailed",
         "Couldn't save your pet. Please try again.",
       );
-      showToast({ variant: "error", message: friendly, durationMs: 3200 });
-      Alert.alert(
-        t("common.error", "Something went wrong"),
-        `${friendly}\n\nDetails: ${details}`,
-      );
+      setFeedbackDialog({
+        title: t("common.error", "Something went wrong"),
+        description: `${friendly}\n\nDetails: ${details}`,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -444,6 +457,15 @@ export default function AddPetScreen() {
           </View>
         )}
       </View>
+
+      <FeedbackModal
+        visible={feedbackDialog !== null}
+        title={feedbackDialog?.title ?? ""}
+        description={feedbackDialog?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setFeedbackDialog(null)}
+        onRequestClose={() => setFeedbackDialog(null)}
+      />
     </PageContainer>
   );
 }

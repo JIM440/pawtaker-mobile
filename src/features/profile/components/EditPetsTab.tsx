@@ -16,6 +16,9 @@ export type EditPet = {
   breed: string;
   petType: string;
   bio: string;
+  yardType?: string | null;
+  ageRange?: string | null;
+  energyLevel?: string | null;
   tags?: string[];
   seekingDateRange?: string;
   seekingTime?: string;
@@ -96,6 +99,9 @@ export function EditPetsTab({
                 breed={pet.breed}
                 petType={pet.petType}
                 bio={pet.bio}
+                yardType={pet.yardType}
+                ageRange={pet.ageRange}
+                energyLevel={pet.energyLevel}
                 tags={pet.tags}
                 seekingDateRange={pet.seekingDateRange}
                 seekingTime={pet.seekingTime}

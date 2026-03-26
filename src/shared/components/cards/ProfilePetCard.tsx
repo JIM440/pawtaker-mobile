@@ -12,6 +12,10 @@ export type ProfilePetCardProps = {
   breed: string;
   petType: string;
   bio: string;
+  /** Shown as tonal chips (yard / age / energy from parsed pet notes). */
+  yardType?: string | null;
+  ageRange?: string | null;
+  energyLevel?: string | null;
   tags?: string[];
   /** When set, show "Seeking" marker and date/time row */
   seekingDateRange?: string;
@@ -27,6 +31,9 @@ export function ProfilePetCard({
   breed,
   petType,
   bio,
+  yardType,
+  ageRange,
+  energyLevel,
   tags = [],
   seekingDateRange,
   seekingTime,
@@ -37,6 +44,9 @@ export function ProfilePetCard({
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const showSeeking = seekingDateRange != null;
+  const attributeChipLabels = [yardType, ageRange, energyLevel].filter(
+    (v): v is string => typeof v === "string" && v.trim().length > 0,
+  );
 
   const menuDots = (
     <View style={styles.menuDots}>
@@ -56,7 +66,10 @@ export function ProfilePetCard({
         source={
           typeof imageSource === "string" ? { uri: imageSource } : imageSource
         }
-        style={[styles.image, { backgroundColor: colors.surfaceContainerHighest }]}
+        style={[
+          styles.image,
+          { backgroundColor: colors.surfaceContainerHighest },
+        ]}
       />
       <View style={styles.body}>
         <View style={styles.titleRow}>
@@ -88,21 +101,37 @@ export function ProfilePetCard({
               {menuDots}
             </TouchableOpacity>
           ) : (
-            <View style={styles.menuBtn} pointerEvents="none" ref={menuButtonRef}>
+            <View
+              style={styles.menuBtn}
+              pointerEvents="none"
+              ref={menuButtonRef}
+            >
               {menuDots}
             </View>
           )}
         </View>
 
         <View style={styles.breedRow}>
-          <AppText variant="caption" color={colors.onSurface} style={styles.breed}>
+          <AppText
+            variant="caption"
+            color={colors.onSurface}
+            style={styles.breed}
+          >
             {breed}
           </AppText>
-          <AppText variant="caption" color={colors.onSurface} style={styles.breedDot}>
+          <AppText
+            variant="caption"
+            color={colors.onSurface}
+            style={styles.breedDot}
+          >
             {" "}
             ·{" "}
           </AppText>
-          <AppText variant="caption" color={colors.onSurface} style={styles.breed}>
+          <AppText
+            variant="caption"
+            color={colors.onSurface}
+            style={styles.breed}
+          >
             {petType}
           </AppText>
         </View>
@@ -128,10 +157,36 @@ export function ProfilePetCard({
           </View>
         )}
 
+        {attributeChipLabels.length > 0 ? (
+          <View style={styles.attributeChipsRow}>
+            {attributeChipLabels.map((label, chipIndex) => (
+              <View
+                key={`${label}-${chipIndex}`}
+                style={[
+                  styles.attributeChip,
+                  {
+                    backgroundColor: colors.surfaceContainerHigh,
+                    borderColor: colors.outlineVariant,
+                  },
+                ]}
+              >
+                <AppText
+                  style={[
+                    styles.attributeChipText,
+                    { color: colors.onSecondaryContainer },
+                  ]}
+                >
+                  {label}
+                </AppText>
+              </View>
+            ))}
+          </View>
+        ) : null}
+
         <AppText
           variant="caption"
           color={colors.onSurfaceVariant}
-          numberOfLines={2}
+          numberOfLines={4}
           style={styles.bio}
         >
           {bio}
@@ -141,7 +196,7 @@ export function ProfilePetCard({
           <View style={styles.tags}>
             {tags.map((tag, index) => (
               <View
-                key={tag}
+                key={`${tag}-${index}`}
                 style={[
                   styles.tag,
                   {
@@ -249,9 +304,27 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
+  attributeChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 4,
+  },
+  attributeChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 2,
+    borderRadius: 999,
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  attributeChipText: {
+    fontSize: 16,
+    lineHeight: 22,
+    fontWeight: "500",
+  },
   bio: {
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 14,
+    lineHeight: 20,
+    marginTop: 4,
   },
   tags: {
     flexDirection: "row",

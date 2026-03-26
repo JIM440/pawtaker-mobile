@@ -2,26 +2,27 @@ import { Colors } from "@/src/constants/colors";
 import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
-import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
+import {
+  CLOUDINARY_GALLERY_UPLOAD_PRESET,
+  uploadToCloudinary,
+} from "@/src/lib/cloudinary/upload";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import {
+  isRemotePetPhotoUri,
+  petGalleryUrls,
+} from "@/src/lib/pets/petGalleryUrls";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { router, useLocalSearchParams } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Input as AppInput } from "@/src/shared/components/ui/Input";
@@ -55,6 +56,11 @@ export default function EditPetScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const showToast = useToastStore((s) => s.showToast);
+  const [petFeedback, setPetFeedback] = useState<{
+    title: string;
+    description: string;
+    onAfterDismiss?: () => void;
+  } | null>(null);
 
   // Load real pet details by id
   const [photos, setPhotos] = useState<string[]>([]);
@@ -75,10 +81,13 @@ export default function EditPetScreen() {
   const handleSave = async () => {
     if (!user?.id || !_petId) return;
     if (!kind || !breed || !petName.trim()) {
-      Alert.alert(
-        t("common.error", "Something went wrong"),
-        t("pets.add.requiredFields", "Please complete required pet fields."),
-      );
+      setPetFeedback({
+        title: t("common.error", "Something went wrong"),
+        description: t(
+          "pets.add.requiredFields",
+          "Please complete required pet fields.",
+        ),
+      });
       return;
     }
 
@@ -88,14 +97,17 @@ export default function EditPetScreen() {
       const nextUrls: string[] = [];
       for (const p of photos) {
         if (!p?.trim()) continue;
-        if (p.startsWith("file:") || p.startsWith("content:")) {
-          const uploaded = await uploadToCloudinary(p);
-          nextUrls.push(uploaded.secure_url);
-        } else {
-          nextUrls.push(p.trim());
+        const trimmed = p.trim();
+        if (isRemotePetPhotoUri(trimmed)) {
+          nextUrls.push(trimmed);
+          continue;
         }
+        const uploaded = await uploadToCloudinary(
+          trimmed,
+          CLOUDINARY_GALLERY_UPLOAD_PRESET,
+        );
+        nextUrls.push(uploaded.secure_url);
       }
-      const uploadedAvatarUrl = nextUrls[0] ?? null;
 
       const details = [
         petBio.trim(),
@@ -115,7 +127,6 @@ export default function EditPetScreen() {
           name: petName.trim(),
           species: kind,
           breed,
-          avatar_url: uploadedAvatarUrl,
           photo_urls: nextUrls,
           notes: details || null,
         })
@@ -137,11 +148,10 @@ export default function EditPetScreen() {
       const details =
         err instanceof Error ? err.message : t("common.error", "Something went wrong");
       const friendly = t("pets.edit.saveFailed", "Couldn't update this pet. Please try again.");
-      showToast({ variant: "error", message: friendly, durationMs: 3200 });
-      Alert.alert(
-        t("common.error", "Something went wrong"),
-        `${friendly}\n\nDetails: ${details}`,
-      );
+      setPetFeedback({
+        title: t("common.error", "Something went wrong"),
+        description: `${friendly}\n\nDetails: ${details}`,
+      });
     } finally {
       setIsSaving(false);
     }
@@ -164,16 +174,11 @@ export default function EditPetScreen() {
         if (!mounted) return;
         const pet = petRaw as TablesRow<"pets"> | null;
         if (!pet) {
-          Alert.alert(
-            t("common.error", "Something went wrong"),
-            "Pet not found.",
-          );
-          showToast({
-            variant: "error",
-            message: t("pets.edit.petNotFound", "Pet not found."),
-            durationMs: 3200,
+          setPetFeedback({
+            title: t("common.error", "Something went wrong"),
+            description: t("pets.edit.petNotFound", "Pet not found."),
+            onAfterDismiss: () => router.back(),
           });
-          router.back();
           return;
         }
 
@@ -225,12 +230,11 @@ export default function EditPetScreen() {
         const details =
           err instanceof Error ? err.message : t("common.error", "Something went wrong");
         const friendly = t("pets.edit.loadFailed", "Couldn't load pet details. Please try again.");
-        showToast({ variant: "error", message: friendly, durationMs: 3200 });
-        Alert.alert(
-          t("common.error", "Something went wrong"),
-          `${friendly}\n\nDetails: ${details}`,
-        );
-        router.back();
+        setPetFeedback({
+          title: t("common.error", "Something went wrong"),
+          description: `${friendly}\n\nDetails: ${details}`,
+          onAfterDismiss: () => router.back(),
+        });
       } finally {
         if (mounted) setIsLoading(false);
       }
@@ -365,6 +369,23 @@ export default function EditPetScreen() {
           disabled={isSaving || isLoading}
         />
       </View>
+
+      <FeedbackModal
+        visible={petFeedback !== null}
+        title={petFeedback?.title ?? ""}
+        description={petFeedback?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => {
+          const cb = petFeedback?.onAfterDismiss;
+          setPetFeedback(null);
+          cb?.();
+        }}
+        onRequestClose={() => {
+          const cb = petFeedback?.onAfterDismiss;
+          setPetFeedback(null);
+          cb?.();
+        }}
+      />
     </PageContainer>
   );
 }

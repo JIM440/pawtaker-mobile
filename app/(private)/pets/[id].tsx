@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
-import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { normalizeCareTypeForPoints } from "@/src/lib/points/carePoints";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import {
   isResourceNotFound,
@@ -12,9 +13,11 @@ import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { DetailPetGalleryChrome } from "@/src/shared/components/pets/DetailPetGalleryChrome";
+import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { PetDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -99,15 +102,10 @@ export default function PetDetailScreen() {
 
   const parsedNotes = useMemo(() => parsePetNotes(pet?.notes), [pet?.notes]);
 
-  const images = useMemo(() => {
-    const uri = pet?.avatar_url as string | null | undefined;
-    return uri ? [uri] : [];
-  }, [pet?.avatar_url]);
+  const images = useMemo(() => petGalleryUrls(pet ?? {}), [pet]);
 
   const careTypeLabel = useMemo(() => {
-    const ct = openRequest?.care_type as string | undefined;
-    const key: CareTypeKey =
-      ct === "walking" ? "playwalk" : ct === "boarding" ? "overnight" : "daytime";
+    const key = normalizeCareTypeForPoints(openRequest?.care_type as string | undefined);
     return t(`feed.careTypes.${key}`);
   }, [openRequest?.care_type, t]);
 
@@ -124,9 +122,9 @@ export default function PetDetailScreen() {
 
   if (loading) {
     return (
-      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
-        <BackHeader title={t("common.loading", "Loading...")} />
-        <DataState title={t("common.loading", "Loading...")} mode="full" />
+      <PageContainer contentStyle={{ paddingHorizontal: 0, paddingTop: 0 }}>
+        <BackHeader title="" onBack={() => router.back()} />
+        <PetDetailScreenSkeleton />
       </PageContainer>
     );
   }
@@ -163,35 +161,38 @@ export default function PetDetailScreen() {
   }
 
   return (
-    <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
-      <BackHeader title={pet.name} />
+    <PageContainer contentStyle={{ paddingHorizontal: 0, paddingTop: 0 }}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        {/* Photo Gallery - Simple Swiper-like display */}
         <View style={styles.imageContainer}>
-          {images[0] ? (
-            <AppImage
-              source={{ uri: images[0] }}
-              style={styles.mainImage}
-              contentFit="cover"
-            />
+          {images.length > 0 ? (
+            <DetailPetGalleryChrome onBack={() => router.back()}>
+              <PetPhotoCarousel
+                urls={images}
+                height={300}
+                horizontalInset={16}
+                imageBorderRadius={16}
+                showCounterBadge={false}
+                dotsVariant="onImage"
+                showSegmentProgressBar
+              />
+            </DetailPetGalleryChrome>
           ) : (
-            <View
-              style={[
-                styles.mainImage,
-                { alignItems: "center", justifyContent: "center", backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <PawPrint size={34} color={colors.onSurfaceVariant} />
-            </View>
-          )}
-          {images.length > 1 && (
-            <View style={styles.imageBadge}>
-              <AppText variant="caption" color="#fff">1/{images.length}</AppText>
-            </View>
+            <DetailPetGalleryChrome onBack={() => router.back()}>
+              <View
+                style={[
+                  styles.emptyGalleryPlaceholder,
+                  {
+                    backgroundColor: colors.surfaceContainerHighest,
+                  },
+                ]}
+              >
+                <PawPrint size={34} color={colors.onSurfaceVariant} />
+              </View>
+            </DetailPetGalleryChrome>
           )}
         </View>
 
@@ -318,22 +319,18 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   imageContainer: {
-    width: '100%',
+    width: "100%",
+    minHeight: 300,
+    position: "relative",
+    marginBottom: 8,
+  },
+  emptyGalleryPlaceholder: {
     height: 300,
-    position: 'relative',
-  },
-  mainImage: {
-    width: '100%',
-    height: '100%',
-  },
-  imageBadge: {
-    position: 'absolute',
-    bottom: 12,
-    right: 12,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    paddingHorizontal: 8,
-    paddingVertical: 4,
-    borderRadius: 8,
+    marginHorizontal: 16,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+    overflow: "hidden",
   },
   content: {
     paddingHorizontal: 16,

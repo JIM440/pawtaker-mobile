@@ -7,6 +7,10 @@ import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import {
+  computeCarePoints,
+  normalizeCareTypeForPoints,
+} from "@/src/lib/points/carePoints";
 import { supabase } from "@/src/lib/supabase/client";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
@@ -15,7 +19,9 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { CareTypeSelector, type CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { Input } from "@/src/shared/components/ui/Input";
+import { OfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -46,12 +52,6 @@ export default function SendOfferScreen() {
   const [points, setPoints] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
-
-  const dbCareTypeToSelectorKey = useCallback((careType: string | undefined): CareTypeKey => {
-    if (careType === "walking") return "playwalk";
-    if (careType === "boarding") return "overnight";
-    return "daytime";
-  }, []);
 
   const load = useCallback(async () => {
     if (!requestId) {
@@ -106,19 +106,23 @@ export default function SendOfferScreen() {
       setPetRow(pet);
       setOwnerRow(owner);
 
-      const defaultKey = dbCareTypeToSelectorKey(request.care_type);
+      const defaultKey = normalizeCareTypeForPoints(request.care_type);
       setCareTypes([defaultKey]);
       setPoints(
-        typeof request.points_offered === "number" && Number.isFinite(request.points_offered)
-          ? String(request.points_offered)
-          : "",
+        String(
+          computeCarePoints(
+            request.care_type,
+            request.start_date,
+            request.end_date,
+          ),
+        ),
       );
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
     } finally {
       setLoading(false);
     }
-  }, [dbCareTypeToSelectorKey, requestId, t, user?.id]);
+  }, [requestId, t, user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -236,9 +240,12 @@ export default function SendOfferScreen() {
 
   if (loading) {
     return (
-      <PageContainer>
+      <PageContainer contentStyle={{ paddingTop: 0 }}>
         <BackHeader title={t("offer.title")} onBack={() => router.back()} />
-        <DataState title={t("common.loading", "Loading...")} mode="full" />
+        <OfferDetailScreenSkeleton />
+        <View style={styles.footer}>
+          <Skeleton height={48} width="100%" borderRadius={12} />
+        </View>
       </PageContainer>
     );
   }

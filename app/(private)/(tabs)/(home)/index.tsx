@@ -9,6 +9,10 @@ import {
   isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import {
+  formatCarePointsPts,
+  normalizeCareTypeForPoints,
+} from "@/src/lib/points/carePoints";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -19,6 +23,7 @@ import {
   FeedTakersSkeleton,
 } from "@/src/shared/components/skeletons/FeedSkeleton";
 import { DataState } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
@@ -33,7 +38,6 @@ import { Bell, Search, SlidersHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   FlatList,
   Modal,
   Pressable,
@@ -77,6 +81,8 @@ type Taker = {
   location: string;
   distance: string;
   status: "available" | "unavailable";
+  completedTasks?: number;
+  petsHandled?: number;
 };
 
 export default function HomeScreen() {
@@ -114,6 +120,11 @@ export default function HomeScreen() {
     height: number;
   } | null>(null);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
+  const [sendRequestFeedback, setSendRequestFeedback] = useState<{
+    title: string;
+    description: string;
+    onAcknowledge?: () => void;
+  } | null>(null);
   const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(
     null,
   );
@@ -186,12 +197,7 @@ export default function HomeScreen() {
                 ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
                 : "",
             time: "",
-            careTypeKey:
-              r.care_type === "walking"
-                ? ("playwalk" as CareTypeKey)
-                : r.care_type === "boarding"
-                  ? ("overnight" as CareTypeKey)
-                  : ("daytime" as CareTypeKey),
+            careTypeKey: normalizeCareTypeForPoints(r.care_type),
             location: owner?.city?.trim() || t("profile.noLocation", "No location"),
             distance: "0km",
             description: r.description ?? pet?.notes ?? "No description yet.",
@@ -243,7 +249,9 @@ export default function HomeScreen() {
 
       const { data: usersData, error: usersError } = await supabase
         .from("users")
-        .select("id,full_name,avatar_url,city,kyc_status")
+        .select(
+          "id,full_name,avatar_url,city,kyc_status,care_given_count,care_received_count",
+        )
         .in("id", userIds)
         .eq("kyc_status", "approved");
       if (usersError && !isMissingBackendResourceError(usersError))
@@ -263,10 +271,11 @@ export default function HomeScreen() {
       setTakers(
         (usersData ?? []).map((u: any) => {
           const tp = profileByUserId[u.id];
-          const species =
-            tp?.accepted_species?.length === 1
-              ? tp.accepted_species[0]!
-              : "Pets";
+          const speciesList = (tp?.accepted_species ?? []) as string[];
+          const speciesChip =
+            speciesList.length > 0
+              ? speciesList.map((s) => s.trim()).join(" • ")
+              : t("feed.takerSpeciesFallback", "Pets");
           const avatarTrimmed =
             typeof u.avatar_url === "string" ? u.avatar_url.trim() : "";
           return {
@@ -274,13 +283,15 @@ export default function HomeScreen() {
             name: resolveDisplayName(u) || "User",
             avatar: avatarTrimmed,
             rating: 0,
-            species,
+            species: speciesChip,
             tags: ["daytime"] as CareTypeKey[],
             location: u.city?.trim() || t("profile.noLocation", "No location"),
             distance: "0km",
             status: isTakerAvailableFromJson(tp?.availability_json)
               ? ("available" as const)
               : ("unavailable" as const),
+            completedTasks: u.care_given_count ?? 0,
+            petsHandled: u.care_received_count ?? 0,
           };
         }),
       );
@@ -402,12 +413,7 @@ export default function HomeScreen() {
                   day: "numeric",
                 })
               : "";
-        const careKey =
-          r.care_type === "walking"
-            ? "playwalk"
-            : r.care_type === "boarding"
-              ? "overnight"
-              : "daytime";
+        const careKey = normalizeCareTypeForPoints(r.care_type);
         const carePart = t(`feed.careTypes.${careKey}` as any);
         next[pid] = [datePart, carePart].filter(Boolean).join(" · ");
       }
@@ -1194,10 +1200,7 @@ export default function HomeScreen() {
                     const subtitle =
                       petSendSubtitleById[pet.id as string] ||
                       `${pet.species || "Pet"} · ${pet.breed || "—"}`;
-                    const uri =
-                      typeof pet.avatar_url === "string"
-                        ? pet.avatar_url.trim()
-                        : "";
+                    const uri = petGalleryUrls(pet)[0] ?? "";
                     return (
                       <TouchableOpacity
                         key={pet.id}
@@ -1326,18 +1329,20 @@ export default function HomeScreen() {
                             throw openReqErr;
                           const openReq = openReqRows?.[0] as any | undefined;
                           if (!openReq?.id) {
-                            Alert.alert(
-                              t("common.notice", "Heads up"),
-                              t(
+                            setSendRequestFeedback({
+                              title: t("common.notice", "Heads up"),
+                              description: t(
                                 "home.sendRequest.needsOpenRequest",
                                 "Create an open care request for this pet first, then you can message a taker.",
                               ),
-                            );
-                            router.push({
-                              pathname: "/(private)/post-requests",
-                              params: { petId },
-                            } as any);
-                            setSendRequestOpen(false);
+                              onAcknowledge: () => {
+                                router.push({
+                                  pathname: "/(private)/post-requests",
+                                  params: { petId },
+                                } as any);
+                                setSendRequestOpen(false);
+                              },
+                            });
                             return;
                           }
 
@@ -1390,8 +1395,12 @@ export default function HomeScreen() {
                                 ).toLocaleDateString()}`
                               : "";
                           const price =
-                            typeof openReq.points_offered === "number"
-                              ? `${openReq.points_offered} pts`
+                            openReq.start_date && openReq.end_date
+                              ? formatCarePointsPts(
+                                  openReq.care_type,
+                                  openReq.start_date,
+                                  openReq.end_date,
+                                )
                               : "";
 
                           const { error: msgError } = await supabase
@@ -1432,12 +1441,13 @@ export default function HomeScreen() {
                             } as any,
                           });
                         } catch (err) {
-                          Alert.alert(
-                            t("common.error", "Something went wrong"),
-                            err instanceof Error
-                              ? err.message
-                              : t("common.error", "Something went wrong"),
-                          );
+                          setSendRequestFeedback({
+                            title: t("common.error", "Something went wrong"),
+                            description:
+                              err instanceof Error
+                                ? err.message
+                                : t("common.error", "Something went wrong"),
+                          });
                         } finally {
                           setSendRequestBusy(false);
                         }
@@ -1458,6 +1468,19 @@ export default function HomeScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
+
+      <FeedbackModal
+        visible={sendRequestFeedback !== null}
+        title={sendRequestFeedback?.title ?? ""}
+        description={sendRequestFeedback?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => {
+          const cb = sendRequestFeedback?.onAcknowledge;
+          setSendRequestFeedback(null);
+          cb?.();
+        }}
+        onRequestClose={() => setSendRequestFeedback(null)}
+      />
     </PageContainer>
   );
 }

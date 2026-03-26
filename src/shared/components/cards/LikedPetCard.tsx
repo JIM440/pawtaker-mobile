@@ -19,6 +19,9 @@ export type LikedPetCardProps = {
   dateRange: string;
   time: string;
   description: string;
+  yardType?: string | null;
+  ageRange?: string | null;
+  energyLevel?: string | null;
   tags: string[];
   /** My Care → Liked: open overflow menu with Apply / Remove */
   onApply?: () => void;
@@ -42,6 +45,9 @@ export function LikedPetCard({
   dateRange,
   time,
   description,
+  yardType,
+  ageRange,
+  energyLevel,
   tags,
   onApply = () => {},
   onRemove = () => {},
@@ -71,6 +77,9 @@ export function LikedPetCard({
         breed={breed}
         petType={petType}
         bio={description}
+        yardType={yardType}
+        ageRange={ageRange}
+        energyLevel={energyLevel}
         tags={tags}
         seekingDateRange={isSeeking ? dateRange : undefined}
         seekingTime={isSeeking ? time : undefined}

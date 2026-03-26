@@ -10,15 +10,7 @@ import { router } from "expo-router";
 import { ChevronDown, LogOut, Trash2, UserX } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Alert,
-  Modal,
-  Pressable,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -30,6 +22,9 @@ export default function SettingsScreen() {
   const { theme, setTheme, resolvedTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const [openMenu, setOpenMenu] = useState<"theme" | "language" | null>(null);
+  const [signOutErrorMessage, setSignOutErrorMessage] = useState<string | null>(
+    null,
+  );
   const [menuPosition, setMenuPosition] = useState<{
     x: number;
     y: number;
@@ -61,8 +56,7 @@ export default function SettingsScreen() {
       router.replace("/welcome");
     } catch (e) {
       console.error("[settings] signOut", e);
-      Alert.alert(
-        t("common.error"),
+      setSignOutErrorMessage(
         t("settings.signOutFailed", "Could not sign out. Please try again."),
       );
     } finally {
@@ -488,6 +482,15 @@ export default function SettingsScreen() {
         }}
         onSecondary={() => setConfirmAction(null)}
         onRequestClose={() => setConfirmAction(null)}
+      />
+
+      <FeedbackModal
+        visible={signOutErrorMessage !== null}
+        title={t("common.error", "Something went wrong")}
+        description={signOutErrorMessage ?? undefined}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setSignOutErrorMessage(null)}
+        onRequestClose={() => setSignOutErrorMessage(null)}
       />
     </View>
   );

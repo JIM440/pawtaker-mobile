@@ -160,7 +160,7 @@ export function PetCard({
                   styles.dot,
                   {
                     backgroundColor:
-                      i === activeIndex ? "white" : "rgba(255,255,255,0.5)",
+                      i === activeIndex ? "white" : "rgba(255,255,255,0.55)",
                   },
                 ]}
               />

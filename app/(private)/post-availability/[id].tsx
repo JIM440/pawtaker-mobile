@@ -15,6 +15,7 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { ViewOfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
 import { RatingSummary } from "@/src/shared/components/ui/RatingSummary";
 import { useFocusEffect } from "@react-navigation/native";
@@ -318,7 +319,13 @@ export default function ViewOfferScreen() {
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
-        <DataState title={t("common.loading", "Loading...")} mode="full" />
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}
+        >
+          <ViewOfferDetailScreenSkeleton />
+        </ScrollView>
       </View>
     );
   }

@@ -2,6 +2,10 @@ import { Colors } from "@/src/constants/colors";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { ensureCareContractForRequest } from "@/src/lib/contracts/ensureCareContract";
 import {
+  formatCarePointsPts,
+  normalizeCareTypeForPoints,
+} from "@/src/lib/points/carePoints";
+import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
@@ -14,7 +18,9 @@ import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { ContractDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { EllipsisVertical } from "lucide-react-native";
@@ -219,12 +225,10 @@ export default function ContractDetailScreen() {
     }, [load]),
   );
 
-  const careTypeKey: CareTypeKey = useMemo(() => {
-    const ct = requestRow?.care_type as string | undefined;
-    if (ct === "walking") return "playwalk";
-    if (ct === "boarding") return "overnight";
-    return "daytime";
-  }, [requestRow?.care_type]);
+  const careTypeKey: CareTypeKey = useMemo(
+    () => normalizeCareTypeForPoints(requestRow?.care_type as string | undefined),
+    [requestRow?.care_type],
+  );
 
   const careTypeLabel = t(`feed.careTypes.${careTypeKey}`);
 
@@ -241,9 +245,13 @@ export default function ContractDetailScreen() {
       ? timeParam
       : careTypeLabel;
   const price =
-    typeof requestRow?.points_offered === "number"
-      ? `${requestRow.points_offered} pts`
-      : priceParam ?? "";
+    requestRow?.start_date && requestRow?.end_date
+      ? formatCarePointsPts(
+          requestRow.care_type,
+          requestRow.start_date as string,
+          requestRow.end_date as string,
+        )
+      : (priceParam ?? "");
 
   const mode =
     modeParam === "seeking" || modeParam === "applying"
@@ -371,6 +379,9 @@ export default function ContractDetailScreen() {
           .eq("id", resolvedContractId);
         if (error) throw error;
         setContractRow((c: any) => (c ? { ...c, status: "completed" } : c));
+        if (user?.id) {
+          void useAuthStore.getState().fetchProfile(user.id);
+        }
         showToast({
           variant: "info",
           message: t("myCare.contract.terminatedToast"),
@@ -391,9 +402,12 @@ export default function ContractDetailScreen() {
 
   if (loading) {
     return (
-      <PageContainer>
+      <PageContainer contentStyle={{ paddingTop: 0 }}>
         <BackHeader title={t("myCare.contract.title")} onBack={() => router.back()} />
-        <DataState title={t("common.loading", "Loading...")} mode="full" />
+        <ContractDetailScreenSkeleton />
+        <View style={styles.footer}>
+          <Skeleton height={48} width="100%" borderRadius={12} />
+        </View>
       </PageContainer>
     );
   }

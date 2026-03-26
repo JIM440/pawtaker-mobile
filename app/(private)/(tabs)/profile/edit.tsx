@@ -28,7 +28,7 @@ import { useRouter } from "expo-router";
 import { CircleAlert } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, RefreshControl, ScrollView, StyleSheet, View } from "react-native";
+import { RefreshControl, ScrollView, StyleSheet, View } from "react-native";
 
 type EditTab = "details" | "pets" | "availability";
 
@@ -42,6 +42,8 @@ export default function EditProfileScreen() {
 
   const [activeTab, setActiveTab] = useState<EditTab>("details");
   const [showDiscard, setShowDiscard] = useState(false);
+  const [deletePetId, setDeletePetId] = useState<string | null>(null);
+  const [deletePetLoading, setDeletePetLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isSavingAvailability, setIsSavingAvailability] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -244,58 +246,51 @@ export default function EditProfileScreen() {
     }
   };
 
-  const handleDeletePet = async (petId: string) => {
+  const handleDeletePet = (petId: string) => {
     if (!user?.id) return;
-    Alert.alert(
-      t("common.deleteConfirmTitle", "Delete pet?"),
-      t(
-        "common.deleteConfirmMessage",
-        "This will permanently delete the pet from your account.",
-      ),
-      [
-        { text: t("common.cancel", "Cancel"), style: "cancel" },
-        {
-          text: t("common.delete", "Delete"),
-          style: "destructive",
-          onPress: async () => {
-            try {
-              const { error } = await supabase
-                .from("pets")
-                .delete()
-                .eq("id", petId)
-                .eq("owner_id", user.id);
-              if (error) throw error;
+    setDeletePetId(petId);
+  };
 
-              showToast({
-                variant: "success",
-                message: t("pets.delete.success", "Pet deleted."),
-                durationMs: 2400,
-              });
+  const confirmDeletePet = async () => {
+    if (!user?.id || !deletePetId) return;
+    setDeletePetLoading(true);
+    try {
+      const { error } = await supabase
+        .from("pets")
+        .delete()
+        .eq("id", deletePetId)
+        .eq("owner_id", user.id);
+      if (error) throw error;
 
-              router.replace({
-                pathname: "/(private)/(tabs)/profile",
-                params: { tab: "pets", refreshPets: "true" },
-              });
-            } catch (err) {
-              const details = errorMessageFromUnknown(
-                err,
-                t("common.error", "Something went wrong"),
-                t("errors.networkError", "Network error. Check your connection."),
-              );
-              const friendly = t(
-                "pets.delete.failed",
-                "Couldn't delete this pet. Please try again.",
-              );
-              showToast({
-                variant: "error",
-                message: details === friendly ? friendly : `${friendly} ${details}`,
-                durationMs: 3200,
-              });
-            }
-          },
-        },
-      ],
-    );
+      showToast({
+        variant: "success",
+        message: t("pets.delete.success", "Pet deleted."),
+        durationMs: 2400,
+      });
+
+      setDeletePetId(null);
+      router.replace({
+        pathname: "/(private)/(tabs)/profile",
+        params: { tab: "pets", refreshPets: "true" },
+      });
+    } catch (err) {
+      const details = errorMessageFromUnknown(
+        err,
+        t("common.error", "Something went wrong"),
+        t("errors.networkError", "Network error. Check your connection."),
+      );
+      const friendly = t(
+        "pets.delete.failed",
+        "Couldn't delete this pet. Please try again.",
+      );
+      showToast({
+        variant: "error",
+        message: details === friendly ? friendly : `${friendly} ${details}`,
+        durationMs: 3200,
+      });
+    } finally {
+      setDeletePetLoading(false);
+    }
   };
 
   const isDirty =
@@ -676,6 +671,22 @@ export default function EditProfileScreen() {
           router.back();
         }}
         onRequestClose={() => setShowDiscard(false)}
+      />
+
+      <FeedbackModal
+        visible={deletePetId !== null}
+        title={t("common.deleteConfirmTitle", "Delete pet?")}
+        description={t(
+          "common.deleteConfirmMessage",
+          "This will permanently delete the pet from your account.",
+        )}
+        primaryLabel={t("common.delete", "Delete")}
+        onPrimary={() => void confirmDeletePet()}
+        primaryLoading={deletePetLoading}
+        secondaryLabel={t("common.cancel", "Cancel")}
+        onSecondary={() => !deletePetLoading && setDeletePetId(null)}
+        onRequestClose={() => !deletePetLoading && setDeletePetId(null)}
+        destructive
       />
     </PageContainer>
   );

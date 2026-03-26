@@ -7,6 +7,7 @@ import { supabase } from "@/src/lib/supabase/client";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -15,7 +16,6 @@ import { X } from "lucide-react-native";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Alert,
   Image,
   Pressable,
   ScrollView,
@@ -54,6 +54,12 @@ export default function KycScreen() {
   >(null);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [pickSourceFor, setPickSourceFor] = useState<
+    KycDocSlotKey | "selfie" | null
+  >(null);
+  const [permissionMessage, setPermissionMessage] = useState<string | null>(
+    null,
+  );
 
   const docOptions: {
     value: KycDocType;
@@ -117,14 +123,14 @@ export default function KycScreen() {
       if (fromCamera) {
         const { status } = await ImagePicker.requestCameraPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(t("auth.kyc.submit.cameraPermissionRequired"));
+          setPermissionMessage(t("auth.kyc.submit.cameraPermissionRequired"));
           return;
         }
       } else {
         const { status } =
           await ImagePicker.requestMediaLibraryPermissionsAsync();
         if (status !== "granted") {
-          Alert.alert(
+          setPermissionMessage(
             t(
               "auth.kyc.submit.galleryPermissionRequired",
               "Photo library access is required to choose an image.",
@@ -157,25 +163,7 @@ export default function KycScreen() {
 
   const chooseImageSource = (slot: KycDocSlotKey | "selfie") => {
     if (submitting) return;
-    Alert.alert(
-      t("auth.kyc.submit.pickSourceTitle", "Select image source"),
-      undefined,
-      [
-        {
-          text: t("auth.kyc.submit.useCamera", "Use Camera"),
-          onPress: () => {
-            void pickImage(slot, true);
-          },
-        },
-        {
-          text: t("auth.kyc.submit.useGallery", "Choose from Gallery"),
-          onPress: () => {
-            void pickImage(slot, false);
-          },
-        },
-        { text: t("common.cancel", "Cancel"), style: "cancel" },
-      ],
-    );
+    setPickSourceFor(slot);
   };
 
   const submitKyc = async () => {
@@ -622,6 +610,33 @@ export default function KycScreen() {
           />
         </View>
       </ScrollView>
+
+      <FeedbackModal
+        visible={pickSourceFor !== null}
+        title={t("auth.kyc.submit.pickSourceTitle", "Select image source")}
+        primaryLabel={t("auth.kyc.submit.useCamera", "Use Camera")}
+        onPrimary={() => {
+          const slot = pickSourceFor;
+          setPickSourceFor(null);
+          if (slot) void pickImage(slot, true);
+        }}
+        secondaryLabel={t("auth.kyc.submit.useGallery", "Choose from Gallery")}
+        onSecondary={() => {
+          const slot = pickSourceFor;
+          setPickSourceFor(null);
+          if (slot) void pickImage(slot, false);
+        }}
+        onRequestClose={() => setPickSourceFor(null)}
+      />
+
+      <FeedbackModal
+        visible={permissionMessage !== null}
+        title={t("common.notice", "Notice")}
+        description={permissionMessage ?? undefined}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setPermissionMessage(null)}
+        onRequestClose={() => setPermissionMessage(null)}
+      />
     </PageContainer>
   );
 }

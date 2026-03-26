@@ -39,6 +39,8 @@ export function PetPhotoSelector({
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
             allowsMultipleSelection: true,
+            selectionLimit: 0,
+            orderedSelection: true,
             quality: 0.8,
         });
 
@@ -107,8 +109,11 @@ export function PetPhotoSelector({
                             setCurrentIndex(index);
                         }}
                     >
-                        {photos.map((uri) => (
-                            <View key={uri} style={styles.carouselSlide}>
+                        {photos.map((uri, slideIndex) => (
+                            <View
+                                key={`${slideIndex}:${uri}`}
+                                style={styles.carouselSlide}
+                            >
                                 <AppImage
                                     source={{ uri }}
                                     style={styles.carouselImage}

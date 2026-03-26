@@ -70,8 +70,7 @@ export interface Database {
           age_years: number | null;
           /** DB `numeric` */
           weight_kg: number | null;
-          avatar_url: string | null;
-          /** Ordered gallery URLs for carousel; empty means use `avatar_url` only. */
+          /** Ordered pet photo URLs (gallery / feed carousel). */
           photo_urls: string[] | null;
           notes: string | null;
           created_at: string;
@@ -84,7 +83,6 @@ export interface Database {
           breed?: string | null;
           age_years?: number | null;
           weight_kg?: number | null;
-          avatar_url?: string | null;
           photo_urls?: string[];
           notes?: string | null;
           created_at?: string;

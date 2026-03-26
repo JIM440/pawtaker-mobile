@@ -6,6 +6,12 @@ const KYC_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ?? '';
 
 const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
 
+/** Gallery uploads (pets, etc.): prefer `EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET`, else KYC preset. */
+export const CLOUDINARY_GALLERY_UPLOAD_PRESET =
+  process.env.EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET ||
+  process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ||
+  '';
+
 export type UploadResult = {
   secure_url: string;
   public_id: string;

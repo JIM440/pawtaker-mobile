@@ -18,6 +18,7 @@ import { Colors } from '@/src/constants/colors';
 import { ChatTypography } from '@/src/constants/chatTypography';
 import { useAuthStore } from '@/src/lib/store/auth.store';
 import { supabase } from '@/src/lib/supabase/client';
+import { formatCarePointsPts } from '@/src/lib/points/carePoints';
 import { resolveDisplayName } from '@/src/lib/user/displayName';
 import type { Database, Json } from '@/src/lib/supabase/types';
 import { AppText } from '@/src/shared/components/ui/AppText';
@@ -28,6 +29,7 @@ import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from '@/src/lib/errors/resource-not-found';
+import { ChatThreadScreenSkeleton } from '@/src/shared/components/skeletons/DetailScreenSkeleton';
 import { DataState, ResourceMissingState } from '@/src/shared/components/ui';
 
 type BubbleSide = 'left' | 'right';
@@ -298,7 +300,11 @@ export default function ThreadScreen() {
           .eq('thread_id', _threadId)
           .order('created_at', { ascending: true }),
         threadRow?.request_id
-          ? supabase.from('care_requests').select('id,pet_id,start_date,end_date,points_offered').eq('id', threadRow.request_id).maybeSingle()
+          ? supabase
+              .from('care_requests')
+              .select('id,pet_id,start_date,end_date,points_offered,care_type')
+              .eq('id', threadRow.request_id)
+              .maybeSingle()
           : Promise.resolve({ data: null } as any),
       ]);
 
@@ -337,7 +343,15 @@ export default function ThreadScreen() {
                   ? `${new Date(req.start_date).toLocaleDateString()} - ${new Date(req.end_date).toLocaleDateString()}`
                   : ''),
               time: time ?? '',
-              price: price ?? (req?.points_offered ? `${req.points_offered} pts` : ''),
+              price:
+                price ??
+                (req?.start_date && req?.end_date
+                  ? formatCarePointsPts(
+                      req.care_type,
+                      req.start_date as string,
+                      req.end_date as string,
+                    )
+                  : ''),
               context,
               offerId: offer,
             },
@@ -403,7 +417,7 @@ export default function ThreadScreen() {
         keyboardVerticalOffset={Platform.OS === 'ios' ? 90 : 0}
       >
         {loading ? (
-          <DataState title={t('common.loading', 'Loading...')} mode="full" />
+          <ChatThreadScreenSkeleton onPressBack={() => router.back()} />
         ) : isResourceNotFound(loadError) ? (
           <>
             <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>

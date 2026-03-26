@@ -1,4 +1,4 @@
--- Gallery images for pets (carousel in feed, etc.). `avatar_url` remains the cover / first image.
+-- Gallery images for pets (carousel in feed); ordered URLs only (see later migration dropping legacy avatar_url).
 ALTER TABLE public.pets
 ADD COLUMN IF NOT EXISTS photo_urls text[] NOT NULL DEFAULT '{}';
 

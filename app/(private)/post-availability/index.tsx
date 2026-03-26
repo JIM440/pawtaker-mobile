@@ -11,6 +11,7 @@ import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { DaySelector } from "@/src/shared/components/ui/DaySelector";
 import { Input } from "@/src/shared/components/ui/Input";
@@ -19,7 +20,7 @@ import { RadioGroup } from "@/src/shared/components/ui/RadioGroup";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Alert, BackHandler, ScrollView, StyleSheet, View } from "react-native";
+import { BackHandler, ScrollView, StyleSheet, View } from "react-native";
 import { useToastStore } from "@/src/lib/store/toast.store";
 
 const TOTAL_STEPS = 8;
@@ -65,6 +66,10 @@ export default function AvailabilityWizardScreen() {
   const [note, setNote] = useState("");
   const [isAvailable, setIsAvailable] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [publishFeedback, setPublishFeedback] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
 
   const [errors, setErrors] = useState<{
     careTypes?: string;
@@ -156,7 +161,10 @@ export default function AvailabilityWizardScreen() {
 
   const publishAvailability = async () => {
     if (!user?.id) {
-      Alert.alert(t("common.error", "Something went wrong"));
+      setPublishFeedback({
+        title: t("common.error", "Something went wrong"),
+        description: t("common.error", "Something went wrong"),
+      });
       return;
     }
 
@@ -205,11 +213,10 @@ export default function AvailabilityWizardScreen() {
         "post.availability.saveFailed",
         "Couldn't save your availability. Please try again.",
       );
-      showToast({ variant: "error", message: friendly, durationMs: 3200 });
-      Alert.alert(
-        t("common.error", "Something went wrong"),
-        `${friendly}\n\nDetails: ${details}`,
-      );
+      setPublishFeedback({
+        title: t("common.error", "Something went wrong"),
+        description: `${friendly}\n\nDetails: ${details}`,
+      });
     } finally {
       setIsSubmitting(false);
     }
@@ -613,6 +620,15 @@ export default function AvailabilityWizardScreen() {
           disabled={isSubmitting}
         />
       </View>
+
+      <FeedbackModal
+        visible={publishFeedback !== null}
+        title={publishFeedback?.title ?? ""}
+        description={publishFeedback?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setPublishFeedback(null)}
+        onRequestClose={() => setPublishFeedback(null)}
+      />
     </PageContainer>
   );
 }

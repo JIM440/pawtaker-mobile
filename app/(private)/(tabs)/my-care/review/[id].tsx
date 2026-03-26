@@ -8,7 +8,9 @@ import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { ReviewDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState } from "@/src/shared/components/ui";
+import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { Input } from "@/src/shared/components/ui/Input";
 import { StarRatingInput } from "@/src/shared/components/ui/StarRatingInput";
 import { useFocusEffect } from "@react-navigation/native";
@@ -222,9 +224,12 @@ export default function PostCareReviewScreen() {
 
   if (loading) {
     return (
-      <PageContainer>
+      <PageContainer contentStyle={{ paddingTop: 0 }}>
         <BackHeader title="" onBack={() => router.back()} />
-        <DataState title={t("common.loading", "Loading...")} mode="full" />
+        <ReviewDetailScreenSkeleton />
+        <View style={styles.footer}>
+          <Skeleton height={48} width="100%" borderRadius={12} />
+        </View>
       </PageContainer>
     );
   }

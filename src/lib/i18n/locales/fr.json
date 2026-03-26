@@ -248,6 +248,8 @@
     "takersNearYou": "Gardiens près de vous :",
     "petsInArea": "animaux dans votre zone",
     "takersAvailable": "gardiens disponibles",
+    "takerSpeciesFallback": "Animaux",
+    "takerAvailable": "Disponible",
     "filterAll": "Tout",
     "filterRequests": "Demandes",
     "filterTakers": "Gardiens",
@@ -650,7 +652,8 @@
     "pets": {
       "title": "Mes animaux",
       "launchRequest": "Lancer une demande",
-      "tab": "Animaux"
+      "tab": "Animaux",
+      "seekingBadge": "Recherche"
     },
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
     "blockConfirmDescription": "Il ou elle ne pourra plus voir votre profil, vous envoyer des demandes ou des messages. Vous pourrez débloquer plus tard dans Paramètres.",

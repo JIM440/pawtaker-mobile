@@ -14,6 +14,7 @@ import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppSwitch } from '@/src/shared/components/ui/AppSwitch';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { DataState } from '@/src/shared/components/ui';
+import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
 import { TabBar } from '@/src/shared/components/ui/TabBar';
 import { useToastStore } from '@/src/lib/store/toast.store';
 import { resolveDisplayName } from '@/src/lib/user/displayName';
@@ -27,7 +28,6 @@ import {
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import {
-  Alert,
   Modal,
   Pressable,
   RefreshControl,
@@ -85,6 +85,10 @@ export default function MyCareScreen() {
   const [stats, setStats] = useState({ points: 0, careGiven: 0, careReceived: 0 });
 
   const showToast = useToastStore((s) => s.showToast);
+  const [availabilityErrorDialog, setAvailabilityErrorDialog] = useState<{
+    title: string;
+    description: string;
+  } | null>(null);
 
   const onAvailableChange = (value: boolean) => {
     if (!user?.id || value === available) return;
@@ -154,10 +158,10 @@ export default function MyCareScreen() {
           t("common.error", "Something went wrong"),
         );
         const friendly = t("myCare.availabilityUpdateFailed", "Couldn't update availability. Please try again.");
-        Alert.alert(
-          t('common.error', 'Something went wrong'),
-          `${friendly}\n\nDetails: ${details}`,
-        );
+        setAvailabilityErrorDialog({
+          title: t("common.error", "Something went wrong"),
+          description: `${friendly}\n\nDetails: ${details}`,
+        });
       } finally {
         setAvailabilityLoading(false);
       }
@@ -539,7 +543,7 @@ export default function MyCareScreen() {
       const { data: pets, error: petsError } = petIds.length
         ? await supabase
             .from("pets")
-            .select("id,avatar_url,name,breed,species,notes")
+            .select("id,photo_urls,name,breed,species,notes")
             .in("id", petIds)
         : { data: [], error: null };
 
@@ -898,6 +902,14 @@ export default function MyCareScreen() {
         )}
       </ScrollView>
 
+      <FeedbackModal
+        visible={availabilityErrorDialog !== null}
+        title={availabilityErrorDialog?.title ?? ""}
+        description={availabilityErrorDialog?.description}
+        primaryLabel={t("common.ok", "OK")}
+        onPrimary={() => setAvailabilityErrorDialog(null)}
+        onRequestClose={() => setAvailabilityErrorDialog(null)}
+      />
     </PageContainer>
   );
 }

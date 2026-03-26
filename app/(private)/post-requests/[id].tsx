@@ -4,6 +4,11 @@ import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
+import {
+  computeCarePoints,
+  normalizeCareTypeForPoints,
+} from "@/src/lib/points/carePoints";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -15,7 +20,10 @@ import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { RequestDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { DetailPetGalleryChrome } from "@/src/shared/components/pets/DetailPetGalleryChrome";
+import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { useFocusEffect } from "@react-navigation/native";
@@ -29,21 +37,11 @@ import {
   PawPrint,
   Star,
 } from "lucide-react-native";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import {
-  Dimensions,
-  FlatList,
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const H_PADDING = 16;
-const IMAGE_WIDTH = SCREEN_WIDTH - H_PADDING * 2;
 const IMAGE_HEIGHT = 216;
 
 function toRad(d: number) {
@@ -70,7 +68,6 @@ export default function RequestDetailScreen() {
   const { user } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [currentImageIndex, setCurrentImageIndex] = useState(0);
   const [isFavorite, setIsFavorite] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -165,21 +162,12 @@ export default function RequestDetailScreen() {
 
   const parsedPetNotes = useMemo(() => parsePetNotes(pet?.notes), [pet?.notes]);
 
-  const images = useMemo(() => {
-    const uri = pet?.avatar_url as string | null | undefined;
-    return uri ? [uri] : [];
-  }, [pet?.avatar_url]);
+  const images = useMemo(() => petGalleryUrls(pet ?? {}), [pet]);
 
-  useEffect(() => {
-    setCurrentImageIndex(0);
-  }, [id, images.length]);
-
-  const careTypeKey: CareTypeKey = useMemo(() => {
-    const ct = reqRow?.care_type as string | undefined;
-    if (ct === "walking") return "playwalk";
-    if (ct === "boarding") return "overnight";
-    return "daytime";
-  }, [reqRow?.care_type]);
+  const careTypeKey: CareTypeKey = useMemo(
+    () => normalizeCareTypeForPoints(reqRow?.care_type as string | undefined),
+    [reqRow?.care_type],
+  );
 
   const dateRange = useMemo(() => {
     if (!reqRow?.start_date || !reqRow?.end_date) return "";
@@ -249,8 +237,6 @@ export default function RequestDetailScreen() {
       parsedPetNotes.specialNeeds || t("pet.detail.none", "None"),
   };
 
-  const imageCount = Math.max(images.length, 1);
-
   const isOwner = Boolean(user?.id && reqRow?.owner_id && user.id === reqRow.owner_id);
 
   const openApplyConfirm = () => {
@@ -295,10 +281,16 @@ export default function RequestDetailScreen() {
 
     if (!threadId) throw new Error("Could not create chat thread.");
 
+    const formulaPoints =
+      reqRow.start_date && reqRow.end_date
+        ? computeCarePoints(
+            reqRow.care_type,
+            reqRow.start_date as string,
+            reqRow.end_date as string,
+          )
+        : null;
     const price =
-      typeof reqRow.points_offered === "number"
-        ? `${reqRow.points_offered} pts`
-        : "";
+      formulaPoints != null ? `${formulaPoints} pts` : "";
 
     const { error: msgError } = await supabase.from("messages").insert({
       thread_id: threadId,
@@ -307,7 +299,7 @@ export default function RequestDetailScreen() {
       type: "proposal",
       metadata: {
         requestId: id,
-        pointsOffered: reqRow.points_offered ?? null,
+        pointsOffered: formulaPoints,
       },
     });
     if (msgError) throw msgError;
@@ -350,7 +342,9 @@ export default function RequestDetailScreen() {
     return (
       <PageContainer>
         <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
-        <DataState title={t("common.loading", "Loading...")} mode="full" />
+        <View style={styles.screenWrap}>
+          <RequestDetailScreenSkeleton />
+        </View>
       </PageContainer>
     );
   }
@@ -387,82 +381,27 @@ export default function RequestDetailScreen() {
   }
 
   return (
-    <PageContainer>
-      <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+    <PageContainer contentStyle={{ paddingTop: 0 }}>
       <View style={styles.screenWrap}>
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          {/* Image carousel */}
-          <View style={styles.carouselWrap}>
-            <FlatList
-              data={images.length ? images : [""]}
-              horizontal
-              pagingEnabled
-              snapToInterval={SCREEN_WIDTH}
-              snapToAlignment="start"
-              decelerationRate="fast"
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={(e) => {
-                const i = Math.round(
-                  e.nativeEvent.contentOffset.x / SCREEN_WIDTH,
-                );
-                setCurrentImageIndex(i);
-              }}
-              renderItem={({ item, index }) => (
-                <TouchableOpacity
-                  activeOpacity={0.9}
-                  onPress={() => {
-                    setCurrentImageIndex(index);
-                  }}
-                  style={styles.carouselItem}
-                >
-                  {item ? (
-                    <AppImage
-                      source={{ uri: item }}
-                      style={[styles.carouselImage, { width: IMAGE_WIDTH }]}
-                      contentFit="cover"
-                    />
-                  ) : (
-                    <View
-                      style={[
-                        styles.carouselImage,
-                        { width: IMAGE_WIDTH, backgroundColor: colors.surfaceContainerHighest },
-                      ]}
-                    />
-                  )}
-                </TouchableOpacity>
-              )}
-              keyExtractor={(_, i) => String(i)}
+          <DetailPetGalleryChrome
+            onBack={() => router.back()}
+            style={{ marginBottom: 8 }}
+          >
+            <PetPhotoCarousel
+              urls={images}
+              height={IMAGE_HEIGHT}
+              horizontalInset={H_PADDING}
+              imageBorderRadius={16}
+              showCounterBadge={false}
+              dotsVariant="onImage"
+              showSegmentProgressBar
             />
-            <View style={styles.slideIndicator}>
-              <View
-                style={[
-                  styles.slideBadge,
-                  { backgroundColor: colors.surfaceContainerHighest },
-                ]}
-              >
-                <AppText variant="caption" color={colors.onSurface}>
-                  {currentImageIndex + 1}/{imageCount}
-                </AppText>
-              </View>
-            </View>
-            <View style={styles.dots}>
-              {(images.length ? images : [""]).map((_, i) => (
-                <View
-                  key={i}
-                  style={[
-                    styles.dot,
-                    { backgroundColor: colors.surfaceContainerLowest },
-                    i === currentImageIndex && styles.dotActive,
-                    i !== currentImageIndex && styles.dotInactive,
-                  ]}
-                />
-              ))}
-            </View>
-          </View>
+          </DetailPetGalleryChrome>
 
           {/* Pet name, breed, favorite */}
           <View style={styles.nameRow}>
@@ -802,51 +741,6 @@ const styles = StyleSheet.create({
   fixedFooterInner: {
     width: "100%",
     paddingHorizontal: 0,
-  },
-  carouselWrap: {
-    width: SCREEN_WIDTH,
-    marginLeft: -H_PADDING,
-    marginBottom: 8,
-    position: "relative",
-  },
-  carouselItem: {
-    width: SCREEN_WIDTH,
-    alignItems: "center",
-  },
-  carouselImage: {
-    width: IMAGE_WIDTH,
-    height: IMAGE_HEIGHT,
-    borderRadius: 16,
-  },
-  slideIndicator: {
-    position: "absolute",
-    top: 18,
-    right: H_PADDING + 10,
-  },
-  slideBadge: {
-    paddingHorizontal: 6,
-    paddingVertical: 4,
-    borderRadius: 999,
-  },
-  dots: {
-    position: "absolute",
-    bottom: 18,
-    left: 0,
-    right: 0,
-    flexDirection: "row",
-    justifyContent: "center",
-    gap: 3,
-  },
-  dot: {
-    width: 6,
-    height: 6,
-    borderRadius: 28,
-  },
-  dotActive: {
-    opacity: 1,
-  },
-  dotInactive: {
-    opacity: 0.6,
   },
   nameRow: {
     flexDirection: "row",
