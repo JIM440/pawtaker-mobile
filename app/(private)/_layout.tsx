@@ -27,16 +27,19 @@ export default function PrivateLayout() {
         screenOptions={{
           headerShown: false,
           ...stackPerfScreenOptions,
-            ...(Platform.OS === "ios"
-              ? { animation: "ios" as any, gestureEnabled: true }
-              : Platform.OS !== "web"
-                ? { animation: "slide_from_right" }
-                : {}),
+          ...(Platform.OS === "ios"
+            ? { animation: "ios" as any, gestureEnabled: true }
+            : Platform.OS !== "web"
+              ? { animation: "slide_from_right" }
+              : {}),
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
         <Stack.Screen name="post-requests" options={{ headerShown: false }} />
-        <Stack.Screen name="post-availability" options={{ headerShown: false }} />
+        <Stack.Screen
+          name="post-availability"
+          options={{ headerShown: false }}
+        />
         <Stack.Screen name="offer" options={{ headerShown: false }} />
         <Stack.Screen name="kyc/index" options={{ headerShown: false }} />
         <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />

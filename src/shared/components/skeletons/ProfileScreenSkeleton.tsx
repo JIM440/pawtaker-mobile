@@ -1,8 +1,8 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import React from "react";
 import { StyleSheet, View } from "react-native";
-import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 
 /**
  * Matches ProfileHeader + underline TabBar footprint on the profile tab home.
@@ -25,14 +25,7 @@ export function ProfileHeaderAndTabsSkeleton() {
         </View>
       </View>
 
-      <View
-        style={[
-          styles.tabRow,
-          {
-            borderBottomColor: colors.outlineVariant,
-          },
-        ]}
-      >
+      <View style={[styles.tabRow]}>
         {[72, 96, 64, 76].map((w, i) => (
           <Skeleton key={i} height={14} width={w} borderRadius={6} />
         ))}
@@ -71,7 +64,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     paddingTop: 12,
     paddingBottom: 10,
-    borderBottomWidth: 1,
     marginHorizontal: 0,
+    borderBottomWidth: 0,
+    borderBottomColor: "transparent",
   },
 });

@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AvailabilityPreviewCard } from "@/src/shared/components/cards";
+import { IllustratedEmptyState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { CalendarDays, Clock } from "lucide-react-native";
 import React from "react";
@@ -60,10 +61,8 @@ export function ProfileAvailabilityTab({
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-
-  const resolvedEmptyMessage =
-    emptyMessage ?? t("profile.availability.emptyMessage");
-  const emptyTitle = t("profile.availability.emptyTitle", "No availability yet");
+  const resolvedEmptyMessage = emptyMessage ?? t("profile.availability.emptyMessage");
+  const emptyTitle = "No availability set yet";
 
   const isEffectivelyEmpty =
     !data.note?.trim() &&
@@ -76,17 +75,19 @@ export function ProfileAvailabilityTab({
 
   if (isEffectivelyEmpty) {
     return (
-      <View style={styles.container}>
-        <AppText variant="title" color={colors.onSurface} style={styles.emptyTitle}>
-          {emptyTitle}
-        </AppText>
-        <AppText
-          variant="body"
-          color={colors.onSurfaceVariant}
-          style={styles.emptyMessage}
-        >
-          {resolvedEmptyMessage}
-        </AppText>
+      <View style={styles.emptyState}>
+        <IllustratedEmptyState
+          title={emptyTitle}
+          message={resolvedEmptyMessage}
+          illustration={{
+            source: require("@/assets/illustrations/pets/no-availability.svg"),
+            type: "svg",
+            height: 145,
+            width: 140,
+            style: { backgroundColor: "transparent", borderRadius: 16 },
+          }}
+          mode="inline"
+        />
       </View>
     );
   }
@@ -102,12 +103,9 @@ export function ProfileAvailabilityTab({
     style?: object;
     icon?: React.ReactNode;
   }) => (
+    <View style={styles.fieldWrap}>
     <View style={[styles.field, style]}>
-      <AppText
-        variant="caption"
-        color={colors.onSurfaceVariant}
-        style={styles.label}
-      >
+      <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.label}>
         {label}
       </AppText>
       <View style={styles.iconContentRow}>
@@ -116,6 +114,7 @@ export function ProfileAvailabilityTab({
           {value}
         </AppText>
       </View>
+    </View>
     </View>
   );
 
@@ -128,21 +127,22 @@ export function ProfileAvailabilityTab({
     value: string;
     style?: object;
   }) => (
+    <View style={styles.fieldWrap}>
     <View style={[styles.field, style]}>
-      <AppText
-        variant="caption"
-        color={colors.onSurfaceVariant}
-        style={styles.label}
-      >
+      <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.label}>
         {label}
       </AppText>
       <View
-        style={[styles.pill, { backgroundColor: colors.surfaceVariant }]}
+        style={[
+          styles.pill,
+          { backgroundColor: colors.surfaceVariant },
+        ]}
       >
         <AppText variant="caption" color={colors.onSurface}>
           {value}
         </AppText>
       </View>
+    </View>
     </View>
   );
 
@@ -198,15 +198,13 @@ const styles = StyleSheet.create({
   container: {
     paddingHorizontal: 16,
   },
-  emptyTitle: {
-    marginTop: 12,
-    fontSize: 18,
-    fontWeight: "700",
-    marginBottom: 6,
+  emptyState: {
+    paddingVertical: 16,
+    paddingHorizontal: 8,
   },
-  emptyMessage: {
-    fontSize: 14,
-    lineHeight: 20,
+  emptyIllustration: {
+    width: 140,
+    borderRadius: 16,
   },
   cardStack: {
     marginTop: 16,
@@ -222,6 +220,10 @@ const styles = StyleSheet.create({
   },
   field: {
     gap: 4,
+  },
+  fieldWrap: {
+    flex: 1,
+    minWidth: 0,
   },
   iconContentRow: {
     flexDirection: "row",

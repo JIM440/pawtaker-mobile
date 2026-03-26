@@ -66,6 +66,11 @@ export interface Database {
           name: string;
           species: string;
           breed: string | null;
+          yard_type: string | null;
+          age_range: string | null;
+          energy_level: string | null;
+          has_special_needs: boolean;
+          special_needs_description: string | null;
           /** DB `numeric` */
           age_years: number | null;
           /** DB `numeric` */
@@ -81,6 +86,11 @@ export interface Database {
           name: string;
           species: string;
           breed?: string | null;
+          yard_type?: string | null;
+          age_range?: string | null;
+          energy_level?: string | null;
+          has_special_needs?: boolean;
+          special_needs_description?: string | null;
           age_years?: number | null;
           weight_kg?: number | null;
           photo_urls?: string[];
@@ -104,6 +114,10 @@ export interface Database {
           start_date: string;
           /** DB `date` */
           end_date: string;
+          /** DB `time` */
+          start_time: string | null;
+          /** DB `time` */
+          end_time: string | null;
           /** DB `integer`, default 0 */
           points_offered: number;
           description: string | null;
@@ -118,6 +132,8 @@ export interface Database {
           status?: string;
           start_date: string;
           end_date: string;
+          start_time?: string | null;
+          end_time?: string | null;
           points_offered?: number;
           description?: string | null;
           created_at?: string;
@@ -219,6 +235,20 @@ export interface Database {
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['messages']['Insert']>;
+        Relationships: never[];
+      };
+      user_blocks: {
+        Row: {
+          blocker_id: string;
+          blocked_id: string;
+          created_at: string;
+        };
+        Insert: {
+          blocker_id: string;
+          blocked_id: string;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['user_blocks']['Insert']>;
         Relationships: never[];
       };
       threads: {

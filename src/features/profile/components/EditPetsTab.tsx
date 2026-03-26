@@ -1,10 +1,9 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ProfilePetCard } from "@/src/shared/components/cards";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { DataState } from "@/src/shared/components/ui";
+import { IllustratedEmptyState } from "@/src/shared/components/ui";
 import React, { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
@@ -58,23 +57,18 @@ export function EditPetsTab({
     <View style={styles.container}>
       {pets.length === 0 ? (
         <View style={styles.empty}>
-          <DataState
-            title={t("post.request.emptyPetsTitle", "No pets yet")}
-            message={t(
-              "post.request.emptyPetsSubtitle",
-              "You have not added any pets yet",
-            )}
-            illustration={
-              <AppImage
-                source={require("@/assets/illustrations/pets/no-pet.svg")}
-                type="svg"
-                style={[styles.emptyIllustration, { backgroundColor: "transparent" }]}
-                height={145}
-              />
-            }
+          <IllustratedEmptyState
+            title="Aw aw!"
+            message="You have not uploaded any pets yet."
+            illustration={{
+              source: require("@/assets/illustrations/pets/no-pet.svg"),
+              type: "svg",
+              height: 145,
+              width: 140,
+              style: { backgroundColor: "transparent", borderRadius: 16 },
+            }}
             actionLabel={t("post.request.addAPet", "+ Add a pet")}
             onAction={onAddPet}
-            mode="inline"
           />
         </View>
       ) : (

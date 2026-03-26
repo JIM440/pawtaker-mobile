@@ -17,10 +17,13 @@ import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { ChatTypography } from '@/src/constants/chatTypography';
 import { useAuthStore } from '@/src/lib/store/auth.store';
+import { useToastStore } from '@/src/lib/store/toast.store';
 import { supabase } from '@/src/lib/supabase/client';
 import { formatCarePointsPts } from '@/src/lib/points/carePoints';
 import { resolveDisplayName } from '@/src/lib/user/displayName';
 import type { Database, Json } from '@/src/lib/supabase/types';
+import { petGalleryUrls } from '@/src/lib/pets/petGalleryUrls';
+import { parsePetNotes } from '@/src/lib/pets/parsePetNotes';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
@@ -43,6 +46,11 @@ type UiMessage = {
   requestData?: {
     petName: string;
     breed: string;
+    petType?: string;
+    imageUri?: string;
+    description?: string;
+    tags?: string[];
+    careType?: string;
     date: string;
     time: string;
     price: string;
@@ -93,6 +101,7 @@ function MessageBubble({
     const rd = message.requestData;
     const context = rd.context === 'seeking' ? 'seeking' : 'applying';
     const offerId = typeof rd.offerId === 'string' ? rd.offerId.trim() : '';
+    const ctaLabel = t("messages.viewOfferDetails");
     return (
       <View
         style={[
@@ -103,82 +112,173 @@ function MessageBubble({
         <View
           style={[
             styles.requestCard,
-            { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant },
+            { backgroundColor: colors.surfaceContainerHighest, borderColor: colors.outlineVariant },
           ]}
         >
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={[ChatTypography.requestCardLabel, styles.requestLabelSpacing]}
+          {/* Seeking / Applying pill */}
+          <View
+            style={[
+              styles.requestTopPill,
+              { backgroundColor: colors.tertiaryContainer },
+            ]}
           >
-            {context === 'applying'
-              ? t("messages.applyingForPet", { petName: rd.petName })
-              : t("messages.seekingForPet", { petName: rd.petName })}
-          </AppText>
-          <View style={styles.requestInfo}>
-            <View style={styles.requestHeader}>
-              <View style={[styles.petCircle, { backgroundColor: colors.surfaceContainerHighest }]}>
-                <AppText variant="body" style={ChatTypography.requestPetName}>
-                  {rd.petName.charAt(0)}
-                </AppText>
-              </View>
-              <View style={styles.requestHeaderText}>
-                <AppText variant="body" style={ChatTypography.requestPetName} numberOfLines={1}>
+            <AppText
+              variant="caption"
+              color={colors.onTertiaryContainer}
+              style={styles.requestTopPillText}
+              numberOfLines={1}
+            >
+              {context === 'applying'
+                ? t("messages.applyingForPet", { petName: rd.petName })
+                : t("messages.seekingForPet", { petName: rd.petName })}
+            </AppText>
+          </View>
+
+          {/* Description box */}
+          {rd.description ? (
+            <View
+              style={[
+                styles.requestDescriptionBox,
+                { backgroundColor: colors.surfaceContainerHigh },
+              ]}
+            >
+              <AppText
+                variant="body"
+                color={colors.onSurfaceVariant}
+                style={styles.requestDescriptionText}
+                numberOfLines={5}
+              >
+                {rd.description}
+              </AppText>
+            </View>
+          ) : null}
+
+          {/* Pet preview card */}
+          <View
+            style={[
+              styles.requestPetPreview,
+              { backgroundColor: colors.surfaceBright },
+            ]}
+          >
+            <View
+              style={[
+                styles.requestPetImage,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
+              {rd.imageUri ? (
+                <AppImage
+                  source={{ uri: rd.imageUri }}
+                  style={styles.requestPetImage}
+                  contentFit="cover"
+                />
+              ) : null}
+            </View>
+
+            <View style={styles.requestPetBody}>
+              <View style={styles.requestPetNameRow}>
+                <AppText
+                  variant="title"
+                  color={colors.onSurface}
+                  style={styles.requestPetName}
+                  numberOfLines={1}
+                >
                   {rd.petName}
                 </AppText>
+              </View>
+
+              <View style={styles.requestPetBreedRow}>
                 <AppText
-                  variant="body"
-                  color={colors.onSurfaceVariant}
-                  style={ChatTypography.requestSecondary}
+                  variant="caption"
+                  color={colors.onSurface}
+                  style={styles.requestPetBreed}
                   numberOfLines={1}
                 >
                   {rd.breed}
                 </AppText>
-              </View>
-            </View>
-            <View style={styles.requestMeta}>
-              <View style={styles.metaItem}>
-                <Calendar size={16} color={colors.primary} />
-                <AppText variant="body" color={colors.onSurface} style={ChatTypography.requestMeta}>
-                  {rd.date}
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {" "}
+                  •{" "}
+                </AppText>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={styles.requestPetBreed}
+                  numberOfLines={1}
+                >
+                  {rd.petType ?? ''}
                 </AppText>
               </View>
-              <View style={styles.metaItem}>
-                <Clock size={16} color={colors.primary} />
-                <AppText variant="body" color={colors.onSurface} style={ChatTypography.requestMeta}>
-                  {rd.time}
-                </AppText>
+
+              <View style={styles.requestPetMetaRow}>
+                <View style={styles.metaItemTight}>
+                  <Calendar size={16} color={colors.onSurfaceVariant} />
+                  <AppText
+                    variant="caption"
+                    color={colors.onSurface}
+                    style={styles.metaText}
+                    numberOfLines={1}
+                  >
+                    {rd.date}
+                  </AppText>
+                </View>
+                {rd.careType ? (
+                  <>
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {" "}
+                      •{" "}
+                    </AppText>
+                    <View style={styles.metaItemTight}>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurface}
+                        style={styles.metaText}
+                        numberOfLines={1}
+                      >
+                        {rd.careType}
+                      </AppText>
+                    </View>
+                  </>
+                ) : null}
               </View>
+
+              {Array.isArray(rd.tags) && rd.tags.length > 0 ? (
+                <View style={styles.requestTagsRow}>
+                  {rd.tags.slice(0, 3).map((tag: string, idx: number) => (
+                    <View
+                      key={`${tag}-${idx}`}
+                      style={[
+                        styles.requestTag,
+                        { backgroundColor: colors.surfaceContainerHigh },
+                      ]}
+                    >
+                      <AppText
+                        variant="caption"
+                        color={colors.onSecondaryContainer}
+                        style={styles.requestTagText}
+                        numberOfLines={1}
+                      >
+                        {tag}
+                      </AppText>
+                    </View>
+                  ))}
+                </View>
+              ) : null}
             </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.requestPrice}>
-              {rd.price}
-            </AppText>
           </View>
+
           <Button
-            label={t("messages.viewOfferDetails")}
-            size="sm"
+            label={ctaLabel}
+            variant="outline"
             style={styles.requestCta}
             disabled={!offerId}
             onPress={() => {
               if (!offerId) return;
               if (context === 'seeking') {
-                router.push({
-                  pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
-                  params: {
-                    id: offerId,
-                    mode: "seeking",
-                    petName: rd.petName,
-                    breed: rd.breed,
-                    date: rd.date,
-                    time: rd.time,
-                    price: rd.price,
-                  } as any,
-                });
+                router.push(`/(private)/post-requests/${offerId}` as any);
                 return;
               }
-              router.push(
-                `/(private)/post-availability/${offerId}` as any,
-              );
+              router.push(`/(private)/post-availability/${offerId}` as any);
             }}
           />
         </View>
@@ -241,6 +341,7 @@ export default function ThreadScreen() {
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuthStore();
+  const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [input, setInput] = useState('');
@@ -249,6 +350,7 @@ export default function ThreadScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
   const [thread, setThread] = useState<{
     userId: string;
     name: string;
@@ -264,6 +366,12 @@ export default function ThreadScreen() {
   });
 
   const context = mode === 'seeking' ? 'seeking' : 'applying';
+  const paramPetName = typeof petName === 'string' && petName.trim() ? petName : undefined;
+  const paramBreed = typeof breed === 'string' && breed.trim() ? breed : undefined;
+  const paramDate = typeof date === 'string' && date.trim() ? date : undefined;
+  const paramTime = typeof time === 'string' && time.trim() ? time : undefined;
+  const paramPrice = typeof price === 'string' && price.trim() ? price : undefined;
+  const paramOfferId = typeof offerId === 'string' && offerId.trim() ? offerId : undefined;
 
   const formatTime = (iso?: string) => {
     if (!iso) return '';
@@ -302,7 +410,7 @@ export default function ThreadScreen() {
         threadRow?.request_id
           ? supabase
               .from('care_requests')
-              .select('id,pet_id,start_date,end_date,points_offered,care_type')
+              .select('id,pet_id,start_date,end_date,start_time,end_time,points_offered,care_type,description')
               .eq('id', threadRow.request_id)
               .maybeSingle()
           : Promise.resolve({ data: null } as any),
@@ -312,7 +420,7 @@ export default function ThreadScreen() {
       if (req?.pet_id) {
         const { data: petData } = await supabase
           .from('pets')
-          .select('id,name,breed')
+          .select('id,name,breed,species,photo_urls,notes,yard_type,age_range,energy_level,has_special_needs,special_needs_description')
           .eq('id', req.pet_id)
           .maybeSingle();
         pet = petData;
@@ -322,29 +430,54 @@ export default function ThreadScreen() {
         const side: BubbleSide = m.sender_id === user.id ? 'right' : 'left';
         const asRequest =
           (m.type === 'proposal' || m.type === 'agreement') &&
-          (pet || petName || breed);
+          (pet || paramPetName || paramBreed);
         if (asRequest) {
           const metaRequestId = readMetadataString(m.metadata, 'requestId');
           const offer =
-            offerId ??
+            paramOfferId ??
             metaRequestId ??
             (typeof req?.id === 'string' ? req.id : '');
+
+          const petNotes = parsePetNotes(pet?.notes);
+          const tags = [
+            pet?.yard_type ?? petNotes.yardType,
+            pet?.energy_level ?? petNotes.energyLevel,
+            pet?.age_range ?? petNotes.ageRange,
+          ].filter((v: any): v is string => typeof v === 'string' && v.trim().length > 0);
+
+          const img = pet ? (petGalleryUrls(pet)[0] ?? '') : '';
+
           return {
             id: m.id,
             side,
             type: 'request',
             timeLabel: formatTime(m.created_at),
             requestData: {
-              petName: petName ?? pet?.name ?? 'Pet',
-              breed: breed ?? pet?.breed ?? 'Unknown breed',
+              petName: paramPetName ?? pet?.name ?? 'Pet',
+              breed: paramBreed ?? pet?.breed ?? 'Unknown breed',
+              petType: pet?.species ?? '',
+              imageUri: img || undefined,
+              description:
+                (typeof req?.description === 'string' && req.description.trim()
+                  ? req.description.trim()
+                  : (petNotes.bio || '').trim()) || undefined,
+              tags,
+              careType:
+                typeof req?.care_type === 'string' && req.care_type.trim()
+                  ? req.care_type
+                  : undefined,
               date:
-                date ??
+                paramDate ??
                 (req?.start_date && req?.end_date
                   ? `${new Date(req.start_date).toLocaleDateString()} - ${new Date(req.end_date).toLocaleDateString()}`
                   : ''),
-              time: time ?? '',
+              time:
+                paramTime ??
+                (typeof req?.start_time === 'string' && typeof req?.end_time === 'string'
+                  ? `${req.start_time.slice(0, 5)} - ${req.end_time.slice(0, 5)}`
+                  : ''),
               price:
-                price ??
+                paramPrice ??
                 (req?.start_date && req?.end_date
                   ? formatCarePointsPts(
                       req.care_type,
@@ -580,7 +713,36 @@ export default function ThreadScreen() {
           primaryLabel={t('messages.block')}
           secondaryLabel={t('common.cancel')}
           destructive
-          onPrimary={() => setShowBlockConfirm(false)}
+          primaryLoading={blockBusy}
+          onPrimary={() => {
+            void (async () => {
+              if (!user?.id || !thread.userId) return;
+              if (blockBusy) return;
+              setBlockBusy(true);
+              try {
+                const { error } = await supabase
+                  .from("user_blocks")
+                  .upsert(
+                    { blocker_id: user.id, blocked_id: thread.userId },
+                    { onConflict: "blocker_id,blocked_id" },
+                  );
+                if (error) throw error;
+                setShowBlockConfirm(false);
+                showToast({ message: t("messages.blockedToast", "User blocked.") });
+                // Back to chats list after blocking.
+                router.replace("/(private)/(tabs)/messages" as any);
+              } catch (err) {
+                showToast({
+                  message:
+                    err instanceof Error
+                      ? err.message
+                      : t("common.error", "Something went wrong"),
+                });
+              } finally {
+                setBlockBusy(false);
+              }
+            })();
+          }}
           onSecondary={() => setShowBlockConfirm(false)}
           onRequestClose={() => setShowBlockConfirm(false)}
         />
@@ -712,52 +874,117 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 20,
   },
-  requestLabelSpacing: {
-    marginBottom: 10,
-  },
   requestCard: {
-    padding: 16,
-    borderRadius: 16,
-    borderWidth: 1,
+    padding: 8,
+    borderRadius: 12,
+    borderWidth: 0,
     maxWidth: '100%',
     width: '100%',
-  },
-  requestInfo: {
     gap: 10,
   },
-  requestHeader: {
+
+  requestTopPill: {
+    alignSelf: 'flex-start',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 4,
+  },
+  requestTopPillText: {
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
+    fontWeight: '600',
+  },
+  requestDescriptionBox: {
+    padding: 8,
+    borderRadius: 16,
+    width: '100%',
+  },
+  requestDescriptionText: {
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
+  },
+  requestPetPreview: {
+    width: '100%',
+    borderRadius: 16,
+    padding: 12,
     flexDirection: 'row',
-    alignItems: 'center',
     gap: 12,
   },
-  requestHeaderText: {
+  requestPetImage: {
+    width: 80,
+    height: 80,
+    borderRadius: 12,
+    overflow: 'hidden',
+  },
+  requestPetBody: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
+  },
+  requestPetNameRow: {
+    width: '100%',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  requestPetName: {
+    fontSize: 16,
+    lineHeight: 24,
+    letterSpacing: -0.1,
+    fontWeight: '600',
+  },
+  requestPetBreedRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'nowrap',
+  },
+  requestPetBreed: {
+    fontSize: 11,
+    lineHeight: 13,
+    letterSpacing: -0.2,
+    fontWeight: '500',
+    flexShrink: 1,
+  },
+  requestPetMetaRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: 4,
+  },
+  metaItemTight: {
+    flexDirection: 'row',
+    alignItems: 'center',
     gap: 2,
   },
-  petCircle: {
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    alignItems: 'center',
-    justifyContent: 'center',
+  metaText: {
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
   },
-  requestMeta: {
+  requestTagsRow: {
     flexDirection: 'row',
     flexWrap: 'wrap',
-    gap: 16,
-    rowGap: 8,
+    gap: 4,
+    width: '100%',
+    marginTop: 2,
   },
-  requestPrice: {
-    marginTop: 4,
+  requestTag: {
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 999,
+    maxWidth: '100%',
   },
+  requestTagText: {
+    fontSize: 11,
+    lineHeight: 13,
+    letterSpacing: -0.2,
+    fontWeight: '400',
+  },
+
   requestCta: {
-    marginTop: 14,
-  },
-  metaItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
+    marginTop: 0,
   },
   composerWrapper: {
     flexDirection: 'row',

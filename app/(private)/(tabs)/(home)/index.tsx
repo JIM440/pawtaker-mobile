@@ -1,6 +1,11 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import {
+  formatCarePointsPts,
+  normalizeCareTypeForPoints,
+} from "@/src/lib/points/carePoints";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -8,11 +13,6 @@ import {
   errorMessageFromUnknown,
   isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
-import {
-  formatCarePointsPts,
-  normalizeCareTypeForPoints,
-} from "@/src/lib/points/carePoints";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -22,8 +22,7 @@ import {
   FeedRequestsSkeleton,
   FeedTakersSkeleton,
 } from "@/src/shared/components/skeletons/FeedSkeleton";
-import { DataState } from "@/src/shared/components/ui";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { DataState, IllustratedEmptyState } from "@/src/shared/components/ui";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
@@ -31,6 +30,7 @@ import {
   CARE_TYPE_KEYS,
   type CareTypeKey,
 } from "@/src/shared/components/ui/CareTypeSelector";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
@@ -185,6 +185,20 @@ export default function HomeScreen() {
         (reqData ?? []).map((r: any) => {
           const pet = petsById[r.pet_id];
           const owner = ownersById[r.owner_id];
+          const requestDescription =
+            typeof r.description === "string" && r.description.trim().length > 0
+              ? r.description.trim()
+              : null;
+          const petDescription =
+            typeof pet?.notes === "string" && pet.notes.trim().length > 0
+              ? pet.notes.trim()
+              : null;
+          const combinedDescription =
+            requestDescription && petDescription
+              ? requestDescription === petDescription
+                ? requestDescription
+                : `${requestDescription}\n\n${petDescription}`
+              : (requestDescription ?? petDescription ?? "No description yet.");
           return {
             id: r.id,
             petId: r.pet_id as string,
@@ -198,9 +212,10 @@ export default function HomeScreen() {
                 : "",
             time: "",
             careTypeKey: normalizeCareTypeForPoints(r.care_type),
-            location: owner?.city?.trim() || t("profile.noLocation", "No location"),
+            location:
+              owner?.city?.trim() || t("profile.noLocation", "No location"),
             distance: "0km",
-            description: r.description ?? pet?.notes ?? "No description yet.",
+            description: combinedDescription,
             caretaker: {
               id: owner?.id ?? "",
               name: resolveDisplayName(owner) || "Owner",
@@ -262,10 +277,7 @@ export default function HomeScreen() {
           acc[row.user_id] = row;
           return acc;
         },
-        {} as Record<
-          string,
-          (typeof profileRows)[number]
-        >,
+        {} as Record<string, (typeof profileRows)[number]>,
       );
 
       setTakers(
@@ -908,20 +920,39 @@ export default function HomeScreen() {
                   mode="inline"
                 />
               ) : filteredRequests.length === 0 ? (
-                <DataState
-                  title={t("feed.noRequestsTitle", "No requests near you")}
-                  message={t(
-                    "feed.noRequestsSubtitle",
-                    "Try adjusting filters to find more.",
-                  )}
-                  illustration={
-                    <AppImage
-                      source={require("@/assets/illustrations/pets/no-care.svg")}
-                      type="svg"
-                      style={styles.emptyIllustration}
-                      height={145}
-                    />
+                <IllustratedEmptyState
+                  title={
+                    searchQuery.trim() ||
+                    careTypeFilter.length > 0 ||
+                    distanceRange.min > DISTANCE_MIN_KM ||
+                    distanceRange.max < DISTANCE_MAX_KM
+                      ? "Aw aw! No results"
+                      : t("feed.noRequestsTitle", "No requests near you")
                   }
+                  message={
+                    searchQuery.trim() ||
+                    careTypeFilter.length > 0 ||
+                    distanceRange.min > DISTANCE_MIN_KM ||
+                    distanceRange.max < DISTANCE_MAX_KM
+                      ? "We couldn't find any matches for your search. Try adjusting your filters"
+                      : t(
+                          "feed.noRequestsSubtitle",
+                          "Try adjusting filters to find more.",
+                        )
+                  }
+                  illustration={{
+                    source:
+                      searchQuery.trim() ||
+                      careTypeFilter.length > 0 ||
+                      distanceRange.min > DISTANCE_MIN_KM ||
+                      distanceRange.max < DISTANCE_MAX_KM
+                        ? require("@/assets/illustrations/pets/no-search-result.svg")
+                        : require("@/assets/illustrations/pets/no-care.svg"),
+                    type: "svg",
+                    width: 140,
+                    height: 145,
+                    style: styles.emptyIllustration,
+                  }}
                   mode="inline"
                 />
               ) : (
@@ -1028,20 +1059,39 @@ export default function HomeScreen() {
                 mode="inline"
               />
             ) : filteredTakers.length === 0 ? (
-              <DataState
-                title={t("feed.noTakersTitle", "No caregivers available")}
-                message={t(
-                  "feed.noTakersSubtitle",
-                  "Try adjusting filters to find more.",
-                )}
-                illustration={
-                  <AppImage
-                    source={require("@/assets/illustrations/pets/no-care.svg")}
-                    type="svg"
-                    style={styles.emptyIllustration}
-                    height={145}
-                  />
+              <IllustratedEmptyState
+                title={
+                  searchQuery.trim() ||
+                  careTypeFilter.length > 0 ||
+                  distanceRange.min > DISTANCE_MIN_KM ||
+                  distanceRange.max < DISTANCE_MAX_KM
+                    ? "Aw aw! No results"
+                    : t("feed.noTakersTitle", "No caregivers available")
                 }
+                message={
+                  searchQuery.trim() ||
+                  careTypeFilter.length > 0 ||
+                  distanceRange.min > DISTANCE_MIN_KM ||
+                  distanceRange.max < DISTANCE_MAX_KM
+                    ? "We couldn't find any matches for your search. Try adjusting your filters"
+                    : t(
+                        "feed.noTakersSubtitle",
+                        "Try adjusting filters to find more.",
+                      )
+                }
+                illustration={{
+                  source:
+                    searchQuery.trim() ||
+                    careTypeFilter.length > 0 ||
+                    distanceRange.min > DISTANCE_MIN_KM ||
+                    distanceRange.max < DISTANCE_MAX_KM
+                      ? require("@/assets/illustrations/pets/no-search-result.svg")
+                      : require("@/assets/illustrations/pets/no-care.svg"),
+                  type: "svg",
+                  width: 140,
+                  height: 145,
+                  style: styles.emptyIllustration,
+                }}
                 mode="inline"
               />
             ) : (
@@ -1195,7 +1245,13 @@ export default function HomeScreen() {
                   showsVerticalScrollIndicator={false}
                   contentContainerStyle={styles.sendRequestListContent}
                 >
-                  {userPets.map((pet: any) => {
+                  {userPets
+                    .filter((pet: any) => {
+                      // Only show pets that currently have an open request (Seeking).
+                      // `petSendSubtitleById` is populated from open `care_requests` rows.
+                      return Boolean(petSendSubtitleById[pet.id as string]);
+                    })
+                    .map((pet: any) => {
                     const selected = selectedSeekingPet?.id === pet.id;
                     const subtitle =
                       petSendSubtitleById[pet.id as string] ||
@@ -1206,22 +1262,16 @@ export default function HomeScreen() {
                         key={pet.id}
                         activeOpacity={0.9}
                         onPress={() => setSelectedSeekingPet(pet)}
-                        style={[
-                          styles.sendRequestPetRow,
-                          {
-                            borderColor: selected
-                              ? colors.primary
-                              : colors.outlineVariant,
-                            backgroundColor: selected
-                              ? colors.surfaceContainerHighest
-                              : colors.surfaceContainerLow,
-                          },
-                        ]}
+                        style={[styles.sendRequestPetRow]}
                       >
                         <View
                           style={[
                             styles.sendRequestRadioOuter,
-                            { borderColor: colors.primary },
+                            {
+                              borderColor: selected
+                                ? colors.primary
+                                : colors.outlineVariant,
+                            },
                           ]}
                         >
                           {selected ? (
@@ -1238,6 +1288,8 @@ export default function HomeScreen() {
                             source={{ uri }}
                             style={styles.sendRequestPetThumb}
                             contentFit="cover"
+                            width={32}
+                            height={32}
                           />
                         ) : (
                           <View
@@ -1669,16 +1721,12 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "center",
     gap: 8,
-    borderWidth: 1,
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 10,
   },
   sendRequestRadioOuter: {
     width: 24,
     height: 24,
     borderRadius: 12,
-    borderWidth: 2,
+    borderWidth: 3,
     alignItems: "center",
     justifyContent: "center",
   },
@@ -1688,19 +1736,18 @@ const styles = StyleSheet.create({
     borderRadius: 6,
   },
   sendRequestPetThumb: {
-    width: 32,
-    height: 32,
+    width: 48,
+    height: 48,
     borderRadius: 5,
   },
   sendRequestPetName: {
-    fontSize: 12,
+    fontSize: 14,
     fontWeight: "700",
     letterSpacing: -0.2,
   },
   sendRequestPetMeta: {
     fontSize: 12,
     lineHeight: 13,
-    marginTop: 2,
     letterSpacing: -0.2,
   },
   sendRequestActions: {

@@ -12,6 +12,7 @@ import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { NotificationsSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { DataState } from "@/src/shared/components/ui";
+import { IllustratedEmptyState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
@@ -339,22 +340,17 @@ export default function NotificationsScreen() {
             ))}
           </View>
         ) : (
-          <DataState
+          <IllustratedEmptyState
             title={t("notifications.emptyTitle")}
             message={t("notifications.emptySubtitle")}
-            illustration={
-              <AppImage
-                source={require("@/assets/illustrations/pets/no-notification-graphic.svg")}
-                type="svg"
-                style={styles.emptyIllustration}
-                height={145}
-              />
-            }
-            actionLabel={t("common.retry", "Retry")}
-            onAction={() => {
-              void loadNotifications();
-            }}
             mode="full"
+            illustration={{
+              source: require("@/assets/illustrations/pets/no-notification-graphic.svg"),
+              type: "svg",
+              height: 145,
+              width: 140,
+              style: styles.emptyIllustration,
+            }}
           />
         )}
       </ScrollView>

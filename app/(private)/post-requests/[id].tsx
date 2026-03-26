@@ -61,6 +61,13 @@ function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: num
   return R * c;
 }
 
+function localYyyyMmDd(d: Date) {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
@@ -164,6 +171,13 @@ export default function RequestDetailScreen() {
 
   const images = useMemo(() => petGalleryUrls(pet ?? {}), [pet]);
 
+  const yardType =
+    (pet as any)?.yard_type ?? parsedPetNotes.yardType ?? null;
+  const ageRange =
+    (pet as any)?.age_range ?? parsedPetNotes.ageRange ?? null;
+  const energyLevel =
+    (pet as any)?.energy_level ?? parsedPetNotes.energyLevel ?? null;
+
   const careTypeKey: CareTypeKey = useMemo(
     () => normalizeCareTypeForPoints(reqRow?.care_type as string | undefined),
     [reqRow?.care_type],
@@ -175,6 +189,13 @@ export default function RequestDetailScreen() {
       reqRow.end_date,
     ).toLocaleDateString()}`;
   }, [reqRow?.end_date, reqRow?.start_date]);
+
+  const isExpired = useMemo(() => {
+    if (!reqRow?.end_date) return false;
+    const today = localYyyyMmDd(new Date());
+    // Compare as YYYY-MM-DD strings (timezone-safe)
+    return String(reqRow.end_date) < today;
+  }, [reqRow?.end_date]);
 
   const careTypeLabel = t(`feed.careTypes.${careTypeKey}`);
 
@@ -229,9 +250,9 @@ export default function RequestDetailScreen() {
       paws: owner?.care_received_count ?? 0,
     },
     details: {
-      yardType: parsedPetNotes.yardType ?? t("common.empty", "—"),
-      age: parsedPetNotes.ageRange ?? t("common.empty", "—"),
-      energyLevel: parsedPetNotes.energyLevel ?? t("common.empty", "—"),
+        yardType: yardType ?? t("common.empty", "—"),
+        age: ageRange ?? t("common.empty", "—"),
+        energyLevel: energyLevel ?? t("common.empty", "—"),
     },
     specialNeeds:
       parsedPetNotes.specialNeeds || t("pet.detail.none", "None"),
@@ -243,6 +264,7 @@ export default function RequestDetailScreen() {
     if (blockIfKycNotApproved()) return;
     if (!user?.id || !id || !reqRow?.owner_id) return;
     if (isOwner) return;
+    if (isExpired) return;
     setApplyConfirmOpen(true);
   };
 
@@ -663,7 +685,7 @@ export default function RequestDetailScreen() {
               onPress={openApplyConfirm}
               style={styles.applyBtn}
               loading={applying}
-              disabled={applying || isOwner}
+              disabled={applying || isOwner || isExpired}
             />
           </View>
         </View>

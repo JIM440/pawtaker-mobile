@@ -699,8 +699,8 @@
     "searchPlaceholder": "Search notifications",
     "noNotifications": "No notifications",
     "markAllRead": "Mark all as read",
-    "emptyTitle": "No notifications yet",
-    "emptySubtitle": "All your notifications will appear here.",
+    "emptyTitle": "Oops! No notifications yet",
+    "emptySubtitle": "All your notifications will appear here",
     "deleteOne": "Delete this notification",
     "mock": {
       "careEndingTitle": "Care ending soon",

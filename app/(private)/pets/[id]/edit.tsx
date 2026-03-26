@@ -109,14 +109,13 @@ export default function EditPetScreen() {
         nextUrls.push(uploaded.secure_url);
       }
 
-      const details = [
+      // `pets.notes` stores only the pet bio + special needs.
+      // Yard/age/energy are stored as dedicated columns.
+      const notes = [
         petBio.trim(),
         specialNeeds && specialNeedsText.trim()
           ? `Special needs: ${specialNeedsText.trim()}`
           : "",
-        yardType ? `Yard: ${yardType}` : "",
-        ageRange ? `Age range: ${ageRange}` : "",
-        energyLevel ? `Energy level: ${energyLevel}` : "",
       ]
         .filter(Boolean)
         .join("\n");
@@ -128,8 +127,11 @@ export default function EditPetScreen() {
           species: kind,
           breed,
           photo_urls: nextUrls,
-          notes: details || null,
-        })
+          notes: notes || null,
+          yard_type: yardType,
+          age_range: ageRange,
+          energy_level: energyLevel,
+        } as any)
         .eq("id", _petId)
         .eq("owner_id", user.id);
 
@@ -207,20 +209,39 @@ export default function EditPetScreen() {
           setSpecialNeedsText("");
         }
 
+        const yardFromDb =
+          typeof (pet as any)?.yard_type === "string"
+            ? (pet as any).yard_type.trim()
+            : null;
+        const ageFromDb =
+          typeof (pet as any)?.age_range === "string"
+            ? (pet as any).age_range.trim()
+            : null;
+        const energyFromDb =
+          typeof (pet as any)?.energy_level === "string"
+            ? (pet as any).energy_level.trim()
+            : null;
+
         const yardLine = lines.find((l: string) =>
           l.toLowerCase().startsWith("yard:"),
         );
-        if (yardLine) setYardType(yardLine.replace(/yard:\s*/i, ""));
+        if (yardFromDb && yardFromDb.length > 0) setYardType(yardFromDb);
+        else if (yardLine) setYardType(yardLine.replace(/yard:\s*/i, ""));
 
         const ageLine = lines.find((l: string) =>
           l.toLowerCase().startsWith("age range:"),
         );
-        if (ageLine) setAgeRange(ageLine.replace(/age range:\s*/i, ""));
+        if (ageFromDb && ageFromDb.length > 0) setAgeRange(ageFromDb);
+        else if (ageLine) setAgeRange(ageLine.replace(/age range:\s*/i, ""));
 
         const energyLine = lines.find((l: string) =>
           l.toLowerCase().startsWith("energy level:"),
         );
-        if (energyLine) setEnergyLevel(energyLine.replace(/energy level:\s*/i, ""));
+        if (energyFromDb && energyFromDb.length > 0) setEnergyLevel(energyFromDb);
+        else if (energyLine)
+          setEnergyLevel(
+            energyLine.replace(/energy level:\s*/i, ""),
+          );
 
         setKind((pet.species as PetKind) || "");
         setBreed(pet.breed ?? "");

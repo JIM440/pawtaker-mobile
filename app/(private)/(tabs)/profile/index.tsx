@@ -4,32 +4,38 @@ import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { supabase } from "@/src/lib/supabase/client";
 import {
   errorMessageFromUnknown,
   isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
-import { supabase } from "@/src/lib/supabase/client";
-import { useAuthStore } from "@/src/lib/store/auth.store";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
-import { AppText } from "@/src/shared/components/ui";
-import { DataState } from "@/src/shared/components/ui";
-import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
-import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
 import {
   ProfileAvailabilityTabSkeleton,
   ProfilePetsTabSkeleton,
   ProfileReviewsTabSkeleton,
 } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
+import { AppText, DataState } from "@/src/shared/components/ui";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
+import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router, useLocalSearchParams } from "expo-router";
 import { Settings } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { RefreshControl, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
@@ -54,10 +60,14 @@ export default function ProfileScreen() {
   const [petsLoaded, setPetsLoaded] = useState(false);
   const [petsError, setPetsError] = useState<string | null>(null);
 
-  const [availability, setAvailability] = useState<Record<string, any> | null>(null);
+  const [availability, setAvailability] = useState<Record<string, any> | null>(
+    null,
+  );
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
-  const [availabilityError, setAvailabilityError] = useState<string | null>(null);
+  const [availabilityError, setAvailabilityError] = useState<string | null>(
+    null,
+  );
 
   const [reviews, setReviews] = useState<any[]>([]);
   const [reviewsLoading, setReviewsLoading] = useState(false);
@@ -118,10 +128,7 @@ export default function ProfileScreen() {
       setPetsLoaded(false);
       setPetsError(null);
     }
-    if (
-      requestedTab === "availability" &&
-      refreshAvailabilityFlag
-    ) {
+    if (requestedTab === "availability" && refreshAvailabilityFlag) {
       setAvailabilityLoaded(false);
       setAvailabilityError(null);
     }
@@ -146,7 +153,57 @@ export default function ProfileScreen() {
         .eq("owner_id", user.id);
       if (petsError && !isMissingBackendResourceError(petsError))
         throw petsError;
-      setPets(petsData ?? []);
+
+      const basePets = petsData ?? [];
+      const petIds = basePets.map((p: any) => p.id).filter(Boolean);
+
+      let openRequestsByPetId: Record<string, any> = {};
+      if (petIds.length > 0) {
+        const { data: openReqs, error: openReqErr } = await supabase
+          .from("care_requests")
+          .select("pet_id,start_date,end_date,start_time,end_time,created_at")
+          .eq("owner_id", user.id)
+          .eq("status", "open")
+          .in("pet_id", petIds)
+          .order("created_at", { ascending: false });
+
+        if (openReqErr && !isMissingBackendResourceError(openReqErr))
+          throw openReqErr;
+
+        for (const req of openReqs ?? []) {
+          const pid = req?.pet_id as string | undefined;
+          if (!pid) continue;
+          if (!openRequestsByPetId[pid]) openRequestsByPetId[pid] = req;
+        }
+      }
+
+      const petsWithSeeking = basePets.map((p: any) => {
+        const pid = p?.id as string | undefined;
+        const req = pid ? openRequestsByPetId[pid] : undefined;
+
+        const start = req?.start_date ? new Date(req.start_date) : null;
+        const end = req?.end_date ? new Date(req.end_date) : null;
+
+        const seekingDateRange =
+          start && end
+            ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`
+            : start
+              ? start.toLocaleDateString()
+              : undefined;
+
+        const seekingTime =
+          typeof req?.start_time === "string" && typeof req?.end_time === "string"
+            ? `${req.start_time.slice(0, 5)} - ${req.end_time.slice(0, 5)}`
+            : undefined;
+
+        return {
+          ...p,
+          seekingDateRange,
+          seekingTime,
+        };
+      });
+
+      setPets(petsWithSeeking);
       setPetsLoaded(true);
     } catch (err) {
       setPetsError(errorMessageFromUnknown(err, "Failed to load pets."));
@@ -173,9 +230,10 @@ export default function ProfileScreen() {
         throw availabilityDbError;
 
       setAvailability(
-        ((takerProfileData as any)?.availability_json as
-          | Record<string, any>
-          | null) ?? null,
+        ((takerProfileData as any)?.availability_json as Record<
+          string,
+          any
+        > | null) ?? null,
       );
       setAvailabilityLoaded(true);
     } catch (err) {
@@ -190,18 +248,17 @@ export default function ProfileScreen() {
   const loadHeaderStats = async () => {
     if (!user?.id) return;
     try {
-      const [{ data: contractsRows, error: cErr }, { data: ratingRows, error: rErr }] =
-        await Promise.all([
-          supabase
-            .from("contracts")
-            .select("id")
-            .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
-            .eq("status", "completed"),
-          supabase
-            .from("reviews")
-            .select("rating")
-            .eq("reviewee_id", user.id),
-        ]);
+      const [
+        { data: contractsRows, error: cErr },
+        { data: ratingRows, error: rErr },
+      ] = await Promise.all([
+        supabase
+          .from("contracts")
+          .select("id")
+          .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
+          .eq("status", "completed"),
+        supabase.from("reviews").select("rating").eq("reviewee_id", user.id),
+      ]);
       if (!cErr) {
         setCompletedContractsCount((contractsRows ?? []).length);
       }
@@ -209,9 +266,7 @@ export default function ProfileScreen() {
         const rows = (ratingRows ?? []) as { rating: number | null }[];
         const n = rows.length;
         const avg =
-          n > 0
-            ? rows.reduce((s, x) => s + (x.rating ?? 0), 0) / n
-            : 0;
+          n > 0 ? rows.reduce((s, x) => s + (x.rating ?? 0), 0) / n : 0;
         setHeaderReviewStats({ count: n, avg });
       }
     } catch {
@@ -240,11 +295,10 @@ export default function ProfileScreen() {
 
       let reviewerMap: Record<string, any> = {};
       if (uniqueReviewerIds.length > 0) {
-        const { data: reviewerUsers, error: reviewerUsersErr } =
-          await supabase
-            .from("users")
-            .select("id,full_name,avatar_url")
-            .in("id", uniqueReviewerIds);
+        const { data: reviewerUsers, error: reviewerUsersErr } = await supabase
+          .from("users")
+          .select("id,full_name,avatar_url")
+          .in("id", uniqueReviewerIds);
 
         if (
           reviewerUsersErr &&
@@ -264,9 +318,7 @@ export default function ProfileScreen() {
       setReviewersById(reviewerMap);
       setReviewsLoaded(true);
     } catch (err) {
-      setReviewsError(
-        errorMessageFromUnknown(err, "Failed to load reviews."),
-      );
+      setReviewsError(errorMessageFromUnknown(err, "Failed to load reviews."));
     } finally {
       setReviewsLoading(false);
     }
@@ -445,7 +497,10 @@ export default function ProfileScreen() {
                   key: "availability",
                   label: t("profile.edit.availabilityTab", "Availability"),
                 },
-                { key: "bio", label: t("auth.signup.profile.bio", "Short Bio") },
+                {
+                  key: "bio",
+                  label: t("auth.signup.profile.bio", "Short Bio"),
+                },
                 { key: "reviews", label: t("profile.reviews", "Reviews") },
               ]}
               activeKey={activeTab}
@@ -459,7 +514,7 @@ export default function ProfileScreen() {
         {activeTab === "pets" && (
           <>
             {petsLoading ? (
-              <ProfilePetsTabSkeleton count={2} />
+              <ProfilePetsTabSkeleton count={3} />
             ) : petsError ? (
               <DataState
                 title={t("common.error", "Something went wrong")}
@@ -473,14 +528,28 @@ export default function ProfileScreen() {
               />
             ) : (
               <ProfilePetsTab
-                pets={pets.map((pet) => ({
-                  id: pet.id,
-                  imageSource: petGalleryUrls(pet)[0] ?? "",
-                  petName: pet.name || "Unnamed pet",
-                  breed: pet.breed || "Unknown breed",
-                  petType: pet.species || "Pet",
-                  bio: pet.notes || "No pet bio yet.",
-                }))}
+                pets={pets.map((pet) => {
+                  const parsed = parsePetNotes(pet.notes);
+                  return {
+                    id: pet.id,
+                    imageSource: petGalleryUrls(pet)[0] ?? "",
+                    petName: pet.name || "Unnamed pet",
+                    breed: pet.breed || "Unknown breed",
+                    petType: pet.species || "Pet",
+                    bio: parsed.bio || "No pet bio yet.",
+                    yardType:
+                      ((pet as any)?.yard_type ?? parsed.yardType) ||
+                      undefined,
+                    ageRange:
+                      ((pet as any)?.age_range ?? parsed.ageRange) ||
+                      undefined,
+                    energyLevel:
+                      ((pet as any)?.energy_level ??
+                        parsed.energyLevel) || undefined,
+                    seekingDateRange: pet.seekingDateRange,
+                    seekingTime: pet.seekingTime,
+                  };
+                })}
                 onAddPet={() => {
                   if (blockIfKycNotApproved()) return;
                   router.push("/(private)/pets/add");
@@ -506,136 +575,44 @@ export default function ProfileScreen() {
                   void loadAvailabilityTab({ refresh: true });
                 }}
               />
-            ) : availability ? (
-              (() => {
-                const hasMeaningfulAvailability =
-                  Boolean(availability?.available) ||
-                  Boolean(availability?.note?.trim()) ||
-                  (availability?.services?.length ?? 0) > 0 ||
-                  (availability?.petKinds?.length ?? 0) > 0 ||
-                  (availability?.days?.length ?? 0) > 0 ||
-                  Boolean(availability?.yardType?.trim()) ||
-                  (availability?.petOwner ?? "") === "yes";
-
-                if (!hasMeaningfulAvailability) {
-                  return (
-                    <View
-                      style={{
-                        flexGrow: 1,
-                        minHeight: 220,
-                        alignItems: "center",
-                        justifyContent: "center",
-                        paddingHorizontal: 20,
-                        paddingVertical: 20,
-                        gap: 10,
-                      }}
-                    >
-                      <View
-                        style={{
-                          width: 40,
-                          height: 40,
-                          borderRadius: 999,
-                          borderWidth: 1,
-                          borderColor: colors.outlineVariant,
-                          backgroundColor: colors.surfaceContainerLow,
-                        }}
-                      />
-                      <AppText
-                        variant="title"
-                        color={colors.onSurface}
-                        style={{ textAlign: "center" }}
-                      >
-                        {t("profile.availability.emptyTitle")}
-                      </AppText>
-                      <AppText
-                        variant="body"
-                        color={colors.onSurfaceVariant}
-                        style={{ textAlign: "center", maxWidth: 320 }}
-                      >
-                        {t("profile.availability.emptyMessage")}
-                      </AppText>
-                    </View>
-                  );
-                }
-
-                return (
-                  <ProfileAvailabilityTab
-                    data={{
-                      card: {
-                        avatarUri: profileData.avatarUri,
-                        name: profileData.name,
-                        rating: profileData.rating,
-                        handshakes: profileData.handshakes,
-                        paws: profileData.paws,
-                        isAvailable: availability?.available ?? false,
-                        petTypes:
-                          availability?.petKinds?.length > 0
-                            ? availability.petKinds
-                            : [],
-                        services:
-                          availability?.services?.length > 0
-                            ? availability.services
-                            : [],
-                        location: profileData.location,
-                      },
-                      note: availability?.note || "",
-                      time:
-                        availability?.startTime && availability?.endTime
-                          ? `${availability.startTime} - ${availability.endTime}`
-                          : "",
-                      days:
-                        availability?.days?.length > 0
-                          ? availability.days.join(" • ")
-                          : "",
-                      yardType: availability?.yardType || "",
-                      isPetOwner: availability?.petOwner || "",
-                    }}
-                  />
-                );
-              })()
             ) : (
-              <View
-                style={{
-                  flexGrow: 1,
-                  minHeight: 220,
-                  alignItems: "center",
-                  justifyContent: "center",
-                  paddingHorizontal: 20,
-                  paddingVertical: 20,
-                  gap: 10,
+              <ProfileAvailabilityTab
+                data={{
+                  card: {
+                    avatarUri: profileData.avatarUri,
+                    name: profileData.name,
+                    rating: profileData.rating,
+                    handshakes: profileData.handshakes,
+                    paws: profileData.paws,
+                    isAvailable: availability?.available ?? false,
+                    petTypes:
+                      availability?.petKinds?.length > 0
+                        ? availability?.petKinds ?? []
+                        : [],
+                    services:
+                      availability?.services?.length > 0
+                        ? availability?.services ?? []
+                        : [],
+                    location: profileData.location,
+                  },
+                  note: availability?.note || "",
+                  time:
+                    availability?.startTime && availability?.endTime
+                      ? `${availability.startTime} - ${availability.endTime}`
+                      : "",
+                  days:
+                    availability?.days?.length > 0
+                      ? availability?.days?.join(" • ") ?? ""
+                      : "",
+                  yardType: availability?.yardType || "",
+                  isPetOwner: availability?.petOwner || "",
                 }}
-              >
-                <View
-                  style={{
-                    width: 40,
-                    height: 40,
-                    borderRadius: 999,
-                    borderWidth: 1,
-                    borderColor: colors.outlineVariant,
-                    backgroundColor: colors.surfaceContainerLow,
-                  }}
-                />
-                <AppText
-                  variant="title"
-                  color={colors.onSurface}
-                  style={{ textAlign: "center" }}
-                >
-                  {t("profile.availability.emptyTitle")}
-                </AppText>
-                <AppText
-                  variant="body"
-                  color={colors.onSurfaceVariant}
-                  style={{ textAlign: "center", maxWidth: 320 }}
-                >
-                  {t("profile.availability.emptyMessage")}
-                </AppText>
-              </View>
+                emptyMessage="You have not set up your availability yet"
+              />
             )}
           </>
         )}
-        {activeTab === "bio" && (
-          <ProfileBioTab bio={profile?.bio} emptyMessage="No bio yet." />
-        )}
+        {activeTab === "bio" && <ProfileBioTab bio={profile?.bio} isMine />}
         {activeTab === "reviews" && (
           <>
             {reviewsLoading ? (
@@ -651,11 +628,6 @@ export default function ProfileScreen() {
                   void loadReviewsTab({ refresh: true });
                 }}
               />
-            ) : reviews.length === 0 ? (
-              <DataState
-                title={t("profile.reviewsTab.emptyTitle")}
-                message={t("profile.reviewsTab.emptyMessage")}
-              />
             ) : (
               <ProfileReviewsTab
                 rating={profileData.rating}
@@ -664,8 +636,7 @@ export default function ProfileScreen() {
                 items={reviewsUiItems}
                 onReviewerPress={(id) =>
                   router.push({
-                    pathname:
-                      "/(private)/(tabs)/profile/users/[id]",
+                    pathname: "/(private)/(tabs)/profile/users/[id]",
                     params: { id },
                   })
                 }
