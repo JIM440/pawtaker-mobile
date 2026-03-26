@@ -6,6 +6,7 @@ import {
   isMissingBackendResourceError,
 } from '@/src/lib/supabase/errors';
 import { petGalleryUrls } from '@/src/lib/pets/petGalleryUrls';
+import { parsePetNotes } from '@/src/lib/pets/parsePetNotes';
 import { supabase } from '@/src/lib/supabase/client';
 import type { TablesRow } from '@/src/lib/supabase/types';
 import { useThemeStore } from '@/src/lib/store/theme.store';
@@ -543,7 +544,9 @@ export default function MyCareScreen() {
       const { data: pets, error: petsError } = petIds.length
         ? await supabase
             .from("pets")
-            .select("id,photo_urls,name,breed,species,notes")
+            .select(
+              "id,photo_urls,name,breed,species,notes,yard_type,age_range,energy_level",
+            )
             .in("id", petIds)
         : { data: [], error: null };
 
@@ -557,6 +560,7 @@ export default function MyCareScreen() {
 
       const liked = safeRequests.slice(0, 8).map((r: any) => {
         const pet = petsById[r.pet_id] as any;
+        const parsed = parsePetNotes(pet?.notes);
         return {
           id: r.id,
           requestId: r.id,
@@ -564,7 +568,10 @@ export default function MyCareScreen() {
           petName: pet?.name ?? "Pet",
           breed: pet?.breed ?? "Unknown breed",
           petType: pet?.species ?? "Pet",
-          bio: pet?.notes ?? "No details yet.",
+          bio: parsed.bio || pet?.notes || "No details yet.",
+          yardType: pet?.yard_type ?? parsed.yardType ?? undefined,
+          ageRange: pet?.age_range ?? parsed.ageRange ?? undefined,
+          energyLevel: pet?.energy_level ?? parsed.energyLevel ?? undefined,
           tags: [],
           seekingDateRange:
             r.start_date && r.end_date
@@ -881,7 +888,7 @@ export default function MyCareScreen() {
                 )}
                 illustration={
                   <AppImage
-                    source={require('@/assets/illustrations/pets/no-care.svg')}
+                    source={require('@/assets/illustrations/pets/no-pet.svg')}
                     type="svg"
                     height={145}
                     style={{ width: 140, borderRadius: 16, backgroundColor: "transparent" }}

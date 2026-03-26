@@ -36,6 +36,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
+import { IllustratedEmptyState } from "@/src/shared/components/ui";
 
 const TOTAL_STEPS = 4;
 
@@ -61,6 +62,9 @@ export default function LaunchRequestWizardScreen() {
   const [pets, setPets] = useState<
     { id: string; name: string; imageUri: string | null }[]
   >([]);
+  const [petSeekingDateRangeById, setPetSeekingDateRangeById] = useState<
+    Record<string, string>
+  >({});
   const [petsLoading, setPetsLoading] = useState(true);
   const [petsRefreshing, setPetsRefreshing] = useState(false);
   const [petsError, setPetsError] = useState<string | null>(null);
@@ -123,7 +127,44 @@ export default function LaunchRequestWizardScreen() {
           name: p.name,
           imageUri: petGalleryUrls(p)[0] ?? null,
         })) ?? [];
+
+      const petIds = nextPets.map((p) => p.id).filter(Boolean);
+      let nextPetSeekingById: Record<string, string> = {};
+
+      if (petIds.length > 0) {
+        const { data: openReqs, error: openReqErr } = await supabase
+          .from("care_requests")
+          .select("pet_id,start_date,end_date,created_at")
+          .eq("owner_id", user.id)
+          .eq("status", "open")
+          .in("pet_id", petIds)
+          .order("created_at", { ascending: false });
+
+        if (openReqErr && !isMissingBackendResourceError(openReqErr))
+          throw openReqErr;
+
+        // Show "Seeking" badge if there exists at least one open request for the pet.
+        for (const req of openReqs ?? []) {
+          const pid = req?.pet_id as string | undefined;
+          if (!pid) continue;
+          if (nextPetSeekingById[pid]) continue;
+
+          const start = req?.start_date ? new Date(req.start_date) : null;
+          const end = req?.end_date ? new Date(req.end_date) : null;
+
+          const seekingDateRange =
+            start && end
+              ? `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })}-${end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
+              : start
+                ? start.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+                : "";
+
+          if (seekingDateRange) nextPetSeekingById[pid] = seekingDateRange;
+        }
+      }
+
       setPets(nextPets);
+      setPetSeekingDateRangeById(nextPetSeekingById);
     } catch (err) {
       setPetsError(err instanceof Error ? err.message : "Failed to load pets.");
     } finally {
@@ -224,17 +265,25 @@ export default function LaunchRequestWizardScreen() {
     }
     setIsSubmitting(true);
     try {
-      const start = new Date(startDate);
-      start.setHours(timeStart.getHours(), timeStart.getMinutes(), 0, 0);
-      const endBase = multiDay ? endDate : startDate;
-      const end = new Date(endBase);
-      end.setHours(timeEnd.getHours(), timeEnd.getMinutes(), 0, 0);
+      const startDay = new Date(startDate);
+      const endDay = new Date(multiDay ? endDate : startDate);
+
+      const startTimeStr = `${String(timeStart.getHours()).padStart(2, "0")}:${String(
+        timeStart.getMinutes(),
+      ).padStart(2, "0")}:00`;
+      const endTimeStr = `${String(timeEnd.getHours()).padStart(2, "0")}:${String(
+        timeEnd.getMinutes(),
+      ).padStart(2, "0")}:00`;
+
+      // DB columns are `date` + `time`
+      const startDateStr = startDay.toISOString().slice(0, 10);
+      const endDateStr = endDay.toISOString().slice(0, 10);
 
       const primaryCare = careTypes[0] ?? "daytime";
       const pointsOffered = computeCarePoints(
         primaryCare,
-        start.toISOString(),
-        end.toISOString(),
+        `${startDateStr}T${startTimeStr}`,
+        `${endDateStr}T${endTimeStr}`,
       );
 
       const { error } = await supabase.from("care_requests").insert({
@@ -243,8 +292,10 @@ export default function LaunchRequestWizardScreen() {
         taker_id: null,
         care_type: primaryCare,
         status: "open",
-        start_date: start.toISOString(),
-        end_date: end.toISOString(),
+        start_date: startDateStr,
+        end_date: endDateStr,
+        start_time: startTimeStr,
+        end_time: endTimeStr,
         points_offered: pointsOffered,
         description: buildDescription() || null,
       });
@@ -366,6 +417,9 @@ export default function LaunchRequestWizardScreen() {
                     name={pet.name}
                     selected={selectedPet === pet.id}
                     onPress={() => setSelectedPet(pet.id)}
+                    seekingDateRange={
+                      petSeekingDateRangeById[pet.id] ?? undefined
+                    }
                   />
                 ))}
               </View>
@@ -393,24 +447,18 @@ export default function LaunchRequestWizardScreen() {
               </TouchableOpacity>
             ) : null}
             {!petsLoading && !petsError && pets.length === 0 ? (
-              <DataState
-                title={t("post.request.emptyPetsTitle", "No pets yet")}
-                message={t(
-                  "post.request.emptyPetsSubtitle",
-                  "You have not uploaded any pets yet",
-                )}
-                illustration={
-                  <AppImage
-                    source={require("@/assets/illustrations/pets/no-pet.svg")}
-                    type="svg"
-                    width={200}
-                    height={188}
-                    style={styles.emptyIllustration}
-                  />
-                }
+              <IllustratedEmptyState
+                title="Aw aw!"
+                message="You have not uploaded any pets yet."
+                illustration={{
+                  source: require("@/assets/illustrations/pets/no-pet.svg"),
+                  type: "svg",
+                  width: 200,
+                  height: 188,
+                  style: styles.emptyIllustration,
+                }}
                 actionLabel={t("post.request.addAPet", "Add a pet")}
                 onAction={() => router.push("/(private)/pets/add" as any)}
-                mode="inline"
               />
             ) : null}
           </View>

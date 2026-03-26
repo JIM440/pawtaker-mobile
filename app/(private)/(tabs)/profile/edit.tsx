@@ -4,6 +4,7 @@ import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab
 import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
 import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -573,14 +574,25 @@ export default function EditProfileScreen() {
               />
             ) : (
               <EditPetsTab
-                pets={pets.map((pet) => ({
-                  id: pet.id,
-                  imageSource: petGalleryUrls(pet)[0] ?? "",
-                  petName: pet.name || "Unnamed pet",
-                  breed: pet.breed || "Unknown breed",
-                  petType: pet.species || "Pet",
-                  bio: pet.notes || "No pet bio yet.",
-                }))}
+                pets={pets.map((pet) => {
+                  const parsed = parsePetNotes(pet.notes);
+                  return {
+                    id: pet.id,
+                    imageSource: petGalleryUrls(pet)[0] ?? "",
+                    petName: pet.name || "Unnamed pet",
+                    breed: pet.breed || "Unknown breed",
+                    petType: pet.species || "Pet",
+                    bio: parsed.bio || "No pet bio yet.",
+                    yardType:
+                      ((pet as any)?.yard_type ?? parsed.yardType) ||
+                      null,
+                    ageRange:
+                      ((pet as any)?.age_range ?? parsed.ageRange) || null,
+                    energyLevel:
+                      ((pet as any)?.energy_level ??
+                        parsed.energyLevel) || null,
+                  };
+                })}
                 onAddPet={() => {
                   if (blockIfKycNotApproved()) return;
                   router.push("/(private)/pets/add");

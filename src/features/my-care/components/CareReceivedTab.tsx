@@ -10,7 +10,7 @@ interface CareReceivedTabProps {
 
 export function CareReceivedTab({ colors, rows }: CareReceivedTabProps) {
     if (rows.length === 0) {
-        return <EmptyState colors={colors} variant="given" />;
+        return <EmptyState colors={colors} variant="received" />;
     }
 
     const footer = (

@@ -1,8 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ReviewCard } from "@/src/shared/components/cards/ReviewCard";
-import { AppText } from "@/src/shared/components/ui/AppText";
-import { Star } from "lucide-react-native";
+import { IllustratedEmptyState } from "@/src/shared/components/ui";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, StyleSheet, View } from "react-native";
@@ -32,12 +31,8 @@ type Props = {
 };
 
 export function ProfileReviewsTab({
-  rating,
-  handshakes,
-  paws,
   onReviewerPress,
   items = [],
-  emptyMessage = "No reviews yet.",
   scrollEnabled = false,
 }: Props) {
   const { t } = useTranslation();
@@ -45,9 +40,6 @@ export function ProfileReviewsTab({
   const colors = Colors[resolvedTheme];
 
   const hasItems = items.length > 0;
-  const displayRating = hasItems
-    ? items.reduce((sum, i) => sum + (i.rating ?? 0), 0) / items.length
-    : rating;
 
   return (
     <FlatList
@@ -69,34 +61,20 @@ export function ProfileReviewsTab({
       )}
       contentContainerStyle={styles.list}
       scrollEnabled={scrollEnabled}
-      ListHeaderComponent={
-        <View
-          style={[
-            styles.summaryCard,
-            {
-              backgroundColor: colors.surfaceBright,
-              borderColor: colors.outlineVariant,
-            },
-          ]}
-        >
-          <View style={styles.summaryTop}>
-            <AppText variant="title" color={colors.onSurface} style={styles.scoreNum}>
-              {hasItems ? displayRating.toFixed(1) : "—"}
-            </AppText>
-            <Star size={22} color={colors.tertiary} fill={colors.tertiary} />
-          </View>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>
-            {hasItems
-              ? t("profile.reviewsCount", "{{count}} reviews", {
-                  count: items.length,
-                })
-              : emptyMessage}
-          </AppText>
-          {(handshakes > 0 || paws > 0) && (
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {`${handshakes} · ${paws}`}
-            </AppText>
-          )}
+      ListEmptyComponent={
+        <View style={styles.emptyWrap}>
+          <IllustratedEmptyState
+            title="No reviews yet"
+            message="Be the first to share a story after your first care session"
+            illustration={{
+              source: require("@/assets/illustrations/pets/no-review.svg"),
+              type: "svg",
+              height: 145,
+              width: 200,
+              style: { backgroundColor: "transparent", borderRadius: 16 },
+            }}
+            mode="inline"
+          />
         </View>
       }
       showsVerticalScrollIndicator={false}
@@ -105,25 +83,17 @@ export function ProfileReviewsTab({
 }
 
 const styles = StyleSheet.create({
-  summaryCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 16,
-    marginBottom: 12,
-    gap: 8,
-  },
-  summaryTop: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 8,
-  },
-  scoreNum: {
-    fontSize: 28,
-    letterSpacing: -0.5,
-  },
   list: {
     gap: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
+  },
+  emptyWrap: {
+    // paddingTop: 16,
+    // paddingBottom: 24,
+  },
+  emptyIllustration: {
+    width: 140,
+    borderRadius: 16,
   },
 });

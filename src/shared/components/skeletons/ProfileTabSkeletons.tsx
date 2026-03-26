@@ -26,7 +26,12 @@ export function EditProfileDetailsSkeleton() {
           <Skeleton height={48} width="100%" borderRadius={12} />
         </View>
       </View>
-      <Skeleton height={48} width="100%" borderRadius={12} style={{ marginTop: 4 }} />
+      <Skeleton
+        height={48}
+        width="100%"
+        borderRadius={12}
+        style={{ marginTop: 4 }}
+      />
     </View>
   );
 }
@@ -65,13 +70,38 @@ export function ProfilePetCardSkeleton() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   return (
-    <View style={[petCardSkStyles.card, { backgroundColor: colors.surfaceBright }]}>
-      <Skeleton height={92} width={92} borderRadius={12} />
+    <View
+      style={[petCardSkStyles.card, { backgroundColor: colors.surfaceBright }]}
+    >
+      <Skeleton height={80} width={80} borderRadius={12} />
       <View style={petCardSkStyles.body}>
-        <Skeleton height={18} width="72%" borderRadius={6} />
-        <Skeleton height={12} width="48%" borderRadius={4} />
-        <Skeleton height={12} width="90%" borderRadius={4} />
-        <Skeleton height={12} width="60%" borderRadius={4} />
+        <Skeleton height={16} width="72%" borderRadius={8} />
+        <View
+          style={[
+            petCardSkStyles.metaRow,
+            { flexDirection: "row", gap: 20, alignItems: "center" },
+          ]}
+        >
+          <View style={petCardSkStyles.metaItem}>
+            <Skeleton height={18} width={18} borderRadius={12} />
+            <Skeleton height={12} width={60} borderRadius={4} />
+          </View>
+          <Skeleton height={4} width={4} borderRadius={12} />
+          <View style={petCardSkStyles.metaItem}>
+            <Skeleton height={18} width={18} borderRadius={12} />
+            <Skeleton height={12} width={60} borderRadius={4} />
+          </View>
+        </View>
+        <View style={petCardSkStyles.metaRow}>
+          <Skeleton height={8} width="100%" borderRadius={4} />
+          <Skeleton height={8} width="92%" borderRadius={4} />
+          <Skeleton height={8} width="88%" borderRadius={4} />
+        </View>
+        <View style={petCardSkStyles.footer}>
+          <Skeleton height={20} width={72} borderRadius={10} />
+          <Skeleton height={20} width={72} borderRadius={10} />
+          <Skeleton height={20} width={72} borderRadius={10} />
+        </View>
       </View>
     </View>
   );
@@ -80,7 +110,6 @@ export function ProfilePetCardSkeleton() {
 export function ProfilePetsTabSkeleton({ count = 2 }: { count?: number }) {
   return (
     <View style={petListSkStyles.wrap}>
-      <Skeleton height={44} width="100%" borderRadius={12} />
       <View style={petListSkStyles.list}>
         {Array.from({ length: count }).map((_, i) => (
           <ProfilePetCardSkeleton key={i} />
@@ -102,6 +131,19 @@ const petCardSkStyles = StyleSheet.create({
     minWidth: 0,
     gap: 8,
     justifyContent: "center",
+  },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  metaRow: {
+    gap: 4,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
   },
 });
 
@@ -127,7 +169,7 @@ export function AvailabilityPreviewCardSkeleton() {
       style={[
         availSkStyles.previewCard,
         {
-          backgroundColor: colors.surface,
+          backgroundColor: colors.surfaceBright,
           borderColor: colors.outlineVariant,
         },
       ]}
@@ -135,14 +177,14 @@ export function AvailabilityPreviewCardSkeleton() {
       <View style={availSkStyles.previewHeader}>
         <Skeleton height={80} width={80} borderRadius={40} />
         <View style={availSkStyles.previewCol}>
-          <Skeleton height={18} width="85%" borderRadius={6} />
+          <Skeleton height={8} width="85%" borderRadius={6} />
           <View style={availSkStyles.metaRow}>
-            <Skeleton height={14} width={36} borderRadius={4} />
-            <Skeleton height={14} width={28} borderRadius={4} />
-            <Skeleton height={14} width={28} borderRadius={4} />
+            <Skeleton height={8} width={36} borderRadius={4} />
+            <Skeleton height={8} width={28} borderRadius={4} />
+            <Skeleton height={8} width={28} borderRadius={4} />
           </View>
-          <Skeleton height={26} width="70%" borderRadius={999} />
-          <Skeleton height={26} width="55%" borderRadius={999} />
+          <Skeleton height={14} width="70%" borderRadius={999} />
+          <Skeleton height={14} width="55%" borderRadius={999} />
         </View>
       </View>
     </View>
@@ -166,14 +208,14 @@ export function AvailabilitySectionCardSkeleton({
         },
       ]}
     >
-      <Skeleton height={11} width={100} borderRadius={4} />
+      <Skeleton height={8} width={100} borderRadius={4} />
       {Array.from({ length: lines }).map((_, i) => (
         <Skeleton
           key={i}
-          height={14}
+          height={8}
           width={i === lines - 1 ? "72%" : "100%"}
           borderRadius={4}
-          style={{ marginTop: 8 }}
+          style={{ marginTop: 12 }}
         />
       ))}
     </View>
@@ -185,14 +227,6 @@ export function ProfileAvailabilityTabSkeleton() {
     <View style={availSkStyles.tab}>
       <AvailabilityPreviewCardSkeleton />
       <AvailabilitySectionCardSkeleton lines={2} />
-      <View style={availSkStyles.twoCol}>
-        <View style={{ flex: 1 }}>
-          <AvailabilitySectionCardSkeleton lines={1} />
-        </View>
-        <View style={{ flex: 1 }}>
-          <AvailabilitySectionCardSkeleton lines={1} />
-        </View>
-      </View>
       <View style={availSkStyles.twoCol}>
         <View style={{ flex: 1 }}>
           <AvailabilitySectionCardSkeleton lines={1} />
@@ -224,7 +258,7 @@ const availSkStyles = StyleSheet.create({
   previewCol: {
     flex: 1,
     minWidth: 0,
-    gap: 8,
+    gap: 12,
   },
   metaRow: {
     flexDirection: "row",
@@ -271,7 +305,12 @@ export function EditAvailabilityFormSkeleton() {
           <Skeleton height={48} width="100%" borderRadius={12} />
         </View>
       </View>
-      <Skeleton height={48} width="100%" borderRadius={12} style={{ marginTop: 8 }} />
+      <Skeleton
+        height={48}
+        width="100%"
+        borderRadius={12}
+        style={{ marginTop: 8 }}
+      />
     </View>
   );
 }
@@ -305,15 +344,19 @@ export function ReviewCardSkeleton() {
   return (
     <View style={[revSkStyles.card, { backgroundColor: colors.surfaceBright }]}>
       <View style={revSkStyles.stars}>
-        {[1, 2, 3, 4, 5].map((i) => (
-          <Skeleton key={i} height={10} width={10} borderRadius={2} />
-        ))}
+        {/* {[1, 2, 3, 4, 5].map((i) => ( */}
+        <Skeleton height={8} width={150} borderRadius={10} />
+        {/* ))} */}
       </View>
-      <Skeleton height={12} width="100%" borderRadius={4} />
-      <Skeleton height={12} width="92%" borderRadius={4} />
+      <View style={revSkStyles.body}>
+        <Skeleton height={8} width="100%" borderRadius={4} />
+        <Skeleton height={8} width="92%" borderRadius={4} />
+        <Skeleton height={8} width="88%" borderRadius={4} />
+        <Skeleton height={8} width="84%" borderRadius={4} />
+      </View>
       <View style={revSkStyles.footer}>
-        <Skeleton height={36} width={120} borderRadius={18} />
-        <Skeleton height={12} width={72} borderRadius={4} />
+        <Skeleton height={40} width={120} borderRadius={24} />
+        <Skeleton height={8} width={72} borderRadius={4} />
       </View>
     </View>
   );
@@ -333,7 +376,12 @@ export function ReviewsSummaryCardSkeleton() {
       ]}
     >
       <Skeleton height={14} width="55%" borderRadius={4} />
-      <Skeleton height={20} width={100} borderRadius={6} style={{ marginTop: 10 }} />
+      <Skeleton
+        height={20}
+        width={100}
+        borderRadius={6}
+        style={{ marginTop: 10 }}
+      />
     </View>
   );
 }
@@ -341,7 +389,6 @@ export function ReviewsSummaryCardSkeleton() {
 export function ProfileReviewsTabSkeleton() {
   return (
     <View style={revSkStyles.list}>
-      <ReviewsSummaryCardSkeleton />
       <ReviewCardSkeleton />
       <ReviewCardSkeleton />
     </View>
@@ -352,8 +399,7 @@ const revSkStyles = StyleSheet.create({
   list: {
     gap: 12,
     paddingHorizontal: 16,
-    paddingVertical: 8,
-    paddingBottom: 24,
+    paddingVertical: 16,
   },
   summary: {
     borderRadius: 16,
@@ -365,6 +411,9 @@ const revSkStyles = StyleSheet.create({
     borderRadius: 16,
     paddingVertical: 16,
     paddingHorizontal: 16,
+    gap: 16,
+  },
+  body: {
     gap: 10,
   },
   stars: {

@@ -2,31 +2,34 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Calendar, Clock } from "lucide-react-native";
+import { Calendar, Clock, MoreHorizontal } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
-import { PetCardBase } from "./PetCardBase";
 
-export type ProfilePetCardProps = {
+export type PetCardBaseProps = {
   imageSource: string | number | { uri: string };
   petName: string;
   breed: string;
   petType: string;
   bio: string;
-  /** Shown as tonal chips (yard / age / energy from parsed pet notes). */
   yardType?: string | null;
   ageRange?: string | null;
   energyLevel?: string | null;
   tags?: string[];
-  /** When set, show "Seeking" marker and date/time row */
+
   seekingDateRange?: string;
   seekingTime?: string;
+
   onPress?: () => void;
   onMenuPress?: () => void;
   menuButtonRef?: (ref: View | null) => void;
 };
 
-export function ProfilePetCard({
+/**
+ * Shared visual “row” used by both profile pets and my-care liked pets.
+ * It intentionally does not render the Apply/Remove overlay; that’s handled by wrappers.
+ */
+export function PetCardBase({
   imageSource,
   petName,
   breed,
@@ -41,59 +44,43 @@ export function ProfilePetCard({
   onPress,
   onMenuPress,
   menuButtonRef,
-}: ProfilePetCardProps) {
-  // Render shared visual row so Profile cards match Liked/My Care cards exactly.
-  return (
-    <PetCardBase
-      imageSource={imageSource}
-      petName={petName}
-      breed={breed}
-      petType={petType}
-      bio={bio}
-      yardType={yardType}
-      ageRange={ageRange}
-      energyLevel={energyLevel}
-      tags={tags}
-      seekingDateRange={seekingDateRange}
-      seekingTime={seekingTime}
-      onPress={onPress}
-      onMenuPress={onMenuPress}
-      menuButtonRef={menuButtonRef}
-    />
-  );
-
+}: PetCardBaseProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const showSeeking = seekingDateRange != null;
-  const attributeChipLabels = [yardType, ageRange, energyLevel].filter(
-    (v): v is string => typeof v === "string" && v.trim().length > 0,
-  );
 
-  const menuDots = (
-    <View style={styles.menuDots}>
-      <View style={[styles.menuDot, { backgroundColor: colors.onSurface }]} />
-      <View style={[styles.menuDot, { backgroundColor: colors.onSurface }]} />
-      <View style={[styles.menuDot, { backgroundColor: colors.onSurface }]} />
-    </View>
-  );
+  // Pills for yard type, age range, and energy level
+  const pills = [
+    typeof yardType === "string" && yardType.trim().length > 0
+      ? yardType.trim()
+      : null,
+    typeof ageRange === "string" && ageRange.trim().length > 0
+      ? ageRange.trim()
+      : null,
+    typeof energyLevel === "string" && energyLevel.trim().length > 0
+      ? energyLevel.trim()
+      : null,
+  ].filter((v): v is string => !!v);
+
+  // Use ellipses for menu, not custom dots
+  const menuDots = <MoreHorizontal size={20} color={colors.onSurfaceVariant} />;
 
   return (
     <TouchableOpacity
       activeOpacity={0.9}
       onPress={onPress}
-      style={[styles.card, { backgroundColor: colors.surfaceContainerHigh }]}
+      style={[styles.card, { backgroundColor: colors.surfaceBright }]}
     >
       <AppImage
         source={
-          typeof imageSource === "string"
-            ? { uri: imageSource as string }
-            : (imageSource as any)
+          typeof imageSource === "string" ? { uri: imageSource } : imageSource
         }
         style={[
           styles.image,
           { backgroundColor: colors.surfaceContainerHighest },
         ]}
       />
+
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <View style={styles.nameRow}>
@@ -180,32 +167,6 @@ export function ProfilePetCard({
           </View>
         )}
 
-        {attributeChipLabels.length > 0 ? (
-          <View style={styles.attributeChipsRow}>
-            {attributeChipLabels.map((label, chipIndex) => (
-              <View
-                key={`${label}-${chipIndex}`}
-                style={[
-                  styles.attributeChip,
-                  {
-                    backgroundColor: colors.surfaceContainerHigh,
-                    borderColor: colors.outlineVariant,
-                  },
-                ]}
-              >
-                <AppText
-                  style={[
-                    styles.attributeChipText,
-                    { color: colors.onSecondaryContainer },
-                  ]}
-                >
-                  {label}
-                </AppText>
-              </View>
-            ))}
-          </View>
-        ) : null}
-
         <AppText
           variant="caption"
           color={colors.onSurfaceVariant}
@@ -231,7 +192,7 @@ export function ProfilePetCard({
                 ]}
               >
                 <AppText
-                  variant="caption"
+                  variant="body"
                   color={colors.onSecondaryContainer}
                   style={styles.tagText}
                 >
@@ -284,7 +245,7 @@ const styles = StyleSheet.create({
   seekingMarker: {
     paddingHorizontal: 4,
     paddingVertical: 2,
-    borderRadius: 4,
+    borderRadius: 12,
   },
   menuBtn: {
     minHeight: 20,
@@ -294,15 +255,14 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginTop: 1,
   },
-  menuDots: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 3,
-  },
-  menuDot: {
-    width: 3,
-    height: 3,
-    borderRadius: 999,
+  menuEllipsis: {
+    fontSize: 18,
+    lineHeight: 20,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    includeFontPadding: false,
+    textAlign: "center",
+    marginTop: -2,
   },
   breedRow: {
     flexDirection: "row",
@@ -327,21 +287,26 @@ const styles = StyleSheet.create({
     fontSize: 12,
     lineHeight: 16,
   },
-  attributeChipsRow: {
+  pillsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 6,
-    marginTop: 4,
+    gap: 8,
+    marginTop: 6,
   },
-  attributeChip: {
-    paddingVertical: 6,
-    paddingHorizontal: 2,
+  pill: {
+    paddingVertical: 4,
+    paddingHorizontal: 14,
     borderRadius: 999,
     borderWidth: StyleSheet.hairlineWidth,
+    alignItems: "center",
+    justifyContent: "center",
+    minHeight: 24,
+    marginRight: 0,
+    marginBottom: 0,
   },
-  attributeChipText: {
-    fontSize: 16,
-    lineHeight: 22,
+  pillText: {
+    fontSize: 13,
+    lineHeight: 18,
     fontWeight: "500",
   },
   bio: {

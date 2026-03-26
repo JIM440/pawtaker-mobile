@@ -1,8 +1,5 @@
-import { Colors } from "@/src/constants/colors";
-import { useThemeStore } from "@/src/lib/store/theme.store";
-import { LikedPetCard } from "@/src/shared/components/cards/LikedPetCard";
-import { DataState } from "@/src/shared/components/ui";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { ProfilePetCard } from "@/src/shared/components/cards/ProfilePetCard";
+import { IllustratedEmptyState } from "@/src/shared/components/ui";
 import { Button } from "@/src/shared/components/ui/Button";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -37,37 +34,33 @@ export function ProfilePetsTab({
   onPetPress,
 }: Props) {
   const { t } = useTranslation();
-  const { resolvedTheme } = useThemeStore();
-  const themeColors = Colors[resolvedTheme];
   const hasPets = pets.length > 0;
 
+  console.log(pets);
+
   if (!hasPets) {
+    const title = "Aw aw!";
+    const message = showAddPetButton
+      ? "You have not uploaded any pets yet."
+      : "This user has not uploaded any pets yet";
     return (
       <View style={styles.emptyState}>
-        <DataState
-          title={t("post.request.emptyPetsTitle", "No pets yet")}
-          message={t(
-            "post.request.emptyPetsSubtitle",
-            "You have not added any pets yet",
-          )}
-          illustration={
-            <AppImage
-              source={require("@/assets/illustrations/pets/no-pet.svg")}
-              type="svg"
-              style={[
-                styles.emptyIllustration,
-                { backgroundColor: "transparent" },
-              ]}
-              height={145}
-            />
-          }
+        <IllustratedEmptyState
+          title={title}
+          message={message}
+          illustration={{
+            source: require("@/assets/illustrations/pets/no-pet.svg"),
+            type: "svg",
+            height: 145,
+            width: 140,
+            style: { backgroundColor: "transparent", borderRadius: 16 },
+          }}
           actionLabel={
             showAddPetButton && onAddPet
               ? t("post.request.addAPet", "+ Add a pet")
               : undefined
           }
           onAction={showAddPetButton ? onAddPet : undefined}
-          mode="inline"
         />
       </View>
     );
@@ -85,23 +78,20 @@ export function ProfilePetsTab({
       )}
       <View style={styles.petListContainer}>
         {pets.map((pet) => (
-          <LikedPetCard
+          <ProfilePetCard
             key={pet.id}
-            colors={themeColors}
             imageSource={pet.imageSource}
             petName={pet.petName}
             breed={pet.breed}
             petType={pet.petType}
-            dateRange={pet.seekingDateRange ?? ""}
-            time={pet.seekingTime ?? ""}
-            description={pet.bio}
+            bio={pet.bio}
             yardType={pet.yardType}
             ageRange={pet.ageRange}
             energyLevel={pet.energyLevel}
             tags={pet.tags ?? []}
-            isSeeking={Boolean(pet.seekingDateRange)}
-            showOverflowMenu={false}
-            onCardPress={() => onPetPress?.(pet.id)}
+            seekingDateRange={pet.seekingDateRange}
+            seekingTime={pet.seekingTime}
+            onPress={() => onPetPress?.(pet.id)}
           />
         ))}
       </View>
@@ -116,13 +106,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   petListContainer: {
-    marginTop: 12,
     gap: 12,
     marginHorizontal: -16,
     paddingHorizontal: 16,
   },
   addPetBtn: {
-    marginTop: 8,
     gap: 8,
     borderWidth: 0,
   },

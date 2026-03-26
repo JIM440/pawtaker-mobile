@@ -81,6 +81,19 @@ export function Button({
   const borderWidth = variant === "outline" ? 1 : 0;
   const borderColor =
     variant === "outline" ? colors.outlineVariant : "transparent";
+  const disabledOpacity = 0.6;
+  const effectiveOpacity = isDisabled ? disabledOpacity : 1;
+  const effectiveLabelColor = isDisabled
+    ? colors.onSurfaceVariant
+    : color ?? variantTextColor[variant](colors);
+  const effectiveIndicatorColor =
+    isDisabled
+      ? colors.onSurfaceVariant
+      : variant === "outline" || variant === "ghost"
+        ? colors.primary
+        : variant === "inverse"
+          ? colors.primary
+          : colors.onPrimary;
 
   return (
     <TouchableOpacity
@@ -95,8 +108,8 @@ export function Button({
           borderWidth,
           borderColor,
           alignSelf: fullWidth ? "stretch" : "flex-start",
-          // Keep visual emphasis while showing loading activity.
-          opacity: disabled && !loading ? 0.5 : 1,
+          // Match disabled styling even when loading.
+          opacity: effectiveOpacity,
         },
         style,
       ]}
@@ -104,19 +117,13 @@ export function Button({
       {loading && (
         <ActivityIndicator
           size="small"
-          color={
-            variant === "outline" || variant === "ghost"
-              ? colors.primary
-              : variant === "inverse"
-                ? colors.primary
-                : colors.onPrimary
-          }
+          color={effectiveIndicatorColor}
         />
       )}
       {!loading && leftIcon}
       <AppText
         variant="label"
-        color={color ?? variantTextColor[variant](colors)}
+        color={effectiveLabelColor}
         style={[styles.label, size === "sm" && styles.labelSm]}
       >
         {label}

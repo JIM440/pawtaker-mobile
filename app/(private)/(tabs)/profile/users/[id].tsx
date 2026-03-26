@@ -9,11 +9,13 @@ import {
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { supabase } from "@/src/lib/supabase/client";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
 import { ProfilePetsTabSkeleton } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
@@ -209,14 +211,26 @@ export default function PublicProfileScreen() {
         {/* Tab content */}
         {activeTab === "pets" && (
           <ProfilePetsTab
-            pets={publicPets.map((pet) => ({
-              id: pet.id,
-              imageSource: petGalleryUrls(pet)[0] ?? "",
-              petName: pet.name || "Pet",
-              breed: pet.breed || "Unknown breed",
-              petType: pet.species || "Pet",
-              bio: pet.notes || "No pet bio yet.",
-            }))}
+            pets={publicPets.map((pet) => {
+              const parsed = parsePetNotes(pet.notes);
+              return {
+                id: pet.id,
+                imageSource: petGalleryUrls(pet)[0] ?? "",
+                petName: pet.name || "Pet",
+                breed: pet.breed || "Unknown breed",
+                petType: pet.species || "Pet",
+                bio: parsed.bio || "No pet bio yet.",
+                yardType:
+                  ((pet as any)?.yard_type ?? parsed.yardType) ||
+                  undefined,
+                ageRange:
+                  ((pet as any)?.age_range ?? parsed.ageRange) ||
+                  undefined,
+                energyLevel:
+                  ((pet as any)?.energy_level ?? parsed.energyLevel) ||
+                  undefined,
+              };
+            })}
             showAddPetButton={false}
           />
         )}
@@ -244,48 +258,50 @@ export default function PublicProfileScreen() {
                 yardType: publicAvailability.yardType ?? "",
                 isPetOwner: publicAvailability.petOwner ?? "",
               }}
-              emptyMessage={t("profile.availability.publicEmptyMessage")}
+              emptyMessage="User has not set up their availability yet."
             />
           ) : (
             <DataState
-              title={t("profile.availability.emptyTitle")}
-              message={t("profile.availability.publicEmptyMessage")}
+              title="No availability set yet"
+              message="User has not set up their availability yet."
+              illustration={
+                <AppImage
+                  source={require("@/assets/illustrations/pets/no-availability.svg")}
+                  type="svg"
+                  height={145}
+                  style={{ width: 140, borderRadius: 16, backgroundColor: "transparent" }}
+                />
+              }
             />
           )
         )}
-        {activeTab === "bio" && <ProfileBioTab bio={publicProfile?.bio} />}
+        {activeTab === "bio" && <ProfileBioTab bio={publicProfile?.bio} isMine={false} />}
         {activeTab === "reviews" ? (
-          publicReviews.length === 0 ? (
-            <DataState
-              title={t("profile.reviewsTab.emptyTitle")}
-              message={t("profile.reviewsTab.emptyMessage")}
-            />
-          ) : (
-            <ProfileReviewsTab
-              rating={derived.rating}
-              handshakes={derived.handshakes}
-              paws={derived.paws}
-              items={publicReviews.map((r) => ({
-                id: r.id,
-                reviewerId: r.reviewer_id,
-                name: "Reviewer",
-                avatar: null,
-                rating: r.rating ?? 0,
-                handshakes: 0,
-                paws: 0,
-                date: r.created_at
-                  ? new Date(r.created_at).toLocaleDateString()
-                  : "",
-                review: r.comment || "No review comment.",
-              }))}
-              onReviewerPress={(reviewerId) => {
-                router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
-                  params: { id: reviewerId },
-                });
-              }}
-            />
-          )
+          <ProfileReviewsTab
+            rating={derived.rating}
+            handshakes={derived.handshakes}
+            paws={derived.paws}
+            items={publicReviews.map((r) => ({
+              id: r.id,
+              reviewerId: r.reviewer_id,
+              name: "Reviewer",
+              avatar: null,
+              rating: r.rating ?? 0,
+              handshakes: 0,
+              paws: 0,
+              date: r.created_at
+                ? new Date(r.created_at).toLocaleDateString()
+                : "",
+              review: r.comment || "No review comment.",
+            }))}
+            onReviewerPress={(reviewerId) => {
+              router.push({
+                pathname: "/(private)/(tabs)/profile/users/[id]",
+                params: { id: reviewerId },
+              });
+            }}
+            scrollEnabled={false}
+          />
         ) : null}
           </>
         )}

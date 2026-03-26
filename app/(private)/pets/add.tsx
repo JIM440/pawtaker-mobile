@@ -171,14 +171,13 @@ export default function AddPetScreen() {
         );
         uploadedUrls.push(uploaded.secure_url);
       }
-      const details = [
+      // `pets.notes` stores only the pet bio + special needs.
+      // Yard/age/energy are stored as dedicated columns.
+      const notes = [
         petBio.trim(),
         specialNeeds && specialNeedsText.trim()
           ? `Special needs: ${specialNeedsText.trim()}`
           : "",
-        yardType ? `Yard: ${yardType}` : "",
-        ageRange ? `Age range: ${ageRange}` : "",
-        energyLevel ? `Energy level: ${energyLevel}` : "",
       ]
         .filter(Boolean)
         .join("\n");
@@ -191,8 +190,11 @@ export default function AddPetScreen() {
           species: kind,
           breed,
           photo_urls: uploadedUrls,
-          notes: details || null,
-        })
+          notes: notes || null,
+          yard_type: yardType,
+          age_range: ageRange,
+          energy_level: energyLevel,
+        } as any)
         .select("*")
         .single();
 

@@ -1,5 +1,5 @@
 import type { ColorValues } from "@/src/constants/colors";
-import { ProfilePetCard } from "./ProfilePetCard";
+import { PetCardBase } from "./PetCardBase";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import React, { useRef, useState } from "react";
 import {
@@ -71,7 +71,8 @@ export function LikedPetCard({
 
   return (
     <View>
-      <ProfilePetCard
+      {/* base visual row */}
+      <PetCardBase
         imageSource={resolvedImage}
         petName={petName}
         breed={breed}
@@ -93,7 +94,6 @@ export function LikedPetCard({
             : undefined
         }
       />
-
       {showOverflowMenu ? (
         <Modal
           visible={menuVisible}
