@@ -30,6 +30,8 @@
     "sendRequest": "Envoyer une demande",
     "skip": "Passer",
     "notice": "Information",
+    "no": "Non",
+    "yes": "Oui",
     "empty": "—",
     "user": "Utilisateur",
     "saving": "Enregistrement…",
@@ -40,6 +42,7 @@
   "home": {
     "sendRequest": {
       "needsOpenRequest": "Créez d'abord une demande de garde ouverte pour cet animal, puis vous pourrez contacter un gardien.",
+      "sendFailed": "Impossible d'envoyer la demande pour le moment. Veuillez réessayer.",
       "selectPetTitle": "Choisir un animal",
       "sendingTo": "Envoi d’une demande à « {{name}} »"
     }
@@ -280,7 +283,6 @@
     "careTypes": {
       "daytime": "Journée",
       "playwalk": "Jeu / promenade",
-      "play_walk": "Jeu / promenade",
       "overnight": "Nuit",
       "vacation": "Vacances"
     }
@@ -349,6 +351,14 @@
       "successSubtitle": "Votre avis a été envoyé et aide les autres à choisir des gardiens de confiance."
     },
     "availabilityUpdateFailed": "Impossible de mettre à jour la disponibilité. Veuillez réessayer.",
+    "availabilityProfileRequired": "Ajoutez d'abord votre profil de disponibilité pour activer ce bouton.",
+    "emptyState": {
+      "nothingTitle": "Rien à afficher pour le moment",
+      "noLikedTitle": "Aucun animal aimé pour le moment",
+      "givenMessage": "Commencez à offrir des soins pour voir votre historique ici",
+      "receivedMessage": "Commencez à recevoir des soins pour voir votre historique ici",
+      "likedMessage": "Touchez l’icône cœur sur les demandes, elles apparaîtront ici"
+    },
     "loadingGiven": "Chargement des soins donnés...",
     "loadingReceived": "Chargement des soins reçus...",
     "loadingLiked": "Chargement des animaux aimés...",
@@ -373,6 +383,7 @@
     "title": "Publier",
     "launchRequest": "Lancer une demande",
     "availableToCare": "Disponible pour garder",
+    "alreadyHaveAvailabilityProfile": "Vous avez déjà un profil de disponibilité en tant que gardien. Modifiez-le dans Profil → Disponibilité plutôt que d’en créer un nouveau.",
     "choose": {
       "title": "De quoi avez-vous besoin ?",
       "requestCare": "Demander des soins pour mon animal",
@@ -386,9 +397,6 @@
       "details": {
         "title": "Détails des soins",
         "careType": "Type de soins",
-        "sitting": "Garde à domicile",
-        "walking": "Promenade",
-        "boarding": "Pension",
         "startDate": "Date de début",
         "endDate": "Date de fin",
         "points": "Points offerts",
@@ -405,7 +413,6 @@
         "careTypeRequired": "Sélectionnez au moins un type de garde.",
         "petRequired": "Sélectionnez un animal pour continuer.",
         "timeRange": "L’heure de fin doit être après l’heure de début.",
-        "daysRequired": "Sélectionnez au moins un jour.",
         "dateRangeOrder": "La date de fin doit être après la date de début."
       },
       "addPet": "Ajouter un animal",
@@ -440,7 +447,13 @@
       "detailsHint": "Type de jardin, niveau d'énergie, besoins particuliers (optionnel).",
       "emptyPetsTitle": "Oups !",
       "emptyPetsSubtitle": "Vous n'avez pas encore ajouté d'animaux",
-      "addAPet": "+ Ajouter un animal"
+      "addAPet": "+ Ajouter un animal",
+      "launchFailed": "Impossible de créer la demande pour le moment. Veuillez réessayer.",
+      "launchSuccess": "Votre demande de garde est en ligne.",
+      "selectPetTitle": "Choisir un animal",
+      "loadingPetsTitle": "Chargement des animaux…",
+      "loadingPetsMessage": "Récupération de vos animaux.",
+      "petsLoadFailedTitle": "Impossible de charger les animaux"
     },
     "availability": {
       "title": "Ma disponibilité",
@@ -454,6 +467,7 @@
       "save": "Enregistrer la disponibilité",
       "saved": "Disponibilité enregistrée.",
       "saveFailed": "Impossible d’enregistrer votre disponibilité. Veuillez réessayer.",
+      "signInRequired": "Connectez-vous pour enregistrer votre disponibilité.",
       "careStepTitle": "De quel type de garde pouvez-vous offrir ?",
       "hintsTitle": "Conseils",
       "petKindQuestion": "Quel type d’animal ?",
@@ -496,7 +510,7 @@
       },
       "validation": {
         "careTypeRequired": "Sélectionnez au moins un type de garde.",
-        "petKindRequired": "Sélectionnez un type d’animal pour continuer.",
+        "petKindRequired": "Sélectionnez au moins un type d’animal pour continuer.",
         "daysRequired": "Sélectionnez au moins un jour.",
         "timeRange": "L’heure de fin doit être après l’heure de début."
       }
@@ -562,6 +576,8 @@
   },
   "availability": {
     "title": "Publier ma disponibilité",
+    "careTypes": "Types de garde",
+    "dates": "Dates",
     "available": "Disponible",
     "careTitle": "Quels soins pouvez-vous offrir ?",
     "careSubtitle": "Sélectionnez les types de garde que vous proposez (ex. Journée, Promenade).",
@@ -594,6 +610,7 @@
     "yardLabel": "Jardin",
     "timeOnly": "Heure",
     "daysOnly": "Jours",
+    "petTypes": "Types d’animaux",
     "yardType": "Type de jardin",
     "petOwner": "Propriétaire d’animal",
     "note": "Note courte"
@@ -635,13 +652,18 @@
     "noLocation": "Aucun lieu",
     "defaultName": "Utilisateur Pawtaker",
     "bio": {
-      "empty": "Pas encore de bio."
+      "empty": "Pas encore de bio.",
+      "emptyTitle": "Un peu de mystère",
+      "emptyMine": "Vous n’avez pas encore ajouté de bio.",
+      "emptyOther": "Cet utilisateur n’a pas encore ajouté de bio."
     },
     "reviewsCount": "{{count}} avis",
     "reviews": "Avis",
     "availability": {
       "emptyTitle": "Pas encore de disponibilité",
       "emptyMessage": "Ajoutez votre disponibilité depuis Modifier le profil pour l’afficher ici.",
+      "emptyMine": "Vous n’avez pas encore renseigné votre disponibilité.",
+      "publicEmptyTitle": "Aucune disponibilité",
       "publicEmptyMessage": "Ce membre n’a pas encore renseigné sa disponibilité."
     },
     "reviewsTab": {
@@ -653,7 +675,8 @@
       "title": "Mes animaux",
       "launchRequest": "Lancer une demande",
       "tab": "Animaux",
-      "seekingBadge": "Recherche"
+      "seekingBadge": "Recherche",
+      "emptyOtherUser": "Cet utilisateur n’a pas encore ajouté d’animaux."
     },
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
     "blockConfirmDescription": "Il ou elle ne pourra plus voir votre profil, vous envoyer des demandes ou des messages. Vous pourrez débloquer plus tard dans Paramètres.",

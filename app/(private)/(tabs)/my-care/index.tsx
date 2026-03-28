@@ -1,33 +1,34 @@
-import { Colors } from '@/src/constants/colors';
-import { blockIfKycNotApproved } from '@/src/lib/kyc/kyc-gate';
-import { useAuthStore } from '@/src/lib/store/auth.store';
+import { Colors } from "@/src/constants/colors";
+import { EmptyState } from "@/src/features/my-care/components/EmptyState";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { supabase } from "@/src/lib/supabase/client";
 import {
   errorMessageFromUnknown,
   isMissingBackendResourceError,
-} from '@/src/lib/supabase/errors';
-import { petGalleryUrls } from '@/src/lib/pets/petGalleryUrls';
-import { parsePetNotes } from '@/src/lib/pets/parsePetNotes';
-import { supabase } from '@/src/lib/supabase/client';
-import type { TablesRow } from '@/src/lib/supabase/types';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { PageContainer } from '@/src/shared/components/layout';
-import { AppImage } from '@/src/shared/components/ui/AppImage';
-import { AppSwitch } from '@/src/shared/components/ui/AppSwitch';
-import { AppText } from '@/src/shared/components/ui/AppText';
-import { DataState } from '@/src/shared/components/ui';
-import { FeedbackModal } from '@/src/shared/components/ui/FeedbackModal';
-import { TabBar } from '@/src/shared/components/ui/TabBar';
-import { useToastStore } from '@/src/lib/store/toast.store';
-import { resolveDisplayName } from '@/src/lib/user/displayName';
+} from "@/src/lib/supabase/errors";
+import type { TablesRow } from "@/src/lib/supabase/types";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
+import { PageContainer } from "@/src/shared/components/layout";
+import { ProfilePetsTabSkeleton } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
+import { ErrorState } from "@/src/shared/components/ui";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
+import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { TabBar } from "@/src/shared/components/ui/TabBar";
 import {
   Handshake,
   MoreHorizontal,
   PawPrint,
   Sun,
-  TrendingUp
-} from 'lucide-react-native';
-import React, { useEffect, useState } from 'react';
-import { useTranslation } from 'react-i18next';
+  TrendingUp,
+} from "lucide-react-native";
+import React, { useEffect, useState } from "react";
+import { useTranslation } from "react-i18next";
 import {
   Modal,
   Pressable,
@@ -35,17 +36,17 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
-  View
-} from 'react-native';
+  View,
+} from "react-native";
 
 // Feature Components
-import { CareGivenTab } from '@/src/features/my-care/components/CareGivenTab';
-import { CareReceivedTab } from '@/src/features/my-care/components/CareReceivedTab';
-import { LikedTab } from '@/src/features/my-care/components/LikedTab';
-import { useRouter } from 'expo-router';
+import { CareGivenTab } from "@/src/features/my-care/components/CareGivenTab";
+import { CareReceivedTab } from "@/src/features/my-care/components/CareReceivedTab";
+import { LikedTab } from "@/src/features/my-care/components/LikedTab";
+import { useRouter } from "expo-router";
 
 // Constants
-type TabId = 'given' | 'received' | 'liked';
+type TabId = "given" | "received" | "liked";
 
 export default function MyCareScreen() {
   const { t } = useTranslation();
@@ -57,7 +58,7 @@ export default function MyCareScreen() {
   const [available, setAvailable] = useState(false);
   const [availabilityLoading, setAvailabilityLoading] = useState(false);
   const [availabilityLoaded, setAvailabilityLoaded] = useState(false);
-  const [activeTab, setActiveTab] = useState<TabId>('given');
+  const [activeTab, setActiveTab] = useState<TabId>("given");
   const [menuVisible, setMenuVisible] = useState(false);
 
   const [hasActiveCare, setHasActiveCare] = useState(false);
@@ -83,13 +84,14 @@ export default function MyCareScreen() {
   const [likedLoaded, setLikedLoaded] = useState(false);
   const [likedError, setLikedError] = useState<string | null>(null);
 
-  const [stats, setStats] = useState({ points: 0, careGiven: 0, careReceived: 0 });
+  const [stats, setStats] = useState({
+    points: 0,
+    careGiven: 0,
+    careReceived: 0,
+  });
 
   const showToast = useToastStore((s) => s.showToast);
-  const [availabilityErrorDialog, setAvailabilityErrorDialog] = useState<{
-    title: string;
-    description: string;
-  } | null>(null);
+  const [hasAvailabilityProfile, setHasAvailabilityProfile] = useState(false);
 
   const onAvailableChange = (value: boolean) => {
     if (!user?.id || value === available) return;
@@ -100,11 +102,11 @@ export default function MyCareScreen() {
       setAvailable(value);
       try {
         const { data: row, error: rowErr } = await supabase
-          .from('taker_profiles')
+          .from("taker_profiles")
           .select(
-            'availability_json,accepted_species,max_pets,hourly_points,experience_years',
+            "availability_json,accepted_species,max_pets,hourly_points,experience_years",
           )
-          .eq('user_id', user.id)
+          .eq("user_id", user.id)
           .maybeSingle();
 
         if (rowErr && !isMissingBackendResourceError(rowErr)) throw rowErr;
@@ -112,16 +114,16 @@ export default function MyCareScreen() {
         const baseAvailabilityJson: Record<string, any> = row?.availability_json
           ? (row.availability_json as Record<string, any>)
           : {
-            available: value,
-            services: [],
-            days: [],
-            startTime: '08:00',
-            endTime: '21:00',
-            petOwner: 'no',
-            yardType: '',
-            petKinds: [],
-            note: '',
-          };
+              available: value,
+              services: [],
+              days: [],
+              startTime: "08:00",
+              endTime: "21:00",
+              petOwner: "no",
+              yardType: "",
+              petKinds: [],
+              note: "",
+            };
 
         const nextAvailabilityJson = {
           ...baseAvailabilityJson,
@@ -129,7 +131,7 @@ export default function MyCareScreen() {
         };
 
         const { error: upsertErr } = await supabase
-          .from('taker_profiles')
+          .from("taker_profiles")
           .upsert(
             {
               user_id: user.id,
@@ -139,29 +141,29 @@ export default function MyCareScreen() {
               experience_years: row?.experience_years ?? 0,
               availability_json: nextAvailabilityJson,
             },
-            { onConflict: 'user_id' },
+            { onConflict: "user_id" },
           );
 
         if (upsertErr) throw upsertErr;
 
         setAvailable(value);
-        if (value) {
-          showToast({
-            variant: 'success',
-            message: `${t('myCare.nowAvailableSnackbar')} ${t('myCare.availableHighlight')}`,
-            durationMs: 3200,
-          });
-        }
+        showToast({
+          variant: "success",
+          message: value
+            ? `${t("myCare.nowAvailableSnackbar")} ${t("myCare.availableHighlight")}`
+            : t("profile.edit.availabilityToast", "Availability updated."),
+          durationMs: 2800,
+        });
       } catch (err) {
         setAvailable(previous);
         const details = errorMessageFromUnknown(
           err,
           t("common.error", "Something went wrong"),
         );
-        const friendly = t("myCare.availabilityUpdateFailed", "Couldn't update availability. Please try again.");
-        setAvailabilityErrorDialog({
-          title: t("common.error", "Something went wrong"),
-          description: `${friendly}\n\nDetails: ${details}`,
+        showToast({
+          variant: "error",
+          message: details,
+          durationMs: 3400,
         });
       } finally {
         setAvailabilityLoading(false);
@@ -170,21 +172,41 @@ export default function MyCareScreen() {
   };
 
   const tabs: { id: TabId; label: string }[] = [
-    { id: 'given', label: t('myCare.tabs.careGiven') },
-    { id: 'received', label: t('myCare.tabs.careReceived') },
-    { id: 'liked', label: t('myCare.tabs.liked') },
+    { id: "given", label: t("myCare.tabs.careGiven") },
+    { id: "received", label: t("myCare.tabs.careReceived") },
+    { id: "liked", label: t("myCare.tabs.liked") },
   ];
 
   const Header = (
     <View style={styles.header}>
-      <AppText variant="headline" style={{ fontSize: 22 }}>{t('myCare.title')}</AppText>
+      <AppText variant="headline" style={{ fontSize: 22 }}>
+        {t("myCare.title")}
+      </AppText>
       <View style={styles.availableRow}>
-        <AppText variant="body" color={colors.onSurfaceVariant}>{t('myCare.available')}</AppText>
-        <AppSwitch
-          value={available}
-          disabled={availabilityLoading}
-          onValueChange={onAvailableChange}
-        />
+        <AppText variant="body" color={colors.onSurfaceVariant}>
+          {t("myCare.available")}
+        </AppText>
+        {!hasAvailabilityProfile ? (
+          <Pressable
+            onPress={() => {
+              if (availabilityLoading) return;
+              showToast({
+                variant: "info",
+                message: t("myCare.availabilityProfileRequired"),
+                durationMs: 3200,
+              });
+            }}
+            hitSlop={8}
+          >
+            <AppSwitch value={available} disabled onValueChange={() => {}} />
+          </Pressable>
+        ) : (
+          <AppSwitch
+            value={available}
+            disabled={availabilityLoading}
+            onValueChange={onAvailableChange}
+          />
+        )}
       </View>
     </View>
   );
@@ -194,18 +216,20 @@ export default function MyCareScreen() {
     if (!opts?.refresh && !availabilityLoaded) setAvailabilityLoading(true);
     try {
       const { data: row, error: rowErr } = await supabase
-        .from('taker_profiles')
-        .select('availability_json')
-        .eq('user_id', user.id)
+        .from("taker_profiles")
+        .select("availability_json")
+        .eq("user_id", user.id)
         .maybeSingle();
 
       if (rowErr && !isMissingBackendResourceError(rowErr)) throw rowErr;
 
       const availabilityRaw =
         (row?.availability_json as Record<string, any> | null) ?? null;
+      setHasAvailabilityProfile(Boolean(row));
       setAvailable(Boolean(availabilityRaw?.available));
       setAvailabilityLoaded(true);
     } catch {
+      setHasAvailabilityProfile(false);
       setAvailable(false);
       setAvailabilityLoaded(true);
     } finally {
@@ -227,7 +251,7 @@ export default function MyCareScreen() {
       if (contractsError && !isMissingBackendResourceError(contractsError))
         throw contractsError;
 
-      const safeContracts = (contracts ?? []) as TablesRow<'contracts'>[];
+      const safeContracts = (contracts ?? []) as TablesRow<"contracts">[];
       const activeContract = safeContracts[0] ?? null;
       if (!activeContract) {
         setHasActiveCare(false);
@@ -242,8 +266,7 @@ export default function MyCareScreen() {
         .eq("id", activeContract.request_id)
         .maybeSingle();
 
-      if (reqError && !isMissingBackendResourceError(reqError))
-        throw reqError;
+      if (reqError && !isMissingBackendResourceError(reqError)) throw reqError;
       const req = reqRaw as TablesRow<"care_requests"> | null;
 
       const peerId =
@@ -261,7 +284,11 @@ export default function MyCareScreen() {
                 .maybeSingle()
             : Promise.resolve({ data: null, error: null } as any),
           req?.pet_id
-            ? supabase.from("pets").select("*").eq("id", req.pet_id).maybeSingle()
+            ? supabase
+                .from("pets")
+                .select("*")
+                .eq("id", req.pet_id)
+                .maybeSingle()
             : Promise.resolve({ data: null, error: null } as any),
         ]);
 
@@ -277,7 +304,9 @@ export default function MyCareScreen() {
           : "",
         caregiverName: resolveDisplayName(peerUser) || "Caregiver",
         caregiverAvatar: peerUser?.avatar_url ?? "",
-        endsIn: req?.end_date ? new Date(req.end_date).toLocaleDateString() : "",
+        endsIn: req?.end_date
+          ? new Date(req.end_date).toLocaleDateString()
+          : "",
       });
       setActiveCareLoaded(true);
     } catch (err) {
@@ -327,7 +356,7 @@ export default function MyCareScreen() {
       const { data: requests, error: requestsError } = requestIds.length
         ? await supabase
             .from("care_requests")
-            .select("id,pet_id,care_type")
+            .select("id,pet_id,care_type,start_date")
             .in("id", requestIds)
         : { data: [], error: null };
 
@@ -349,10 +378,7 @@ export default function MyCareScreen() {
         throw peersError;
 
       const { data: pets, error: petsError } = petIds.length
-        ? await supabase
-            .from("pets")
-            .select("id,name")
-            .in("id", petIds)
+        ? await supabase.from("pets").select("id,name").in("id", petIds)
         : { data: [], error: null };
 
       if (petsError && !isMissingBackendResourceError(petsError))
@@ -371,7 +397,15 @@ export default function MyCareScreen() {
         {},
       );
 
-      const rows = safeContracts.map((c: any) => {
+      const contractsByRequestStart = [...safeContracts].sort((c1, c2) => {
+        const r1 = reqById[c1.request_id] as { start_date?: string } | undefined;
+        const r2 = reqById[c2.request_id] as { start_date?: string } | undefined;
+        return String(r2?.start_date ?? "").localeCompare(
+          String(r1?.start_date ?? ""),
+        );
+      });
+
+      const rows = contractsByRequestStart.map((c: any) => {
         const peer = peersById[c.owner_id] as any;
         const req = reqById[c.request_id] as any;
         const pet = req?.pet_id ? (petsById[req.pet_id] as any) : null;
@@ -398,9 +432,7 @@ export default function MyCareScreen() {
         setStats((s) => ({ ...s, careGiven: 0 }));
         return;
       }
-      setGivenError(
-        errorMessageFromUnknown(err, "Failed to load care given."),
-      );
+      setGivenError(errorMessageFromUnknown(err, "Failed to load care given."));
     } finally {
       setGivenLoading(false);
     }
@@ -437,7 +469,7 @@ export default function MyCareScreen() {
       const { data: requests, error: requestsError } = requestIds.length
         ? await supabase
             .from("care_requests")
-            .select("id,pet_id,care_type")
+            .select("id,pet_id,care_type,start_date")
             .in("id", requestIds)
         : { data: [], error: null };
 
@@ -459,10 +491,7 @@ export default function MyCareScreen() {
         throw peersError;
 
       const { data: pets, error: petsError } = petIds.length
-        ? await supabase
-            .from("pets")
-            .select("id,name")
-            .in("id", petIds)
+        ? await supabase.from("pets").select("id,name").in("id", petIds)
         : { data: [], error: null };
 
       if (petsError && !isMissingBackendResourceError(petsError))
@@ -481,7 +510,15 @@ export default function MyCareScreen() {
         {},
       );
 
-      const rows = safeContracts.map((c: any) => {
+      const contractsByRequestStart = [...safeContracts].sort((c1, c2) => {
+        const r1 = reqById[c1.request_id] as { start_date?: string } | undefined;
+        const r2 = reqById[c2.request_id] as { start_date?: string } | undefined;
+        return String(r2?.start_date ?? "").localeCompare(
+          String(r1?.start_date ?? ""),
+        );
+      });
+
+      const rows = contractsByRequestStart.map((c: any) => {
         const peer = peersById[c.taker_id] as any;
         const req = reqById[c.request_id] as any;
         const pet = req?.pet_id ? (petsById[req.pet_id] as any) : null;
@@ -521,24 +558,26 @@ export default function MyCareScreen() {
     if (!opts?.refresh) setLikedLoading(true);
     setLikedError(null);
     try {
-      const { data: requests, error: requestsError } = await supabase
-        .from("care_requests")
-        .select("id,pet_id,start_date,end_date,owner_id,status")
-        .neq("owner_id", user.id)
-        .eq("status", "open");
+      const { data: likes, error: likesError } = await supabase
+        .from("pet_likes")
+        .select("pet_id,created_at")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false });
 
-      if (requestsError && !isMissingBackendResourceError(requestsError))
-        throw requestsError;
+      if (likesError && !isMissingBackendResourceError(likesError))
+        throw likesError;
 
-      const safeRequests = requests ?? [];
-      if (safeRequests.length === 0) {
+      const safeLikes = likes ?? [];
+      if (safeLikes.length === 0) {
         setLikedPets([]);
         setLikedLoaded(true);
         return;
       }
 
       const petIds = Array.from(
-        new Set(safeRequests.map((r: any) => r.pet_id).filter(Boolean)),
+        new Set(
+          safeLikes.map((l: { pet_id: string }) => l.pet_id).filter(Boolean),
+        ),
       );
 
       const { data: pets, error: petsError } = petIds.length
@@ -558,13 +597,47 @@ export default function MyCareScreen() {
         {},
       );
 
-      const liked = safeRequests.slice(0, 8).map((r: any) => {
-        const pet = petsById[r.pet_id] as any;
+      const { data: openReqs, error: reqErr } = petIds.length
+        ? await supabase
+            .from("care_requests")
+            .select("id,pet_id,start_date,end_date,owner_id,status,created_at")
+            .in("pet_id", petIds)
+            .neq("owner_id", user.id)
+            .eq("status", "open")
+            .order("start_date", { ascending: false })
+            .order("created_at", { ascending: false })
+        : { data: [], error: null };
+
+      if (reqErr && !isMissingBackendResourceError(reqErr)) throw reqErr;
+
+      const openReqByPetId: Record<
+        string,
+        {
+          id: string;
+          pet_id: string;
+          start_date: string;
+          end_date: string;
+        }
+      > = {};
+      for (const r of openReqs ?? []) {
+        const row = r as {
+          id: string;
+          pet_id: string;
+          start_date: string;
+          end_date: string;
+        };
+        if (row.pet_id && !openReqByPetId[row.pet_id])
+          openReqByPetId[row.pet_id] = row;
+      }
+
+      const liked = safeLikes.map((like: { pet_id: string }) => {
+        const pet = petsById[like.pet_id] as any;
         const parsed = parsePetNotes(pet?.notes);
+        const req = openReqByPetId[like.pet_id];
         return {
-          id: r.id,
-          requestId: r.id,
-          imageSource: petGalleryUrls(pet ?? {})[0] ?? "",
+          petId: like.pet_id,
+          requestId: req?.id ?? null,
+          imageSource: pet ? (petGalleryUrls(pet ?? {})[0] ?? "") : "",
           petName: pet?.name ?? "Pet",
           breed: pet?.breed ?? "Unknown breed",
           petType: pet?.species ?? "Pet",
@@ -574,11 +647,11 @@ export default function MyCareScreen() {
           energyLevel: pet?.energy_level ?? parsed.energyLevel ?? undefined,
           tags: [],
           seekingDateRange:
-            r.start_date && r.end_date
-              ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
+            req?.start_date && req?.end_date
+              ? `${new Date(req.start_date).toLocaleDateString()} - ${new Date(req.end_date).toLocaleDateString()}`
               : "",
           seekingTime: "",
-          isSeeking: true,
+          isSeeking: Boolean(req),
         };
       });
 
@@ -591,11 +664,38 @@ export default function MyCareScreen() {
         setLikedError(null);
         return;
       }
-      setLikedError(
-        errorMessageFromUnknown(err, "Failed to load liked pets."),
-      );
+      setLikedError(errorMessageFromUnknown(err, "Failed to load liked pets."));
     } finally {
       setLikedLoading(false);
+    }
+  };
+
+  const removePetLike = async (petId: string) => {
+    if (!user?.id || !petId) return;
+    try {
+      const { error } = await supabase
+        .from("pet_likes")
+        .delete()
+        .eq("user_id", user.id)
+        .eq("pet_id", petId);
+      if (error) throw error;
+      setLikedPets((prev) =>
+        prev.filter((p: { petId: string }) => p.petId !== petId),
+      );
+      showToast({
+        variant: "success",
+        message: t("myCare.removedFromLiked", "Removed from liked pets."),
+        durationMs: 2200,
+      });
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("common.error", "Something went wrong"),
+        ),
+        durationMs: 3200,
+      });
     }
   };
 
@@ -680,28 +780,58 @@ export default function MyCareScreen() {
           />
         }
       >
-
         {/* Active Care Section */}
         {hasActiveCare && activeCare && (
-          <View style={[styles.inCareCard, { backgroundColor: colors.surfaceContainerLow }]}>
+          <View
+            style={[
+              styles.inCareCard,
+              { backgroundColor: colors.surfaceContainerLow },
+            ]}
+          >
             <View style={styles.cardHeader}>
               <View style={styles.cardHeaderTitleGroup}>
-                <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.inCareLabel}>{t('myCare.inCare')}</AppText>
-                <AppText variant="bodyLarge" style={styles.inCarePetName}>{activeCare.petName}</AppText>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={styles.inCareLabel}
+                >
+                  {t("myCare.inCare")}
+                </AppText>
+                <AppText variant="bodyLarge" style={styles.inCarePetName}>
+                  {activeCare.petName}
+                </AppText>
               </View>
               <TouchableOpacity onPress={() => setMenuVisible(true)}>
-                <MoreHorizontal size={24} color={colors.onSurface} strokeWidth={2.5} />
+                <MoreHorizontal
+                  size={24}
+                  color={colors.onSurface}
+                  strokeWidth={2.5}
+                />
               </TouchableOpacity>
             </View>
 
             <View style={styles.inCareBody}>
               <View style={styles.metaPills}>
-                <View style={[styles.metaPill, { backgroundColor: colors.surfaceContainerHighest }]}>
+                <View
+                  style={[
+                    styles.metaPill,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}
+                >
                   <Sun size={14} color={colors.onSurfaceVariant} />
-                  <AppText variant="caption" color={colors.onSurfaceVariant}>{activeCare.careType}</AppText>
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>
+                    {activeCare.careType}
+                  </AppText>
                 </View>
-                <View style={[styles.metaPill, { backgroundColor: colors.surfaceContainerHighest }]}>
-                  <AppText variant="caption" color={colors.onSurfaceVariant}>{activeCare.dayLabel}</AppText>
+                <View
+                  style={[
+                    styles.metaPill,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}
+                >
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>
+                    {activeCare.dayLabel}
+                  </AppText>
                 </View>
               </View>
 
@@ -712,11 +842,17 @@ export default function MyCareScreen() {
                     style={styles.caregiverAvatar}
                     contentFit="cover"
                   />
-                  <AppText variant="body" color={colors.onSurfaceVariant}>{activeCare.caregiverName}</AppText>
+                  <AppText variant="body" color={colors.onSurfaceVariant}>
+                    {activeCare.caregiverName}
+                  </AppText>
                 </View>
                 <View style={styles.timerRow}>
-                  <AppText variant="caption" color={colors.primary} style={{ fontWeight: 600 }}>
-                    • {t('myCare.endsIn', { time: activeCare.endsIn })}
+                  <AppText
+                    variant="caption"
+                    color={colors.primary}
+                    style={{ fontWeight: 600 }}
+                  >
+                    • {t("myCare.endsIn", { time: activeCare.endsIn })}
                   </AppText>
                 </View>
               </View>
@@ -735,188 +871,289 @@ export default function MyCareScreen() {
             style={styles.menuModalOverlay}
             onPress={() => setMenuVisible(false)}
           >
-            <View style={[styles.menuModalContent, { backgroundColor: colors.surface, borderColor: colors.outlineVariant }]}>
-              <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
-                <AppText variant="body">{t('myCare.goToChat')}</AppText>
+            <View
+              style={[
+                styles.menuModalContent,
+                {
+                  backgroundColor: colors.surface,
+                  borderColor: colors.outlineVariant,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => setMenuVisible(false)}
+              >
+                <AppText variant="body">{t("myCare.goToChat")}</AppText>
               </TouchableOpacity>
-              <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
-              <TouchableOpacity style={styles.menuItem} onPress={() => setMenuVisible(false)}>
-                <AppText variant="body">{t('myCare.viewAgreement')}</AppText>
+              <View
+                style={[
+                  styles.menuDivider,
+                  { backgroundColor: colors.outlineVariant },
+                ]}
+              />
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => setMenuVisible(false)}
+              >
+                <AppText variant="body">{t("myCare.viewAgreement")}</AppText>
               </TouchableOpacity>
             </View>
           </Pressable>
         </Modal>
 
         {/* Dynamic Stats Row (Compact vs Full) */}
-        {!hasActiveCare || activeTab === 'liked' ? (
+        {!hasActiveCare || activeTab === "liked" ? (
           <View style={styles.summaryGrid}>
-            <View style={[styles.primaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
+            <View
+              style={[
+                styles.primaryStat,
+                { backgroundColor: colors.surfaceContainerLow },
+              ]}
+            >
               <View className="flex-row items-center gap-4">
-                <View style={[styles.statIconCircle, { backgroundColor: colors.surfaceContainerHighest }]}>
+                <View
+                  style={[
+                    styles.statIconCircle,
+                    { backgroundColor: colors.surfaceContainerHighest },
+                  ]}
+                >
                   <TrendingUp size={36} color={colors.onSurfaceVariant} />
                 </View>
                 <View style={{}}>
-                  <AppText variant="headline" style={styles.statLargeValue} color={colors.onSurfaceVariant} >{String(stats.points).padStart(3, "0")}</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabel}>{t('myCare.points')}</AppText>
+                  <AppText
+                    variant="headline"
+                    style={styles.statLargeValue}
+                    color={colors.onSurfaceVariant}
+                  >
+                    {String(stats.points).padStart(3, "0")}
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    color={colors.onSurfaceVariant}
+                    style={styles.statLabel}
+                  >
+                    {t("myCare.points")}
+                  </AppText>
                 </View>
               </View>
-              <View style={styles.athContainer} className='self-end mb-2'>
+              <View style={styles.athContainer} className="self-end mb-2">
                 <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {t('myCare.allTimeHigh')} <AppText variant="caption" style={{ fontWeight: '700' }}>{stats.points}</AppText>
+                  {t("myCare.allTimeHigh")}{" "}
+                  <AppText variant="caption" style={{ fontWeight: "700" }}>
+                    {stats.points}
+                  </AppText>
                 </AppText>
               </View>
             </View>
 
             <View className="flex-row gap-3">
-              <View style={[styles.secondaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
-                <View style={[styles.statIconCircleSmall, { backgroundColor: colors.tertiaryContainer }]}>
+              <View
+                style={[
+                  styles.secondaryStat,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statIconCircleSmall,
+                    { backgroundColor: colors.tertiaryContainer },
+                  ]}
+                >
                   <Handshake size={28} color={colors.onTertiaryContainer} />
                 </View>
                 <View>
-                  <AppText variant="headline" style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}>{String(stats.careGiven).padStart(3, "0")}</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>{t('myCare.careGivenShort')}</AppText>
+                  <AppText
+                    variant="headline"
+                    style={[
+                      styles.statSmallValue,
+                      { color: colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {String(stats.careGiven).padStart(3, "0")}
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    color={colors.onSurfaceVariant}
+                    style={styles.statLabelSmall}
+                  >
+                    {t("myCare.careGivenShort")}
+                  </AppText>
                 </View>
               </View>
-              <View style={[styles.secondaryStat, { backgroundColor: colors.surfaceContainerLow }]}>
-                <View style={[styles.statIconCircleSmall, { backgroundColor: colors.primaryContainer }]}>
+              <View
+                style={[
+                  styles.secondaryStat,
+                  { backgroundColor: colors.surfaceContainerLow },
+                ]}
+              >
+                <View
+                  style={[
+                    styles.statIconCircleSmall,
+                    { backgroundColor: colors.primaryContainer },
+                  ]}
+                >
                   <PawPrint size={28} color={colors.onPrimaryContainer} />
                 </View>
                 <View>
-                  <AppText variant="headline" style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}>{String(stats.careReceived).padStart(3, "0")}</AppText>
-                  <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.statLabelSmall}>{t('myCare.careReceivedShort')}</AppText>
+                  <AppText
+                    variant="headline"
+                    style={[
+                      styles.statSmallValue,
+                      { color: colors.onSurfaceVariant },
+                    ]}
+                  >
+                    {String(stats.careReceived).padStart(3, "0")}
+                  </AppText>
+                  <AppText
+                    variant="caption"
+                    color={colors.onSurfaceVariant}
+                    style={styles.statLabelSmall}
+                  >
+                    {t("myCare.careReceivedShort")}
+                  </AppText>
                 </View>
               </View>
             </View>
           </View>
         ) : (
           <View style={styles.compactStatsRow}>
-            <View style={[styles.compactStatsPill, { backgroundColor: colors.surfaceContainerHighest }]}>
+            <View
+              style={[
+                styles.compactStatsPill,
+                { backgroundColor: colors.surfaceContainerHighest },
+              ]}
+            >
               <TrendingUp size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" style={{ fontWeight: '600' }}>{t('myCare.pointsCount', { count: stats.points })}</AppText>
+              <AppText variant="caption" style={{ fontWeight: "600" }}>
+                {t("myCare.pointsCount", { count: stats.points })}
+              </AppText>
             </View>
-            <View style={[styles.compactStatsPill, { backgroundColor: colors.tertiaryContainer, borderColor: colors.outlineVariant }]}>
+            <View
+              style={[
+                styles.compactStatsPill,
+                {
+                  backgroundColor: colors.tertiaryContainer,
+                  borderColor: colors.outlineVariant,
+                },
+              ]}
+            >
               <Handshake size={16} color={colors.tertiary} />
-              <AppText variant="caption" style={{ color: colors.tertiary, fontWeight: '600' }}>{stats.careGiven}</AppText>
+              <AppText
+                variant="caption"
+                style={{ color: colors.tertiary, fontWeight: "600" }}
+              >
+                {stats.careGiven}
+              </AppText>
             </View>
-            <View style={[styles.compactStatsPill, { backgroundColor: colors.primaryContainer, borderColor: colors.outlineVariant }]}>
+            <View
+              style={[
+                styles.compactStatsPill,
+                {
+                  backgroundColor: colors.primaryContainer,
+                  borderColor: colors.outlineVariant,
+                },
+              ]}
+            >
               <PawPrint size={16} color={colors.onPrimaryContainer} />
-              <AppText variant="caption" style={{ color: colors.onPrimaryContainer, fontWeight: '600' }}>{stats.careReceived}</AppText>
+              <AppText
+                variant="caption"
+                style={{ color: colors.onPrimaryContainer, fontWeight: "600" }}
+              >
+                {stats.careReceived}
+              </AppText>
             </View>
           </View>
         )}
 
         {/* Tabs */}
         <TabBar
-          tabs={tabs.map(t => ({ key: t.id, label: t.label }))}
+          tabs={tabs.map((t) => ({ key: t.id, label: t.label }))}
           activeKey={activeTab}
           onChange={setActiveTab}
           variant="underline"
-          style={styles.tabBarCustom}
         />
 
         {/* Tab content */}
-        {activeTab === 'given' && (
+        {activeTab === "given" && (
           <>
-            {givenLoading ? (
-              <DataState
-                title={t("common.loading", "Loading...")}
-                message={t("myCare.loadingGiven", "Loading care given...")}
-              />
-            ) : givenError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={givenError}
+            {givenError ? (
+              <ErrorState
+                error={givenError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setGivenError(null);
                   setGivenLoaded(false);
                   void loadCareGivenTab({ refresh: true });
                 }}
+                mode="inline"
               />
             ) : (
-              <CareGivenTab colors={colors as any} rows={careGivenRows} />
+              <CareGivenTab
+                colors={colors as any}
+                rows={careGivenRows}
+                loading={givenLoading}
+              />
             )}
           </>
         )}
-        {activeTab === 'received' && (
+        {activeTab === "received" && (
           <>
-            {receivedLoading ? (
-              <DataState
-                title={t("common.loading", "Loading...")}
-                message={t("myCare.loadingReceived", "Loading care received...")}
-              />
-            ) : receivedError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={receivedError}
+            {receivedError ? (
+              <ErrorState
+                error={receivedError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setReceivedError(null);
                   setReceivedLoaded(false);
                   void loadCareReceivedTab({ refresh: true });
                 }}
+                mode="inline"
               />
             ) : (
-              <CareReceivedTab colors={colors as any} rows={careReceivedRows} />
+              <CareReceivedTab
+                colors={colors as any}
+                rows={careReceivedRows}
+                loading={receivedLoading}
+              />
             )}
           </>
         )}
-        {activeTab === 'liked' && (
+        {activeTab === "liked" && (
           <>
             {likedLoading ? (
-              <DataState
-                title={t("common.loading", "Loading...")}
-                message={t("myCare.loadingLiked", "Loading liked pets...")}
-              />
+              <ProfilePetsTabSkeleton count={3} />
             ) : likedError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={likedError}
+              <ErrorState
+                error={likedError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setLikedError(null);
                   setLikedLoaded(false);
                   void loadLikedTab({ refresh: true });
                 }}
+                mode="inline"
               />
             ) : likedPets.length === 0 ? (
-              <DataState
-                title={t("myCare.likedEmptyTitle", "Nothing to show yet")}
-                message={t(
-                  "myCare.likedEmptyMessage",
-                  "When you like care requests, they will appear here.",
-                )}
-                illustration={
-                  <AppImage
-                    source={require('@/assets/illustrations/pets/no-pet.svg')}
-                    type="svg"
-                    height={145}
-                    style={{ width: 140, borderRadius: 16, backgroundColor: "transparent" }}
-                  />
-                }
-              />
+              <EmptyState variant="liked" />
             ) : (
               <LikedTab
                 colors={colors as any}
                 pets={likedPets}
-                onApply={(requestId) => {
+                onApply={(requestId, petId) => {
                   if (blockIfKycNotApproved()) return;
-                  router.push(`/(private)/post-requests/${requestId}` as any);
+                  if (requestId) {
+                    router.push(`/(private)/post-requests/${requestId}` as any);
+                  } else {
+                    router.push(`/(private)/pets/${petId}` as any);
+                  }
                 }}
+                onRemovePet={(petId) => void removePetLike(petId)}
               />
             )}
           </>
         )}
       </ScrollView>
-
-      <FeedbackModal
-        visible={availabilityErrorDialog !== null}
-        title={availabilityErrorDialog?.title ?? ""}
-        description={availabilityErrorDialog?.description}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setAvailabilityErrorDialog(null)}
-        onRequestClose={() => setAvailabilityErrorDialog(null)}
-      />
     </PageContainer>
   );
 }
@@ -931,35 +1168,34 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 120,
-    paddingHorizontal: 16,
+    paddingBottom: 12,
   },
   header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 4,
     paddingHorizontal: 16,
   },
   availableRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   inCareCard: {
     padding: 16,
     borderRadius: 16,
     marginBottom: 16,
-    position: 'relative',
+    position: "relative",
   },
   cardHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'flex-start',
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
     marginBottom: 12,
   },
   cardHeaderTitleGroup: {
-    alignItems: 'center',
+    alignItems: "center",
     gap: 8,
   },
   inCareLabel: {
@@ -968,17 +1204,17 @@ const styles = StyleSheet.create({
   },
   menuModalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.05)',
+    backgroundColor: "rgba(0,0,0,0.05)",
   },
   menuModalContent: {
-    position: 'absolute',
+    position: "absolute",
     top: 140,
     right: 16,
     width: 160,
     borderRadius: 12,
     borderWidth: 1,
     paddingVertical: 8,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.1,
     shadowRadius: 12,
@@ -996,31 +1232,31 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   inCarePetName: {
-    fontWeight: '700',
+    fontWeight: "700",
     fontSize: 22,
   },
   metaPills: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
-    justifyContent: 'flex-end'
+    justifyContent: "flex-end",
   },
   metaPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
     paddingHorizontal: 12,
     paddingVertical: 6,
     borderRadius: 999,
   },
   caregiverAndTimerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginTop: 4,
   },
   caregiverMain: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   caregiverAvatar: {
@@ -1029,17 +1265,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
   },
   timerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   compactStatsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 10,
     marginBottom: 24,
   },
   compactStatsPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
     paddingHorizontal: 6,
     paddingVertical: 4,
@@ -1052,63 +1288,62 @@ const styles = StyleSheet.create({
   primaryStat: {
     padding: 20,
     borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     paddingBottom: 20,
   },
   secondaryStat: {
     flex: 1,
     padding: 20,
     borderRadius: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 12,
   },
   statIconCircle: {
     width: 72,
     height: 72,
     borderRadius: 36,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   statIconCircleSmall: {
     width: 44,
     height: 44,
     borderRadius: 22,
-    alignItems: 'center',
-    justifyContent: 'center',
+    alignItems: "center",
+    justifyContent: "center",
   },
   statLargeValue: {
     fontSize: 36,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 36,
   },
   statSmallValue: {
     fontSize: 28,
-    fontWeight: '800',
+    fontWeight: "800",
     lineHeight: 36,
   },
   statLabel: {
     lineHeight: 14,
-    fontWeight: '500',
+    fontWeight: "500",
   },
   statLabelSmall: {
     fontSize: 12,
-    fontWeight: '500',
+    fontWeight: "500",
     lineHeight: 12,
   },
   athContainer: {
-    alignItems: 'flex-end',
-    justifyContent: 'flex-end',
+    alignItems: "flex-end",
+    justifyContent: "flex-end",
   },
-  tabBarCustom: {
-  },
+  tabBarCustom: {},
   snackbarShadow: {
-    position: 'absolute',
+    position: "absolute",
     left: 16,
     right: 16,
-    shadowColor: '#000',
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 10 },
     shadowOpacity: 0.3,
     shadowRadius: 20,
@@ -1119,6 +1354,6 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
     paddingHorizontal: 20,
     borderRadius: 12,
-    alignItems: 'center',
+    alignItems: "center",
   },
 });

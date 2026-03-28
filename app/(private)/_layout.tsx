@@ -1,5 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { stackPerfScreenOptions } from "@/src/constants/navigation";
+import { usePushRegistration } from "@/src/lib/notifications/usePushRegistration";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { KycGlobalPrompt } from "@/src/shared/components/kyc/KycGlobalPrompt";
 import { Stack } from "expo-router";
@@ -14,6 +15,7 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function PrivateLayout() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  usePushRegistration();
 
   return (
     <SafeAreaView

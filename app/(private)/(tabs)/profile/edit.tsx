@@ -15,7 +15,7 @@ import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { DataState } from "@/src/shared/components/ui";
+import { DataState, ErrorState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import {
   EditAvailabilityFormSkeleton,
@@ -153,7 +153,8 @@ export default function EditProfileScreen() {
       const { data, error } = await supabase
         .from("pets")
         .select("*")
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       setPets(data ?? []);
       setPetsLoaded(true);
@@ -522,9 +523,8 @@ export default function EditProfileScreen() {
             {detailsLoading ? (
               <EditProfileDetailsSkeleton />
             ) : detailsError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={detailsError}
+              <ErrorState
+                error={detailsError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   if (user?.id) void fetchProfile(user.id);
@@ -561,9 +561,8 @@ export default function EditProfileScreen() {
             {petsLoading ? (
               <ProfilePetsTabSkeleton count={2} />
             ) : petsError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={petsError}
+              <ErrorState
+                error={petsError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setPetsError(null);
@@ -609,7 +608,7 @@ export default function EditProfileScreen() {
                 onLaunchPetRequest={(id) => {
                   if (blockIfKycNotApproved()) return;
                   router.push({
-                    pathname: "/(private)/requests/create" as any,
+                    pathname: "/(private)/post-requests",
                     params: { petId: id },
                   });
                 }}
@@ -623,9 +622,8 @@ export default function EditProfileScreen() {
             {availabilityLoading ? (
               <EditAvailabilityFormSkeleton />
             ) : availabilityError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={availabilityError}
+              <ErrorState
+                error={availabilityError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setAvailabilityError(null);

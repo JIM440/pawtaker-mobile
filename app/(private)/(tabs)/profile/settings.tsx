@@ -5,6 +5,7 @@ import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { ErrorState } from "@/src/shared/components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ChevronDown, LogOut, Trash2, UserX } from "lucide-react-native";
@@ -183,12 +184,6 @@ export default function SettingsScreen() {
               <ChevronDown size={12} color={colors.onSurfaceVariant} />
             </TouchableOpacity>
           </View>
-
-          <TouchableOpacity style={{ paddingVertical: 8 }}>
-            <Text style={{ color: colors.onSurface }}>
-              {t("settings.editProfile", "Edit profile")}
-            </Text>
-          </TouchableOpacity>
         </View>
 
         <TouchableOpacity

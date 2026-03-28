@@ -8,6 +8,8 @@ import {
   Dimensions,
 } from "react-native";
 import { X } from "lucide-react-native";
+import { Colors } from "@/src/constants/colors";
+import { useThemeStore } from "@/src/lib/store/theme.store";
 
 export type ImageSource = { uri: string };
 
@@ -24,6 +26,8 @@ export function ImageViewerModal({
   index = 0,
   onRequestClose,
 }: ImageViewerModalProps) {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
   const { width, height } = Dimensions.get("window");
   const image = images[index];
 
@@ -36,7 +40,14 @@ export function ImageViewerModal({
       statusBarTranslucent
     >
       <StatusBar hidden />
-      <View className="flex-1 bg-black items-center justify-center">
+      <View
+        style={{
+          flex: 1,
+          backgroundColor: colors.background,
+          alignItems: "center",
+          justifyContent: "center",
+        }}
+      >
         {image?.uri ? (
           <Image
             source={{ uri: image.uri }}
@@ -46,9 +57,10 @@ export function ImageViewerModal({
         ) : null}
         <TouchableOpacity
           onPress={onRequestClose}
-          className="absolute top-12 right-4 bg-black/50 rounded-full p-2"
+          className="absolute top-12 right-4 rounded-full p-2"
+          style={{ backgroundColor: colors.surfaceContainerHighest }}
         >
-          <X size={24} color="white" />
+          <X size={24} color={colors.onSurface} />
         </TouchableOpacity>
       </View>
     </Modal>

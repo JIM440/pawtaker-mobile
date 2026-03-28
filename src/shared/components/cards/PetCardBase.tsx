@@ -23,6 +23,8 @@ export type PetCardBaseProps = {
   onPress?: () => void;
   onMenuPress?: () => void;
   menuButtonRef?: (ref: View | null) => void;
+  /** When false, the ⋯ control is hidden (e.g. viewing someone else’s pets). */
+  showMenu?: boolean;
 };
 
 /**
@@ -44,6 +46,7 @@ export function PetCardBase({
   onPress,
   onMenuPress,
   menuButtonRef,
+  showMenu = true,
 }: PetCardBaseProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -66,60 +69,45 @@ export function PetCardBase({
   const menuDots = <MoreHorizontal size={20} color={colors.onSurfaceVariant} />;
 
   return (
-    <TouchableOpacity
-      activeOpacity={0.9}
-      onPress={onPress}
+    <View
       style={[styles.card, { backgroundColor: colors.surfaceBright }]}
     >
-      <AppImage
-        source={
-          typeof imageSource === "string" ? { uri: imageSource } : imageSource
-        }
-        style={[
-          styles.image,
-          { backgroundColor: colors.surfaceContainerHighest },
-        ]}
-      />
+      <TouchableOpacity
+        activeOpacity={0.9}
+        onPress={onPress}
+        disabled={!onPress}
+        style={styles.cardPressable}
+      >
+        <AppImage
+          source={
+            typeof imageSource === "string" ? { uri: imageSource } : imageSource
+          }
+          style={[
+            styles.image,
+            { backgroundColor: colors.surfaceContainerHighest },
+          ]}
+        />
 
-      <View style={styles.body}>
-        <View style={styles.titleRow}>
-          <View style={styles.nameRow}>
-            <AppText variant="title" style={styles.petName}>
-              {petName}
-            </AppText>
-            {showSeeking && (
-              <View
-                style={[
-                  styles.seekingMarker,
-                  { backgroundColor: colors.tertiaryContainer },
-                ]}
-              >
-                <AppText variant="caption" color={colors.onTertiaryContainer}>
-                  Seeking
-                </AppText>
-              </View>
-            )}
-          </View>
-
-          {onMenuPress ? (
-            <TouchableOpacity
-              onPress={onMenuPress}
-              hitSlop={8}
-              style={styles.menuBtn}
-              ref={menuButtonRef}
-            >
-              {menuDots}
-            </TouchableOpacity>
-          ) : (
-            <View
-              style={styles.menuBtn}
-              pointerEvents="none"
-              ref={menuButtonRef}
-            >
-              {menuDots}
+        <View style={styles.body}>
+          <View style={styles.titleRow}>
+            <View style={styles.nameRow}>
+              <AppText variant="title" style={styles.petName}>
+                {petName}
+              </AppText>
+              {showSeeking && (
+                <View
+                  style={[
+                    styles.seekingMarker,
+                    { backgroundColor: colors.tertiaryContainer },
+                  ]}
+                >
+                  <AppText variant="caption" color={colors.onTertiaryContainer}>
+                    Seeking
+                  </AppText>
+                </View>
+              )}
             </View>
-          )}
-        </View>
+          </View>
 
         <View style={styles.breedRow}>
           <AppText
@@ -203,16 +191,41 @@ export function PetCardBase({
           </View>
         )}
       </View>
-    </TouchableOpacity>
+      </TouchableOpacity>
+
+      {showMenu ? (
+        onMenuPress ? (
+          <TouchableOpacity
+            onPress={onMenuPress}
+            hitSlop={8}
+            style={styles.menuBtn}
+            ref={menuButtonRef}
+          >
+            {menuDots}
+          </TouchableOpacity>
+        ) : (
+          <View style={styles.menuBtn} pointerEvents="none" ref={menuButtonRef}>
+            {menuDots}
+          </View>
+        )
+      ) : null}
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
   card: {
     flexDirection: "row",
+    alignItems: "flex-start",
     padding: 12,
     borderRadius: 16,
+    gap: 8,
+  },
+  cardPressable: {
+    flex: 1,
+    flexDirection: "row",
     gap: 12,
+    minWidth: 0,
   },
   image: {
     width: 80,

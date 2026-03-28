@@ -22,8 +22,12 @@ import {
 
 export type NotificationType =
   | "pet_added"
+  | "care_request_posted"
   | "availability_posted"
+  | "availability_saved"
   | "review_received"
+  | "review_submitted"
+  | "contract_completed"
   | "verification"
   | "verification_complete"
   | "care_given"
@@ -84,21 +88,41 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
 
       switch (type) {
         case "pet_added":
-          return (
+          return image ? (
+            <AppImage
+              source={{ uri: image }}
+              style={styles.itemAvatar}
+              contentFit="cover"
+            />
+          ) : (
             <View style={containerStyle}>
               <PawPrint size={20} color={colors.primary} />
             </View>
           );
+        case "care_request_posted":
+          return (
+            <View style={containerStyle}>
+              <Activity size={20} color={colors.primary} />
+            </View>
+          );
         case "availability_posted":
+        case "availability_saved":
           return (
             <View style={containerStyle}>
               <Handshake size={20} color={colors.primary} />
             </View>
           );
         case "review_received":
+        case "review_submitted":
           return (
             <View style={containerStyle}>
               <Star size={20} color={colors.primary} fill={colors.primary} />
+            </View>
+          );
+        case "contract_completed":
+          return (
+            <View style={containerStyle}>
+              <Handshake size={20} color={colors.primary} />
             </View>
           );
         case "verification":

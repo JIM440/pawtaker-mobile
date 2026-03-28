@@ -27,6 +27,8 @@
     "sendRequest": "Send Request",
     "skip": "Skip",
     "notice": "Heads up",
+    "no": "No",
+    "yes": "Yes",
     "empty": "—",
     "user": "User",
     "saving": "Saving...",
@@ -37,6 +39,7 @@
   "home": {
     "sendRequest": {
       "needsOpenRequest": "Create an open care request for this pet first, then you can message a taker.",
+      "sendFailed": "Couldn't send the request right now. Please try again.",
       "selectPetTitle": "Select Pet",
       "sendingTo": "Sending request to “{{name}}”"
     }
@@ -279,8 +282,7 @@
     "takerAvailable": "Available",
     "careTypes": {
       "daytime": "Daytime",
-      "playwalk": "Play/walk",
-      "play_walk": "Play / walk",
+      "playwalk": "Play / walk",
       "overnight": "Overnight",
       "vacation": "Vacation"
     }
@@ -350,6 +352,14 @@
     }
     ,
     "availabilityUpdateFailed": "Couldn't update availability. Please try again.",
+    "availabilityProfileRequired": "Add your availability profile first to enable this switch.",
+    "emptyState": {
+      "nothingTitle": "Nothing to show yet",
+      "noLikedTitle": "No liked pets yet",
+      "givenMessage": "Start giving care to see your history here",
+      "receivedMessage": "Start receiving care to see your history here",
+      "likedMessage": "Tap the heart icon on requests, and they'll show up here"
+    },
     "loadingGiven": "Loading care given...",
     "loadingReceived": "Loading care received...",
     "loadingLiked": "Loading liked pets...",
@@ -374,6 +384,7 @@
     "title": "Post",
     "launchRequest": "Launch request",
     "availableToCare": "Available to care",
+    "alreadyHaveAvailabilityProfile": "You already have an availability profile as a taker. Update it under Profile → Availability instead of creating a new one.",
     "choose": {
       "title": "What do you need?",
       "requestCare": "Request care for my pet",
@@ -387,9 +398,6 @@
       "details": {
         "title": "Care Details",
         "careType": "Type of care",
-        "sitting": "Pet Sitting",
-        "walking": "Dog Walking",
-        "boarding": "Boarding",
         "startDate": "Start date",
         "endDate": "End date",
         "points": "Points offered",
@@ -406,7 +414,6 @@
         "careTypeRequired": "Select at least one type of care.",
         "petRequired": "Select a pet to continue.",
         "timeRange": "End time must be after start time.",
-        "daysRequired": "Select at least one day.",
         "dateRangeOrder": "End date must be after start date."
       },
       "addPet": "Add pet",
@@ -441,7 +448,13 @@
       "detailsHint": "Yard type, energy level, special needs (optional).",
       "emptyPetsTitle": "Uh oh!",
       "emptyPetsSubtitle": "You have not added any pets yet",
-      "addAPet": "+ Add a pet"
+      "addAPet": "+ Add a pet",
+      "launchFailed": "Couldn't create the pet request right now. Please try again.",
+      "launchSuccess": "Your care request is live.",
+      "selectPetTitle": "Select pet",
+      "loadingPetsTitle": "Loading pets…",
+      "loadingPetsMessage": "Fetching your pets.",
+      "petsLoadFailedTitle": "Couldn’t load pets"
     },
     "availability": {
       "title": "My Availability",
@@ -455,6 +468,7 @@
       "save": "Save availability",
       "saved": "Availability saved.",
       "saveFailed": "Couldn't save your availability. Please try again.",
+      "signInRequired": "Sign in to save your availability.",
       "careStepTitle": "What type of care can you provide?",
       "hintsTitle": "Hints",
       "petKindQuestion": "What kind of pet?",
@@ -497,7 +511,7 @@
       },
       "validation": {
         "careTypeRequired": "Select at least one type of care.",
-        "petKindRequired": "Select a pet type to continue.",
+        "petKindRequired": "Select at least one pet type to continue.",
         "daysRequired": "Select at least one day.",
         "timeRange": "End time must be after start time."
       }
@@ -563,6 +577,8 @@
   },
   "availability": {
     "title": "Post availability",
+    "careTypes": "Care types",
+    "dates": "Dates",
     "available": "Available",
     "careTitle": "What care can you offer?",
     "careSubtitle": "Select the types of care you're available to provide (e.g. Daytime, Play/walk).",
@@ -595,6 +611,7 @@
     "yardLabel": "Yard",
     "timeOnly": "Time",
     "daysOnly": "Days",
+    "petTypes": "Pet types",
     "yardType": "Yard Type",
     "petOwner": "Pet Owner",
     "note": "Short note"
@@ -636,13 +653,18 @@
     "noLocation": "No location",
     "defaultName": "Pawtaker User",
     "bio": {
-      "empty": "No bio yet."
+      "empty": "No bio yet.",
+      "emptyTitle": "A bit of mystery",
+      "emptyMine": "You have not added a bio yet.",
+      "emptyOther": "This user has not added a bio yet."
     },
     "reviewsCount": "{{count}} reviews",
     "reviews": "Reviews",
     "availability": {
       "emptyTitle": "No availability yet",
       "emptyMessage": "Create your availability from Edit Profile to show it here.",
+      "emptyMine": "You have not set up your availability yet.",
+      "publicEmptyTitle": "No availability set yet",
       "publicEmptyMessage": "This member hasn’t added availability details yet."
     },
     "reviewsTab": {
@@ -654,7 +676,8 @@
       "title": "My Pets",
       "launchRequest": "Launch pet request",
       "tab": "Pets",
-      "seekingBadge": "Seeking"
+      "seekingBadge": "Seeking",
+      "emptyOtherUser": "This user has not added any pets yet."
     },
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "They won't be able to see your profile, send you requests, or message you. You can unblock them later in Settings.",

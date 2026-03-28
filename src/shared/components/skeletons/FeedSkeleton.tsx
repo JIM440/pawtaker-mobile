@@ -1,9 +1,9 @@
-import React from 'react';
-import { View, StyleSheet } from 'react-native';
-import { useThemeStore } from '@/src/lib/store/theme.store';
-import { Colors } from '@/src/constants/colors';
-import { SearchFilterStyles } from '@/src/constants/searchFilter';
-import { Skeleton } from '@/src/shared/components/ui/Skeleton';
+import { Colors } from "@/src/constants/colors";
+import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { useThemeStore } from "@/src/lib/store/theme.store";
+import { Skeleton } from "@/src/shared/components/ui/Skeleton";
+import React from "react";
+import { StyleSheet, View } from "react-native";
 
 const CARD_IMAGE_HEIGHT = 180;
 const CARD_BODY_LINE_HEIGHT = 12;
@@ -26,15 +26,28 @@ function PetCardSkeleton() {
           <Skeleton height={18} width={140} />
           <Skeleton height={24} width={24} borderRadius={12} />
         </View>
-        <Skeleton height={CARD_BODY_LINE_HEIGHT} width="86%" style={styles.cardLine} />
-        <Skeleton height={CARD_BODY_LINE_HEIGHT} width="72%" style={styles.cardLine} />
+        <Skeleton
+          height={CARD_BODY_LINE_HEIGHT}
+          width="96%"
+          style={styles.cardLine}
+        />
+        <Skeleton
+          height={CARD_BODY_LINE_HEIGHT}
+          width="82%"
+          style={styles.cardLine}
+        />
+        <Skeleton
+          height={CARD_BODY_LINE_HEIGHT}
+          width="72%"
+          style={styles.cardLine}
+        />
         <View style={styles.cardMetaRow}>
           <Skeleton height={10} width={90} />
           <Skeleton height={10} width={48} />
         </View>
-        <View style={[styles.caretakerRow, { marginTop: 10 }]}>
-          <Skeleton height={28} width={28} borderRadius={14} />
-          <Skeleton height={CARD_BODY_LINE_HEIGHT} width={100} style={{ marginLeft: 8 }} />
+        <View style={[styles.cardTitleRow, { marginTop: 10 }]}>
+          <Skeleton height={40} width={150} borderRadius={40} />
+          <Skeleton height={40} width={90} borderRadius={40} />
         </View>
       </View>
     </View>
@@ -53,13 +66,22 @@ export function FeedSkeleton() {
         <Skeleton height={28} width={110} />
         <View>
           <Skeleton height={24} width={24} borderRadius={12} />
-          <Skeleton height={14} width={14} borderRadius={7} style={styles.badgeDot} />
+          <Skeleton
+            height={14}
+            width={14}
+            borderRadius={7}
+            style={styles.badgeDot}
+          />
         </View>
       </View>
 
       {/* Search + filter */}
       <View style={styles.searchFilterRow}>
-        <Skeleton height={SearchFilterStyles.searchBarHeight} width="100%" style={styles.searchBar} />
+        <Skeleton
+          height={SearchFilterStyles.searchBarHeight}
+          width="100%"
+          style={styles.searchBar}
+        />
         <Skeleton
           height={SearchFilterStyles.filterButtonSize}
           width={SearchFilterStyles.filterButtonSize}
@@ -108,15 +130,33 @@ function TakerRowSkeleton() {
   const colors = Colors[resolvedTheme];
   return (
     <View
-      style={[takerSkStyles.row, { backgroundColor: colors.surfaceBright }]}
+      style={[
+        takerSkStyles.row,
+        { backgroundColor: colors.surfaceBright, alignItems: "flex-start" },
+      ]}
     >
-      <Skeleton height={64} width={64} borderRadius={32} />
+      <Skeleton height={80} width={80} borderRadius={40} />
       <View style={takerSkStyles.col}>
-        <Skeleton height={16} width="55%" borderRadius={6} />
-        <Skeleton height={12} width="40%" borderRadius={4} style={{ marginTop: 8 }} />
+        <Skeleton height={14} width="55%" borderRadius={8} />
         <View style={takerSkStyles.chips}>
-          <Skeleton height={24} width={72} borderRadius={999} />
-          <Skeleton height={24} width={88} borderRadius={999} />
+          <Skeleton height={20} width={60} borderRadius={999} />
+          <Skeleton height={20} width={60} borderRadius={999} />
+          <Skeleton height={20} width={60} borderRadius={999} />
+        </View>
+        <Skeleton
+          height={8}
+          width="60%"
+          borderRadius={4}
+          style={{ marginTop: 8 }}
+        />
+        <Skeleton
+          height={8}
+          width="40%"
+          borderRadius={4}
+          style={{ marginTop: 8 }}
+        />
+        <View style={takerSkStyles.chips}>
+          <Skeleton height={14} width={"90%"} borderRadius={999} />
         </View>
       </View>
     </View>
@@ -157,14 +197,14 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
   },
   headerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
     marginBottom: 12,
   },
   searchFilterRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 10,
     marginBottom: 10,
   },
@@ -172,51 +212,51 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   filterTabsRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 16,
   },
   sectionTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     marginBottom: 8,
   },
   card: {
     borderRadius: CARD_RADIUS,
-    overflow: 'hidden',
-    marginBottom: 8,
+    overflow: "hidden",
+    marginBottom: 12,
   },
   cardImage: {
-    width: '100%',
+    width: "100%",
     height: CARD_IMAGE_HEIGHT,
   },
   cardBody: {
     padding: 16,
   },
   metaTopRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 8,
     marginBottom: 12,
   },
   cardTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
   },
   cardLine: {
     marginTop: 8,
   },
   cardMetaRow: {
-    flexDirection: 'row',
+    flexDirection: "row",
     gap: 12,
     marginTop: 8,
   },
   caretakerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
   },
   badgeDot: {
-    position: 'absolute',
+    position: "absolute",
     right: -4,
     top: -2,
   },

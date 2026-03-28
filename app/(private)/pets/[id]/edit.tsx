@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { BREEDS_BY_KIND } from "@/src/constants/pet-breeds";
 import { PET_TYPE_OPTIONS, PetKind } from "@/src/constants/pets";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
@@ -27,24 +28,6 @@ import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Input as AppInput } from "@/src/shared/components/ui/Input";
 import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
-
-const BREEDS_BY_KIND: Record<string, string[]> = {
-  Dog: [
-    "Afghan Hound",
-    "Africanis",
-    "Barbet",
-    "Basenji",
-    "Cesky Terrier",
-    "Golden Retriever",
-    "Beagle",
-    "Poodle",
-  ],
-  Cat: ["Tabby", "Siamese", "Persian", "Maine Coon", "Sphynx"],
-  "Small Furries": ["Rabbit", "Guinea Pig", "Hamster", "Ferret"],
-  Bird: ["Parakeet", "Cockatiel", "Parrot", "Canary"],
-  Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle"],
-  Other: ["Mixed", "Unknown"],
-};
 
 export default function EditPetScreen() {
   const { id: _petId } = useLocalSearchParams<{ id: string }>();

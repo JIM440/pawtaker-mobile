@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { BREEDS_BY_KIND } from "@/src/constants/pet-breeds";
 import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
@@ -7,8 +8,8 @@ import {
   CLOUDINARY_GALLERY_UPLOAD_PRESET,
   uploadToCloudinary,
 } from "@/src/lib/cloudinary/upload";
-import { isRemotePetPhotoUri } from "@/src/lib/pets/petGalleryUrls";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { isRemotePetPhotoUri } from "@/src/lib/pets/petGalleryUrls";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -35,15 +36,6 @@ import {
 } from "react-native";
 
 type Step = "kind" | "breed" | "details";
-
-const BREEDS_BY_KIND: Record<PetKindId, string[]> = {
-  Dog: ["Afghan Hound", "Africanis", "Barbet", "Basenji", "Cesky Terrier"],
-  Cat: ["Tabby", "Siamese", "Persian", "Maine Coon", "Sphynx"],
-  "Small Furries": ["Rabbit", "Guinea Pig", "Hamster", "Ferret"],
-  Bird: ["Parakeet", "Cockatiel", "Parrot", "Canary"],
-  Reptile: ["Bearded Dragon", "Leopard Gecko", "Corn Snake", "Turtle"],
-  Other: ["Mixed", "Unknown"],
-};
 
 export default function AddPetScreen() {
   const router = useRouter();
@@ -324,14 +316,18 @@ export default function AddPetScreen() {
             onFocus={() => {}}
             onBlur={() => {}}
           />
-          <View
+          <ScrollView
             style={[
               styles.breedList,
               {
                 backgroundColor: colors.surfaceBright,
                 borderColor: colors.outlineVariant,
+                maxHeight: 340, // Adjust the maxHeight value as needed for your design
               },
             ]}
+            contentContainerStyle={{ paddingVertical: 0 }}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
           >
             {filteredBreeds.map((item, index) => {
               const active = breed === item;
@@ -361,7 +357,7 @@ export default function AddPetScreen() {
                 </TouchableOpacity>
               );
             })}
-          </View>
+          </ScrollView>
         </ScrollView>
       )}
 

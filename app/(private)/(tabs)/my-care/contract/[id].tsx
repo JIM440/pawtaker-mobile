@@ -19,7 +19,7 @@ import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { ContractDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -430,9 +430,8 @@ export default function ContractDetailScreen() {
     return (
       <PageContainer>
         <BackHeader title={t("myCare.contract.title")} onBack={() => router.back()} />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={error ?? undefined}
+        <ErrorState
+          error={error}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
             void load();

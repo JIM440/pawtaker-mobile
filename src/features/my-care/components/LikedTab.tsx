@@ -5,21 +5,17 @@ import { LikedPetCard } from './LikedPetCard';
 interface LikedTabProps {
     colors: any;
     pets: any[];
-    /** Care request id — opens request details */
-    onApply: (requestId: string) => void;
+    /** Open request detail when there is an open request; otherwise pet profile. */
+    onApply: (requestId: string | null, petId: string) => void;
+    onRemovePet: (petId: string) => void;
 }
 
-export function LikedTab({ colors, pets, onApply }: LikedTabProps) {
-    const handleRemove = (petId: string) => {
-        console.log('Remove from liked:', petId);
-        // In a real app, this would trigger a mutation
-    };
-
+export function LikedTab({ colors, pets, onApply, onRemovePet }: LikedTabProps) {
     return (
         <View style={styles.likedList}>
             {pets.map((pet) => (
                 <LikedPetCard
-                    key={pet.id}
+                    key={pet.petId}
                     colors={colors}
                     imageSource={pet.imageSource}
                     petName={pet.petName}
@@ -32,8 +28,8 @@ export function LikedTab({ colors, pets, onApply }: LikedTabProps) {
                     ageRange={pet.ageRange}
                     energyLevel={pet.energyLevel}
                     tags={pet.tags}
-                    onApply={() => onApply(pet.requestId)}
-                    onRemove={() => handleRemove(pet.id)}
+                    onApply={() => onApply(pet.requestId ?? null, pet.petId)}
+                    onRemove={() => onRemovePet(pet.petId)}
                     isSeeking={pet.isSeeking}
                 />
             ))}

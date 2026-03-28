@@ -33,6 +33,13 @@ yarn-error.*
 # local env files
 .env*.local
 
+# Secrets & store credentials (do not commit)
+# Firebase Admin / FCM service account private keys (use EAS credentials or CI secrets)
+*firebase-adminsdk*.json
+*-adminsdk-*.json
+# Google Play upload key referenced by eas.json submit.production.android
+service-account.json
+
 # typescript
 *.tsbuildinfo
 

@@ -1,18 +1,22 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { navigateForNotificationPayload } from "@/src/features/notifications/notificationNavigation";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
-import { supabase } from "@/src/lib/supabase/client";
-import type { TablesRow } from "@/src/lib/supabase/types";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
+import type { TablesRow } from "@/src/lib/supabase/types";
 import { NotificationCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { NotificationsSkeleton } from "@/src/shared/components/skeletons";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
-import { DataState } from "@/src/shared/components/ui";
-import { IllustratedEmptyState } from "@/src/shared/components/ui";
+import {
+  ErrorState,
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { useRouter } from "expo-router";
 import { Search } from "lucide-react-native";
@@ -48,6 +52,7 @@ export default function NotificationsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
   const { user } = useAuthStore();
+  const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -97,22 +102,30 @@ export default function NotificationsScreen() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as TablesRow<"notifications">[];
-      const mapped: NotificationItem[] = rows.map((item) => ({
-        id: item.id,
-        title: item.title,
-        body: item.body,
-        time: relativeTime(item.created_at),
-        unread: !item.read,
-        type: item.type,
-        data: (item.data as Record<string, any> | null) ?? null,
-      }));
+      const mapped: NotificationItem[] = rows.map((item) => {
+        const rawData = (item.data as Record<string, unknown> | null) ?? null;
+        const photoUrl =
+          item.type === "pet_added" &&
+          rawData &&
+          typeof rawData.photo_url === "string" &&
+          rawData.photo_url.trim().length > 0
+            ? rawData.photo_url.trim()
+            : undefined;
+        return {
+          id: item.id,
+          title: item.title,
+          body: item.body,
+          time: relativeTime(item.created_at),
+          unread: !item.read,
+          type: item.type,
+          data: (item.data as Record<string, any> | null) ?? null,
+          image: photoUrl,
+        };
+      });
       setItems(mapped);
     } catch (err) {
       setLoadError(
-        errorMessageFromUnknown(
-          err,
-          t("common.error", "Something went wrong"),
-        ),
+        errorMessageFromUnknown(err, t("common.error", "Something went wrong")),
       );
     } finally {
       setLoading(false);
@@ -148,71 +161,76 @@ export default function NotificationsScreen() {
     setMenuPosition(null);
   };
 
-  const handleNotificationPress = (id: string) => {
-    const item = items.find((n) => n.id === id);
-    if (!item) return;
-
-    switch (item.type) {
-      case "pet_added":
-        router.push({
-          pathname: "/(private)/(tabs)/profile",
-          params: { tab: "pets", refreshPets: "true" },
-        });
-        break;
-      case "availability_posted":
-        router.push({
-          pathname: "/(private)/(tabs)/profile",
-          params: { tab: "availability", refreshAvailability: "true" },
-        });
-        break;
-      case "review_received":
-        router.push({
-          pathname: "/(private)/(tabs)/profile",
-          params: { tab: "reviews", refreshReviews: "true" },
-        });
-        break;
-      case "chat":
-        {
-          const threadId = item.data?.threadId;
-          if (threadId) {
-            router.push(`/(private)/(tabs)/messages/${threadId}` as any);
-          } else {
-            router.push("/(private)/(tabs)/messages");
-          }
-        }
-        break;
-      case "applied":
-      case "care_given":
-      case "paws_given":
-        // Assuming there's a task or pet detail page
-        router.push("/(private)/(tabs)/profile");
-        break;
-      case "verification_complete":
-        router.push("/(private)/(tabs)/profile");
-        break;
-      case "kyc_rejected":
-        router.push("/(private)/kyc" as Parameters<typeof router.push>[0]);
-        break;
-      default:
-        // Generic fallback
-        router.push("/(private)/(tabs)/profile");
-        break;
+  const markNotificationRead = async (notificationId: string) => {
+    if (!user?.id) return;
+    try {
+      const { error } = await supabase
+        .from("notifications")
+        .update({ read: true })
+        .eq("id", notificationId)
+        .eq("user_id", user.id);
+      if (error) throw error;
+      setItems((prev) =>
+        prev.map((n) =>
+          n.id === notificationId ? { ...n, unread: false } : n,
+        ),
+      );
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("common.error", "Something went wrong"),
+        ),
+        durationMs: 3200,
+      });
     }
   };
 
+  const navigateForNotification = (item: NotificationItem) => {
+    navigateForNotificationPayload(router, {
+      type: item.type ?? "",
+      data: item.data as Record<string, unknown> | null | undefined,
+    });
+  };
+
+  const handleNotificationPress = (id: string) => {
+    void (async () => {
+      const item = items.find((n) => n.id === id);
+      if (!item) return;
+      if (item.unread) {
+        await markNotificationRead(id);
+      }
+      navigateForNotification(item);
+    })();
+  };
+
   const handleKycResubmit = (id: string) => {
-    const item = items.find((n) => n.id === id);
-    if (!item || !isKycRejectionNotification(item)) return;
-    router.push("/(private)/kyc" as Parameters<typeof router.push>[0]);
+    void (async () => {
+      const item = items.find((n) => n.id === id);
+      if (!item || !isKycRejectionNotification(item)) return;
+      if (item.unread) {
+        await markNotificationRead(id);
+      }
+      router.push("/(private)/kyc" as Parameters<typeof router.push>[0]);
+    })();
   };
 
   const hasNotifications = filtered.length > 0;
-  const badgeCount = items.length;
+  const unreadCount = useMemo(
+    () => items.filter((n) => n.unread).length,
+    [items],
+  );
+  const badgeCount = unreadCount;
 
   if (loading) {
     return (
-      <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
-        <BackHeader title={t("notifications.title")} onBack={() => router.back()} />
+      <PageContainer>
+        <BackHeader
+          title={t("notifications.title")}
+          onBack={() => router.back()}
+          className="pl-0"
+        />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -231,10 +249,10 @@ export default function NotificationsScreen() {
         <BackHeader
           title={t("notifications.title")}
           onBack={() => router.back()}
+          className="pl-0"
         />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={loadError}
+        <ErrorState
+          error={loadError}
           mode="full"
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
@@ -345,11 +363,11 @@ export default function NotificationsScreen() {
             message={t("notifications.emptySubtitle")}
             mode="full"
             illustration={{
-              source: require("@/assets/illustrations/pets/no-notification-graphic.svg"),
-              type: "svg",
-              height: 145,
-              width: 140,
-              style: styles.emptyIllustration,
+              ...IllustratedEmptyStateIllustrations.noNotification,
+              style: [
+                IllustratedEmptyStateIllustrations.noNotification.style,
+                styles.emptyIllustration,
+              ],
             }}
           />
         )}

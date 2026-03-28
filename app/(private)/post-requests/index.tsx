@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import {
   getPetGridColumnWidth,
   PAGE_HORIZONTAL_PADDING,
+  PET_GRID_COLUMNS,
   PET_GRID_GAP,
 } from "@/src/constants/pet-grid";
 import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
@@ -9,19 +10,28 @@ import {
   RequestPreviewCard,
   RequestPreviewRow,
 } from "@/src/features/post/components/request-preview-card";
-import { computeCarePoints } from "@/src/lib/points/carePoints";
+import { formatLocalYyyyMmDd } from "@/src/lib/datetime/localDate";
+import {
+  careTypeForCareRequestDb,
+  computeCarePoints,
+} from "@/src/lib/points/carePoints";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import {
+  errorMessageFromUnknown,
+  isMissingBackendResourceError,
+} from "@/src/lib/supabase/errors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
+import { PetSelectGridSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { DataState } from "@/src/shared/components/ui";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -36,7 +46,10 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import { IllustratedEmptyState } from "@/src/shared/components/ui";
+import {
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 
 const TOTAL_STEPS = 4;
 
@@ -87,23 +100,14 @@ export default function LaunchRequestWizardScreen() {
     return d;
   });
   const [selectedPet, setSelectedPet] = useState<string | null>(null);
-  const [specialNeeds, setSpecialNeeds] = useState("");
-  const [yardType, setYardType] = useState("fenced yard");
-  const [ageRange, setAgeRange] = useState("3-8 yrs");
-  const [energyLevel, setEnergyLevel] = useState("medium energy");
-  const [days, setDays] = useState<string[]>(["Sa", "Su"]);
   const [errors, setErrors] = useState<{
     careTypes?: string;
     pet?: string;
     timeRange?: string;
-    days?: string;
     dateRange?: string;
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [launchFeedback, setLaunchFeedback] = useState<{
-    title: string;
-    description: string;
-  } | null>(null);
+  const showToast = useToastStore((s) => s.showToast);
   const progress = (step + 1) / TOTAL_STEPS;
 
   const loadPets = async (opts?: { refresh?: boolean }) => {
@@ -119,7 +123,8 @@ export default function LaunchRequestWizardScreen() {
       const { data, error } = await supabase
         .from("pets")
         .select("id,name,photo_urls")
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false });
       if (error) throw error;
       const nextPets =
         data?.map((p) => ({
@@ -138,6 +143,7 @@ export default function LaunchRequestWizardScreen() {
           .eq("owner_id", user.id)
           .eq("status", "open")
           .in("pet_id", petIds)
+          .order("start_date", { ascending: false })
           .order("created_at", { ascending: false });
 
         if (openReqErr && !isMissingBackendResourceError(openReqErr))
@@ -166,7 +172,9 @@ export default function LaunchRequestWizardScreen() {
       setPets(nextPets);
       setPetSeekingDateRangeById(nextPetSeekingById);
     } catch (err) {
-      setPetsError(err instanceof Error ? err.message : "Failed to load pets.");
+      setPetsError(
+        errorMessageFromUnknown(err, t("post.request.petsLoadFailedTitle")),
+      );
     } finally {
       setPetsLoading(false);
     }
@@ -192,6 +200,14 @@ export default function LaunchRequestWizardScreen() {
     () => pets.find((p) => p.id === selectedPet) ?? null,
     [pets, selectedPet],
   );
+
+  const petRows = useMemo(() => {
+    const rows: (typeof pets)[] = [];
+    for (let i = 0; i < pets.length; i += PET_GRID_COLUMNS) {
+      rows.push(pets.slice(i, i + PET_GRID_COLUMNS));
+    }
+    return rows;
+  }, [pets]);
 
   const goBack = () => {
     if (step > 0) setStep((s) => s - 1);
@@ -225,14 +241,22 @@ export default function LaunchRequestWizardScreen() {
       }
     }
     if (step === 2) {
+      if (multiDay && multiDayDateRangeInvalid()) {
+        setErrors({
+          dateRange: t("post.request.validation.dateRangeOrder"),
+        });
+        return false;
+      }
       if (timeRangeInvalid()) {
         setErrors({ timeRange: t("post.request.validation.timeRange") });
         return false;
       }
     }
     if (step === 3) {
-      if (days.length === 0) {
-        setErrors({ days: t("post.request.validation.daysRequired") });
+      if (multiDay && multiDayDateRangeInvalid()) {
+        setErrors({
+          dateRange: t("post.request.validation.dateRangeOrder"),
+        });
         return false;
       }
       if (timeRangeInvalid()) {
@@ -244,22 +268,23 @@ export default function LaunchRequestWizardScreen() {
     return true;
   };
 
-  const buildDescription = () => {
-    const chunks = [
-      specialNeeds.trim() ? `Special needs: ${specialNeeds.trim()}` : "",
-      `Yard: ${yardType}`,
-      `Age range: ${ageRange}`,
-      `Energy level: ${energyLevel}`,
-      days.length ? `Preferred days: ${days.join(", ")}` : "",
-    ].filter(Boolean);
-    return chunks.join("\n");
-  };
-
   const launchRequest = async () => {
     if (!user?.id || !selectedPet) {
-      setLaunchFeedback({
-        title: t("common.error", "Something went wrong"),
-        description: t("common.error", "Something went wrong"),
+      showToast({
+        variant: "error",
+        message: t(
+          "post.request.launchFailed",
+          "Couldn't create the pet request right now. Please try again.",
+        ),
+        durationMs: 3200,
+      });
+      return;
+    }
+    if (multiDayDateRangeInvalid()) {
+      showToast({
+        variant: "error",
+        message: t("post.request.validation.dateRangeOrder"),
+        durationMs: 3200,
       });
       return;
     }
@@ -275,40 +300,54 @@ export default function LaunchRequestWizardScreen() {
         timeEnd.getMinutes(),
       ).padStart(2, "0")}:00`;
 
-      // DB columns are `date` + `time`
-      const startDateStr = startDay.toISOString().slice(0, 10);
-      const endDateStr = endDay.toISOString().slice(0, 10);
+      // Local calendar dates — `toISOString().slice(0,10)` can shift the day in non-UTC zones.
+      const startDateStr = formatLocalYyyyMmDd(startDay);
+      const endDateStr = formatLocalYyyyMmDd(endDay);
 
       const primaryCare = careTypes[0] ?? "daytime";
-      const pointsOffered = computeCarePoints(
-        primaryCare,
-        `${startDateStr}T${startTimeStr}`,
-        `${endDateStr}T${endTimeStr}`,
+      const pointsOffered = Math.round(
+        computeCarePoints(
+          primaryCare,
+          `${startDateStr}T${startTimeStr}`,
+          `${endDateStr}T${endTimeStr}`,
+        ),
       );
+      const careTypeDb = careTypeForCareRequestDb(primaryCare);
 
       const { error } = await supabase.from("care_requests").insert({
         owner_id: user.id,
         pet_id: selectedPet,
         taker_id: null,
-        care_type: primaryCare,
+        care_type: careTypeDb,
         status: "open",
         start_date: startDateStr,
         end_date: endDateStr,
         start_time: startTimeStr,
         end_time: endTimeStr,
         points_offered: pointsOffered,
-        description: buildDescription() || null,
       });
 
       if (error) throw error;
+      showToast({
+        variant: "success",
+        message: t(
+          "post.request.launchSuccess",
+          "Your care request is live.",
+        ),
+        durationMs: 2800,
+      });
       router.replace("/(private)/(tabs)" as any);
     } catch (err) {
-      setLaunchFeedback({
-        title: t("common.error", "Something went wrong"),
-        description:
-          err instanceof Error
-            ? err.message
-            : t("common.error", "Something went wrong"),
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t(
+            "post.request.launchFailed",
+            "Couldn't create the pet request right now. Please try again.",
+          ),
+        ),
+        durationMs: 3400,
       });
     } finally {
       setIsSubmitting(false);
@@ -328,13 +367,6 @@ export default function LaunchRequestWizardScreen() {
     setErrors((e) => ({ ...e, careTypes: undefined }));
     setCareTypes((prev) =>
       prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
-  };
-
-  const toggleDay = (label: string) => {
-    setErrors((e) => ({ ...e, days: undefined }));
-    setDays((prev) =>
-      prev.includes(label) ? prev.filter((d) => d !== label) : [...prev, label],
     );
   };
 
@@ -387,20 +419,16 @@ export default function LaunchRequestWizardScreen() {
         {step === 1 && (
           <View style={styles.stepContainer}>
             <AppText variant="title" style={styles.stepTitle}>
-              Select pet
+              {t("post.request.selectPetTitle")}
             </AppText>
             {petsLoading ? (
-              <DataState
-                title="Loading pets..."
-                message="Getting your pets from database."
-                mode="inline"
-              />
+              <PetSelectGridSkeleton columnWidth={columnWidth} rowCount={2} />
             ) : null}
             {petsError ? (
               <DataState
-                title="Could not load pets"
+                title={t("post.request.petsLoadFailedTitle")}
                 message={petsError}
-                actionLabel="Retry"
+                actionLabel={t("common.retry")}
                 mode="inline"
                 onAction={() => {
                   void loadPets();
@@ -408,19 +436,23 @@ export default function LaunchRequestWizardScreen() {
               />
             ) : null}
             {!petsLoading && !petsError && pets.length > 0 ? (
-              <View style={styles.petRow}>
-                {pets.map((pet) => (
-                  <PetGridTile
-                    key={pet.id}
-                    width={columnWidth}
-                    imageUri={pet.imageUri ?? ""}
-                    name={pet.name}
-                    selected={selectedPet === pet.id}
-                    onPress={() => setSelectedPet(pet.id)}
-                    seekingDateRange={
-                      petSeekingDateRangeById[pet.id] ?? undefined
-                    }
-                  />
+              <View style={styles.petGrid}>
+                {petRows.map((row, rowIndex) => (
+                  <View key={rowIndex} style={styles.petRow}>
+                    {row.map((pet) => (
+                      <PetGridTile
+                        key={pet.id}
+                        width={columnWidth}
+                        imageUri={pet.imageUri ?? ""}
+                        name={pet.name}
+                        selected={selectedPet === pet.id}
+                        onPress={() => setSelectedPet(pet.id)}
+                        seekingDateRange={
+                          petSeekingDateRangeById[pet.id] ?? undefined
+                        }
+                      />
+                    ))}
+                  </View>
                 ))}
               </View>
             ) : null}
@@ -448,14 +480,16 @@ export default function LaunchRequestWizardScreen() {
             ) : null}
             {!petsLoading && !petsError && pets.length === 0 ? (
               <IllustratedEmptyState
-                title="Aw aw!"
-                message="You have not uploaded any pets yet."
+                title={t("post.request.emptyPetsTitle")}
+                message={t("post.request.emptyPetsSubtitle")}
                 illustration={{
-                  source: require("@/assets/illustrations/pets/no-pet.svg"),
-                  type: "svg",
+                  ...IllustratedEmptyStateIllustrations.noPet,
                   width: 200,
                   height: 188,
-                  style: styles.emptyIllustration,
+                  style: [
+                    IllustratedEmptyStateIllustrations.noPet.style,
+                    styles.emptyIllustration,
+                  ],
                 }}
                 actionLabel={t("post.request.addAPet", "Add a pet")}
                 onAction={() => router.push("/(private)/pets/add" as any)}
@@ -785,14 +819,6 @@ export default function LaunchRequestWizardScreen() {
         />
       </View>
 
-      <FeedbackModal
-        visible={launchFeedback !== null}
-        title={launchFeedback?.title ?? ""}
-        description={launchFeedback?.description}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setLaunchFeedback(null)}
-        onRequestClose={() => setLaunchFeedback(null)}
-      />
     </PageContainer>
   );
 }
@@ -820,10 +846,15 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: "700",
   },
+  petGrid: {
+    width: "100%",
+    gap: PET_GRID_GAP,
+  },
   petRow: {
     flexDirection: "row",
     gap: PET_GRID_GAP,
-    justifyContent: "space-between",
+    justifyContent: "flex-start",
+    width: "100%",
   },
   addPetRow: {
     marginTop: 10,
@@ -858,10 +889,6 @@ const styles = StyleSheet.create({
   detailHint: {
     marginTop: -16,
     marginBottom: 4,
-  },
-  specialNeedsInput: {
-    minHeight: 120,
-    textAlignVertical: "top",
   },
   previewSubtitle: {
     marginTop: -16,
@@ -901,17 +928,10 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  previewSpecialNeedsInput: {
-    marginBottom: 0,
-  },
   selectedPetThumb: {
     width: 40,
     height: 40,
     borderRadius: 8,
-  },
-  noteInput: {
-    minHeight: 80,
-    textAlignVertical: "top",
   },
   disclaimer: {
     marginTop: 8,

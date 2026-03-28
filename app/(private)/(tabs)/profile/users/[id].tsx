@@ -19,7 +19,12 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
 import { ProfilePetsTabSkeleton } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
-import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import {
+  DataState,
+  ErrorState,
+  IllustratedEmptyStateIllustrations,
+  ResourceMissingState,
+} from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
@@ -68,7 +73,11 @@ export default function PublicProfileScreen() {
       const [{ data: userData, error: userError }, { data: petsData }, { data: availabilityData }, { data: reviewsData }] =
         await Promise.all([
           supabase.from("users").select("*").eq("id", profileId).maybeSingle(),
-          supabase.from("pets").select("*").eq("owner_id", profileId),
+          supabase
+            .from("pets")
+            .select("*")
+            .eq("owner_id", profileId)
+            .order("created_at", { ascending: false }),
           supabase.from("taker_profiles").select("*").eq("user_id", profileId).maybeSingle(),
           supabase.from("reviews").select("*").eq("reviewee_id", profileId).order("created_at", { ascending: false }),
         ]);
@@ -167,9 +176,8 @@ export default function PublicProfileScreen() {
             }
           />
         ) : loadError ? (
-          <DataState
-            title={t("common.error", "Something went wrong")}
-            message={loadError}
+          <ErrorState
+            error={loadError}
             actionLabel={t("common.retry", "Retry")}
             onAction={() => {
               void loadPublicProfile();
@@ -232,6 +240,8 @@ export default function PublicProfileScreen() {
               };
             })}
             showAddPetButton={false}
+            showPetActions={false}
+            onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
           />
         )}
         {activeTab === "availability" && (
@@ -254,22 +264,24 @@ export default function PublicProfileScreen() {
                   publicAvailability.startTime && publicAvailability.endTime
                     ? `${publicAvailability.startTime} - ${publicAvailability.endTime}`
                     : "",
-                days: publicAvailability.days?.join(" • ") ?? "",
+                days: publicAvailability.days ?? [],
                 yardType: publicAvailability.yardType ?? "",
                 isPetOwner: publicAvailability.petOwner ?? "",
               }}
-              emptyMessage="User has not set up their availability yet."
+              emptyMessage={t("profile.availability.publicEmptyMessage")}
             />
           ) : (
             <DataState
-              title="No availability set yet"
-              message="User has not set up their availability yet."
+              title={t("profile.availability.publicEmptyTitle")}
+              message={t("profile.availability.publicEmptyMessage")}
               illustration={
                 <AppImage
-                  source={require("@/assets/illustrations/pets/no-availability.svg")}
-                  type="svg"
-                  height={145}
-                  style={{ width: 140, borderRadius: 16, backgroundColor: "transparent" }}
+                  source={IllustratedEmptyStateIllustrations.noAvailability.source}
+                  type={IllustratedEmptyStateIllustrations.noAvailability.type ?? "svg"}
+                  height={IllustratedEmptyStateIllustrations.noAvailability.height}
+                  width={IllustratedEmptyStateIllustrations.noAvailability.width}
+                  style={IllustratedEmptyStateIllustrations.noAvailability.style}
+                  contentFit="contain"
                 />
               }
             />

@@ -222,17 +222,66 @@ export function AvailabilitySectionCardSkeleton({
   );
 }
 
+/** Matches `ProfileAvailabilityTab`: one card — pet owner | pet types, care | yard, dates | time, note. */
 export function ProfileAvailabilityTabSkeleton() {
+  const { resolvedTheme } = useThemeStore();
+  const colors = Colors[resolvedTheme];
   return (
     <View style={availSkStyles.tab}>
-      <AvailabilityPreviewCardSkeleton />
-      <AvailabilitySectionCardSkeleton lines={2} />
-      <View style={availSkStyles.twoCol}>
-        <View style={{ flex: 1 }}>
-          <AvailabilitySectionCardSkeleton lines={1} />
+      <View style={availSkStyles.profileAvailCard}>
+        <View style={availSkStyles.profileAvailRow}>
+          <View style={availSkStyles.profileAvailCol}>
+            <Skeleton height={10} width={72} borderRadius={4} />
+            <Skeleton height={28} width="82%" borderRadius={999} />
+          </View>
+          <View style={availSkStyles.profileAvailCol}>
+            <Skeleton height={10} width={64} borderRadius={4} />
+            <View style={availSkStyles.pillRow}>
+              <Skeleton height={28} width={48} borderRadius={999} />
+              <Skeleton height={28} width={56} borderRadius={999} />
+            </View>
+          </View>
         </View>
-        <View style={{ flex: 1 }}>
-          <AvailabilitySectionCardSkeleton lines={1} />
+        <View
+          style={[
+            availSkStyles.profileAvailRow,
+            availSkStyles.profileAvailRowSpaced,
+          ]}
+        >
+          <View style={availSkStyles.profileAvailCol}>
+            <Skeleton height={10} width={88} borderRadius={4} />
+            <View style={availSkStyles.pillRow}>
+              <Skeleton height={28} width={52} borderRadius={999} />
+              <Skeleton height={28} width={44} borderRadius={999} />
+            </View>
+          </View>
+          <View style={availSkStyles.profileAvailCol}>
+            <Skeleton height={10} width={76} borderRadius={4} />
+            <Skeleton height={28} width="70%" borderRadius={999} />
+          </View>
+        </View>
+        <View
+          style={[
+            availSkStyles.profileAvailRow,
+            availSkStyles.profileAvailRowSpaced,
+          ]}
+        >
+          <View style={availSkStyles.profileAvailCol}>
+            <Skeleton height={10} width={56} borderRadius={4} />
+            <View style={availSkStyles.dateChipRow}>
+              <Skeleton height={36} width={36} borderRadius={999} />
+              <Skeleton height={36} width={36} borderRadius={999} />
+              <Skeleton height={36} width={36} borderRadius={999} />
+            </View>
+          </View>
+          <View style={availSkStyles.profileAvailCol}>
+            <Skeleton height={10} width={44} borderRadius={4} />
+            <Skeleton height={44} width="100%" borderRadius={12} />
+          </View>
+        </View>
+        <View style={availSkStyles.noteBlock}>
+          <Skeleton height={10} width={48} borderRadius={4} />
+          <Skeleton height={72} width="100%" borderRadius={12} />
         </View>
       </View>
     </View>
@@ -272,6 +321,36 @@ const availSkStyles = StyleSheet.create({
   twoCol: {
     flexDirection: "row",
     gap: 12,
+  },
+  profileAvailCard: {},
+  profileAvailRow: {
+    flexDirection: "row",
+    gap: 12,
+    alignItems: "flex-start",
+  },
+  profileAvailRowSpaced: {
+    marginTop: 12,
+  },
+  profileAvailCol: {
+    flex: 1,
+    minWidth: 0,
+    gap: 8,
+  },
+  pillRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    alignItems: "center",
+  },
+  dateChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+    alignItems: "center",
+  },
+  noteBlock: {
+    marginTop: 12,
+    gap: 8,
   },
 });
 

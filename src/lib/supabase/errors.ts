@@ -48,14 +48,36 @@ export function errorMessageFromUnknown(
     lower.includes("connection");
   if (isNetwork) return networkFallback;
 
-  const isTechnical =
-    lower.includes("42p01") ||
+  if (
     lower.includes("permission denied") ||
-    lower.includes("invalid input syntax") ||
-    lower.includes("jwt") ||
-    lower.includes("violates") ||
-    lower.includes("sqlstate");
-  if (isTechnical) return fallback;
+    lower.includes("forbidden") ||
+    lower.includes("insufficient") ||
+    lower.includes("rls")
+  ) {
+    return "You don’t have permission to do that.";
+  }
+  if (lower.includes("jwt") || lower.includes("unauthorized")) {
+    return "Your session expired. Please sign in again.";
+  }
+  if (lower.includes("duplicate key") || lower.includes("already exists")) {
+    return "This already exists. Try updating it instead.";
+  }
+  // RLS errors contain "violates" — handle before generic constraint/syntax bucket.
+  if (lower.includes("row-level security")) {
+    return "You don’t have permission to do that.";
+  }
+  if (lower.includes("invalid input syntax") || lower.includes("violates check constraint")) {
+    return "Some information is invalid. Please review your inputs and try again.";
+  }
+  if (lower.includes("violates foreign key")) {
+    return "Something was deleted or is no longer available. Refresh and try again.";
+  }
+  if (lower.includes("violates")) {
+    return "Some information is invalid. Please review your inputs and try again.";
+  }
+  if (lower.includes("42p01") || lower.includes("does not exist")) {
+    return "This feature is temporarily unavailable. Please try again later.";
+  }
 
   return raw.length > 120 ? `${raw.slice(0, 117)}...` : raw;
 }

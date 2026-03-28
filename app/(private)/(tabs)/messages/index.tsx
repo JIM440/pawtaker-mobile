@@ -8,7 +8,11 @@ import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { ChatRow, ChatScreenSkeleton } from "@/src/shared/components/chat";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { PageContainer } from "@/src/shared/components/layout";
-import { DataState } from "@/src/shared/components/ui";
+import {
+  ErrorState,
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { useRouter } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
@@ -215,9 +219,8 @@ export default function MessagesScreen() {
           }
         >
           {loadError ? (
-            <DataState
-              title={t("common.error", "Something went wrong")}
-              message={loadError}
+            <ErrorState
+              error={loadError}
               actionLabel={t("common.retry", "Retry")}
               onAction={() => {
                 void loadChats();
@@ -242,12 +245,10 @@ export default function MessagesScreen() {
                   />
                 ))
               ) : (
-                <DataState
-                  title={t("messages.noChatsTitle", "No chats yet")}
-                  message={t(
-                    "messages.noChatsSubtitle",
-                    "When you start a conversation, it will appear here.",
-                  )}
+                <IllustratedEmptyState
+                  title={t("messages.noChatsTitle")}
+                  message={t("messages.noChatsSubtitle")}
+                  illustration={IllustratedEmptyStateIllustrations.noChats}
                   mode="inline"
                 />
               )}

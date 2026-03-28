@@ -10,6 +10,77 @@ export type IllustratedEmptyStateIllustration = {
   style?: any;
 };
 
+export const IllustratedEmptyStateIllustrations = {
+  errorTryAgain: {
+    source: require("@/assets/illustrations/pets/error-try again.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 200,
+  },
+  noLikedPets: {
+    source: require("@/assets/illustrations/pets/no-liked-pets.svg"),
+    type: "svg" as const,
+    height: 200,
+    width: 240,
+    style: { backgroundColor: "transparent" },
+  },
+  noChats: {
+    source: require("@/assets/illustrations/pets/no-chats.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 200,
+  },
+  noCare: {
+    source: require("@/assets/illustrations/pets/no-care.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 140,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+  noSearchResult: {
+    source: require("@/assets/illustrations/pets/no-search-result.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 140,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+  noAvailability: {
+    source: require("@/assets/illustrations/pets/no-availability.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 140,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+  noNotification: {
+    source: require("@/assets/illustrations/pets/no-notification-graphic.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 140,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+  noReview: {
+    source: require("@/assets/illustrations/pets/no-review.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 200,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+  noBio: {
+    source: require("@/assets/illustrations/pets/no-bio.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 200,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+  noPet: {
+    source: require("@/assets/illustrations/pets/no-pet.svg"),
+    type: "svg" as const,
+    height: 145,
+    width: 140,
+    style: { backgroundColor: "transparent", borderRadius: 16 },
+  },
+} satisfies Record<string, IllustratedEmptyStateIllustration>;
+
 type Props = {
   title: string;
   message?: string;
@@ -39,10 +110,10 @@ export function IllustratedEmptyState({
     <AppImage
       source={illustration.source}
       type={illustration.type ?? "svg"}
-      height={145}
-      width={200}
+      height={illustration.height ?? 145}
+      width={illustration.width ?? 200}
       style={illustration.style}
-      contentFit="cover"
+      contentFit="contain"
     />
   ) : undefined;
 

@@ -1,7 +1,8 @@
-import { Colors } from "@/src/constants/colors";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ReviewCard } from "@/src/shared/components/cards/ReviewCard";
-import { IllustratedEmptyState } from "@/src/shared/components/ui";
+import {
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { FlatList, StyleSheet, View } from "react-native";
@@ -36,8 +37,6 @@ export function ProfileReviewsTab({
   scrollEnabled = false,
 }: Props) {
   const { t } = useTranslation();
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
 
   const hasItems = items.length > 0;
 
@@ -64,15 +63,9 @@ export function ProfileReviewsTab({
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
           <IllustratedEmptyState
-            title="No reviews yet"
-            message="Be the first to share a story after your first care session"
-            illustration={{
-              source: require("@/assets/illustrations/pets/no-review.svg"),
-              type: "svg",
-              height: 145,
-              width: 200,
-              style: { backgroundColor: "transparent", borderRadius: 16 },
-            }}
+            title={t("profile.reviewsTab.emptyTitle")}
+            message={t("profile.reviewsTab.emptyMessage")}
+            illustration={IllustratedEmptyStateIllustrations.noReview}
             mode="inline"
           />
         </View>

@@ -1,16 +1,40 @@
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 
 /**
- * PawTaker point rules:
- * Points for one completed agreement = durationUnits(careType) × rate(careType)
- * — Play/Walk: 1 pt × sessions (1 session per calendar day in range)
- * — Daytime: 2 pts × days (inclusive calendar days)
- * — Overnight: 4 pts × nights (max(1, inclusiveDays - 1))
- * — Vacation: 5 pts × days (inclusive calendar days)
+ * PawTaker point rules (aligned with DB `compute_care_points_for_request`):
  *
- * Ledger: taker +points (care given), owner −points (care received).
- * Net balance trend aligns with Care Given − Care Received per user over time.
+ * Point table (rate per unit):
+ * — Play/Walk:  1 pt  (short / light)
+ * — Daytime:    2 pts (few hours / moderate)
+ * — Overnight:  4 pts (full responsibility)
+ * — Vacation:   5 pts (multi-day / high commitment)
+ *
+ * Duration units:
+ * — Play/Walk:  1 per session → we use inclusive calendar days in range (one session per day)
+ * — Daytime:    1 per day (inclusive calendar days)
+ * — Overnight:  1 per night → max(1, inclusiveDays − 1)
+ * — Vacation:   1 per day (inclusive calendar days)
+ *
+ * Formula for one completed agreement:
+ *   points = durationUnits(careType, start, end) × rate(careType)
+ *
+ * Ledger (per completed contract):
+ * — Care Given (taker)   = +points
+ * — Care Received (owner) = −points (same magnitude)
+ *
+ * Total Points (user balance) = Care Given − Care Received over time → `users.points_balance`.
  */
+
+/**
+ * Values stored in `care_requests.care_type`: exactly four keys — `daytime`,
+ * `playwalk`, `overnight`, `vacation` (see `CareTypeSelector` / `CARE_TYPE_KEYS`).
+ * {@link normalizeCareTypeForPoints} maps any legacy DB strings to these four.
+ */
+export function careTypeForCareRequestDb(
+  careTypeRaw: string | null | undefined,
+): string {
+  return normalizeCareTypeForPoints(careTypeRaw);
+}
 
 export function normalizeCareTypeForPoints(raw: string | null | undefined): CareTypeKey {
   const k = (raw ?? "").trim().toLowerCase();

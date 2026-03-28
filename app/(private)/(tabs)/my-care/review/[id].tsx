@@ -9,7 +9,7 @@ import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { ReviewDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState } from "@/src/shared/components/ui";
+import { ErrorState } from "@/src/shared/components/ui";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { Input } from "@/src/shared/components/ui/Input";
 import { StarRatingInput } from "@/src/shared/components/ui/StarRatingInput";
@@ -238,9 +238,8 @@ export default function PostCareReviewScreen() {
     return (
       <PageContainer>
         <BackHeader title="" onBack={() => router.back()} />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={error ?? t("myCare.review.noContract", "No completed contract found to review yet.")}
+        <ErrorState
+          error={error ?? t("myCare.review.noContract", "No completed contract found to review yet.")}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
             void load();

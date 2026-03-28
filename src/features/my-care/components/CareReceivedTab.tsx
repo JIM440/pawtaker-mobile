@@ -2,15 +2,20 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 import React from 'react';
 import { CareRow, CareTable } from './CareTable';
 import { EmptyState } from './EmptyState';
+import { CareTableSkeleton } from "./CareTableSkeleton";
 
 interface CareReceivedTabProps {
     colors: any;
     rows: CareRow[];
+    loading?: boolean;
 }
 
-export function CareReceivedTab({ colors, rows }: CareReceivedTabProps) {
+export function CareReceivedTab({ colors, rows, loading = false }: CareReceivedTabProps) {
+    if (loading) {
+        return <CareTableSkeleton colors={colors} rowCount={5} />;
+    }
     if (rows.length === 0) {
-        return <EmptyState colors={colors} variant="received" />;
+        return <EmptyState variant="received" />;
     }
 
     const footer = (

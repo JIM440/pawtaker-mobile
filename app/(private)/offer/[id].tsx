@@ -20,7 +20,7 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { CareTypeSelector, type CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { Input } from "@/src/shared/components/ui/Input";
 import { OfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
@@ -268,9 +268,8 @@ export default function SendOfferScreen() {
     return (
       <PageContainer>
         <BackHeader title={t("offer.title")} onBack={() => router.back()} />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={error ?? undefined}
+        <ErrorState
+          error={error}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
             void load();

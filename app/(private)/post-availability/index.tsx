@@ -1,17 +1,17 @@
 import { Colors } from "@/src/constants/colors";
 import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PET_TYPE_OPTIONS } from "@/src/constants/pets";
-import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
 import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { DaySelector } from "@/src/shared/components/ui/DaySelector";
 import { Input } from "@/src/shared/components/ui/Input";
@@ -21,7 +21,6 @@ import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { BackHandler, ScrollView, StyleSheet, View } from "react-native";
-import { useToastStore } from "@/src/lib/store/toast.store";
 
 const TOTAL_STEPS = 8;
 
@@ -49,7 +48,7 @@ export default function AvailabilityWizardScreen() {
   const showToast = useToastStore((s) => s.showToast);
 
   const [careTypes, setCareTypes] = useState<string[]>([]);
-  const [petKind, setPetKind] = useState<PetKindId | null>(null);
+  const [petKinds, setPetKinds] = useState<PetKindId[]>([]);
   const [yardType, setYardType] = useState("fenced yard");
   const [isPetOwner, setIsPetOwner] = useState("yes");
   const [days, setDays] = useState<string[]>([]);
@@ -66,14 +65,9 @@ export default function AvailabilityWizardScreen() {
   const [note, setNote] = useState("");
   const [isAvailable, setIsAvailable] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [publishFeedback, setPublishFeedback] = useState<{
-    title: string;
-    description: string;
-  } | null>(null);
-
   const [errors, setErrors] = useState<{
     careTypes?: string;
-    petKind?: string;
+    petKinds?: string;
     days?: string;
     timeRange?: string;
   }>({});
@@ -131,9 +125,9 @@ export default function AvailabilityWizardScreen() {
       }
     }
     if (step === 1) {
-      if (!petKind) {
+      if (petKinds.length === 0) {
         setErrors({
-          petKind: t("post.availability.validation.petKindRequired"),
+          petKinds: t("post.availability.validation.petKindRequired"),
         });
         return false;
       }
@@ -161,9 +155,10 @@ export default function AvailabilityWizardScreen() {
 
   const publishAvailability = async () => {
     if (!user?.id) {
-      setPublishFeedback({
-        title: t("common.error", "Something went wrong"),
-        description: t("common.error", "Something went wrong"),
+      showToast({
+        variant: "error",
+        message: t("post.availability.signInRequired"),
+        durationMs: 3200,
       });
       return;
     }
@@ -178,14 +173,14 @@ export default function AvailabilityWizardScreen() {
         endTime: formatTime(endTime),
         petOwner: isPetOwner,
         yardType,
-        petKinds: petKind ? [petKind] : [],
+        petKinds,
         note: note.trim(),
       };
 
       const { error } = await supabase.from("taker_profiles").upsert(
         {
           user_id: user.id,
-          accepted_species: petKind ? [petKind] : [],
+          accepted_species: petKinds,
           max_pets: 0,
           hourly_points: 0,
           experience_years: 0,
@@ -205,17 +200,13 @@ export default function AvailabilityWizardScreen() {
         params: { tab: "availability", refreshAvailability: "true" },
       });
     } catch (err) {
-      const details =
-        err instanceof Error
-          ? err.message
-          : t("common.error", "Something went wrong");
-      const friendly = t(
-        "post.availability.saveFailed",
-        "Couldn't save your availability. Please try again.",
-      );
-      setPublishFeedback({
-        title: t("common.error", "Something went wrong"),
-        description: `${friendly}\n\nDetails: ${details}`,
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("post.availability.saveFailed"),
+        ),
+        durationMs: 3400,
       });
     } finally {
       setIsSubmitting(false);
@@ -238,8 +229,13 @@ export default function AvailabilityWizardScreen() {
   };
 
   const togglePetKind = (key: string) => {
-    setErrors((e) => ({ ...e, petKind: undefined }));
-    setPetKind(key === "" ? null : (key as PetKindId));
+    setErrors((e) => ({ ...e, petKinds: undefined }));
+    if (!key) return;
+    setPetKinds((prev) =>
+      prev.includes(key as PetKindId)
+        ? prev.filter((k) => k !== key)
+        : [...prev, key as PetKindId],
+    );
   };
 
   const toggleDay = (label: string) => {
@@ -293,7 +289,7 @@ export default function AvailabilityWizardScreen() {
           <View style={styles.editSection}>
             <View
               style={
-                errors.petKind
+                errors.petKinds
                   ? {
                       borderWidth: 1,
                       borderColor: colors.error,
@@ -304,22 +300,24 @@ export default function AvailabilityWizardScreen() {
                   : undefined
               }
             >
-              <PetKindPickGrid
-                questionKey="post.availability.petKindQuestion"
-                selectedKind={petKind}
-                onSelect={(k) => {
-                  setErrors((e) => ({ ...e, petKind: undefined }));
-                  setPetKind(k);
-                }}
+              <AppText variant="title" style={styles.stepTitle}>
+                {t("post.availability.petKindQuestion")}
+              </AppText>
+              <PetKindSelector
+                options={Array.from(PET_TYPE_OPTIONS)}
+                selectedKeys={petKinds}
+                onToggle={togglePetKind}
+                variant="grid"
+                singleSelect={false}
               />
             </View>
-            {errors.petKind ? (
+            {errors.petKinds ? (
               <AppText
                 variant="caption"
                 color={colors.error}
                 style={styles.fieldErrorText}
               >
-                {errors.petKind}
+                {errors.petKinds}
               </AppText>
             ) : null}
           </View>
@@ -489,10 +487,10 @@ export default function AvailabilityWizardScreen() {
                   </AppText>
                   <PetKindSelector
                     options={Array.from(PET_TYPE_OPTIONS)}
-                    selectedKeys={petKind ? [petKind] : []}
+                    selectedKeys={petKinds}
                     onToggle={togglePetKind}
-                    variant="large"
-                    singleSelect
+                    variant="small"
+                    singleSelect={false}
                   />
                 </View>
 
@@ -620,15 +618,6 @@ export default function AvailabilityWizardScreen() {
           disabled={isSubmitting}
         />
       </View>
-
-      <FeedbackModal
-        visible={publishFeedback !== null}
-        title={publishFeedback?.title ?? ""}
-        description={publishFeedback?.description}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setPublishFeedback(null)}
-        onRequestClose={() => setPublishFeedback(null)}
-      />
     </PageContainer>
   );
 }

@@ -17,7 +17,7 @@ import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { DetailPetGalleryChrome } from "@/src/shared/components/pets/DetailPetGalleryChrome";
 import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
 import { PetDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
@@ -187,9 +187,8 @@ export default function PetDetailScreen() {
     return (
       <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
         <BackHeader title="" onBack={() => router.back()} />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={error ?? undefined}
+        <ErrorState
+          error={error}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
             void load();

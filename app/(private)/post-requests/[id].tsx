@@ -11,8 +11,10 @@ import {
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
@@ -21,7 +23,7 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { RequestDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { DetailPetGalleryChrome } from "@/src/shared/components/pets/DetailPetGalleryChrome";
 import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
@@ -68,14 +70,28 @@ function localYyyyMmDd(d: Date) {
   return `${y}-${m}-${day}`;
 }
 
+function formatTimeRangeFromDb(
+  start: string | null | undefined,
+  end: string | null | undefined,
+): string {
+  if (!start?.trim() || !end?.trim()) return "";
+  const clip = (s: string) => {
+    const m = s.trim().match(/^(\d{1,2}):(\d{2})/);
+    return m ? `${m[1]}:${m[2]}` : s.trim();
+  };
+  return `${clip(start)}–${clip(end)}`;
+}
+
 export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuthStore();
+  const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [isFavorite, setIsFavorite] = useState(false);
+  const [likeBusy, setLikeBusy] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [reqRow, setReqRow] = useState<any | null>(null);
@@ -154,6 +170,23 @@ export default function RequestDetailScreen() {
       setOwner(ownerRow);
       setViewer(meRow ?? null);
       setOwnerReviews(reviews ?? []);
+
+      const petForLike = petRow as TablesRow<"pets">;
+      if (
+        petForLike.id &&
+        user.id &&
+        petForLike.owner_id !== user.id
+      ) {
+        const { data: likeRow } = await supabase
+          .from("pet_likes")
+          .select("pet_id")
+          .eq("user_id", user.id)
+          .eq("pet_id", petForLike.id)
+          .maybeSingle();
+        setIsFavorite(!!likeRow);
+      } else {
+        setIsFavorite(false);
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
     } finally {
@@ -171,12 +204,29 @@ export default function RequestDetailScreen() {
 
   const images = useMemo(() => petGalleryUrls(pet ?? {}), [pet]);
 
+  const careReq = reqRow as TablesRow<"care_requests"> | null;
+
   const yardType =
-    (pet as any)?.yard_type ?? parsedPetNotes.yardType ?? null;
+    (typeof (pet as any)?.yard_type === "string" &&
+    (pet as any).yard_type.trim().length > 0
+      ? (pet as any).yard_type.trim()
+      : null) ||
+    parsedPetNotes.yardType ||
+    null;
   const ageRange =
-    (pet as any)?.age_range ?? parsedPetNotes.ageRange ?? null;
+    (typeof (pet as any)?.age_range === "string" &&
+    (pet as any).age_range.trim().length > 0
+      ? (pet as any).age_range.trim()
+      : null) ||
+    parsedPetNotes.ageRange ||
+    null;
   const energyLevel =
-    (pet as any)?.energy_level ?? parsedPetNotes.energyLevel ?? null;
+    (typeof (pet as any)?.energy_level === "string" &&
+    (pet as any).energy_level.trim().length > 0
+      ? (pet as any).energy_level.trim()
+      : null) ||
+    parsedPetNotes.energyLevel ||
+    null;
 
   const careTypeKey: CareTypeKey = useMemo(
     () => normalizeCareTypeForPoints(reqRow?.care_type as string | undefined),
@@ -220,11 +270,9 @@ export default function RequestDetailScreen() {
     return `${km < 10 ? km.toFixed(1) : Math.round(km)}km`;
   }, [owner?.latitude, owner?.longitude, viewer?.latitude, viewer?.longitude]);
 
-  const description =
-    (reqRow?.description as string | null | undefined)?.trim() ||
-    parsedPetNotes.bio ||
-    (typeof pet?.notes === "string" ? pet.notes : "") ||
-    t("post.request.noDescription", "No description yet.");
+  const petBioForCard = parsedPetNotes.bio?.trim() ?? "";
+
+  const description = petBioForCard;
 
   const ownerRating =
     ownerReviews.length > 0
@@ -236,7 +284,7 @@ export default function RequestDetailScreen() {
     breed: pet?.breed ?? t("pets.add.breed", "Breed"),
     petType: pet?.species ?? t("pets.add.kind", "Pet"),
     dateRange,
-    time: "",
+    time: formatTimeRangeFromDb(reqRow?.start_time, reqRow?.end_time),
     careType: careTypeLabel,
     location,
     distance: distanceLabel,
@@ -250,15 +298,60 @@ export default function RequestDetailScreen() {
       paws: owner?.care_received_count ?? 0,
     },
     details: {
-        yardType: yardType ?? t("common.empty", "—"),
-        age: ageRange ?? t("common.empty", "—"),
-        energyLevel: energyLevel ?? t("common.empty", "—"),
+      yardType: yardType ?? t("common.empty", "—"),
+      age: ageRange ?? t("common.empty", "—"),
+      energyLevel: energyLevel ?? t("common.empty", "—"),
     },
     specialNeeds:
-      parsedPetNotes.specialNeeds || t("pet.detail.none", "None"),
+      [
+        parsedPetNotes.specialNeeds?.trim(),
+        typeof (pet as any)?.special_needs_description === "string"
+          ? (pet as any).special_needs_description.trim()
+          : "",
+      ]
+        .filter(Boolean)
+        .join("\n\n") || t("pet.detail.none", "None"),
   };
 
   const isOwner = Boolean(user?.id && reqRow?.owner_id && user.id === reqRow.owner_id);
+
+  const togglePetLike = () => {
+    if (!user?.id || !pet?.id || isOwner || likeBusy) return;
+    void (async () => {
+      const next = !isFavorite;
+      setIsFavorite(next);
+      setLikeBusy(true);
+      try {
+        if (next) {
+          const { error } = await supabase.from("pet_likes").insert({
+            user_id: user.id,
+            pet_id: pet.id,
+            care_request_id: id ?? null,
+          });
+          if (error) throw error;
+        } else {
+          const { error } = await supabase
+            .from("pet_likes")
+            .delete()
+            .eq("user_id", user.id)
+            .eq("pet_id", pet.id);
+          if (error) throw error;
+        }
+      } catch (err) {
+        setIsFavorite(!next);
+        showToast({
+          variant: "error",
+          message: errorMessageFromUnknown(
+            err,
+            t("common.error", "Something went wrong"),
+          ),
+          durationMs: 3200,
+        });
+      } finally {
+        setLikeBusy(false);
+      }
+    })();
+  };
 
   const openApplyConfirm = () => {
     if (blockIfKycNotApproved()) return;
@@ -389,9 +482,8 @@ export default function RequestDetailScreen() {
     return (
       <PageContainer>
         <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
-        <DataState
-          title={t("common.error", "Something went wrong")}
-          message={error ?? undefined}
+        <ErrorState
+          error={error}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
             void load();
@@ -460,19 +552,22 @@ export default function RequestDetailScreen() {
                 </AppText>
               </View>
             </View>
-            <TouchableOpacity
-              onPress={() => setIsFavorite(!isFavorite)}
-              style={[
-                styles.heartBtn,
-                { backgroundColor: colors.surfaceContainer },
-              ]}
-            >
-              <Heart
-                size={20}
-                color={colors.onSurface}
-                fill={isFavorite ? colors.primary : "transparent"}
-              />
-            </TouchableOpacity>
+            {!isOwner ? (
+              <TouchableOpacity
+                onPress={togglePetLike}
+                disabled={likeBusy}
+                style={[
+                  styles.heartBtn,
+                  { backgroundColor: colors.surfaceContainer },
+                ]}
+              >
+                <Heart
+                  size={20}
+                  color={colors.onSurface}
+                  fill={isFavorite ? colors.primary : "transparent"}
+                />
+              </TouchableOpacity>
+            ) : null}
           </View>
 
           {/* Date & time */}
@@ -543,14 +638,15 @@ export default function RequestDetailScreen() {
             ) : null}
           </View>
 
-          {/* Description */}
-          <AppText
-            variant="body"
-            color={colors.onSurfaceVariant}
-            style={styles.description}
-          >
-            {request.description}
-          </AppText>
+          {request.description.trim().length > 0 ? (
+            <AppText
+              variant="body"
+              color={colors.onSurfaceVariant}
+              style={styles.description}
+            >
+              {request.description}
+            </AppText>
+          ) : null}
 
           {/* Pet owner card */}
           <View

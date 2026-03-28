@@ -19,6 +19,7 @@ import { I18nextProvider } from "react-i18next";
 import { Platform } from "react-native";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import i18n from "../src/lib/i18n";
+import { configureNotificationHandler } from "../src/lib/notifications/push";
 import { useAuthStore } from "../src/lib/store/auth.store";
 import { useLanguageStore } from "../src/lib/store/language.store";
 import { useThemeStore } from "../src/lib/store/theme.store";
@@ -77,6 +78,10 @@ export default function RootLayout() {
     Roboto_500Medium,
     Roboto_700Bold,
   });
+
+  useEffect(() => {
+    configureNotificationHandler();
+  }, []);
 
   // Bootstrap auth session once on mount
   useEffect(() => {

@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import {
   formatCarePointsPts,
@@ -8,6 +9,7 @@ import {
 } from "@/src/lib/points/carePoints";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import {
   errorMessageFromUnknown,
@@ -22,7 +24,11 @@ import {
   FeedRequestsSkeleton,
   FeedTakersSkeleton,
 } from "@/src/shared/components/skeletons/FeedSkeleton";
-import { DataState, IllustratedEmptyState } from "@/src/shared/components/ui";
+import {
+  DataState,
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
@@ -30,7 +36,6 @@ import {
   CARE_TYPE_KEYS,
   type CareTypeKey,
 } from "@/src/shared/components/ui/CareTypeSelector";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useRouter } from "expo-router";
@@ -120,11 +125,7 @@ export default function HomeScreen() {
     height: number;
   } | null>(null);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
-  const [sendRequestFeedback, setSendRequestFeedback] = useState<{
-    title: string;
-    description: string;
-    onAcknowledge?: () => void;
-  } | null>(null);
+  const showToast = useToastStore((s) => s.showToast);
   const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(
     null,
   );
@@ -142,7 +143,9 @@ export default function HomeScreen() {
       const { data: reqData, error: reqError } = await supabase
         .from("care_requests")
         .select("*")
-        .eq("status", "open");
+        .eq("status", "open")
+        .order("start_date", { ascending: false })
+        .order("created_at", { ascending: false });
       if (reqError && !isMissingBackendResourceError(reqError)) throw reqError;
 
       const ownerIds = Array.from(
@@ -185,20 +188,28 @@ export default function HomeScreen() {
         (reqData ?? []).map((r: any) => {
           const pet = petsById[r.pet_id];
           const owner = ownersById[r.owner_id];
-          const requestDescription =
-            typeof r.description === "string" && r.description.trim().length > 0
-              ? r.description.trim()
-              : null;
-          const petDescription =
-            typeof pet?.notes === "string" && pet.notes.trim().length > 0
-              ? pet.notes.trim()
-              : null;
-          const combinedDescription =
-            requestDescription && petDescription
-              ? requestDescription === petDescription
-                ? requestDescription
-                : `${requestDescription}\n\n${petDescription}`
-              : (requestDescription ?? petDescription ?? "No description yet.");
+          const parsedPet = parsePetNotes(pet?.notes);
+          const feedDescription = parsedPet.bio?.trim() ?? "";
+          const petYard =
+            typeof (pet as any)?.yard_type === "string" &&
+            (pet as any).yard_type.trim().length > 0
+              ? (pet as any).yard_type.trim()
+              : parsedPet.yardType;
+          const petAge =
+            typeof (pet as any)?.age_range === "string" &&
+            (pet as any).age_range.trim().length > 0
+              ? (pet as any).age_range.trim()
+              : parsedPet.ageRange;
+          const petEnergy =
+            typeof (pet as any)?.energy_level === "string" &&
+            (pet as any).energy_level.trim().length > 0
+              ? (pet as any).energy_level.trim()
+              : parsedPet.energyLevel;
+
+          const feedTags: string[] = [];
+          if (petYard) feedTags.push(petYard);
+          if (petAge) feedTags.push(petAge);
+          if (petEnergy) feedTags.push(petEnergy);
           return {
             id: r.id,
             petId: r.pet_id as string,
@@ -215,7 +226,8 @@ export default function HomeScreen() {
             location:
               owner?.city?.trim() || t("profile.noLocation", "No location"),
             distance: "0km",
-            description: combinedDescription,
+            description: feedDescription,
+            tags: feedTags,
             caretaker: {
               id: owner?.id ?? "",
               name: resolveDisplayName(owner) || "Owner",
@@ -323,7 +335,8 @@ export default function HomeScreen() {
       const { data: myPets, error: petsError } = await supabase
         .from("pets")
         .select("*")
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false });
       if (petsError && !isMissingBackendResourceError(petsError))
         throw petsError;
       setUserPets(myPets ?? []);
@@ -397,6 +410,7 @@ export default function HomeScreen() {
         .eq("owner_id", user.id)
         .eq("status", "open")
         .in("pet_id", ids)
+        .order("start_date", { ascending: false })
         .order("created_at", { ascending: false });
       if (cancelled || error) return;
       const bestByPet: Record<string, any> = {};
@@ -469,6 +483,7 @@ export default function HomeScreen() {
       if (sendRequestOpen) {
         await loadUserPets({ refresh: true });
       }
+      await loadPetLikes();
       await loadNotificationCount();
     } finally {
       setRefreshing(false);
@@ -500,13 +515,73 @@ export default function HomeScreen() {
     }
   }, [profile]);
 
-  const toggleFavorite = (id: string) => {
+  const loadPetLikes = React.useCallback(async () => {
+    if (!user?.id) {
+      setFavorites(new Set());
+      return;
+    }
+    try {
+      const { data, error } = await supabase
+        .from("pet_likes")
+        .select("pet_id")
+        .eq("user_id", user.id);
+      if (error && !isMissingBackendResourceError(error)) throw error;
+      setFavorites(
+        new Set((data ?? []).map((r: { pet_id: string }) => r.pet_id)),
+      );
+    } catch {
+      setFavorites(new Set());
+    }
+  }, [user?.id]);
+
+  useEffect(() => {
+    void loadPetLikes();
+  }, [loadPetLikes]);
+
+  const toggleFavorite = async (
+    petId: string,
+    careRequestId: string | null,
+  ) => {
+    if (!user?.id || !petId) return;
+    const wasLiked = favorites.has(petId);
     setFavorites((prev) => {
       const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
+      if (wasLiked) next.delete(petId);
+      else next.add(petId);
       return next;
     });
+    try {
+      if (wasLiked) {
+        const { error } = await supabase
+          .from("pet_likes")
+          .delete()
+          .eq("user_id", user.id)
+          .eq("pet_id", petId);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("pet_likes").insert({
+          user_id: user.id,
+          pet_id: petId,
+          care_request_id: careRequestId,
+        });
+        if (error) throw error;
+      }
+    } catch (err) {
+      setFavorites((prev) => {
+        const next = new Set(prev);
+        if (wasLiked) next.add(petId);
+        else next.delete(petId);
+        return next;
+      });
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("common.error", "Something went wrong"),
+        ),
+        durationMs: 3200,
+      });
+    }
   };
 
   const resetFilters = () => {
@@ -940,19 +1015,14 @@ export default function HomeScreen() {
                           "Try adjusting filters to find more.",
                         )
                   }
-                  illustration={{
-                    source:
-                      searchQuery.trim() ||
-                      careTypeFilter.length > 0 ||
-                      distanceRange.min > DISTANCE_MIN_KM ||
-                      distanceRange.max < DISTANCE_MAX_KM
-                        ? require("@/assets/illustrations/pets/no-search-result.svg")
-                        : require("@/assets/illustrations/pets/no-care.svg"),
-                    type: "svg",
-                    width: 140,
-                    height: 145,
-                    style: styles.emptyIllustration,
-                  }}
+                  illustration={
+                    searchQuery.trim() ||
+                    careTypeFilter.length > 0 ||
+                    distanceRange.min > DISTANCE_MIN_KM ||
+                    distanceRange.max < DISTANCE_MAX_KM
+                      ? IllustratedEmptyStateIllustrations.noSearchResult
+                      : IllustratedEmptyStateIllustrations.noCare
+                  }
                   mode="inline"
                 />
               ) : (
@@ -1020,9 +1090,12 @@ export default function HomeScreen() {
               location={item.location}
               distance={item.distance}
               description={item.description}
+              tags={item.tags ?? []}
               caretaker={item.caretaker}
-              isFavorite={favorites.has(item.id)}
-              onFavorite={() => toggleFavorite(item.id)}
+              isFavorite={Boolean(item.petId && favorites.has(item.petId))}
+              onFavorite={() =>
+                void toggleFavorite(item.petId, item.id ?? null)
+              }
               onApply={() => {
                 if (blockIfKycNotApproved()) return;
                 router.push(`/(private)/post-requests/${item.id}` as any);
@@ -1079,19 +1152,14 @@ export default function HomeScreen() {
                         "Try adjusting filters to find more.",
                       )
                 }
-                illustration={{
-                  source:
-                    searchQuery.trim() ||
-                    careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
-                      ? require("@/assets/illustrations/pets/no-search-result.svg")
-                      : require("@/assets/illustrations/pets/no-care.svg"),
-                  type: "svg",
-                  width: 140,
-                  height: 145,
-                  style: styles.emptyIllustration,
-                }}
+                illustration={
+                  searchQuery.trim() ||
+                  careTypeFilter.length > 0 ||
+                  distanceRange.min > DISTANCE_MIN_KM ||
+                  distanceRange.max < DISTANCE_MAX_KM
+                    ? IllustratedEmptyStateIllustrations.noSearchResult
+                    : IllustratedEmptyStateIllustrations.noCare
+                }
                 mode="inline"
               />
             ) : (
@@ -1252,76 +1320,77 @@ export default function HomeScreen() {
                       return Boolean(petSendSubtitleById[pet.id as string]);
                     })
                     .map((pet: any) => {
-                    const selected = selectedSeekingPet?.id === pet.id;
-                    const subtitle =
-                      petSendSubtitleById[pet.id as string] ||
-                      `${pet.species || "Pet"} · ${pet.breed || "—"}`;
-                    const uri = petGalleryUrls(pet)[0] ?? "";
-                    return (
-                      <TouchableOpacity
-                        key={pet.id}
-                        activeOpacity={0.9}
-                        onPress={() => setSelectedSeekingPet(pet)}
-                        style={[styles.sendRequestPetRow]}
-                      >
-                        <View
-                          style={[
-                            styles.sendRequestRadioOuter,
-                            {
-                              borderColor: selected
-                                ? colors.primary
-                                : colors.outlineVariant,
-                            },
-                          ]}
+                      const selected = selectedSeekingPet?.id === pet.id;
+                      const subtitle =
+                        petSendSubtitleById[pet.id as string] ||
+                        `${pet.species || "Pet"} · ${pet.breed || "—"}`;
+                      const uri = petGalleryUrls(pet)[0] ?? "";
+                      return (
+                        <TouchableOpacity
+                          key={pet.id}
+                          activeOpacity={0.9}
+                          onPress={() => setSelectedSeekingPet(pet)}
+                          style={[styles.sendRequestPetRow]}
                         >
-                          {selected ? (
-                            <View
-                              style={[
-                                styles.sendRequestRadioInner,
-                                { backgroundColor: colors.primary },
-                              ]}
-                            />
-                          ) : null}
-                        </View>
-                        {uri ? (
-                          <AppImage
-                            source={{ uri }}
-                            style={styles.sendRequestPetThumb}
-                            contentFit="cover"
-                            width={32}
-                            height={32}
-                          />
-                        ) : (
                           <View
                             style={[
-                              styles.sendRequestPetThumb,
+                              styles.sendRequestRadioOuter,
                               {
-                                backgroundColor: colors.surfaceContainerHighest,
+                                borderColor: selected
+                                  ? colors.primary
+                                  : colors.outlineVariant,
                               },
                             ]}
-                          />
-                        )}
-                        <View style={{ flex: 1, minWidth: 0 }}>
-                          <AppText
-                            variant="headline"
-                            color={colors.onSurface}
-                            style={styles.sendRequestPetName}
-                            numberOfLines={1}
                           >
-                            {pet.name}
-                          </AppText>
-                          <AppText
-                            variant="caption"
-                            color={colors.onSurfaceVariant}
-                            numberOfLines={2}
-                            style={styles.sendRequestPetMeta}
-                          >
-                            {subtitle}
-                          </AppText>
-                        </View>
-                      </TouchableOpacity>
-                    );
-                  })}
+                            {selected ? (
+                              <View
+                                style={[
+                                  styles.sendRequestRadioInner,
+                                  { backgroundColor: colors.primary },
+                                ]}
+                              />
+                            ) : null}
+                          </View>
+                          {uri ? (
+                            <AppImage
+                              source={{ uri }}
+                              style={styles.sendRequestPetThumb}
+                              contentFit="cover"
+                              width={32}
+                              height={32}
+                            />
+                          ) : (
+                            <View
+                              style={[
+                                styles.sendRequestPetThumb,
+                                {
+                                  backgroundColor:
+                                    colors.surfaceContainerHighest,
+                                },
+                              ]}
+                            />
+                          )}
+                          <View style={{ flex: 1, minWidth: 0 }}>
+                            <AppText
+                              variant="headline"
+                              color={colors.onSurface}
+                              style={styles.sendRequestPetName}
+                              numberOfLines={1}
+                            >
+                              {pet.name}
+                            </AppText>
+                            <AppText
+                              variant="caption"
+                              color={colors.onSurfaceVariant}
+                              numberOfLines={2}
+                              style={styles.sendRequestPetMeta}
+                            >
+                              {subtitle}
+                            </AppText>
+                          </View>
+                        </TouchableOpacity>
+                      );
+                    })}
                 </ScrollView>
 
                 <AppText
@@ -1372,6 +1441,7 @@ export default function HomeScreen() {
                               .eq("owner_id", user.id)
                               .eq("pet_id", petId)
                               .eq("status", "open")
+                              .order("start_date", { ascending: false })
                               .order("created_at", { ascending: false })
                               .limit(1);
                           if (
@@ -1381,20 +1451,19 @@ export default function HomeScreen() {
                             throw openReqErr;
                           const openReq = openReqRows?.[0] as any | undefined;
                           if (!openReq?.id) {
-                            setSendRequestFeedback({
-                              title: t("common.notice", "Heads up"),
-                              description: t(
+                            showToast({
+                              variant: "info",
+                              message: t(
                                 "home.sendRequest.needsOpenRequest",
                                 "Create an open care request for this pet first, then you can message a taker.",
                               ),
-                              onAcknowledge: () => {
-                                router.push({
-                                  pathname: "/(private)/post-requests",
-                                  params: { petId },
-                                } as any);
-                                setSendRequestOpen(false);
-                              },
+                              durationMs: 3200,
                             });
+                            router.push({
+                              pathname: "/(private)/post-requests",
+                              params: { petId },
+                            } as any);
+                            setSendRequestOpen(false);
                             return;
                           }
 
@@ -1493,12 +1562,16 @@ export default function HomeScreen() {
                             } as any,
                           });
                         } catch (err) {
-                          setSendRequestFeedback({
-                            title: t("common.error", "Something went wrong"),
-                            description:
-                              err instanceof Error
-                                ? err.message
-                                : t("common.error", "Something went wrong"),
+                          showToast({
+                            variant: "error",
+                            message: errorMessageFromUnknown(
+                              err,
+                              t(
+                                "home.sendRequest.sendFailed",
+                                "Couldn't send the request right now. Please try again.",
+                              ),
+                            ),
+                            durationMs: 3400,
                           });
                         } finally {
                           setSendRequestBusy(false);
@@ -1520,19 +1593,6 @@ export default function HomeScreen() {
           </View>
         </TouchableWithoutFeedback>
       </Modal>
-
-      <FeedbackModal
-        visible={sendRequestFeedback !== null}
-        title={sendRequestFeedback?.title ?? ""}
-        description={sendRequestFeedback?.description}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => {
-          const cb = sendRequestFeedback?.onAcknowledge;
-          setSendRequestFeedback(null);
-          cb?.();
-        }}
-        onRequestClose={() => setSendRequestFeedback(null)}
-      />
     </PageContainer>
   );
 }
@@ -1570,11 +1630,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "baseline",
     gap: 4,
-  },
-  emptyIllustration: {
-    width: 140,
-    borderRadius: 16,
-    backgroundColor: "transparent",
   },
   rangeLabels: {
     flexDirection: "row",

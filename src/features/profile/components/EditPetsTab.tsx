@@ -3,8 +3,11 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { ProfilePetCard } from "@/src/shared/components/cards";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { IllustratedEmptyState } from "@/src/shared/components/ui";
-import React, { useState } from "react";
+import {
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
+import React, { useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Modal, Pressable, StyleSheet, View } from "react-native";
 
@@ -53,20 +56,20 @@ export function EditPetsTab({
 
   const menuButtonRefs = React.useRef<Record<string, View | null>>({});
 
+  const menuPet = useMemo(
+    () => (openMenuForId ? pets.find((p) => p.id === openMenuForId) : null),
+    [openMenuForId, pets],
+  );
+  const canLaunchRequest = Boolean(menuPet && !menuPet.seekingDateRange);
+
   return (
     <View style={styles.container}>
       {pets.length === 0 ? (
         <View style={styles.empty}>
           <IllustratedEmptyState
-            title="Aw aw!"
-            message="You have not uploaded any pets yet."
-            illustration={{
-              source: require("@/assets/illustrations/pets/no-pet.svg"),
-              type: "svg",
-              height: 145,
-              width: 140,
-              style: { backgroundColor: "transparent", borderRadius: 16 },
-            }}
+            title={t("post.request.emptyPetsTitle")}
+            message={t("post.request.emptyPetsSubtitle")}
+            illustration={IllustratedEmptyStateIllustrations.noPet}
             actionLabel={t("post.request.addAPet", "+ Add a pet")}
             onAction={onAddPet}
           />
@@ -140,19 +143,24 @@ export function EditPetsTab({
                     },
                   ]}
                 >
-                  <Pressable
-                    style={{ ...styles.menuItem, borderBottomColor: colors.outlineVariant }}
-                    onPress={() => {
-                      const id = openMenuForId;
-                      setOpenMenuForId(null);
-                      setMenuPosition(null);
-                      if (id) onLaunchPetRequest?.(id);
-                    }}
-                  >
-                    <AppText variant="body">
-                      {t("profile.pets.launchRequest", "Launch pet request")}
-                    </AppText>
-                  </Pressable>
+                  {canLaunchRequest ? (
+                    <Pressable
+                      style={{
+                        ...styles.menuItem,
+                        borderBottomColor: colors.outlineVariant,
+                      }}
+                      onPress={() => {
+                        const id = openMenuForId;
+                        setOpenMenuForId(null);
+                        setMenuPosition(null);
+                        if (id) onLaunchPetRequest?.(id);
+                      }}
+                    >
+                      <AppText variant="body">
+                        {t("profile.pets.launchRequest", "Launch pet request")}
+                      </AppText>
+                    </Pressable>
+                  ) : null}
                   <Pressable
                     style={{ ...styles.menuItem, borderBottomColor: colors.outlineVariant }}
                     onPress={() => {

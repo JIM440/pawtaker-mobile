@@ -1,6 +1,7 @@
 import React from 'react';
 import { CareRow, CareTable } from './CareTable';
 import { EmptyState } from './EmptyState';
+import { CareTableSkeleton } from "./CareTableSkeleton";
 
 export interface CareRowGivven {
     id: string;
@@ -16,11 +17,15 @@ export interface CareRowGivven {
 interface CareGivenTabProps {
     colors: any;
     rows: CareRowGivven[];
+    loading?: boolean;
 }
 
-export function CareGivenTab({ colors, rows }: CareGivenTabProps) {
+export function CareGivenTab({ colors, rows, loading = false }: CareGivenTabProps) {
+    if (loading) {
+        return <CareTableSkeleton colors={colors} rowCount={5} />;
+    }
     if (rows.length === 0) {
-        return <EmptyState colors={colors} variant="given" />;
+        return <EmptyState variant="given" />;
     }
 
     const tableRows: CareRow[] = rows.map(r => ({

@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import { tabPerfScreenOptions } from "@/src/constants/navigation";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
@@ -33,6 +34,7 @@ export default function TabsLayout() {
   const router = useRouter();
   const pathname = usePathname();
   const { user } = useAuthStore();
+  const showToast = useToastStore((s) => s.showToast);
   const [showPostModal, setShowPostModal] = useState(false);
   const [messageUnreadCount, setMessageUnreadCount] = useState(0);
   const activePillBg = colors.primaryContainer;
@@ -313,8 +315,24 @@ export default function TabsLayout() {
               <Pressable
                 android_ripple={{ color: colors.surfaceContainerHighest }}
                 style={{ paddingVertical: 16, paddingHorizontal: 12 }}
-                onPress={() => {
+                onPress={async () => {
                   if (blockIfKycNotApproved()) return;
+                  if (user?.id) {
+                    const { data, error } = await supabase
+                      .from("taker_profiles")
+                      .select("user_id")
+                      .eq("user_id", user.id)
+                      .maybeSingle();
+                    if (!error && data) {
+                      setShowPostModal(false);
+                      showToast({
+                        variant: "info",
+                        message: t("post.alreadyHaveAvailabilityProfile"),
+                        durationMs: 4200,
+                      });
+                      return;
+                    }
+                  }
                   setShowPostModal(false);
                   router.push("/(private)/post-availability" as any);
                 }}

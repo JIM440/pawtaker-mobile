@@ -1,6 +1,10 @@
-import { IllustratedEmptyState } from "@/src/shared/components/ui";
+import {
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, View } from "react-native";
 
 type Props = {
@@ -9,6 +13,7 @@ type Props = {
 };
 
 export function ProfileBioTab({ bio, isMine = false }: Props) {
+  const { t } = useTranslation();
   const trimmedBio = bio?.trim();
   const isEmpty = !trimmedBio;
 
@@ -16,17 +21,11 @@ export function ProfileBioTab({ bio, isMine = false }: Props) {
     return (
       <View style={styles.emptyState}>
         <IllustratedEmptyState
-          title="A bit of mystery"
+          title={t("profile.bio.emptyTitle")}
           message={
-            isMine
-              ? "You have not put up a bio yet"
-              : "This user has not put up a bio yet."
+            isMine ? t("profile.bio.emptyMine") : t("profile.bio.emptyOther")
           }
-          illustration={{
-            source: require("@/assets/illustrations/pets/no-bio.svg"),
-            type: "svg",
-            style: { backgroundColor: "transparent", borderRadius: 16 },
-          }}
+          illustration={IllustratedEmptyStateIllustrations.noBio}
         />
       </View>
     );

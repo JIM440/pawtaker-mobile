@@ -253,14 +253,16 @@ export function PetCard({
           </AppText>
         </View>
 
-        <AppText
-          variant="caption"
-          color={colors.onSurfaceVariant}
-          numberOfLines={3}
-          style={styles.description}
-        >
-          {description}
-        </AppText>
+        {description.trim().length > 0 ? (
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            // numberOfLines={3}
+            style={styles.description}
+          >
+            {description}
+          </AppText>
+        ) : null}
 
         {tags.length > 0 && (
           <View style={styles.tagsRow}>
@@ -418,13 +420,15 @@ const styles = StyleSheet.create({
   tagsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
+    flexGrow: 0,
     gap: 6,
     marginTop: 8,
   },
   tagPill: {
+    flexGrow: 0,
+    paddingVertical: 4,
     paddingHorizontal: 8,
-    paddingVertical: 999,
-    borderRadius: 8,
+    borderRadius: 99,
   },
   tagText: {
     fontSize: 10,

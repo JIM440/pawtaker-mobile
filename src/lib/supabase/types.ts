@@ -100,13 +100,29 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['pets']['Insert']>;
         Relationships: never[];
       };
+      pet_likes: {
+        Row: {
+          user_id: string;
+          pet_id: string;
+          care_request_id: string | null;
+          created_at: string;
+        };
+        Insert: {
+          user_id: string;
+          pet_id: string;
+          care_request_id?: string | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['pet_likes']['Insert']>;
+        Relationships: never[];
+      };
       care_requests: {
         Row: {
           id: string;
           owner_id: string;
           pet_id: string;
           taker_id: string | null;
-          /** DB `text` — app uses e.g. sitting, walking, boarding */
+          /** DB `text` — `daytime` | `playwalk` | `overnight` | `vacation` */
           care_type: string;
           /** DB `text`, default `open` */
           status: string;
@@ -120,7 +136,6 @@ export interface Database {
           end_time: string | null;
           /** DB `integer`, default 0 */
           points_offered: number;
-          description: string | null;
           created_at: string;
         };
         Insert: {
@@ -135,7 +150,6 @@ export interface Database {
           start_time?: string | null;
           end_time?: string | null;
           points_offered?: number;
-          description?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['care_requests']['Insert']>;

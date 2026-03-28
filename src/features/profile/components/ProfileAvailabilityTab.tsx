@@ -1,9 +1,10 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { AvailabilityPreviewCard } from "@/src/shared/components/cards";
-import { IllustratedEmptyState } from "@/src/shared/components/ui";
+import {
+  IllustratedEmptyState,
+  IllustratedEmptyStateIllustrations,
+} from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { CalendarDays, Clock } from "lucide-react-native";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
@@ -24,50 +25,49 @@ type AvailabilityData = {
   isPetOwner?: string;
   note?: string;
   time?: string;
-  days?: string;
+  /** Day labels from wizard (array) or a single joined string (legacy). */
+  days?: string | string[];
 };
+
+function normalizeDayTokens(days: string | string[] | undefined): string[] {
+  if (days == null) return [];
+  if (Array.isArray(days)) {
+    return days.map((d) => String(d).trim()).filter(Boolean);
+  }
+  const s = String(days).trim();
+  if (!s) return [];
+  return s
+    .split(/\s*[•|,]\s*|\s*\n\s*/g)
+    .map((x) => x.trim())
+    .filter(Boolean);
+}
 
 type Props = {
   data: AvailabilityData;
   emptyMessage?: string;
 };
 
-function SectionCard({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+function SectionCard({ children }: { children: React.ReactNode }) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  return (
-    <View
-      style={[
-        styles.sectionCard,
-        {
-          backgroundColor: colors.surfaceBright,
-          borderColor: colors.outlineVariant,
-        },
-      ]}
-    >
-      {children}
-    </View>
-  );
+  return <View style={styles.sectionCard}>{children}</View>;
 }
 
-export function ProfileAvailabilityTab({
-  data,
-  emptyMessage,
-}: Props) {
+export function ProfileAvailabilityTab({ data, emptyMessage }: Props) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const resolvedEmptyMessage = emptyMessage ?? t("profile.availability.emptyMessage");
-  const emptyTitle = "No availability set yet";
+  const resolvedEmptyMessage =
+    emptyMessage ?? t("profile.availability.emptyMessage");
+  const emptyTitle = t("profile.availability.emptyTitle");
+
+  const daysTokens = normalizeDayTokens(data.days);
+  const hasDaysContent = daysTokens.length > 0;
 
   const isEffectivelyEmpty =
     !data.note?.trim() &&
     !data.time?.trim() &&
-    !data.days?.trim() &&
+    !hasDaysContent &&
     !data.yardType?.trim() &&
     !data.isPetOwner?.trim() &&
     (data.card.petTypes?.length ?? 0) === 0 &&
@@ -79,116 +79,163 @@ export function ProfileAvailabilityTab({
         <IllustratedEmptyState
           title={emptyTitle}
           message={resolvedEmptyMessage}
-          illustration={{
-            source: require("@/assets/illustrations/pets/no-availability.svg"),
-            type: "svg",
-            height: 145,
-            width: 140,
-            style: { backgroundColor: "transparent", borderRadius: 16 },
-          }}
+          illustration={IllustratedEmptyStateIllustrations.noAvailability}
           mode="inline"
         />
       </View>
     );
   }
 
-  const DisplayField = ({
+  const PillField = ({
     label,
-    value,
+    values,
     style,
-    icon,
   }: {
     label: string;
-    value: string;
+    values: string[];
     style?: object;
-    icon?: React.ReactNode;
   }) => (
     <View style={styles.fieldWrap}>
-    <View style={[styles.field, style]}>
-      <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.label}>
-        {label}
-      </AppText>
-      <View style={styles.iconContentRow}>
-        {icon && <View style={styles.iconWrapper}>{icon}</View>}
-        <AppText variant="body" color={colors.onSurface} style={styles.content}>
-          {value}
+      <View style={[styles.field, style]}>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          style={styles.label}
+        >
+          {label}
         </AppText>
+        <View style={styles.pillsRow}>
+          {(values.length ? values : [resolvedEmptyMessage]).map((v, idx) => (
+            <View
+              key={`${v}-${idx}`}
+              style={[styles.pill, { backgroundColor: colors.surfaceVariant }]}
+            >
+              <AppText
+                variant="caption"
+                color={colors.onSurface}
+                numberOfLines={1}
+              >
+                {v}
+              </AppText>
+            </View>
+          ))}
+        </View>
       </View>
-    </View>
     </View>
   );
 
-  const PillField = ({
-    label,
-    value,
-    style,
-  }: {
-    label: string;
-    value: string;
-    style?: object;
-  }) => (
-    <View style={styles.fieldWrap}>
-    <View style={[styles.field, style]}>
-      <AppText variant="caption" color={colors.onSurfaceVariant} style={styles.label}>
-        {label}
-      </AppText>
-      <View
-        style={[
-          styles.pill,
-          { backgroundColor: colors.surfaceVariant },
-        ]}
-      >
-        <AppText variant="caption" color={colors.onSurface}>
-          {value}
-        </AppText>
-      </View>
-    </View>
-    </View>
-  );
+  const noteValue = data.note?.trim() || resolvedEmptyMessage;
+
+  const petOwnerDisplay = (() => {
+    const raw = data.isPetOwner?.trim();
+    if (!raw) return resolvedEmptyMessage;
+    const l = raw.toLowerCase();
+    if (l === "yes") return t("post.availability.ownerYes");
+    if (l === "no") return t("post.availability.ownerNo");
+    return raw;
+  })();
 
   return (
     <ScrollView style={styles.container} showsVerticalScrollIndicator={false}>
-      <AvailabilityPreviewCard {...data.card} />
-
       <View style={styles.cardStack}>
         <SectionCard>
-          <DisplayField
-            label={t("availability.note", "Short note")}
-            value={data.note?.trim() || resolvedEmptyMessage}
-          />
+          {/* Row 1: Pet owner + Pet types */}
+          <View style={[styles.row, styles.rowFirst]}>
+            <PillField
+              label={t("availability.petOwner")}
+              values={[petOwnerDisplay]}
+            />
+            <PillField
+              label={t("availability.petTypes")}
+              values={(data.card.petTypes ?? []).filter(Boolean)}
+            />
+          </View>
+
+          {/* Row 2: Care types + Yard type */}
+          <View style={styles.row}>
+            <PillField
+              label={t("availability.careTypes")}
+              values={(data.card.services ?? []).filter(Boolean)}
+            />
+            <PillField
+              label={t("availability.yardType")}
+              values={[data.yardType?.trim() || resolvedEmptyMessage]}
+            />
+          </View>
+
+          {/* Row 3: Dates + Time (same line) */}
+          <View style={styles.row}>
+            <View style={styles.fieldWrap}>
+              <AppText
+                variant="caption"
+                color={colors.onSurfaceVariant}
+                style={styles.label}
+              >
+                {t("availability.dates")}
+              </AppText>
+              <View style={styles.dateChipsRow}>
+                {(daysTokens.length ? daysTokens : [resolvedEmptyMessage]).map(
+                  (d, idx) => (
+                    <View
+                      key={`${d}-${idx}`}
+                      style={[
+                        styles.dateChip,
+                        { backgroundColor: colors.surfaceVariant },
+                      ]}
+                    >
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurface}
+                        numberOfLines={2}
+                        style={styles.dateChipText}
+                      >
+                        {d}
+                      </AppText>
+                    </View>
+                  ),
+                )}
+              </View>
+            </View>
+            <View style={styles.fieldWrap}>
+              <AppText
+                variant="caption"
+                color={colors.onSurfaceVariant}
+                style={styles.label}
+              >
+                {t("availability.timeOnly")}
+              </AppText>
+              <View style={styles.noteBox}>
+                <AppText
+                  variant="body"
+                  color={colors.onSurfaceVariant}
+                  style={styles.noteText}
+                >
+                  {data.time || resolvedEmptyMessage}
+                </AppText>
+              </View>
+            </View>
+          </View>
+
+          {/* Row 4: Note */}
+          <View style={styles.rowSingle}>
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={styles.label}
+            >
+              {t("availability.note")}
+            </AppText>
+            <View style={styles.noteBox}>
+              <AppText
+                variant="body"
+                color={colors.onSurface}
+                style={styles.noteText}
+              >
+                {noteValue}
+              </AppText>
+            </View>
+          </View>
         </SectionCard>
-
-        <View style={styles.row}>
-          <SectionCard>
-            <DisplayField
-              label={t("availability.timeOnly", "Time")}
-              value={data.time || resolvedEmptyMessage}
-              icon={<Clock size={16} color={colors.primary} />}
-            />
-          </SectionCard>
-          <SectionCard>
-            <DisplayField
-              label={t("availability.daysOnly", "Days")}
-              value={data.days || resolvedEmptyMessage}
-              icon={<CalendarDays size={16} color={colors.primary} />}
-            />
-          </SectionCard>
-        </View>
-
-        <View style={styles.row}>
-          <SectionCard>
-            <PillField
-              label={t("availability.yardType", "Yard Type")}
-              value={data.yardType || resolvedEmptyMessage}
-            />
-          </SectionCard>
-          <SectionCard>
-            <PillField
-              label={t("availability.petOwner", "Pet Owner")}
-              value={data.isPetOwner || resolvedEmptyMessage}
-            />
-          </SectionCard>
-        </View>
       </View>
     </ScrollView>
   );
@@ -207,16 +254,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
   },
   cardStack: {
-    marginTop: 16,
     gap: 12,
     paddingBottom: 40,
   },
   sectionCard: {
-    borderRadius: 16,
-    borderWidth: 1,
-    padding: 14,
     flex: 1,
     minWidth: 0,
+    gap: 12,
   },
   field: {
     gap: 4,
@@ -225,12 +269,11 @@ const styles = StyleSheet.create({
     flex: 1,
     minWidth: 0,
   },
-  iconContentRow: {
+  pillsRow: {
     flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
     alignItems: "center",
-  },
-  iconWrapper: {
-    marginRight: 8,
   },
   pill: {
     alignSelf: "flex-start",
@@ -239,10 +282,41 @@ const styles = StyleSheet.create({
     borderRadius: 99,
     alignItems: "center",
     justifyContent: "center",
+    maxWidth: "100%",
   },
   row: {
     flexDirection: "row",
     gap: 12,
+    marginTop: 12,
+  },
+  rowFirst: {
+    marginTop: 0,
+  },
+  rowSingle: {
+    marginTop: 12,
+  },
+  dateChipsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+    marginTop: 6,
+    alignItems: "center",
+    alignContent: "flex-start",
+  },
+  dateChip: {
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 4,
+    minWidth: 30,
+    minHeight: 30,
+    alignItems: "center",
+    justifyContent: "center",
+    maxWidth: "100%",
+  },
+  dateChipText: {
+    textAlign: "center",
+    fontWeight: "600",
+    fontSize: 10,
   },
   label: {
     fontSize: 12,
@@ -250,9 +324,19 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
     letterSpacing: 0.5,
   },
-  content: {
-    lineHeight: 22,
+  noteBox: {
+    marginTop: 6,
+    // borderWidth: 1,
+    borderRadius: 12,
+    // paddingHorizontal: 12,
+    // paddingVertical: 10,
+  },
+  noteBoxInline: {
+    minHeight: 44,
+    justifyContent: "center",
+  },
+  noteText: {
     fontSize: 14,
-    flex: 1,
+    lineHeight: 20,
   },
 });

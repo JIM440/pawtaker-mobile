@@ -5,10 +5,11 @@ import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import {
   errorMessageFromUnknown,
@@ -22,7 +23,8 @@ import {
   ProfilePetsTabSkeleton,
   ProfileReviewsTabSkeleton,
 } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
-import { AppText, DataState } from "@/src/shared/components/ui";
+import { AppText, ErrorState } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router, useLocalSearchParams } from "expo-router";
@@ -47,6 +49,9 @@ export default function ProfileScreen() {
   const [refreshing, setRefreshing] = useState(false);
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
+  const [deletePetId, setDeletePetId] = useState<string | null>(null);
+  const [deletePetLoading, setDeletePetLoading] = useState(false);
+  const showToast = useToastStore((s) => s.showToast);
 
   const params = useLocalSearchParams<{
     tab?: string;
@@ -150,7 +155,8 @@ export default function ProfileScreen() {
       const { data: petsData, error: petsError } = await supabase
         .from("pets")
         .select("*")
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false });
       if (petsError && !isMissingBackendResourceError(petsError))
         throw petsError;
 
@@ -165,6 +171,7 @@ export default function ProfileScreen() {
           .eq("owner_id", user.id)
           .eq("status", "open")
           .in("pet_id", petIds)
+          .order("start_date", { ascending: false })
           .order("created_at", { ascending: false });
 
         if (openReqErr && !isMissingBackendResourceError(openReqErr))
@@ -192,7 +199,8 @@ export default function ProfileScreen() {
               : undefined;
 
         const seekingTime =
-          typeof req?.start_time === "string" && typeof req?.end_time === "string"
+          typeof req?.start_time === "string" &&
+          typeof req?.end_time === "string"
             ? `${req.start_time.slice(0, 5)} - ${req.end_time.slice(0, 5)}`
             : undefined;
 
@@ -209,6 +217,42 @@ export default function ProfileScreen() {
       setPetsError(errorMessageFromUnknown(err, "Failed to load pets."));
     } finally {
       setPetsLoading(false);
+    }
+  };
+
+  const confirmDeletePet = async () => {
+    if (!user?.id || !deletePetId) return;
+    setDeletePetLoading(true);
+    try {
+      const { error } = await supabase
+        .from("pets")
+        .delete()
+        .eq("id", deletePetId)
+        .eq("owner_id", user.id);
+      if (error) throw error;
+
+      showToast({
+        variant: "success",
+        message: t("pets.delete.success", "Pet deleted."),
+        durationMs: 2400,
+      });
+      setDeletePetId(null);
+      setPetsLoaded(false);
+      void loadPetsTab({ refresh: true });
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t(
+            "pets.delete.failed",
+            "Couldn't delete this pet. Please try again.",
+          ),
+        ),
+        durationMs: 3200,
+      });
+    } finally {
+      setDeletePetLoading(false);
     }
   };
 
@@ -516,15 +560,15 @@ export default function ProfileScreen() {
             {petsLoading ? (
               <ProfilePetsTabSkeleton count={3} />
             ) : petsError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={petsError}
+              <ErrorState
+                error={petsError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setPetsError(null);
                   setPetsLoaded(false);
                   void loadPetsTab({ refresh: true });
                 }}
+                mode="inline"
               />
             ) : (
               <ProfilePetsTab
@@ -538,14 +582,12 @@ export default function ProfileScreen() {
                     petType: pet.species || "Pet",
                     bio: parsed.bio || "No pet bio yet.",
                     yardType:
-                      ((pet as any)?.yard_type ?? parsed.yardType) ||
-                      undefined,
+                      ((pet as any)?.yard_type ?? parsed.yardType) || undefined,
                     ageRange:
-                      ((pet as any)?.age_range ?? parsed.ageRange) ||
-                      undefined,
+                      ((pet as any)?.age_range ?? parsed.ageRange) || undefined,
                     energyLevel:
-                      ((pet as any)?.energy_level ??
-                        parsed.energyLevel) || undefined,
+                      ((pet as any)?.energy_level ?? parsed.energyLevel) ||
+                      undefined,
                     seekingDateRange: pet.seekingDateRange,
                     seekingTime: pet.seekingTime,
                   };
@@ -556,6 +598,21 @@ export default function ProfileScreen() {
                 }}
                 showAddPetButton
                 onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
+                showPetActions
+                onLaunchRequest={(id) => {
+                  if (blockIfKycNotApproved()) return;
+                  router.push({
+                    pathname: "/(private)/post-requests",
+                    params: { petId: id },
+                  });
+                }}
+                onEditPet={(id) =>
+                  router.push({
+                    pathname: "/(private)/pets/[id]/edit",
+                    params: { id },
+                  })
+                }
+                onDeletePet={(id) => setDeletePetId(id)}
               />
             )}
           </>
@@ -565,15 +622,15 @@ export default function ProfileScreen() {
             {availabilityLoading ? (
               <ProfileAvailabilityTabSkeleton />
             ) : availabilityError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={availabilityError}
+              <ErrorState
+                error={availabilityError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setAvailabilityError(null);
                   setAvailabilityLoaded(false);
                   void loadAvailabilityTab({ refresh: true });
                 }}
+                mode="inline"
               />
             ) : (
               <ProfileAvailabilityTab
@@ -587,11 +644,11 @@ export default function ProfileScreen() {
                     isAvailable: availability?.available ?? false,
                     petTypes:
                       availability?.petKinds?.length > 0
-                        ? availability?.petKinds ?? []
+                        ? (availability?.petKinds ?? [])
                         : [],
                     services:
                       availability?.services?.length > 0
-                        ? availability?.services ?? []
+                        ? (availability?.services ?? [])
                         : [],
                     location: profileData.location,
                   },
@@ -602,12 +659,12 @@ export default function ProfileScreen() {
                       : "",
                   days:
                     availability?.days?.length > 0
-                      ? availability?.days?.join(" • ") ?? ""
-                      : "",
+                      ? (availability?.days as string[])
+                      : [],
                   yardType: availability?.yardType || "",
                   isPetOwner: availability?.petOwner || "",
                 }}
-                emptyMessage="You have not set up your availability yet"
+                emptyMessage={t("profile.availability.emptyMine")}
               />
             )}
           </>
@@ -618,15 +675,15 @@ export default function ProfileScreen() {
             {reviewsLoading ? (
               <ProfileReviewsTabSkeleton />
             ) : reviewsError ? (
-              <DataState
-                title={t("common.error", "Something went wrong")}
-                message={reviewsError}
+              <ErrorState
+                error={reviewsError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
                   setReviewsError(null);
                   setReviewsLoaded(false);
                   void loadReviewsTab({ refresh: true });
                 }}
+                mode="inline"
               />
             ) : (
               <ProfileReviewsTab
@@ -649,6 +706,22 @@ export default function ProfileScreen() {
         visible={avatarViewerOpen}
         images={profileData.avatarUri ? [{ uri: profileData.avatarUri }] : []}
         onRequestClose={() => setAvatarViewerOpen(false)}
+      />
+
+      <FeedbackModal
+        visible={deletePetId !== null}
+        title={t("common.deleteConfirmTitle", "Delete pet?")}
+        description={t(
+          "common.deleteConfirmMessage",
+          "This will permanently delete the pet from your account.",
+        )}
+        primaryLabel={t("common.delete", "Delete")}
+        onPrimary={() => void confirmDeletePet()}
+        primaryLoading={deletePetLoading}
+        secondaryLabel={t("common.cancel", "Cancel")}
+        onSecondary={() => !deletePetLoading && setDeletePetId(null)}
+        onRequestClose={() => !deletePetLoading && setDeletePetId(null)}
+        destructive
       />
     </PageContainer>
   );

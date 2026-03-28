@@ -1,78 +1,133 @@
 /**
- * App colors – Light & Dark schemes (inlined; no external imports).
+ * App colors – Complete Material 3 Light & Dark schemes
+ * Updated with your specific requests + full theme tokens
  */
 const materialLight = {
-  primary: "#8c4a60",
-  onPrimary: "#ffffff",
-  primaryContainer: "#ffd9e2",
+  primary: "#8C4A60",
+  onPrimary: "#E1E2C7",
+  primaryContainer: "#FFD9E2",
   onPrimaryContainer: "#703348",
-  secondary: "#74565f",
-  onSecondary: "#ffffff",
-  secondaryContainer: "#ffe0e8",
-  onSecondaryContainer: "#5a3f47",
-  tertiary: "#7c5635",
-  onTertiary: "#ffffff",
-  tertiaryContainer: "#ffdcc1",
-  onTertiaryContainer: "#623f20",
-  error: "#ba1a1a",
-  onError: "#ffffff",
-  errorContainer: "#ffdad6",
-  onErrorContainer: "#93000a",
-  background: "#f5f0f0",
-  onBackground: "#22191c",
-  surface: "#fff8f8",
-  surfaceBright: "#FFFAFA",
-  onSurface: "#22191c",
-  surfaceVariant: "#f2dde1",
+
+  secondary: "#74565F",
+  onSecondary: "#FFFFFF",
+  secondaryContainer: "#FFE0E8",
+  onSecondaryContainer: "#5A3F47",
+
+  tertiary: "#7C5635",
+  onTertiary: "#FFFFFF",
+  tertiaryContainer: "#FFDCC1",
+  onTertiaryContainer: "#623F20",
+
+  error: "#BA1A1A",
+  onError: "#FFFFFF",
+  errorContainer: "#FFDAD6",
+  onErrorContainer: "#93000A",
+
+  background: "#F5F0F0",
+  onBackground: "#22191C",
+  surface: "#FFF8F8", // ← your requested value
+  onSurface: "#22191C",
+  surfaceVariant: "#F2DDE1",
   onSurfaceVariant: "#665459",
-  outline: "#837377",
-  outlineVariant: "#d5c2c6",
-  surfaceContainer: "#faf2f4",
-  surfaceContainerLow: "#fff7f8",
-  surfaceContainerLowest: "#ffffff",
-  surfaceContainerHighest: "#EDE6E7",
+
+  surfaceDim: "#EBDDDF",
+  surfaceBright: "#FFFAFA",
+
+  surfaceContainer: "#FAF2F4",
+  surfaceContainerLow: "#FFF7F8",
+  surfaceContainerLowest: "#FFFFFF",
   surfaceContainerHigh: "#F5EEEF",
-  surfaceDim: "#ebdddf",
+  surfaceContainerHighest: "#EDE6E7",
+
+  outline: "#837377",
+  outlineVariant: "#D5C2C6",
+
+  // Additional useful tokens
+  inverseSurface: "#372E30",
+  inverseOnSurface: "#FDEDEF",
+  inversePrimary: "#FFB1C8",
+
+  primaryFixed: "#FFD9E2",
+  onPrimaryFixed: "#3A071D",
+  primaryFixedDim: "#FFB1C8",
+  onPrimaryFixedVariant: "#703348",
+
+  secondaryFixed: "#FFD9E2",
+  onSecondaryFixed: "#2B151C",
+  secondaryFixedDim: "#E38DC6",
+  onSecondaryFixedVariant: "#5A3F47",
+
+  tertiaryFixed: "#FFDCC1",
+  onTertiaryFixed: "#2E1500",
+  tertiaryFixedDim: "#EFBD94",
+  onTertiaryFixedVariant: "#623F20",
 } as const;
 
 const materialDark = {
-  primary: "#ffb1c8",
-  onPrimary: "#541d32",
+  primary: "#995169",
+  onPrimary: "#E1E2C7", // ← your requested value
   primaryContainer: "#703348",
-  onPrimaryContainer: "#ffd9e2",
-  secondary: "#e3bdc6",
+  onPrimaryContainer: "#FFD9E2",
+
+  secondary: "#E38DC6",
   onSecondary: "#422931",
-  secondaryContainer: "#5a3f47",
-  onSecondaryContainer: "#ffd9e2",
-  tertiary: "#efbd94",
-  onTertiary: "#48290b",
-  tertiaryContainer: "#623f20",
-  onTertiaryContainer: "#ffdcc1",
-  error: "#ffb4ab",
+  secondaryContainer: "#5A3F47",
+  onSecondaryContainer: "#FFD9E2",
+
+  tertiary: "#EFBD94",
+  onTertiary: "#48290B",
+  tertiaryContainer: "#623F20",
+  onTertiaryContainer: "#FFDCC1",
+
+  error: "#FF6D6D", // ← your requested value
   onError: "#690005",
-  errorContainer: "#93000a",
-  onErrorContainer: "#ffdad6",
-  background: "#1a1718",
-  onBackground: "#efdfe1",
+  errorContainer: "#462B29",
+  onErrorContainer: "#93000A",
+
+  background: "#171516",
+  onBackground: "#EFDFE1",
   surface: "#191113",
-  surfaceBright: "#242121",
-  onSurface: "#efdfe1",
+  onSurface: "#EFDFE1",
   surfaceVariant: "#514347",
-  onSurfaceVariant: "#d5c2c6",
-  outline: "#9e8c90",
-  outlineVariant: "#514347",
-  surfaceContainer: "#0d0c0c",
-  surfaceContainerLow: "#121011",
-  surfaceContainerLowest: "#0a090a",
-  surfaceContainerHighest: "#383435",
-  surfaceContainerHigh: "#302B2C",
+  onSurfaceVariant: "#D5C2C6",
+
   surfaceDim: "#191113",
+  surfaceBright: "#242121",
+
+  surfaceContainer: "#1C1A1A",
+  surfaceContainerLow: "#121011",
+  surfaceContainerLowest: "#1A1718",
+  surfaceContainerHigh: "#292425", // ← your requested value
+  surfaceContainerHighest: "#2E2B2C",
+
+  outline: "#9E8C90",
+  outlineVariant: "#514347",
+
+  // Additional useful tokens
+  inverseSurface: "#EFDFE1",
+  inverseOnSurface: "#372E30",
+  inversePrimary: "#8C4A60",
+
+  primaryFixed: "#FFD9E2",
+  onPrimaryFixed: "#3A071D",
+  primaryFixedDim: "#FFB1C8",
+  onPrimaryFixedVariant: "#703348",
+
+  secondaryFixed: "#FFD9E2",
+  onSecondaryFixed: "#2B151C",
+  secondaryFixedDim: "#E38DC6",
+  onSecondaryFixedVariant: "#5A3F47",
+
+  tertiaryFixed: "#FFDCC1",
+  onTertiaryFixed: "#2E1500",
+  tertiaryFixedDim: "#EFBD94",
+  onTertiaryFixedVariant: "#623F20",
 } as const;
 
 export const Colors = {
   light: {
     ...materialLight,
-    frameStroke: "#e8e7e7",
+    frameStroke: "#E8E7E7",
     textPrimary: materialLight.onSurface,
     textSecondary: materialLight.onSurfaceVariant,
     border: materialLight.outlineVariant,
@@ -82,7 +137,7 @@ export const Colors = {
   },
   dark: {
     ...materialDark,
-    frameStroke: "#403a37",
+    frameStroke: "#403A37",
     textPrimary: materialDark.onSurface,
     textSecondary: materialDark.onSurfaceVariant,
     border: materialDark.outlineVariant,
