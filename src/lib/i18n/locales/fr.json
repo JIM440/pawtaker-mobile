@@ -543,8 +543,21 @@
     "noMessagesSubtitle": "Envoyez le premier message pour démarrer la conversation.",
     "agreementAccepted": "Accord accepté",
     "noMessagesYet": "Aucun message pour le moment.",
+    "youPrefix": "Vous : ",
     "noChatsTitle": "Aucune discussion",
-    "noChatsSubtitle": "Démarrez une conversation : elle apparaîtra ici."
+    "noChatsSubtitle": "Démarrez une conversation : elle apparaîtra ici.",
+    "caringForPet": "S’occupe de {{petName}}",
+    "attachPhotosVideos": "Photos et vidéos",
+    "attachDocument": "Document",
+    "attachCamera": "Appareil photo",
+    "uploadNotConfigured": "L’envoi de fichiers n’est pas configuré.",
+    "imageUploadFailed": "Impossible d’envoyer l’image.",
+    "fileUploadFailed": "Impossible d’envoyer le fichier.",
+    "galleryPermissionRequired": "Autorisez l’accès à la photothèque pour joindre des images.",
+    "cameraPermissionRequired": "Autorisez l’accès à la caméra pour prendre une photo.",
+    "documentPickerRebuildRequired": "Pour joindre des documents, reconstruisez l’application (ex. npx expo run:android ou expo run:ios), puis réessayez.",
+    "lastMessagePhoto": "Photo",
+    "attachSheetTitle": "Joindre"
   },
   "requestDetails": {
     "title": "Détails de la demande",

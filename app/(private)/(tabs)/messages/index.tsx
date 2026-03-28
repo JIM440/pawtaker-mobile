@@ -1,9 +1,10 @@
 import { ChatTypography } from "@/src/constants/chatTypography";
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { useThreads } from "@/src/features/messages/hooks/useThreads";
+import { isImagePreviewContent } from "@/src/features/messages/lastMessagePreview";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { supabase } from "@/src/lib/supabase/client";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { ChatRow, ChatScreenSkeleton } from "@/src/shared/components/chat";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
@@ -16,7 +17,8 @@ import {
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { useRouter } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
-import React, { useMemo, useState } from "react";
+import { useFocusEffect } from "@react-navigation/native";
+import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshControl,
@@ -31,6 +33,9 @@ type ChatListItem = {
   name: string;
   avatarUri: string | null;
   lastMessagePreview: string;
+  previewIsImage: boolean;
+  imageSentByYou: boolean;
+  searchText: string;
   timestamp: string;
   unreadCount: number;
 };
@@ -55,119 +60,74 @@ export default function MessagesScreen() {
   const { user } = useAuthStore();
   const colors = Colors[resolvedTheme];
   const router = useRouter();
-  const [loading, setLoading] = useState(true);
+  const { threads, loading, error: threadsError, refetch } = useThreads();
   const [refreshing, setRefreshing] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [chats, setChats] = useState<ChatListItem[]>([]);
+  const skipNextFocusRefetch = useRef(true);
 
-  React.useEffect(() => {
-    void loadChats();
-  }, [user?.id]);
-
-  const loadChats = async (opts?: { refresh?: boolean }) => {
-    if (!user?.id) {
-      setChats([]);
-      setLoading(false);
-      return;
-    }
-    if (!opts?.refresh) setLoading(true);
-    setLoadError(null);
-    try {
-      const { data: threads, error: threadsError } = await supabase
-        .from("threads")
-        .select("id,participant_ids,last_message_at")
-        .contains("participant_ids", [user.id])
-        .order("last_message_at", { ascending: false, nullsFirst: false });
-      if (threadsError) throw threadsError;
-
-      const threadIds = (threads ?? []).map((t) => t.id);
-      const peerIds = Array.from(
-        new Set(
-          (threads ?? [])
-            .flatMap((t) => (t.participant_ids ?? []) as string[])
-            .filter((id) => id && id !== user.id),
-        ),
-      );
-
-      const [{ data: usersData }, { data: messagesData }] = await Promise.all([
-        peerIds.length
-          ? supabase
-              .from("users")
-              .select("id,full_name,avatar_url")
-              .in("id", peerIds)
-          : Promise.resolve({ data: [] } as any),
-        threadIds.length
-          ? supabase
-              .from("messages")
-              .select("id,thread_id,sender_id,content,type,read_at,created_at")
-              .in("thread_id", threadIds)
-              .order("created_at", { ascending: false })
-          : Promise.resolve({ data: [] } as any),
-      ]);
-
-      const usersById = (usersData ?? []).reduce(
-        (acc: Record<string, any>, u: any) => {
-          acc[u.id] = u;
-          return acc;
-        },
-        {},
-      );
-      const latestByThread: Record<string, any> = {};
-      let unreadByThread: Record<string, number> = {};
-      for (const m of messagesData ?? []) {
-        if (!latestByThread[m.thread_id]) latestByThread[m.thread_id] = m;
-        if (m.sender_id !== user.id && !m.read_at) {
-          unreadByThread[m.thread_id] = (unreadByThread[m.thread_id] ?? 0) + 1;
-        }
+  useFocusEffect(
+    useCallback(() => {
+      if (skipNextFocusRefetch.current) {
+        skipNextFocusRefetch.current = false;
+        return;
       }
+      void refetch({ silent: true });
+    }, [refetch]),
+  );
 
-      const nextChats: ChatListItem[] = (threads ?? []).map((thread: any) => {
-        const peerId = ((thread.participant_ids ?? []) as string[]).find(
-          (id) => id !== user.id,
-        );
-        const peer = peerId ? usersById[peerId] : null;
-        const latest = latestByThread[thread.id];
-        return {
-          threadId: thread.id,
-          name: resolveDisplayName(peer) || t("common.user", "User"),
-          avatarUri: peer?.avatar_url ?? null,
-          lastMessagePreview:
-            latest?.content?.trim() ||
-            t("messages.noMessagesYet", "No messages yet."),
-          timestamp: relativeTime(latest?.created_at ?? thread.last_message_at),
-          unreadCount: unreadByThread[thread.id] ?? 0,
-        };
-      });
-
-      setChats(nextChats);
-    } catch (err) {
-      setLoadError(
-        err instanceof Error
-          ? err.message
-          : t("common.error", "Something went wrong"),
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+  const chats: ChatListItem[] = useMemo(() => {
+    const photoLabel = t("messages.lastMessagePhoto", "Photo").toLowerCase();
+    return threads.map((item) => {
+      const other = item.other_user;
+      const isMine = item.last_sender_id === user?.id;
+      const rawPreview = item.last_message_preview?.trim();
+      const isImage = Boolean(rawPreview && isImagePreviewContent(rawPreview));
+      const preview = rawPreview
+        ? isImage
+          ? ""
+          : `${isMine ? t("messages.youPrefix", "You: ") : ""}${rawPreview}`
+        : t("messages.noMessagesYet", "No messages yet.");
+      const searchText = [
+        resolveDisplayName(other) || t("common.user", "User"),
+        rawPreview
+          ? isImage
+            ? `${isMine ? "you" : ""} ${photoLabel}`.trim()
+            : preview.toLowerCase()
+          : "",
+      ]
+        .join(" ")
+        .toLowerCase();
+      return {
+        threadId: item.id,
+        name: resolveDisplayName(other) || t("common.user", "User"),
+        avatarUri: other?.avatar_url ?? null,
+        lastMessagePreview: preview,
+        previewIsImage: Boolean(rawPreview && isImage),
+        imageSentByYou: Boolean(rawPreview && isImage && isMine),
+        searchText,
+        timestamp: relativeTime(item.last_message_at),
+        unreadCount: item.unreadCount,
+      };
+    });
+  }, [threads, user?.id, t]);
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadChats({ refresh: true });
+      await refetch();
     } finally {
       setRefreshing(false);
     }
   };
+
+  const showListSkeleton = loading && threads.length === 0;
 
   const filteredChats = useMemo(() => {
     if (!searchQuery.trim()) return chats;
     const q = searchQuery.toLowerCase();
     return chats.filter(
       (chat) =>
-        chat.name.toLowerCase().includes(q) ||
-        chat.lastMessagePreview.toLowerCase().includes(q),
+        chat.name.toLowerCase().includes(q) || chat.searchText.includes(q),
     );
   }, [chats, searchQuery]);
 
@@ -201,7 +161,7 @@ export default function MessagesScreen() {
         </TouchableOpacity>
       </View>
 
-      {loading ? (
+      {showListSkeleton ? (
         <ChatScreenSkeleton rowCount={8} />
       ) : (
         <ScrollView
@@ -218,12 +178,12 @@ export default function MessagesScreen() {
             />
           }
         >
-          {loadError ? (
+          {threadsError ? (
             <ErrorState
-              error={loadError}
+              error={threadsError}
               actionLabel={t("common.retry", "Retry")}
               onAction={() => {
-                void loadChats();
+                void refetch();
               }}
               mode="full"
             />
@@ -237,6 +197,8 @@ export default function MessagesScreen() {
                     name={chat.name}
                     avatarUri={chat.avatarUri ?? undefined}
                     lastMessagePreview={chat.lastMessagePreview}
+                    previewIsImage={chat.previewIsImage}
+                    imageSentByYou={chat.imageSentByYou}
                     timestamp={chat.timestamp}
                     unreadCount={chat.unreadCount}
                     onPress={() =>

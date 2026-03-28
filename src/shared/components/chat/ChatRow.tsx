@@ -3,7 +3,9 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { Image as ImageIcon } from "lucide-react-native";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
 
 export type ChatRowProps = {
@@ -11,6 +13,9 @@ export type ChatRowProps = {
   avatarUri?: string | null;
   name: string;
   lastMessagePreview: string;
+  /** When true, show camera-style icon + "Photo" instead of `lastMessagePreview`. */
+  previewIsImage?: boolean;
+  imageSentByYou?: boolean;
   timestamp: string;
   unreadCount?: number;
   onPress?: () => void;
@@ -20,10 +25,13 @@ export function ChatRow({
   avatarUri,
   name,
   lastMessagePreview,
+  previewIsImage = false,
+  imageSentByYou = false,
   timestamp,
   unreadCount = 0,
   onPress,
 }: ChatRowProps) {
+  const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -65,14 +73,44 @@ export function ChatRow({
         >
           {name}
         </AppText>
-        <AppText
-          variant="body"
-          color={colors.onSurfaceVariant}
-          numberOfLines={1}
-          style={[styles.preview, ChatTypography.rowPreview]}
-        >
-          {lastMessagePreview}
-        </AppText>
+        {previewIsImage ? (
+          <View style={styles.previewRow}>
+            {imageSentByYou ? (
+              <AppText
+                variant="body"
+                color={colors.onSurfaceVariant}
+                numberOfLines={1}
+                style={[styles.preview, ChatTypography.rowPreview]}
+              >
+                {t("messages.youPrefix", "You: ")}
+              </AppText>
+            ) : null}
+            <ImageIcon
+              size={16}
+              color={colors.onSurfaceVariant}
+              style={styles.previewPhotoIcon}
+            />
+            <AppText
+              variant="body"
+              color={colors.onSurfaceVariant}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={[styles.preview, ChatTypography.rowPreview, styles.previewPhotoLabel]}
+            >
+              {t("messages.lastMessagePhoto", "Photo")}
+            </AppText>
+          </View>
+        ) : (
+          <AppText
+            variant="body"
+            color={colors.onSurfaceVariant}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={[styles.preview, ChatTypography.rowPreview]}
+          >
+            {lastMessagePreview}
+          </AppText>
+        )}
       </View>
       <View style={styles.right}>
         <AppText
@@ -130,9 +168,21 @@ const styles = StyleSheet.create({
     fontSize: 14,
     lineHeight: 14,
   },
+  previewRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    minWidth: 0,
+    gap: 6,
+  },
+  previewPhotoIcon: {
+    flexShrink: 0,
+  },
+  previewPhotoLabel: {
+    flexShrink: 1,
+  },
   preview: {
-    fontSize: 12,
-    lineHeight: 12,
+    fontSize: 13,
+    lineHeight: 18,
   },
   right: {
     alignItems: "flex-end",
