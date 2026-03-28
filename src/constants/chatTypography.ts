@@ -99,9 +99,10 @@ export const ChatTypography = {
     lineHeight: 20,
     fontWeight: "400" as const,
   },
-  /** Composer input */
+  /** Composer input — avoid lineHeight here: Android TextInput clips visible text */
   composerInput: {
-    fontSize: 15,
-    lineHeight: 22,
+    fontSize: 16,
+    fontWeight: "400" as const,
+    letterSpacing: -0.2,
   },
 } as const;

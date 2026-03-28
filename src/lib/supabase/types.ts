@@ -271,6 +271,8 @@ export interface Database {
           participant_ids: string[];
           request_id: string | null;
           last_message_at: string | null;
+          last_message_preview: string | null;
+          last_sender_id: string | null;
           created_at: string;
         };
         Insert: {
@@ -278,6 +280,8 @@ export interface Database {
           participant_ids: string[];
           request_id?: string | null;
           last_message_at?: string | null;
+          last_message_preview?: string | null;
+          last_sender_id?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['threads']['Insert']>;

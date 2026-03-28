@@ -544,8 +544,21 @@
     "noMessagesSubtitle": "Start the conversation by sending your first message.",
     "agreementAccepted": "Agreement accepted",
     "noMessagesYet": "No messages yet.",
+    "youPrefix": "You: ",
     "noChatsTitle": "No chats yet",
-    "noChatsSubtitle": "When you start a conversation, it will appear here."
+    "noChatsSubtitle": "When you start a conversation, it will appear here.",
+    "caringForPet": "Caring for {{petName}}",
+    "attachPhotosVideos": "Photos & videos",
+    "attachDocument": "Document",
+    "attachCamera": "Camera",
+    "uploadNotConfigured": "Upload is not configured.",
+    "imageUploadFailed": "Could not send image.",
+    "fileUploadFailed": "Could not send file.",
+    "galleryPermissionRequired": "Allow photo library access to attach images.",
+    "cameraPermissionRequired": "Allow camera access to take a photo.",
+    "documentPickerRebuildRequired": "To attach documents, rebuild the app so the native module is included (e.g. npx expo run:android or expo run:ios), then try again.",
+    "lastMessagePhoto": "Photo",
+    "attachSheetTitle": "Attach"
   },
   "requestDetails": {
     "title": "Request details",

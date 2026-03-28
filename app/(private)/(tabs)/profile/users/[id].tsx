@@ -11,8 +11,11 @@ import {
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { supabase } from "@/src/lib/supabase/client";
-import { resolveDisplayName } from "@/src/lib/user/displayName";
+import { useOrCreateThread } from "@/src/features/messages/hooks/useOrCreateThread";
+import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
@@ -44,9 +47,19 @@ import {
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function PublicProfileScreen() {
-  const { id: profileId } = useLocalSearchParams<{ id: string }>();
+  const { id: profileIdParam } = useLocalSearchParams<{ id: string | string[] }>();
+  const profileId =
+    typeof profileIdParam === "string"
+      ? profileIdParam
+      : profileIdParam?.[0] ?? "";
   const router = useRouter();
   const { t } = useTranslation();
+  const { user } = useAuthStore();
+  const showToast = useToastStore((s) => s.showToast);
+  const { openThread, loading: chatOpening } = useOrCreateThread();
+  const isOwnProfile = Boolean(
+    user?.id && profileId && user.id === profileId,
+  );
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
@@ -355,10 +368,22 @@ export default function PublicProfileScreen() {
                   borderBottomColor: colors.outlineVariant,
                 },
               ]}
-              onPress={() => setOptionsVisible(false)}
+              disabled={chatOpening || !profileId || isOwnProfile}
+              onPress={() => {
+                void (async () => {
+                  setOptionsVisible(false);
+                  if (!profileId || isOwnProfile) return;
+                  const result = await openThread(profileId);
+                  if (!result.ok) {
+                    showToast({
+                      message: result.message,
+                    });
+                  }
+                })();
+              }}
             >
               <AppText variant="body" color={colors.onSurface}>
-                Go to chat
+                {t("myCare.goToChat")}
               </AppText>
             </TouchableOpacity>
             <TouchableOpacity

@@ -5,6 +5,7 @@ const CLOUD_NAME = process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ?? '';
 const KYC_PRESET = process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ?? '';
 
 const UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/image/upload`;
+const RAW_UPLOAD_URL = `https://api.cloudinary.com/v1_1/${CLOUD_NAME}/raw/upload`;
 
 /** Gallery uploads (pets, etc.): prefer `EXPO_PUBLIC_CLOUDINARY_UPLOAD_PRESET`, else KYC preset. */
 export const CLOUDINARY_GALLERY_UPLOAD_PRESET =
@@ -62,6 +63,55 @@ export async function uploadToCloudinary(
     throw new Error(
       (errorBody as { error?: { message?: string } })?.error?.message ??
         'Cloudinary upload failed',
+    );
+  }
+
+  const data = await response.json();
+  return {
+    secure_url: data.secure_url as string,
+    public_id: data.public_id as string,
+  };
+}
+
+/**
+ * Upload a non-image file (PDF, etc.) to Cloudinary `raw`.
+ * Requires an unsigned preset that allows `resource_type: raw` if your project uses strict presets.
+ */
+export async function uploadRawToCloudinary(
+  localUri: string,
+  fileName: string,
+  mimeType: string,
+  preset: string = CLOUDINARY_GALLERY_UPLOAD_PRESET || KYC_PRESET,
+): Promise<UploadResult> {
+  const formData = new FormData();
+
+  if (Platform.OS === "web") {
+    const res = await fetch(localUri);
+    const blob = await res.blob();
+    formData.append("file", blob, fileName || `upload_${Date.now()}`);
+  } else {
+    formData.append(
+      "file",
+      {
+        uri: localUri,
+        type: mimeType || "application/octet-stream",
+        name: fileName || `upload_${Date.now()}`,
+      } as unknown as Blob,
+    );
+  }
+
+  formData.append("upload_preset", preset);
+
+  const response = await fetch(RAW_UPLOAD_URL, {
+    method: "POST",
+    body: formData,
+  });
+
+  if (!response.ok) {
+    const errorBody = await response.json().catch(() => ({}));
+    throw new Error(
+      (errorBody as { error?: { message?: string } })?.error?.message ??
+        "Cloudinary raw upload failed",
     );
   }
 

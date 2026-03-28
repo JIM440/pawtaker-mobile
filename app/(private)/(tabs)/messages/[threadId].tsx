@@ -4,14 +4,17 @@ import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
-import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
-import { formatCarePointsPts } from "@/src/lib/points/carePoints";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
+import {
+  mapThreadMessagesToUi,
+  type UiMessage,
+} from "@/src/features/messages/threadMessageUi";
+import { useMessages } from "@/src/features/messages/hooks/useMessages";
+import { useSendMessage } from "@/src/features/messages/hooks/useSendMessage";
 import { supabase } from "@/src/lib/supabase/client";
-import type { Database, Json } from "@/src/lib/supabase/types";
+import type { Json } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { ChatThreadScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import {
@@ -26,15 +29,22 @@ import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   Calendar,
+  Camera,
   ChevronLeft,
   EllipsisVertical,
+  FileText,
+  Image as ImageIcon,
   SendHorizonal,
-  Upload
+  Upload,
 } from "lucide-react-native";
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import * as ImagePicker from "expo-image-picker";
 import {
+  ActivityIndicator,
+  Keyboard,
   KeyboardAvoidingView,
+  Linking,
   Modal,
   Platform,
   Pressable,
@@ -44,46 +54,14 @@ import {
   TouchableOpacity,
   View,
 } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
+import {
+  CLOUDINARY_GALLERY_UPLOAD_PRESET,
+  uploadRawToCloudinary,
+  uploadToCloudinary,
+} from "@/src/lib/cloudinary/upload";
 
-type BubbleSide = "left" | "right";
-type MessageType = "text" | "image" | "request";
-type UiMessage = {
-  id: string;
-  side: BubbleSide;
-  type: MessageType;
-  text?: string;
-  timeLabel: string;
-  requestData?: {
-    petName: string;
-    breed: string;
-    petType?: string;
-    imageUri?: string;
-    description?: string;
-    tags?: string[];
-    careType?: string;
-    date: string;
-    time: string;
-    price: string;
-    context: "seeking" | "applying";
-    offerId: string;
-  };
-};
-
-type DbMessage = Database["public"]["Tables"]["messages"]["Row"];
-/** Subset returned by thread message list query (not full row). */
-type MessageListRow = Pick<
-  DbMessage,
-  "id" | "sender_id" | "content" | "type" | "metadata" | "created_at"
->;
-
-function readMetadataString(metadata: Json | null | undefined, key: string) {
-  if (!metadata || typeof metadata !== "object" || Array.isArray(metadata))
-    return null;
-  const v = (metadata as Record<string, Json>)[key];
-  return typeof v === "string" && v.trim() ? v : null;
-}
-
-function MessageBubble({ message, colors }: { message: any; colors: any }) {
+function MessageBubble({ message, colors }: { message: UiMessage; colors: any }) {
   const { t } = useTranslation();
   const router = useRouter();
   const isRight = message.side === "right";
@@ -102,8 +80,93 @@ function MessageBubble({ message, colors }: { message: any; colors: any }) {
     );
   }
 
+  if (message.type === "image") {
+    const uri = message.imageUri?.trim() || message.text?.trim();
+    if (!uri) return null;
+    const isRight = message.side === "right";
+    return (
+      <View
+        style={[
+          styles.bubbleWrap,
+          isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+        ]}
+      >
+        <Pressable onPress={() => void Linking.openURL(uri)}>
+          <AppImage
+            source={{ uri }}
+            style={styles.chatImageAttachment}
+            contentFit="cover"
+          />
+        </Pressable>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          style={[
+            ChatTypography.bubbleTime,
+            { marginTop: 4, alignSelf: isRight ? "flex-end" : "flex-start" },
+          ]}
+        >
+          {message.timeLabel}
+        </AppText>
+      </View>
+    );
+  }
+
+  if (message.type === "file") {
+    const url = message.fileUrl?.trim();
+    const name = message.fileName?.trim() || "File";
+    if (!url) return null;
+    const isRight = message.side === "right";
+    return (
+      <View
+        style={[
+          styles.bubbleWrap,
+          isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+        ]}
+      >
+        <Pressable
+          onPress={() => void Linking.openURL(url)}
+          style={[
+            styles.fileAttachmentBubble,
+            {
+              backgroundColor: isRight
+                ? colors.primary
+                : colors.surfaceContainerHigh,
+              borderColor: colors.outlineVariant,
+            },
+          ]}
+        >
+          <FileText
+            size={18}
+            color={isRight ? colors.onPrimary : colors.onSurface}
+          />
+          <AppText
+            variant="body"
+            color={isRight ? colors.onPrimary : colors.onSurface}
+            numberOfLines={1}
+            ellipsizeMode="tail"
+            style={{ flex: 1, minWidth: 0, marginLeft: 8 }}
+          >
+            {name}
+          </AppText>
+        </Pressable>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          style={[
+            ChatTypography.bubbleTime,
+            { marginTop: 4, alignSelf: isRight ? "flex-end" : "flex-start" },
+          ]}
+        >
+          {message.timeLabel}
+        </AppText>
+      </View>
+    );
+  }
+
   if (message.type === "request") {
     const rd = message.requestData;
+    if (!rd) return null;
     const context = rd.context === "seeking" ? "seeking" : "applying";
     const offerId = typeof rd.offerId === "string" ? rd.offerId.trim() : "";
     const ctaLabel = t("messages.viewOfferDetails");
@@ -337,7 +400,7 @@ function MessageBubble({ message, colors }: { message: any; colors: any }) {
 
 export default function ThreadScreen() {
   const {
-    threadId: _threadId,
+    threadId: threadIdParam,
     mode,
     petName,
     breed,
@@ -346,7 +409,7 @@ export default function ThreadScreen() {
     price,
     offerId,
   } = useLocalSearchParams<{
-    threadId: string;
+    threadId: string | string[];
     mode?: string;
     petName?: string;
     breed?: string;
@@ -355,6 +418,11 @@ export default function ThreadScreen() {
     price?: string;
     offerId?: string;
   }>();
+  const threadId =
+    typeof threadIdParam === "string"
+      ? threadIdParam
+      : threadIdParam?.[0] ?? "";
+
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuthStore();
@@ -362,25 +430,56 @@ export default function ThreadScreen() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [input, setInput] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [sending, setSending] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [threadReady, setThreadReady] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
-  const [thread, setThread] = useState<{
+  const [threadHeader, setThreadHeader] = useState<{
     userId: string;
     name: string;
     subtitle: string;
     avatarUri: string | null;
-    messages: UiMessage[];
   }>({
     userId: "",
     name: "User",
     subtitle: "",
     avatarUri: null,
-    messages: [],
   });
+  const [pet, setPet] = useState<any>(null);
+  const [req, setReq] = useState<any>(null);
+  const [metaRetryKey, setMetaRetryKey] = useState(0);
+
+  const {
+    messages,
+    loading: messagesLoading,
+    error: messagesLoadError,
+    refetch: refetchMessages,
+  } = useMessages(threadReady && threadId ? threadId : null);
+  const { sendMessage: postMessage, sending } = useSendMessage();
+  const scrollRef = useRef<ScrollView>(null);
+  const insets = useSafeAreaInsets();
+  const [keyboardInset, setKeyboardInset] = useState(0);
+  const [attachMenuVisible, setAttachMenuVisible] = useState(false);
+  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+
+  useEffect(() => {
+    const showEvt =
+      Platform.OS === "ios" ? "keyboardWillShow" : "keyboardDidShow";
+    const hideEvt =
+      Platform.OS === "ios" ? "keyboardWillHide" : "keyboardDidHide";
+    const showSub = Keyboard.addListener(showEvt, (e) => {
+      setKeyboardInset(e.endCoordinates.height);
+    });
+    const hideSub = Keyboard.addListener(hideEvt, () => {
+      setKeyboardInset(0);
+    });
+    return () => {
+      showSub.remove();
+      hideSub.remove();
+    };
+  }, []);
 
   const context = mode === "seeking" ? "seeking" : "applying";
   const paramPetName =
@@ -394,51 +493,83 @@ export default function ThreadScreen() {
   const paramOfferId =
     typeof offerId === "string" && offerId.trim() ? offerId : undefined;
 
-  const formatTime = (iso?: string) => {
-    if (!iso) return "";
-    return new Date(iso).toLocaleTimeString([], {
-      hour: "numeric",
-      minute: "2-digit",
-    });
-  };
+  const uiMessages = useMemo(
+    () =>
+      mapThreadMessagesToUi({
+        rows: messages,
+        userId: user?.id ?? "",
+        pet,
+        req,
+        context,
+        paramPetName,
+        paramBreed,
+        paramDate,
+        paramTime,
+        paramPrice,
+        paramOfferId,
+      }),
+    [
+      messages,
+      user?.id,
+      pet,
+      req,
+      context,
+      paramPetName,
+      paramBreed,
+      paramDate,
+      paramTime,
+      paramPrice,
+      paramOfferId,
+    ],
+  );
 
-  const loadThread = async () => {
-    if (!user?.id || !_threadId) {
-      setLoading(false);
-      return;
-    }
-    setLoading(true);
-    setLoadError(null);
-    try {
-      const { data: threadRow, error: threadError } = await supabase
-        .from("threads")
-        .select("id,participant_ids,request_id")
-        .eq("id", _threadId)
-        .maybeSingle();
-      if (threadError) throw threadError;
-      if (!threadRow) {
-        setLoadError(RESOURCE_NOT_FOUND);
+  useEffect(() => {
+    requestAnimationFrame(() => {
+      scrollRef.current?.scrollToEnd({ animated: true });
+    });
+  }, [uiMessages.length]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadThreadMeta = async () => {
+      setThreadReady(false);
+      setMetaLoading(true);
+      setLoadError(null);
+      setPet(null);
+      setReq(null);
+
+      if (!user?.id || !threadId) {
+        setMetaLoading(false);
+        if (!threadId) setLoadError(RESOURCE_NOT_FOUND);
         return;
       }
 
-      const peerId =
-        ((threadRow.participant_ids ?? []) as string[]).find(
-          (id) => id !== user.id,
-        ) ?? "";
-      const [{ data: peer }, { data: messages }, { data: req }] =
-        await Promise.all([
+      try {
+        const { data: threadRow, error: threadError } = await supabase
+          .from("threads")
+          .select("id,participant_ids,request_id")
+          .eq("id", threadId)
+          .maybeSingle();
+        if (threadError) throw threadError;
+        if (!threadRow) {
+          setLoadError(RESOURCE_NOT_FOUND);
+          return;
+        }
+
+        const peerId =
+          ((threadRow.participant_ids ?? []) as string[]).find(
+            (id) => id !== user.id,
+          ) ?? "";
+
+        const [{ data: peer }, { data: reqRow }] = await Promise.all([
           peerId
             ? supabase
                 .from("users")
-                .select("id,full_name,avatar_url")
+                .select("id,full_name,avatar_url,bio")
                 .eq("id", peerId)
                 .maybeSingle()
             : Promise.resolve({ data: null } as any),
-          supabase
-            .from("messages")
-            .select("id,sender_id,content,type,metadata,created_at")
-            .eq("thread_id", _threadId)
-            .order("created_at", { ascending: true }),
           threadRow?.request_id
             ? supabase
                 .from("care_requests")
@@ -450,150 +581,236 @@ export default function ThreadScreen() {
             : Promise.resolve({ data: null } as any),
         ]);
 
-      let pet: any = null;
-      if (req?.pet_id) {
-        const { data: petData } = await supabase
-          .from("pets")
-          .select(
-            "id,name,breed,species,photo_urls,notes,yard_type,age_range,energy_level,has_special_needs,special_needs_description",
-          )
-          .eq("id", req.pet_id)
-          .maybeSingle();
-        pet = petData;
+        if (cancelled) return;
+
+        let petRow: any = null;
+        if (reqRow?.pet_id) {
+          const { data: petData } = await supabase
+            .from("pets")
+            .select(
+              "id,name,breed,species,photo_urls,notes,yard_type,age_range,energy_level,has_special_needs,special_needs_description",
+            )
+            .eq("id", reqRow.pet_id)
+            .maybeSingle();
+          petRow = petData;
+        }
+
+        if (cancelled) return;
+
+        setReq(reqRow ?? null);
+        setPet(petRow);
+        const bioLine =
+          typeof peer?.bio === "string"
+            ? peer.bio.replace(/\s+/g, " ").trim()
+            : "";
+        const careLine = petRow?.name
+          ? t("messages.caringForPet", { petName: petRow.name })
+          : "";
+        setThreadHeader({
+          userId: peer?.id ?? peerId,
+          name: resolveDisplayName(peer) || "User",
+          subtitle: bioLine || careLine,
+          avatarUri: peer?.avatar_url ?? null,
+        });
+        setThreadReady(true);
+      } catch (err) {
+        if (!cancelled) {
+          setLoadError(
+            err instanceof Error ? err.message : "Failed to load thread.",
+          );
+        }
+      } finally {
+        if (!cancelled) setMetaLoading(false);
       }
+    };
 
-      const uiMessages: UiMessage[] = (messages ?? []).map(
-        (m: MessageListRow) => {
-          const side: BubbleSide = m.sender_id === user.id ? "right" : "left";
-          const asRequest =
-            (m.type === "proposal" || m.type === "agreement") &&
-            (pet || paramPetName || paramBreed);
-          if (asRequest) {
-            const metaRequestId = readMetadataString(m.metadata, "requestId");
-            const offer =
-              paramOfferId ??
-              metaRequestId ??
-              (typeof req?.id === "string" ? req.id : "");
+    void loadThreadMeta();
+    return () => {
+      cancelled = true;
+    };
+  }, [threadId, user?.id, metaRetryKey, t]);
 
-            const petNotes = parsePetNotes(pet?.notes);
-            const tags = [
-              pet?.yard_type ?? petNotes.yardType,
-              pet?.energy_level ?? petNotes.energyLevel,
-              pet?.age_range ?? petNotes.ageRange,
-            ].filter(
-              (v: any): v is string =>
-                typeof v === "string" && v.trim().length > 0,
-            );
-
-            const img = pet ? (petGalleryUrls(pet)[0] ?? "") : "";
-
-            return {
-              id: m.id,
-              side,
-              type: "request",
-              timeLabel: formatTime(m.created_at),
-              requestData: {
-                petName: paramPetName ?? pet?.name ?? "Pet",
-                breed: paramBreed ?? pet?.breed ?? "Unknown breed",
-                petType: pet?.species ?? "",
-                imageUri: img || undefined,
-                description:
-                  (petNotes.bio || "").trim().length > 0
-                    ? (petNotes.bio || "").trim()
-                    : undefined,
-                tags,
-                careType:
-                  typeof req?.care_type === "string" && req.care_type.trim()
-                    ? req.care_type
-                    : undefined,
-                date:
-                  paramDate ??
-                  (req?.start_date && req?.end_date
-                    ? `${new Date(req.start_date).toLocaleDateString()} - ${new Date(req.end_date).toLocaleDateString()}`
-                    : ""),
-                time:
-                  paramTime ??
-                  (typeof req?.start_time === "string" &&
-                  typeof req?.end_time === "string"
-                    ? `${req.start_time.slice(0, 5)} - ${req.end_time.slice(0, 5)}`
-                    : ""),
-                price:
-                  paramPrice ??
-                  (req?.start_date && req?.end_date
-                    ? formatCarePointsPts(
-                        req.care_type,
-                        req.start_date as string,
-                        req.end_date as string,
-                      )
-                    : ""),
-                context,
-                offerId: offer,
-              },
-            };
-          }
-          return {
-            id: m.id,
-            side,
-            type: "text",
-            text: m.content ?? "",
-            timeLabel: formatTime(m.created_at),
-          };
-        },
-      );
-
-      setThread({
-        userId: peer?.id ?? peerId,
-        name: resolveDisplayName(peer) || "User",
-        subtitle: pet?.name ? `Caring for ${pet.name}` : "",
-        avatarUri: peer?.avatar_url ?? null,
-        messages: uiMessages,
+  const sendMessage = async () => {
+    if (!user?.id || !threadId || !input.trim() || sending) return;
+    const body = input.trim();
+    const result = await postMessage(threadId, body, "text", null);
+    if (result.ok) {
+      setInput("");
+      void refetchMessages();
+    } else {
+      showToast({
+        message: result.message || t("common.error", "Something went wrong"),
       });
-    } catch (err) {
-      setLoadError(
-        err instanceof Error ? err.message : "Failed to load thread.",
-      );
-    } finally {
-      setLoading(false);
     }
   };
 
-  React.useEffect(() => {
-    void loadThread();
-  }, [_threadId, user?.id]);
+  const preset =
+    CLOUDINARY_GALLERY_UPLOAD_PRESET ||
+    process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ||
+    "";
 
-  const sendMessage = async () => {
-    if (!user?.id || !_threadId || !input.trim() || sending) return;
-    const body = input.trim();
-    setSending(true);
-    try {
-      const { error } = await supabase.from("messages").insert({
-        thread_id: _threadId,
-        sender_id: user.id,
-        content: body,
-        type: "text",
-        metadata: null,
-        read_at: null,
+  const sendAttachmentImage = async (localUri: string) => {
+    if (!threadId || !preset) {
+      showToast({
+        message: t("messages.uploadNotConfigured", "Upload is not configured."),
       });
-      if (error) throw error;
-      setInput("");
-      await supabase
-        .from("threads")
-        .update({ last_message_at: new Date().toISOString() })
-        .eq("id", _threadId);
-      await loadThread();
+      return;
+    }
+    setUploadingAttachment(true);
+    try {
+      const { secure_url } = await uploadToCloudinary(localUri, preset);
+      const result = await postMessage(threadId, secure_url, "image", null);
+      if (!result.ok) {
+        showToast({
+          message: result.message || t("common.error", "Something went wrong"),
+        });
+      } else {
+        void refetchMessages();
+      }
+    } catch (e) {
+      showToast({
+        message:
+          e instanceof Error
+            ? e.message
+            : t("messages.imageUploadFailed", "Could not send image."),
+      });
     } finally {
-      setSending(false);
+      setUploadingAttachment(false);
+    }
+  };
+
+  const openPhotoLibrary = async () => {
+    setAttachMenuVisible(false);
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    const { status } =
+      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== "granted") {
+      showToast({
+        message: t(
+          "messages.galleryPermissionRequired",
+          "Allow photo library access to attach images.",
+        ),
+      });
+      return;
+    }
+    const picked = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: false,
+      quality: 0.9,
+    });
+    if (!picked.canceled && picked.assets[0]?.uri) {
+      await sendAttachmentImage(picked.assets[0].uri);
+    }
+  };
+
+  const openCamera = async () => {
+    setAttachMenuVisible(false);
+    // Wait for the modal to fully close before launching the camera.
+    // On Android, launching the camera while a transparent modal is still
+    // animating out causes the activity result to be lost (photo confirm → app "exits").
+    await new Promise<void>((resolve) => setTimeout(resolve, 250));
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== "granted") {
+      showToast({
+        message: t(
+          "messages.cameraPermissionRequired",
+          "Camera access is required to take a photo.",
+        ),
+      });
+      return;
+    }
+    const shot = await ImagePicker.launchCameraAsync({
+      allowsEditing: false,
+      quality: 0.9,
+    });
+    if (!shot.canceled && shot.assets[0]?.uri) {
+      await sendAttachmentImage(shot.assets[0].uri);
+    }
+  };
+
+  const openDocumentPicker = async () => {
+    setAttachMenuVisible(false);
+    try {
+      // Dynamic import: avoids crashing the whole screen when the dev client
+      // was built before expo-document-picker was added (native module missing).
+      const { getDocumentAsync } = await import("expo-document-picker");
+      const picked = await getDocumentAsync({
+        copyToCacheDirectory: true,
+        type: "*/*",
+      });
+      if (picked.canceled || !picked.assets?.[0]) return;
+      const asset = picked.assets[0];
+      if (!threadId || !preset) {
+        showToast({
+          message: t("messages.uploadNotConfigured", "Upload is not configured."),
+        });
+        return;
+      }
+      if (asset.mimeType?.startsWith("image/") && asset.uri) {
+        await sendAttachmentImage(asset.uri);
+        return;
+      }
+      if (!asset.uri) return;
+      setUploadingAttachment(true);
+      try {
+        const { secure_url } = await uploadRawToCloudinary(
+          asset.uri,
+          asset.name ?? "file",
+          asset.mimeType ?? "application/octet-stream",
+          preset,
+        );
+        const fileMeta: Json = {
+          kind: "file",
+          file_name: asset.name ?? "File",
+        };
+        const result = await postMessage(
+          threadId,
+          secure_url,
+          "text",
+          fileMeta,
+        );
+        if (!result.ok) {
+          showToast({
+            message: result.message || t("common.error", "Something went wrong"),
+          });
+        } else {
+          void refetchMessages();
+        }
+      } catch (e) {
+        showToast({
+          message:
+            e instanceof Error
+              ? e.message
+              : t("messages.fileUploadFailed", "Could not send file."),
+        });
+      } finally {
+        setUploadingAttachment(false);
+      }
+    } catch (e) {
+      const errMsg = e instanceof Error ? e.message : String(e);
+      const nativeMissing =
+        errMsg.includes("ExpoDocumentPicker") ||
+        errMsg.includes("Cannot find native module");
+      showToast({
+        message: nativeMissing
+          ? t(
+              "messages.documentPickerRebuildRequired",
+              "Document attachments need a new native build. Run npx expo run:android (or iOS), then open the app again.",
+            )
+          : t("messages.fileUploadFailed", "Could not send file."),
+      });
     }
   };
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
-      <KeyboardAvoidingView
-        style={styles.keyboard}
-        behavior={Platform.OS === "ios" ? "padding" : undefined}
-        keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
-      >
-        {loading ? (
+      <View style={{ flex: 1, paddingBottom: keyboardInset }}>
+        <KeyboardAvoidingView
+          style={styles.keyboard}
+          behavior={Platform.OS === "ios" ? "padding" : undefined}
+          keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
+        >
+        {metaLoading ? (
           <ChatThreadScreenSkeleton onPressBack={() => router.back()} />
         ) : isResourceNotFound(loadError) ? (
           <>
@@ -654,7 +871,7 @@ export default function ThreadScreen() {
               error={loadError}
               actionLabel={t("common.retry", "Retry")}
               onAction={() => {
-                void loadThread();
+                setMetaRetryKey((k) => k + 1);
               }}
               mode="full"
             />
@@ -675,9 +892,9 @@ export default function ThreadScreen() {
               >
                 <ChevronLeft size={24} color={colors.onSurface} />
               </TouchableOpacity>
-              {thread.avatarUri ? (
+              {threadHeader.avatarUri ? (
                 <AppImage
-                  source={{ uri: thread.avatarUri }}
+                  source={{ uri: threadHeader.avatarUri }}
                   style={styles.headerAvatar}
                   contentFit="cover"
                 />
@@ -695,15 +912,16 @@ export default function ThreadScreen() {
                   numberOfLines={1}
                   style={ChatTypography.threadHeaderName}
                 >
-                  {thread.name}
+                  {threadHeader.name}
                 </AppText>
                 <AppText
                   variant="body"
                   color={colors.onSurfaceVariant}
                   numberOfLines={1}
+                  ellipsizeMode="tail"
                   style={ChatTypography.threadHeaderSubtitle}
                 >
-                  {thread.subtitle}
+                  {threadHeader.subtitle}
                 </AppText>
               </View>
               <TouchableOpacity
@@ -752,7 +970,7 @@ export default function ThreadScreen() {
                       setActionsOpen(false);
                       router.push({
                         pathname: "/(private)/(tabs)/profile/users/[id]",
-                        params: { id: thread.userId },
+                        params: { id: threadHeader.userId },
                       });
                     }}
                   >
@@ -797,6 +1015,78 @@ export default function ThreadScreen() {
               </Pressable>
             </Modal>
 
+            <Modal
+              transparent
+              visible={attachMenuVisible}
+              animationType="fade"
+              onRequestClose={() => setAttachMenuVisible(false)}
+            >
+              <Pressable
+                style={[
+                  styles.attachOverlay,
+                  { paddingBottom: 52 + Math.max(insets.bottom, 8) + 16 },
+                ]}
+                onPress={() => setAttachMenuVisible(false)}
+              >
+                <View
+                  style={[
+                    styles.attachPopup,
+                    {
+                      backgroundColor: colors.surfaceContainerLowest,
+                      borderColor: colors.outlineVariant,
+                    },
+                  ]}
+                  onStartShouldSetResponder={() => true}
+                >
+                  <Pressable
+                    android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
+                    style={({ pressed }) => [
+                      styles.attachPopupRow,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={() => { void openPhotoLibrary(); }}
+                  >
+                    <ImageIcon size={18} color={colors.onSurfaceVariant} />
+                    <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
+                      {t("messages.attachPhotosVideos", "Photos & videos")}
+                    </AppText>
+                  </Pressable>
+
+                  <View style={[styles.attachPopupDivider, { backgroundColor: colors.outlineVariant }]} />
+
+                  <Pressable
+                    android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
+                    style={({ pressed }) => [
+                      styles.attachPopupRow,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={() => { void openDocumentPicker(); }}
+                  >
+                    <FileText size={18} color={colors.onSurfaceVariant} />
+                    <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
+                      {t("messages.attachDocument", "Document")}
+                    </AppText>
+                  </Pressable>
+
+                  <View style={[styles.attachPopupDivider, { backgroundColor: colors.outlineVariant }]} />
+
+                  <Pressable
+                    android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
+                    style={({ pressed }) => [
+                      styles.attachPopupRow,
+                      pressed && { opacity: 0.75 },
+                    ]}
+                    onPress={() => { void openCamera(); }}
+                  >
+                    <Camera size={18} color={colors.onSurfaceVariant} />
+                    <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
+                      {t("messages.attachCamera", "Camera")}
+                    </AppText>
+                  </Pressable>
+                </View>
+              </Pressable>
+            </Modal>
+
             <FeedbackModal
               visible={showBlockConfirm}
               title={t("messages.blockConfirmTitle")}
@@ -807,14 +1097,14 @@ export default function ThreadScreen() {
               primaryLoading={blockBusy}
               onPrimary={() => {
                 void (async () => {
-                  if (!user?.id || !thread.userId) return;
+                  if (!user?.id || !threadHeader.userId) return;
                   if (blockBusy) return;
                   setBlockBusy(true);
                   try {
                     const { error } = await supabase
                       .from("user_blocks")
                       .upsert(
-                        { blocker_id: user.id, blocked_id: thread.userId },
+                        { blocker_id: user.id, blocked_id: threadHeader.userId },
                         { onConflict: "blocker_id,blocked_id" },
                       );
                     if (error) throw error;
@@ -842,13 +1132,27 @@ export default function ThreadScreen() {
 
             {/* Messages */}
             <ScrollView
+              ref={scrollRef}
               style={styles.scroll}
               contentContainerStyle={styles.scrollContent}
               keyboardShouldPersistTaps="handled"
               showsVerticalScrollIndicator={false}
             >
-              {thread.messages.length > 0 ? (
-                thread.messages.map((msg) => (
+              {messagesLoadError ? (
+                <ErrorState
+                  error={messagesLoadError}
+                  actionLabel={t("common.retry", "Retry")}
+                  onAction={() => {
+                    void refetchMessages();
+                  }}
+                  mode="inline"
+                />
+              ) : messagesLoading && uiMessages.length === 0 ? (
+                <View style={{ paddingVertical: 32, alignItems: "center" }}>
+                  <ActivityIndicator size="small" color={colors.primary} />
+                </View>
+              ) : uiMessages.length > 0 ? (
+                uiMessages.map((msg) => (
                   <MessageBubble key={msg.id} message={msg} colors={colors} />
                 ))
               ) : (
@@ -870,17 +1174,33 @@ export default function ThreadScreen() {
                 {
                   backgroundColor: colors.surfaceBright,
                   borderColor: colors.outlineVariant,
+                  marginBottom:
+                    keyboardInset > 0 ? 8 : Math.max(insets.bottom, 8),
                 },
               ]}
             >
               <TouchableOpacity
                 style={[styles.attachBtn, { backgroundColor: "transparent" }]}
                 hitSlop={8}
+                disabled={uploadingAttachment || sending}
+                onPress={() => setAttachMenuVisible(true)}
               >
                 <Upload size={18} color={colors.onSurface} />
               </TouchableOpacity>
               <TextInput
-                style={[styles.composerInput, { color: colors.onSurface }]}
+                style={[
+                  styles.composerInput,
+                  ChatTypography.composerInput,
+                  {
+                    color: colors.onSurface,
+                    ...(Platform.OS === "android"
+                      ? {
+                          paddingVertical: 10,
+                          minHeight: 40,
+                        }
+                      : { paddingVertical: 8 }),
+                  },
+                ]}
                 placeholder={t("messages.typeMessage")}
                 placeholderTextColor={colors.onSurfaceVariant}
                 value={input}
@@ -890,7 +1210,18 @@ export default function ThreadScreen() {
                 autoCorrect={false}
                 textAlignVertical="center"
                 underlineColorAndroid="transparent"
+                selectionColor={colors.primary}
+                {...(Platform.OS === "android"
+                  ? { cursorColor: colors.primary }
+                  : {})}
               />
+              {uploadingAttachment ? (
+                <ActivityIndicator
+                  size="small"
+                  color={colors.primary}
+                  style={{ marginRight: 4 }}
+                />
+              ) : null}
               <TouchableOpacity
                 style={[
                   styles.sendBtn,
@@ -903,7 +1234,7 @@ export default function ThreadScreen() {
                 onPress={() => {
                   void sendMessage();
                 }}
-                disabled={sending || !input.trim()}
+                disabled={sending || !input.trim() || uploadingAttachment}
               >
                 <SendHorizonal size={22} color={colors.primary} />
               </TouchableOpacity>
@@ -911,6 +1242,7 @@ export default function ThreadScreen() {
           </>
         )}
       </KeyboardAvoidingView>
+      </View>
     </View>
   );
 }
@@ -1107,12 +1439,63 @@ const styles = StyleSheet.create({
   },
   composerInput: {
     flex: 1,
-    paddingHorizontal: 4,
-    paddingVertical: 0,
+    paddingHorizontal: 6,
     margin: 0,
-    fontSize: 18,
-    lineHeight: 22,
-    letterSpacing: -0.25,
+    fontSize: 16,
+    letterSpacing: -0.2,
+  },
+  chatImageAttachment: {
+    width: 220,
+    maxWidth: "85%",
+    height: 160,
+    borderRadius: 12,
+    backgroundColor: "rgba(0,0,0,0.06)",
+  },
+  fileAttachmentBubble: {
+    flexDirection: "row",
+    alignItems: "center",
+    maxWidth: "85%",
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderRadius: 16,
+    borderWidth: 1,
+    gap: 0,
+  },
+  attachOverlay: {
+    position: "absolute",
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    justifyContent: "flex-end",
+    alignItems: "flex-start",
+    paddingLeft: 12,
+  },
+  attachPopup: {
+    minWidth: 210,
+    borderRadius: 10,
+    borderWidth: 1,
+    overflow: "hidden",
+    shadowColor: "#000",
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 12,
+    elevation: 12,
+  },
+  attachPopupRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+  },
+  attachPopupLabel: {
+    fontSize: 15,
+    fontWeight: "500",
+  },
+  attachPopupDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 0,
   },
   sendBtn: {
     width: 38,
