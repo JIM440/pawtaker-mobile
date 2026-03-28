@@ -1,44 +1,78 @@
 import Constants from "expo-constants";
-import * as Device from "expo-device";
-import * as Notifications from "expo-notifications";
-import { Platform, AppState } from "react-native";
+import { AppState, Platform } from "react-native";
 
 import { supabase } from "@/src/lib/supabase/client";
+
+import { shouldLoadExpoPushStack } from "./push-native-availability";
 
 let lastRegisteredToken: string | null = null;
 let handlerConfigured = false;
 
+type ExpoNotificationsModule = typeof import("expo-notifications");
+
+/** Metro `import()` can expose named exports on `default` in some targets. */
+function unwrapExpoNotificationsModule(
+  mod: unknown,
+): ExpoNotificationsModule | null {
+  if (!mod || typeof mod !== "object") return null;
+  const m = mod as Record<string, unknown>;
+  if (typeof m.setNotificationHandler === "function") {
+    return mod as ExpoNotificationsModule;
+  }
+  const d = m.default;
+  if (
+    d &&
+    typeof d === "object" &&
+    typeof (d as Record<string, unknown>).setNotificationHandler === "function"
+  ) {
+    return d as ExpoNotificationsModule;
+  }
+  return null;
+}
+
 /** Call once at app startup (e.g. root layout). */
 export function configureNotificationHandler(): void {
-  if (handlerConfigured) return;
+  if (!shouldLoadExpoPushStack() || handlerConfigured) return;
   handlerConfigured = true;
 
-  Notifications.setNotificationHandler({
-    handleNotification: async (notification) => {
-      const data = (notification.request.content.data || {}) as Record<
-        string,
-        unknown
-      >;
-      const isMessage = data?.type === "message";
-      const isAppActive = AppState.currentState === "active";
-      if (isMessage && isAppActive) {
-        return {
-          shouldShowAlert: false,
-          shouldPlaySound: false,
-          shouldSetBadge: false,
-          shouldShowBanner: false,
-          shouldShowList: false,
-        };
+  void import("expo-notifications")
+    .then((mod) => {
+      const Notifications = unwrapExpoNotificationsModule(mod);
+      if (!Notifications?.setNotificationHandler) {
+        handlerConfigured = false;
+        return;
       }
-      return {
-        shouldShowAlert: true,
-        shouldPlaySound: true,
-        shouldSetBadge: true,
-        shouldShowBanner: true,
-        shouldShowList: true,
-      };
-    },
-  });
+      Notifications.setNotificationHandler({
+        handleNotification: async (notification) => {
+          const data = (notification.request.content.data || {}) as Record<
+            string,
+            unknown
+          >;
+          const isMessage = data?.type === "message";
+          const isAppActive = AppState.currentState === "active";
+          if (isMessage && isAppActive) {
+            return {
+              shouldShowAlert: false,
+              shouldPlaySound: false,
+              shouldSetBadge: false,
+              shouldShowBanner: false,
+              shouldShowList: false,
+            };
+          }
+          return {
+            shouldShowAlert: true,
+            shouldPlaySound: true,
+            shouldSetBadge: true,
+            shouldShowBanner: true,
+            shouldShowList: true,
+          };
+        },
+      });
+    })
+    .catch((e) => {
+      handlerConfigured = false;
+      console.warn("[push] configureNotificationHandler", e);
+    });
 }
 
 function getEasProjectId(): string | undefined {
@@ -58,10 +92,18 @@ function getEasProjectId(): string | undefined {
 export async function registerForPushNotificationsAsync(): Promise<
   string | null
 > {
-  if (Platform.OS === "web") return null;
-  if (!Device.isDevice) return null;
+  if (!shouldLoadExpoPushStack()) return null;
 
   try {
+    const [Device, mod] = await Promise.all([
+      import("expo-device"),
+      import("expo-notifications"),
+    ]);
+    const Notifications = unwrapExpoNotificationsModule(mod);
+    if (!Notifications?.getExpoPushTokenAsync) return null;
+
+    if (!Device.isDevice) return null;
+
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
         name: "default",

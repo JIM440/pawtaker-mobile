@@ -257,7 +257,6 @@ export function PetCard({
           <AppText
             variant="caption"
             color={colors.onSurfaceVariant}
-            // numberOfLines={3}
             style={styles.description}
           >
             {description}

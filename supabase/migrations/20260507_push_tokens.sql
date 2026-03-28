@@ -13,6 +13,11 @@ CREATE INDEX IF NOT EXISTS idx_push_tokens_user_id ON public.push_tokens (user_i
 
 ALTER TABLE public.push_tokens ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "push_tokens_select_own" ON public.push_tokens;
+DROP POLICY IF EXISTS "push_tokens_insert_own" ON public.push_tokens;
+DROP POLICY IF EXISTS "push_tokens_update_own" ON public.push_tokens;
+DROP POLICY IF EXISTS "push_tokens_delete_own" ON public.push_tokens;
+
 CREATE POLICY "push_tokens_select_own"
   ON public.push_tokens FOR SELECT TO authenticated
   USING (auth.uid() = user_id);

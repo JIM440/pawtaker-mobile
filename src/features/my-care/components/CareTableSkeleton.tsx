@@ -53,7 +53,7 @@ export function CareTableSkeleton({ colors, rowCount = 5 }: Props) {
 
 const styles = StyleSheet.create({
   tableContainer: {
-    marginHorizontal: -16,
+    // marginHorizontal: 16,
   },
   tableSubHeader: {
     flexDirection: "row",
@@ -97,4 +97,3 @@ const styles = StyleSheet.create({
     alignItems: "flex-end",
   },
 });
-
