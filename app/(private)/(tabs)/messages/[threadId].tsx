@@ -55,6 +55,7 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import {
   CLOUDINARY_GALLERY_UPLOAD_PRESET,
   uploadRawToCloudinary,
@@ -460,6 +461,7 @@ export default function ThreadScreen() {
   const { sendMessage: postMessage, sending } = useSendMessage();
   const scrollRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight();
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [attachMenuVisible, setAttachMenuVisible] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -1024,7 +1026,9 @@ export default function ThreadScreen() {
               <Pressable
                 style={[
                   styles.attachOverlay,
-                  { paddingBottom: 52 + Math.max(insets.bottom, 8) + 16 },
+                  {
+                    paddingBottom: tabBarHeight + 52 + Math.max(insets.bottom, 8) + 20,
+                  },
                 ]}
                 onPress={() => setAttachMenuVisible(false)}
               >
@@ -1040,48 +1044,45 @@ export default function ThreadScreen() {
                 >
                   <Pressable
                     android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
-                    style={({ pressed }) => [
-                      styles.attachPopupRow,
-                      pressed && { opacity: 0.75 },
-                    ]}
+                    style={({ pressed }) => pressed ? { opacity: 0.75 } : undefined}
                     onPress={() => { void openPhotoLibrary(); }}
                   >
-                    <ImageIcon size={18} color={colors.onSurfaceVariant} />
-                    <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
-                      {t("messages.attachPhotosVideos", "Photos & videos")}
-                    </AppText>
+                    <View style={styles.attachPopupRow}>
+                      <ImageIcon size={18} color={colors.onSurfaceVariant} />
+                      <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
+                        {t("messages.attachPhotosVideos", "Photos & videos")}
+                      </AppText>
+                    </View>
                   </Pressable>
 
                   <View style={[styles.attachPopupDivider, { backgroundColor: colors.outlineVariant }]} />
 
                   <Pressable
                     android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
-                    style={({ pressed }) => [
-                      styles.attachPopupRow,
-                      pressed && { opacity: 0.75 },
-                    ]}
+                    style={({ pressed }) => pressed ? { opacity: 0.75 } : undefined}
                     onPress={() => { void openDocumentPicker(); }}
                   >
-                    <FileText size={18} color={colors.onSurfaceVariant} />
-                    <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
-                      {t("messages.attachDocument", "Document")}
-                    </AppText>
+                    <View style={styles.attachPopupRow}>
+                      <FileText size={18} color={colors.onSurfaceVariant} />
+                      <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
+                        {t("messages.attachDocument", "Document")}
+                      </AppText>
+                    </View>
                   </Pressable>
 
                   <View style={[styles.attachPopupDivider, { backgroundColor: colors.outlineVariant }]} />
 
                   <Pressable
                     android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
-                    style={({ pressed }) => [
-                      styles.attachPopupRow,
-                      pressed && { opacity: 0.75 },
-                    ]}
+                    style={({ pressed }) => pressed ? { opacity: 0.75 } : undefined}
                     onPress={() => { void openCamera(); }}
                   >
-                    <Camera size={18} color={colors.onSurfaceVariant} />
-                    <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
-                      {t("messages.attachCamera", "Camera")}
-                    </AppText>
+                    <View style={styles.attachPopupRow}>
+                      <Camera size={18} color={colors.onSurfaceVariant} />
+                      <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
+                        {t("messages.attachCamera", "Camera")}
+                      </AppText>
+                    </View>
                   </Pressable>
                 </View>
               </Pressable>
@@ -1476,6 +1477,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     borderWidth: 1,
     overflow: "hidden",
+    paddingVertical: 2,
     shadowColor: "#000",
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.15,
@@ -1485,11 +1487,13 @@ const styles = StyleSheet.create({
   attachPopupRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "nowrap",
     gap: 12,
     paddingVertical: 14,
     paddingHorizontal: 16,
   },
   attachPopupLabel: {
+    flexShrink: 1,
     fontSize: 15,
     fontWeight: "500",
   },

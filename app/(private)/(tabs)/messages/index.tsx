@@ -2,7 +2,10 @@ import { ChatTypography } from "@/src/constants/chatTypography";
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { useThreads } from "@/src/features/messages/hooks/useThreads";
-import { isImagePreviewContent } from "@/src/features/messages/lastMessagePreview";
+import {
+  getLastMessagePreviewKind,
+  type LastMessagePreviewKind,
+} from "@/src/features/messages/lastMessagePreview";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
@@ -33,8 +36,8 @@ type ChatListItem = {
   name: string;
   avatarUri: string | null;
   lastMessagePreview: string;
-  previewIsImage: boolean;
-  imageSentByYou: boolean;
+  previewKind: LastMessagePreviewKind;
+  previewSentByYou: boolean;
   searchText: string;
   timestamp: string;
   unreadCount: number;
@@ -77,22 +80,25 @@ export default function MessagesScreen() {
 
   const chats: ChatListItem[] = useMemo(() => {
     const photoLabel = t("messages.lastMessagePhoto", "Photo").toLowerCase();
+    const documentLabel = t("messages.attachDocument", "Document").toLowerCase();
     return threads.map((item) => {
       const other = item.other_user;
       const isMine = item.last_sender_id === user?.id;
       const rawPreview = item.last_message_preview?.trim();
-      const isImage = Boolean(rawPreview && isImagePreviewContent(rawPreview));
+      const previewKind = rawPreview ? getLastMessagePreviewKind(rawPreview) : "text";
       const preview = rawPreview
-        ? isImage
+        ? previewKind !== "text"
           ? ""
           : `${isMine ? t("messages.youPrefix", "You: ") : ""}${rawPreview}`
         : t("messages.noMessagesYet", "No messages yet.");
       const searchText = [
         resolveDisplayName(other) || t("common.user", "User"),
         rawPreview
-          ? isImage
+          ? previewKind === "image"
             ? `${isMine ? "you" : ""} ${photoLabel}`.trim()
-            : preview.toLowerCase()
+            : previewKind === "document"
+              ? `${isMine ? "you" : ""} ${documentLabel}`.trim()
+              : preview.toLowerCase()
           : "",
       ]
         .join(" ")
@@ -102,8 +108,8 @@ export default function MessagesScreen() {
         name: resolveDisplayName(other) || t("common.user", "User"),
         avatarUri: other?.avatar_url ?? null,
         lastMessagePreview: preview,
-        previewIsImage: Boolean(rawPreview && isImage),
-        imageSentByYou: Boolean(rawPreview && isImage && isMine),
+        previewKind,
+        previewSentByYou: Boolean(rawPreview && previewKind !== "text" && isMine),
         searchText,
         timestamp: relativeTime(item.last_message_at),
         unreadCount: item.unreadCount,
@@ -197,8 +203,8 @@ export default function MessagesScreen() {
                     name={chat.name}
                     avatarUri={chat.avatarUri ?? undefined}
                     lastMessagePreview={chat.lastMessagePreview}
-                    previewIsImage={chat.previewIsImage}
-                    imageSentByYou={chat.imageSentByYou}
+                    previewKind={chat.previewKind}
+                    previewSentByYou={chat.previewSentByYou}
                     timestamp={chat.timestamp}
                     unreadCount={chat.unreadCount}
                     onPress={() =>

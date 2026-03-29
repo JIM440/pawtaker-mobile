@@ -1,9 +1,10 @@
 import { ChatTypography } from "@/src/constants/chatTypography";
 import { Colors } from "@/src/constants/colors";
+import type { LastMessagePreviewKind } from "@/src/features/messages/lastMessagePreview";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Image as ImageIcon } from "lucide-react-native";
+import { FileText, Image as ImageIcon } from "lucide-react-native";
 import React from "react";
 import { useTranslation } from "react-i18next";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -13,9 +14,8 @@ export type ChatRowProps = {
   avatarUri?: string | null;
   name: string;
   lastMessagePreview: string;
-  /** When true, show camera-style icon + "Photo" instead of `lastMessagePreview`. */
-  previewIsImage?: boolean;
-  imageSentByYou?: boolean;
+  previewKind?: LastMessagePreviewKind;
+  previewSentByYou?: boolean;
   timestamp: string;
   unreadCount?: number;
   onPress?: () => void;
@@ -25,8 +25,8 @@ export function ChatRow({
   avatarUri,
   name,
   lastMessagePreview,
-  previewIsImage = false,
-  imageSentByYou = false,
+  previewKind = "text",
+  previewSentByYou = false,
   timestamp,
   unreadCount = 0,
   onPress,
@@ -73,9 +73,9 @@ export function ChatRow({
         >
           {name}
         </AppText>
-        {previewIsImage ? (
+        {previewKind !== "text" ? (
           <View style={styles.previewRow}>
-            {imageSentByYou ? (
+            {previewSentByYou ? (
               <AppText
                 variant="body"
                 color={colors.onSurfaceVariant}
@@ -85,11 +85,19 @@ export function ChatRow({
                 {t("messages.youPrefix", "You: ")}
               </AppText>
             ) : null}
-            <ImageIcon
-              size={16}
-              color={colors.onSurfaceVariant}
-              style={styles.previewPhotoIcon}
-            />
+            {previewKind === "image" ? (
+              <ImageIcon
+                size={16}
+                color={colors.onSurfaceVariant}
+                style={styles.previewPhotoIcon}
+              />
+            ) : (
+              <FileText
+                size={16}
+                color={colors.onSurfaceVariant}
+                style={styles.previewPhotoIcon}
+              />
+            )}
             <AppText
               variant="body"
               color={colors.onSurfaceVariant}
@@ -97,7 +105,9 @@ export function ChatRow({
               ellipsizeMode="tail"
               style={[styles.preview, ChatTypography.rowPreview, styles.previewPhotoLabel]}
             >
-              {t("messages.lastMessagePhoto", "Photo")}
+              {previewKind === "image"
+                ? t("messages.lastMessagePhoto", "Photo")
+                : t("messages.attachDocument", "Document")}
             </AppText>
           </View>
         ) : (
