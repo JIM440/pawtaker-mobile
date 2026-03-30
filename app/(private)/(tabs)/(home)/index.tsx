@@ -7,6 +7,7 @@ import {
   formatCarePointsPts,
   normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
+import { useUnreadNotificationCount } from "@/src/lib/notifications/useUnreadNotificationCount";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -113,7 +114,7 @@ export default function HomeScreen() {
   const [userPetsError, setUserPetsError] = useState<string | null>(null);
   const [userPetsLoaded, setUserPetsLoaded] = useState(false);
 
-  const [notificationsUnreadCount, setNotificationsUnreadCount] = useState(0);
+  const { count: notificationsUnreadCount, markAllRead: markNotificationsRead } = useUnreadNotificationCount();
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -450,26 +451,6 @@ export default function HomeScreen() {
     };
   }, [sendRequestOpen, user?.id, userPets, t]);
 
-  const loadNotificationCount = async () => {
-    if (!user?.id) {
-      setNotificationsUnreadCount(0);
-      return;
-    }
-    try {
-      const { count } = await supabase
-        .from("notifications")
-        .select("id", { head: true, count: "exact" })
-        .eq("user_id", user.id)
-        .eq("read", false);
-      setNotificationsUnreadCount(count ?? 0);
-    } catch {
-      setNotificationsUnreadCount(0);
-    }
-  };
-
-  useEffect(() => {
-    void loadNotificationCount();
-  }, [user?.id]);
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -484,7 +465,6 @@ export default function HomeScreen() {
         await loadUserPets({ refresh: true });
       }
       await loadPetLikes();
-      await loadNotificationCount();
     } finally {
       setRefreshing(false);
     }
@@ -711,7 +691,10 @@ export default function HomeScreen() {
       <TouchableOpacity
         className="relative pr-3"
         hitSlop={12}
-        onPress={() => router.push("/(private)/(tabs)/(home)/notifications")}
+        onPress={() => {
+          void markNotificationsRead();
+          router.push("/(private)/(tabs)/(home)/notifications");
+        }}
       >
         <Bell size={24} color={colors.onSurface} />
         {notificationsUnreadCount > 0 ? (

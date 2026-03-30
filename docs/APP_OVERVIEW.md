@@ -17,9 +17,9 @@ PawTaker is a two-sided pet-care marketplace app built with Expo React Native an
 
 ---
 
-## Who uses the app
+Who uses the app
 
-### 1) Pet owners
+1) Pet owners
 
 Pet owners can:
 
