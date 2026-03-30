@@ -184,7 +184,24 @@ export default function PostCareReviewScreen() {
   }, [reviewee, revieweeReviews, t]);
 
   const onSubmit = () => {
-    if (rating < 1) return;
+    const trimmedComment = comment.trim();
+
+    if (rating < 1) {
+      showToast({
+        variant: "error",
+        message: t("myCare.review.ratingRequired", "Please select a rating before submitting."),
+        durationMs: 2800,
+      });
+      return;
+    }
+    if (!trimmedComment) {
+      showToast({
+        variant: "error",
+        message: t("myCare.review.commentRequired", "Please enter a review message."),
+        durationMs: 2800,
+      });
+      return;
+    }
     if (!user?.id || !contractId || !reviewee?.id) {
       showToast({
         variant: "error",
@@ -201,7 +218,7 @@ export default function PostCareReviewScreen() {
           reviewer_id: user.id,
           reviewee_id: reviewee.id,
           rating,
-          comment: comment.trim() ? comment.trim() : null,
+          comment: trimmedComment,
         });
         if (insertError) throw insertError;
         setSubmitted(true);
@@ -280,7 +297,7 @@ export default function PostCareReviewScreen() {
               <StarRatingInput
                 value={rating}
                 onChange={() => {}}
-                size={28}
+                size={20}
                 maxStars={5}
                 accessibilityLabel="Rating"
               />
@@ -300,7 +317,7 @@ export default function PostCareReviewScreen() {
 
             <Button
               label={t("myCare.review.submit", "Submit")}
-              onPress={() => router.back()}
+              onPress={() => {}}
               fullWidth
               style={styles.doneBtn}
             />
@@ -346,7 +363,7 @@ export default function PostCareReviewScreen() {
         <StarRatingInput
           value={rating}
           onChange={setRating}
-          size={40}
+          size={20}
           accessibilityLabel={t("myCare.review.rating")}
         />
 

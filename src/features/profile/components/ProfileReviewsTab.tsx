@@ -58,7 +58,7 @@ export function ProfileReviewsTab({
           }
         />
       )}
-      contentContainerStyle={styles.list}
+      contentContainerStyle={[styles.list, !hasItems && styles.listEmpty]}
       scrollEnabled={scrollEnabled}
       ListEmptyComponent={
         <View style={styles.emptyWrap}>
@@ -77,13 +77,17 @@ export function ProfileReviewsTab({
 
 const styles = StyleSheet.create({
   list: {
+    flexGrow: 1,
     gap: 12,
     paddingVertical: 8,
     paddingHorizontal: 16,
   },
+  listEmpty: {
+    justifyContent: "center",
+  },
   emptyWrap: {
-    // paddingTop: 16,
-    // paddingBottom: 24,
+    flex: 1,
+    justifyContent: "center",
   },
   emptyIllustration: {
     width: 140,
