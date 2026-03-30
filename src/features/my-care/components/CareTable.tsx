@@ -2,17 +2,20 @@ import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppText } from '@/src/shared/components/ui/AppText';
 import { Handshake, PawPrint } from 'lucide-react-native';
 import React from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 export interface CareRow {
     id: string;
     personName: string;
     personAvatar: string;
+    personId?: string;
     handshakes: number;
     paws: number;
     pet: string;
+    petId?: string;
     careType: string;
     date: string;
+    contractId?: string;
 }
 
 interface CareTableProps {
@@ -20,9 +23,18 @@ interface CareTableProps {
     rows: CareRow[];
     headerLabel: string;
     footerText?: React.ReactNode;
+    onPressPerson?: (row: CareRow) => void;
+    onPressPet?: (row: CareRow) => void;
 }
 
-export function CareTable({ colors, rows, headerLabel, footerText }: CareTableProps) {
+export function CareTable({
+    colors,
+    rows,
+    headerLabel,
+    footerText,
+    onPressPerson,
+    onPressPet,
+}: CareTableProps) {
     return (
         <View style={styles.tableContainer}>
             <View style={[styles.tableSubHeader]}>
@@ -33,7 +45,11 @@ export function CareTable({ colors, rows, headerLabel, footerText }: CareTablePr
             </View>
             {rows.map((row) => (
                 <View key={row.id} style={styles.tableBodyRow}>
-                    <View style={styles.colOwner}>
+                    <Pressable
+                        style={styles.colOwner}
+                        onPress={() => onPressPerson?.(row)}
+                        disabled={!onPressPerson}
+                    >
                         <AppImage
                             source={{ uri: row.personAvatar }}
                             style={styles.rowAvatar}
@@ -55,8 +71,14 @@ export function CareTable({ colors, rows, headerLabel, footerText }: CareTablePr
                                 </View>
                             </View>
                         </View>
-                    </View>
-                    <AppText variant="caption" style={styles.colPet} numberOfLines={1}>{row.pet}</AppText>
+                    </Pressable>
+                    <Pressable
+                        style={styles.colPet}
+                        onPress={() => onPressPet?.(row)}
+                        disabled={!onPressPet}
+                    >
+                        <AppText variant="caption" numberOfLines={1}>{row.pet}</AppText>
+                    </Pressable>
                     <AppText variant="caption" style={styles.colType} numberOfLines={1}>{row.careType}</AppText>
                     <AppText variant="caption" style={styles.colDate} numberOfLines={1}>{row.date}</AppText>
                 </View>

@@ -33,6 +33,9 @@
     "user": "User",
     "saving": "Saving...",
     "success": "Success",
+    "ok": "OK",
+    "camera": "Camera",
+    "gallery": "Gallery",
     "deleteConfirmTitle": "Delete pet?",
     "deleteConfirmMessage": "This will permanently delete the pet from your account."
   },
@@ -188,6 +191,7 @@
         "requiredImagesTwo": "Required images: 2 document photos",
         "requiredImagesOne": "Required images: 1 document photo",
         "pickSourceTitle": "Select image source",
+        "pickSourceDescription": "Choose an image from your gallery or take a new photo.",
         "useCamera": "Use Camera",
         "useGallery": "Choose from Gallery",
         "retakeSelfie": "Retake selfie",
@@ -197,6 +201,9 @@
         "progressSubmitting": "Submitting…",
         "cameraPermissionRequired": "Camera permission required",
         "galleryPermissionRequired": "Photo library access is required to choose an image.",
+        "misconfiguredUploads": "Uploads are not configured on this build. Please contact support.",
+        "uploadFailed": "We couldn’t upload your photos. Please try again, or switch to a different network.",
+        "fileTooLarge": "That photo is too large. Please choose a smaller photo and try again.",
         "submissionFailed": "KYC submission failed",
         "submit": "Submit for verification"
       },
@@ -537,7 +544,7 @@
     "muteNotifications": "Mute notifications",
     "block": "Block",
     "blockConfirmTitle": "Block this user?",
-    "blockConfirmDescription": "They won't be able to send you messages. You can unblock them later in Settings.",
+    "blockConfirmDescription": "If you block this user, you and this user won't be able to message each other. You can unblock later in Settings.",
     "blockedToast": "User blocked.",
     "chatUnavailable": "Chat unavailable",
     "noMessagesTitle": "No messages yet",
@@ -558,7 +565,8 @@
     "cameraPermissionRequired": "Allow camera access to take a photo.",
     "documentPickerRebuildRequired": "To attach documents, rebuild the app so the native module is included (e.g. npx expo run:android or expo run:ios), then try again.",
     "lastMessagePhoto": "Photo",
-    "attachSheetTitle": "Attach"
+    "attachSheetTitle": "Attach",
+    "actionsTitle": "Actions"
   },
   "requestDetails": {
     "title": "Request details",
@@ -657,7 +665,9 @@
     "deleteConfirm": "This will permanently delete your account and all related data. This action cannot be undone.",
     "logoutCta": "Sign Out",
     "signingOut": "Signing out...",
+    "deleting": "Deleting...",
     "signOutFailed": "Could not sign out. Please try again.",
+    "deleteFailed": "Could not delete account. Please try again.",
     "deactivateCta": "Deactivate",
     "deleteCta": "Delete"
   },

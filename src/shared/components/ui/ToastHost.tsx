@@ -7,8 +7,6 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { Colors } from "@/src/constants/colors";
 
 const iconSize = 18;
-const TOAST_HEIGHT = 48;
-
 export function ToastHost() {
   const { resolvedTheme } = useThemeStore();
   const toast = useToastStore((s) => s.toast);
@@ -109,11 +107,12 @@ const styles = StyleSheet.create({
   },
   toast: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     width: "100%",
-    height: TOAST_HEIGHT,
-    minHeight: TOAST_HEIGHT,
+    minHeight: 48,
     paddingLeft: 16,
+    paddingTop: 10,
+    paddingBottom: 10,
     paddingRight: 0,
     borderRadius: 4,
     ...Platform.select({
@@ -130,8 +129,9 @@ const styles = StyleSheet.create({
   },
   iconLeft: {
     width: 28,
+    minHeight: 28,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
     marginRight: 10,
   },
   textWrap: {
@@ -148,7 +148,7 @@ const styles = StyleSheet.create({
     width: 48,
     height: 48,
     alignItems: "center",
-    justifyContent: "center",
+    justifyContent: "flex-start",
   },
 });
 

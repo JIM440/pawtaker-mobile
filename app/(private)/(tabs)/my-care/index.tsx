@@ -1,5 +1,11 @@
 import { Colors } from "@/src/constants/colors";
 import { EmptyState } from "@/src/features/my-care/components/EmptyState";
+import { MyCareInCareMenu } from "@/src/features/my-care/components/MyCareInCareMenu";
+import { MyCareStatsSection } from "@/src/features/my-care/components/MyCareStatsSection";
+import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
@@ -21,11 +27,8 @@ import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import {
-  Handshake,
   MoreHorizontal,
-  PawPrint,
   Sun,
-  TrendingUp,
 } from "lucide-react-native";
 import React, { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -43,6 +46,8 @@ import {
 import { CareGivenTab } from "@/src/features/my-care/components/CareGivenTab";
 import { CareReceivedTab } from "@/src/features/my-care/components/CareReceivedTab";
 import { LikedTab } from "@/src/features/my-care/components/LikedTab";
+import { CareRow } from "@/src/features/my-care/components/CareTable";
+import { useOrCreateThread } from "@/src/features/messages/hooks/useOrCreateThread";
 import { useRouter } from "expo-router";
 
 // Constants
@@ -91,6 +96,7 @@ export default function MyCareScreen() {
   });
 
   const showToast = useToastStore((s) => s.showToast);
+  const { openThread } = useOrCreateThread();
   const [hasAvailabilityProfile, setHasAvailabilityProfile] = useState(false);
 
   const onAvailableChange = (value: boolean) => {
@@ -297,6 +303,9 @@ export default function MyCareScreen() {
 
       setHasActiveCare(true);
       setActiveCare({
+        contractId: activeContract.id,
+        requestId: activeContract.request_id,
+        peerId,
         petName: pet?.name ?? "Pet",
         careType: req?.care_type ?? "care",
         dayLabel: req?.start_date
@@ -411,6 +420,9 @@ export default function MyCareScreen() {
         const pet = req?.pet_id ? (petsById[req.pet_id] as any) : null;
         return {
           id: c.id,
+          contractId: c.id,
+          petId: req?.pet_id ?? undefined,
+          ownerId: c.owner_id ?? undefined,
           ownerName: resolveDisplayName(peer) || "Pet owner",
           ownerAvatar: peer?.avatar_url ?? "",
           handshakes: 0,
@@ -524,6 +536,9 @@ export default function MyCareScreen() {
         const pet = req?.pet_id ? (petsById[req.pet_id] as any) : null;
         return {
           id: c.id,
+          contractId: c.id,
+          petId: req?.pet_id ?? undefined,
+          personId: c.taker_id ?? undefined,
           personName: resolveDisplayName(peer) || "Taker",
           personAvatar: peer?.avatar_url ?? "",
           handshakes: 0,
@@ -600,7 +615,9 @@ export default function MyCareScreen() {
       const { data: openReqs, error: reqErr } = petIds.length
         ? await supabase
             .from("care_requests")
-            .select("id,pet_id,start_date,end_date,owner_id,status,created_at")
+            .select(
+              "id,pet_id,start_date,end_date,start_time,end_time,owner_id,status,created_at",
+            )
             .in("pet_id", petIds)
             .neq("owner_id", user.id)
             .eq("status", "open")
@@ -617,6 +634,8 @@ export default function MyCareScreen() {
           pet_id: string;
           start_date: string;
           end_date: string;
+          start_time?: string;
+          end_time?: string;
         }
       > = {};
       for (const r of openReqs ?? []) {
@@ -625,6 +644,8 @@ export default function MyCareScreen() {
           pet_id: string;
           start_date: string;
           end_date: string;
+          start_time?: string;
+          end_time?: string;
         };
         if (row.pet_id && !openReqByPetId[row.pet_id])
           openReqByPetId[row.pet_id] = row;
@@ -646,11 +667,11 @@ export default function MyCareScreen() {
           ageRange: pet?.age_range ?? parsed.ageRange ?? undefined,
           energyLevel: pet?.energy_level ?? parsed.energyLevel ?? undefined,
           tags: [],
-          seekingDateRange:
-            req?.start_date && req?.end_date
-              ? `${new Date(req.start_date).toLocaleDateString()} - ${new Date(req.end_date).toLocaleDateString()}`
-              : "",
-          seekingTime: "",
+          seekingDateRange: formatRequestDateRange(
+            req?.start_date,
+            req?.end_date,
+          ),
+          seekingTime: formatRequestTimeRange(req?.start_time, req?.end_time),
           isSeeking: Boolean(req),
         };
       });
@@ -762,6 +783,38 @@ export default function MyCareScreen() {
     }
   };
 
+  const onPressCarePerson = (row: CareRow) => {
+    if (!row.personId) return;
+    router.push({
+      pathname: "/(private)/(tabs)/profile/users/[id]",
+      params: { id: row.personId },
+    });
+  };
+
+  const onPressCarePet = (row: CareRow) => {
+    const agreementId = row.contractId ?? row.id;
+    if (!agreementId) return;
+    router.push(`/(private)/(tabs)/my-care/contract/${agreementId}` as any);
+  };
+
+  const onGoToInCareChat = async () => {
+    setMenuVisible(false);
+    const otherUserId = activeCare?.peerId as string | undefined;
+    const requestId = activeCare?.requestId as string | undefined;
+    if (!otherUserId) return;
+    const result = await openThread(otherUserId, requestId);
+    if (!result.ok) {
+      showToast({ variant: "error", message: result.message, durationMs: 3200 });
+    }
+  };
+
+  const onViewInCareAgreement = () => {
+    setMenuVisible(false);
+    const agreementId = activeCare?.contractId as string | undefined;
+    if (!agreementId) return;
+    router.push(`/(private)/(tabs)/my-care/contract/${agreementId}` as any);
+  };
+
   return (
     <PageContainer scrollable={false} contentStyle={styles.pageContent}>
       {Header}
@@ -860,211 +913,24 @@ export default function MyCareScreen() {
           </View>
         )}
 
-        {/* In Care Actions Modal */}
-        <Modal
+        <MyCareInCareMenu
           visible={menuVisible}
-          transparent
-          animationType="fade"
-          onRequestClose={() => setMenuVisible(false)}
-        >
-          <Pressable
-            style={styles.menuModalOverlay}
-            onPress={() => setMenuVisible(false)}
-          >
-            <View
-              style={[
-                styles.menuModalContent,
-                {
-                  backgroundColor: colors.surface,
-                  borderColor: colors.outlineVariant,
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => setMenuVisible(false)}
-              >
-                <AppText variant="body">{t("myCare.goToChat")}</AppText>
-              </TouchableOpacity>
-              <View
-                style={[
-                  styles.menuDivider,
-                  { backgroundColor: colors.outlineVariant },
-                ]}
-              />
-              <TouchableOpacity
-                style={styles.menuItem}
-                onPress={() => setMenuVisible(false)}
-              >
-                <AppText variant="body">{t("myCare.viewAgreement")}</AppText>
-              </TouchableOpacity>
-            </View>
-          </Pressable>
-        </Modal>
+          colors={colors}
+          styles={styles}
+          t={(key, fallback) => t(key, fallback as string)}
+          onClose={() => setMenuVisible(false)}
+          onGoToChat={() => void onGoToInCareChat()}
+          onViewAgreement={onViewInCareAgreement}
+        />
 
-        {/* Dynamic Stats Row (Compact vs Full) */}
-        {!hasActiveCare || activeTab === "liked" ? (
-          <View style={styles.summaryGrid}>
-            <View
-              style={[
-                styles.primaryStat,
-                { backgroundColor: colors.surfaceContainerLow },
-              ]}
-            >
-              <View className="flex-row items-center gap-4">
-                <View
-                  style={[
-                    styles.statIconCircle,
-                    { backgroundColor: colors.surfaceContainerHighest },
-                  ]}
-                >
-                  <TrendingUp size={36} color={colors.onSurfaceVariant} />
-                </View>
-                <View style={{}}>
-                  <AppText
-                    variant="headline"
-                    style={styles.statLargeValue}
-                    color={colors.onSurfaceVariant}
-                  >
-                    {String(stats.points).padStart(3, "0")}
-                  </AppText>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.statLabel}
-                  >
-                    {t("myCare.points")}
-                  </AppText>
-                </View>
-              </View>
-              <View style={styles.athContainer} className="self-end mb-2">
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {t("myCare.allTimeHigh")}{" "}
-                  <AppText variant="caption" style={{ fontWeight: "700" }}>
-                    {stats.points}
-                  </AppText>
-                </AppText>
-              </View>
-            </View>
-
-            <View className="flex-row gap-3">
-              <View
-                style={[
-                  styles.secondaryStat,
-                  { backgroundColor: colors.surfaceContainerLow },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statIconCircleSmall,
-                    { backgroundColor: colors.tertiaryContainer },
-                  ]}
-                >
-                  <Handshake size={28} color={colors.onTertiaryContainer} />
-                </View>
-                <View>
-                  <AppText
-                    variant="headline"
-                    style={[
-                      styles.statSmallValue,
-                      { color: colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {String(stats.careGiven).padStart(3, "0")}
-                  </AppText>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.statLabelSmall}
-                  >
-                    {t("myCare.careGivenShort")}
-                  </AppText>
-                </View>
-              </View>
-              <View
-                style={[
-                  styles.secondaryStat,
-                  { backgroundColor: colors.surfaceContainerLow },
-                ]}
-              >
-                <View
-                  style={[
-                    styles.statIconCircleSmall,
-                    { backgroundColor: colors.primaryContainer },
-                  ]}
-                >
-                  <PawPrint size={28} color={colors.onPrimaryContainer} />
-                </View>
-                <View>
-                  <AppText
-                    variant="headline"
-                    style={[
-                      styles.statSmallValue,
-                      { color: colors.onSurfaceVariant },
-                    ]}
-                  >
-                    {String(stats.careReceived).padStart(3, "0")}
-                  </AppText>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.statLabelSmall}
-                  >
-                    {t("myCare.careReceivedShort")}
-                  </AppText>
-                </View>
-              </View>
-            </View>
-          </View>
-        ) : (
-          <View style={styles.compactStatsRow}>
-            <View
-              style={[
-                styles.compactStatsPill,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              <TrendingUp size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" style={{ fontWeight: "600" }}>
-                {t("myCare.pointsCount", { count: stats.points })}
-              </AppText>
-            </View>
-            <View
-              style={[
-                styles.compactStatsPill,
-                {
-                  backgroundColor: colors.tertiaryContainer,
-                  borderColor: colors.outlineVariant,
-                },
-              ]}
-            >
-              <Handshake size={16} color={colors.tertiary} />
-              <AppText
-                variant="caption"
-                style={{ color: colors.tertiary, fontWeight: "600" }}
-              >
-                {stats.careGiven}
-              </AppText>
-            </View>
-            <View
-              style={[
-                styles.compactStatsPill,
-                {
-                  backgroundColor: colors.primaryContainer,
-                  borderColor: colors.outlineVariant,
-                },
-              ]}
-            >
-              <PawPrint size={16} color={colors.onPrimaryContainer} />
-              <AppText
-                variant="caption"
-                style={{ color: colors.onPrimaryContainer, fontWeight: "600" }}
-              >
-                {stats.careReceived}
-              </AppText>
-            </View>
-          </View>
-        )}
+        <MyCareStatsSection
+          hasActiveCare={hasActiveCare}
+          activeTab={activeTab}
+          stats={stats}
+          colors={colors}
+          styles={styles}
+          t={t as any}
+        />
 
         {/* Tabs */}
         <TabBar
@@ -1093,6 +959,8 @@ export default function MyCareScreen() {
                 colors={colors as any}
                 rows={careGivenRows}
                 loading={givenLoading}
+                onPressPerson={onPressCarePerson}
+                onPressPet={onPressCarePet}
               />
             )}
           </>
@@ -1115,6 +983,8 @@ export default function MyCareScreen() {
                 colors={colors as any}
                 rows={careReceivedRows}
                 loading={receivedLoading}
+                onPressPerson={onPressCarePerson}
+                onPressPet={onPressCarePet}
               />
             )}
           </>

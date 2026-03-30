@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { ensureCareContractForRequest } from "@/src/lib/contracts/ensureCareContract";
+import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
 import {
   formatCarePointsPts,
   normalizeCareTypeForPoints,
@@ -27,8 +28,6 @@ import { EllipsisVertical } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Modal,
-  Pressable,
   ScrollView,
   StyleSheet,
   TouchableOpacity,
@@ -588,85 +587,34 @@ export default function ContractDetailScreen() {
         onRequestClose={() => setShowBlockConfirm(false)}
       />
 
-      <Modal
-        transparent
+      <MyCareContractActionsMenu
         visible={actionsOpen}
-        onRequestClose={() => setActionsOpen(false)}
-        animationType="fade"
-      >
-        <Pressable
-          style={styles.actionsOverlay}
-          onPress={() => setActionsOpen(false)}
-        >
-          <View
-            style={[
-              styles.actionsCard,
-              {
-                backgroundColor: colors.surfaceContainerLowest,
-                borderColor: colors.outlineVariant,
-              },
-            ]}
-          >
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionItem,
-                pressed ? { opacity: 0.7 } : null,
-              ]}
-              onPress={() => {
-                setActionsOpen(false);
-                confirmTerminate();
-              }}
-            >
-              <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
-                {t("myCare.contract.terminate")}
-              </AppText>
-            </Pressable>
-
-            <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionItem,
-                pressed ? { opacity: 0.7 } : null,
-              ]}
-              onPress={() => {
-                setActionsOpen(false);
-                setShowBlockConfirm(true);
-              }}
-            >
-              <AppText variant="body" color={colors.error} numberOfLines={1}>
-                {t("profile.blockUser")}
-              </AppText>
-            </Pressable>
-
-            <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
-
-            <Pressable
-              style={({ pressed }) => [
-                styles.actionItem,
-                pressed ? { opacity: 0.7 } : null,
-              ]}
-              onPress={() => {
-                setActionsOpen(false);
-                const rid = resolvedContractId;
-                if (!rid) {
-                  showToast({
-                    variant: "error",
-                    message: t("myCare.review.noContract", "No contract found for this care yet."),
-                    durationMs: 3200,
-                  });
-                  return;
-                }
-                router.push(`/(private)/(tabs)/my-care/review/${rid}` as any);
-              }}
-            >
-              <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
-                {t("myCare.contract.rateAndReview")}
-              </AppText>
-            </Pressable>
-          </View>
-        </Pressable>
-      </Modal>
+        colors={colors}
+        styles={styles}
+        t={(key, fallback) => t(key, fallback as string)}
+        onClose={() => setActionsOpen(false)}
+        onTerminate={() => {
+          setActionsOpen(false);
+          confirmTerminate();
+        }}
+        onBlock={() => {
+          setActionsOpen(false);
+          setShowBlockConfirm(true);
+        }}
+        onRateAndReview={() => {
+          setActionsOpen(false);
+          const rid = resolvedContractId;
+          if (!rid) {
+            showToast({
+              variant: "error",
+              message: t("myCare.review.noContract", "No contract found for this care yet."),
+              durationMs: 3200,
+            });
+            return;
+          }
+          router.push(`/(private)/(tabs)/my-care/review/${rid}` as any);
+        }}
+      />
     </PageContainer>
   );
 }

@@ -1,17 +1,18 @@
 import { Colors } from "@/src/constants/colors";
 import { performSignOut } from "@/src/lib/auth/perform-sign-out";
+import { SettingsMenuOverlay } from "@/src/features/profile/components/settings/SettingsMenuOverlay";
 import i18n from "@/src/lib/i18n";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
-import { ErrorState } from "@/src/shared/components/ui";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ChevronDown, LogOut, Trash2, UserX } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Modal, Pressable, ScrollView, Text, TouchableOpacity, View } from "react-native";
+import { ScrollView, Text, TouchableOpacity, View } from "react-native";
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -20,6 +21,7 @@ export default function SettingsScreen() {
     null | "logout" | "deactivate" | "delete"
   >(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
   const { theme, setTheme, resolvedTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const [openMenu, setOpenMenu] = useState<"theme" | "language" | null>(null);
@@ -62,6 +64,31 @@ export default function SettingsScreen() {
       );
     } finally {
       setIsSigningOut(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    try {
+      setIsDeletingAccount(true);
+      const { error } = await supabase.rpc("delete_my_account");
+      if (error) throw error;
+
+      try {
+        await performSignOut();
+      } catch {
+        /* account is already deleted server-side; local cleanup continues below */
+      }
+
+      queryClient.clear();
+      setConfirmAction(null);
+      router.replace("/welcome");
+    } catch (e) {
+      console.error("[settings] deleteAccount", e);
+      setSignOutErrorMessage(
+        t("settings.deleteFailed", "Could not delete account. Please try again."),
+      );
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -293,123 +320,22 @@ export default function SettingsScreen() {
         </View>
       </ScrollView>
 
-      <Modal
-        transparent
-        visible={openMenu !== null}
-        animationType="fade"
-        onRequestClose={() => setOpenMenu(null)}
-      >
-        <Pressable
-          className="flex-1"
-          onPress={() => setOpenMenu(null)}
-        >
-          {menuPosition && (
-            <View
-              style={{
-                position: "absolute",
-                top: menuPosition.y + menuPosition.height + 36,
-                // Shift slightly right but keep within screen by using width and horizontal padding
-                // left: Math.max(menuPosition.x - 40, 16),
-                right: 24,
-                width: 150,
-                borderRadius: 12,
-                backgroundColor: colors.surfaceContainerLowest,
-                borderWidth: 1,
-                borderColor: colors.outlineVariant,
-                overflow: "hidden",
-              }}
-            >
-              {openMenu === "theme" && (
-                <>
-                  <Pressable
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.outlineVariant,
-                    }}
-                    onPress={() => {
-                      setTheme("system");
-                      setOpenMenu(null);
-                    }}
-                  >
-                    <Text style={{ color: colors.onSurface }}>
-                      {t("settings.themeSystem")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.outlineVariant,
-                    }}
-                    onPress={() => {
-                      setTheme("light");
-                      setOpenMenu(null);
-                    }}
-                  >
-                    <Text style={{ color: colors.onSurface }}>
-                      {t("settings.themeLight")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                    }}
-                    onPress={() => {
-                      setTheme("dark");
-                      setOpenMenu(null);
-                    }}
-                  >
-                    <Text style={{ color: colors.onSurface }}>
-                      {t("settings.themeDark")}
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-
-              {openMenu === "language" && (
-                <>
-                  <Pressable
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                      borderBottomWidth: 1,
-                      borderBottomColor: colors.outlineVariant,
-                    }}
-                    onPress={() => {
-                      setLanguage("en");
-                      i18n.changeLanguage("en");
-                      setOpenMenu(null);
-                    }}
-                  >
-                    <Text style={{ color: colors.onSurface }}>
-                      {t("settings.languageEnglish")}
-                    </Text>
-                  </Pressable>
-                  <Pressable
-                    style={{
-                      paddingHorizontal: 16,
-                      paddingVertical: 12,
-                    }}
-                    onPress={() => {
-                      setLanguage("fr");
-                      i18n.changeLanguage("fr");
-                      setOpenMenu(null);
-                    }}
-                  >
-                    <Text style={{ color: colors.onSurface }}>
-                      {t("settings.languageFrench")}
-                    </Text>
-                  </Pressable>
-                </>
-              )}
-            </View>
-          )}
-        </Pressable>
-      </Modal>
+      <SettingsMenuOverlay
+        openMenu={openMenu}
+        menuPosition={menuPosition}
+        colors={colors}
+        t={(key, fallback) => t(key, fallback as string)}
+        onClose={() => setOpenMenu(null)}
+        onTheme={(next) => {
+          setTheme(next);
+          setOpenMenu(null);
+        }}
+        onLanguage={(next) => {
+          setLanguage(next);
+          i18n.changeLanguage(next);
+          setOpenMenu(null);
+        }}
+      />
 
       <FeedbackModal
         visible={confirmAction !== null}
@@ -456,7 +382,9 @@ export default function SettingsScreen() {
               ? t("settings.logoutCta", "Sign Out")
               : confirmAction === "deactivate"
                 ? t("settings.deactivateCta", "Deactivate")
-                : confirmAction === "delete"
+                : confirmAction === "delete" && isDeletingAccount
+                  ? t("settings.deleting", "Deleting...")
+                  : confirmAction === "delete"
                   ? t("settings.deleteCta", "Delete")
                   : ""
         }
@@ -466,10 +394,15 @@ export default function SettingsScreen() {
           confirmAction === "deactivate" ||
           confirmAction === "delete"
         }
-        primaryLoading={confirmAction === "logout" && isSigningOut}
+        primaryLoading={
+          (confirmAction === "logout" && isSigningOut) ||
+          (confirmAction === "delete" && isDeletingAccount)
+        }
         onPrimary={async () => {
           if (confirmAction === "logout") {
             await handleLogout();
+          } else if (confirmAction === "delete") {
+            await handleDeleteAccount();
           } else {
             // TODO: wire real deactivate/delete flows
             setConfirmAction(null);

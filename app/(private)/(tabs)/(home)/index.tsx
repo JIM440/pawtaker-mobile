@@ -1,5 +1,7 @@
 import { Colors } from "@/src/constants/colors";
+import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
+import { filterOutBlockedUsers, hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
@@ -21,6 +23,7 @@ import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
 import { PageContainer } from "@/src/shared/components/layout";
+import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
 import {
   FeedRequestsSkeleton,
   FeedTakersSkeleton,
@@ -67,6 +70,55 @@ function parseDistanceKm(s: string): number {
 
 function clampKm(n: number): number {
   return Math.max(DISTANCE_MIN_KM, Math.min(DISTANCE_MAX_KM, Math.round(n)));
+}
+
+function formatRequestDateRange(
+  startDateRaw?: string | null,
+  endDateRaw?: string | null,
+): string {
+  if (!startDateRaw) return "";
+  const start = new Date(startDateRaw);
+  const end = endDateRaw ? new Date(endDateRaw) : null;
+  if (Number.isNaN(start.getTime())) return "";
+  if (end && Number.isNaN(end.getTime())) return "";
+
+  const monthShort = (d: Date) =>
+    d.toLocaleDateString(undefined, { month: "short" });
+  const day = (d: Date) => d.getDate();
+
+  if (!end) return `${monthShort(start)} ${day(start)}`;
+  const sameMonth =
+    start.getFullYear() === end.getFullYear() &&
+    start.getMonth() === end.getMonth();
+
+  return sameMonth
+    ? `${monthShort(start)} ${day(start)}-${day(end)}`
+    : `${monthShort(start)} ${day(start)}-${monthShort(end)} ${day(end)}`;
+}
+
+function formatRequestTimeRange(
+  startTimeRaw?: string | null,
+  endTimeRaw?: string | null,
+): string {
+  const toLabel = (raw?: string | null) => {
+    if (!raw || typeof raw !== "string") return "";
+    const hhmm = raw.slice(0, 5);
+    const [hRaw, mRaw] = hhmm.split(":");
+    const hour = Number(hRaw);
+    const minute = Number(mRaw);
+    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
+    const isPm = hour >= 12;
+    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
+    const minutePart = minute === 0 ? "" : `:${String(minute).padStart(2, "0")}`;
+    return `${hour12}${minutePart}${isPm ? "pm" : "am"}`;
+  };
+
+  const start = toLabel(startTimeRaw);
+  const end = toLabel(endTimeRaw);
+  if (!start && !end) return "";
+  if (!end) return start;
+  if (!start) return end;
+  return `${start}-${end}`;
 }
 
 /** `taker_profiles.availability_json` — matches DB trigger shape (`available` boolean). */
@@ -149,11 +201,26 @@ export default function HomeScreen() {
         .order("created_at", { ascending: false });
       if (reqError && !isMissingBackendResourceError(reqError)) throw reqError;
 
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      const activeReqData = (reqData ?? []).filter((r: any) => {
+        const endRaw = r?.end_date as string | undefined;
+        if (!endRaw) return true;
+        const end = new Date(endRaw);
+        if (Number.isNaN(end.getTime())) return true;
+        end.setHours(0, 0, 0, 0);
+        return end >= today;
+      });
+
       const ownerIds = Array.from(
-        new Set((reqData ?? []).map((r: any) => r.owner_id)),
+        new Set(activeReqData.map((r: any) => r.owner_id)),
+      );
+      const blockedOwnerIds = await filterOutBlockedUsers(user.id, ownerIds);
+      const visibleReqData = activeReqData.filter(
+        (r: any) => !blockedOwnerIds.has(r.owner_id),
       );
       const petIds = Array.from(
-        new Set((reqData ?? []).map((r: any) => r.pet_id)),
+        new Set(visibleReqData.map((r: any) => r.pet_id)),
       );
 
       const [
@@ -186,7 +253,7 @@ export default function HomeScreen() {
       );
 
       setRequests(
-        (reqData ?? []).map((r: any) => {
+        visibleReqData.map((r: any) => {
           const pet = petsById[r.pet_id];
           const owner = ownersById[r.owner_id];
           const parsedPet = parsePetNotes(pet?.notes);
@@ -218,11 +285,8 @@ export default function HomeScreen() {
             petName: pet?.name ?? "Pet",
             breed: pet?.breed ?? "Unknown breed",
             petType: pet?.species ?? "Pet",
-            dateRange:
-              r.start_date && r.end_date
-                ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
-                : "",
-            time: "",
+            dateRange: formatRequestDateRange(r.start_date, r.end_date),
+            time: formatRequestTimeRange(r.start_time, r.end_time),
             careTypeKey: normalizeCareTypeForPoints(r.care_type),
             location:
               owner?.city?.trim() || t("profile.noLocation", "No location"),
@@ -683,6 +747,145 @@ export default function HomeScreen() {
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
+
+  const handleConfirmSendRequest = async () => {
+    if (!selectedSeekingPet || !takerForSendRequest || !user?.id) return;
+    if (sendRequestBusy) return;
+    setSendRequestBusy(true);
+    try {
+      const petId = selectedSeekingPet.id as string;
+      const takerId = takerForSendRequest.id;
+      const blocked = await hasUserBlockRelation(user.id, takerId);
+      if (blocked) {
+        showToast({
+          variant: "error",
+          message: t(
+            "messages.blockedNoMessaging",
+            "You cannot message this user because one of you has blocked the other.",
+          ),
+          durationMs: 3200,
+        });
+        return;
+      }
+
+      const { data: openReqRows, error: openReqErr } = await supabase
+        .from("care_requests")
+        .select("id,pet_id,owner_id,start_date,end_date,points_offered,care_type")
+        .eq("owner_id", user.id)
+        .eq("pet_id", petId)
+        .eq("status", "open")
+        .order("start_date", { ascending: false })
+        .order("created_at", { ascending: false })
+        .limit(1);
+      if (openReqErr && !isMissingBackendResourceError(openReqErr))
+        throw openReqErr;
+      const openReq = openReqRows?.[0] as any | undefined;
+      if (!openReq?.id) {
+        showToast({
+          variant: "info",
+          message: t(
+            "home.sendRequest.needsOpenRequest",
+            "Create an open care request for this pet first, then you can message a taker.",
+          ),
+          durationMs: 3200,
+        });
+        router.push({
+          pathname: "/(private)/post-requests",
+          params: { petId },
+        } as any);
+        setSendRequestOpen(false);
+        return;
+      }
+
+      const requestId = openReq.id as string;
+      const participants = [user.id, takerId].sort();
+
+      let threadId: string | null = null;
+      const { data: existing, error: existingError } = await supabase
+        .from("threads")
+        .select("id")
+        .eq("request_id", requestId)
+        .contains("participant_ids", participants)
+        .maybeSingle();
+      if (existingError && !isMissingBackendResourceError(existingError))
+        throw existingError;
+      if (existing?.id) {
+        threadId = existing.id;
+      } else {
+        const { data: inserted, error: insertError } = await supabase
+          .from("threads")
+          .insert({
+            participant_ids: participants,
+            request_id: requestId,
+          })
+          .select("id")
+          .single();
+        if (insertError && !isMissingBackendResourceError(insertError))
+          throw insertError;
+        threadId = inserted?.id ?? null;
+      }
+      if (!threadId) throw new Error("Could not create chat thread.");
+
+      const petName = selectedSeekingPet.name ?? t("pets.add.name", "Pet");
+      const breed = selectedSeekingPet.breed ?? "";
+      const dateRange =
+        openReq.start_date && openReq.end_date
+          ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(openReq.end_date).toLocaleDateString()}`
+          : "";
+      const price =
+        openReq.start_date && openReq.end_date
+          ? formatCarePointsPts(
+              openReq.care_type,
+              openReq.start_date,
+              openReq.end_date,
+            )
+          : "";
+
+      const { error: msgError } = await supabase.from("messages").insert({
+        thread_id: threadId,
+        sender_id: user.id,
+        content: t("common.sendRequest", "Send request"),
+        type: "proposal",
+        metadata: { requestId },
+      });
+      if (msgError && !isMissingBackendResourceError(msgError)) throw msgError;
+
+      await supabase
+        .from("threads")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", threadId);
+
+      setSendRequestOpen(false);
+      router.push({
+        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        params: {
+          threadId,
+          mode: "seeking",
+          petName,
+          breed,
+          date: dateRange,
+          time: "",
+          price,
+          offerId: requestId,
+        } as any,
+      });
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t(
+            "home.sendRequest.sendFailed",
+            "Couldn't send the request right now. Please try again.",
+          ),
+        ),
+        durationMs: 3400,
+      });
+    } finally {
+      setSendRequestBusy(false);
+    }
+  };
+
   const HomeHeader = (
     <View className="flex-row items-center justify-between pb-3">
       <AppText variant="headline" style={{ fontSize: 22, letterSpacing: -0.1 }}>
@@ -1202,380 +1405,54 @@ export default function HomeScreen() {
         onClose={() => setShowKycPrompt(false)}
       />
 
-      <Modal
-        transparent
+      <HomeTakerActionsMenu
         visible={openMenuTaker != null}
-        animationType="fade"
-        onRequestClose={() => setOpenMenuTaker(null)}
-      >
-        <Pressable className="flex-1" onPress={() => setOpenMenuTaker(null)}>
-          {menuPosition && openMenuTaker && (
-            <View
-              style={{
-                top: menuPosition.y + menuPosition.height + 4,
-                left: menuPosition.x - 160,
-                width: 172,
-                backgroundColor: colors.surfaceContainerLowest,
-                borderColor: colors.outlineVariant,
-                borderRadius: 12,
-                borderWidth: 1,
-                overflow: "hidden",
-                elevation: 4,
-                shadowColor: "#000",
-                shadowOpacity: 0.1,
-                shadowOffset: { width: 0, height: 4 },
-                shadowRadius: 8,
-              }}
-            >
-              <Pressable
-                style={{
-                  paddingHorizontal: 16,
-                  paddingVertical: 12,
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.outlineVariant,
-                }}
-                onPress={() => {
-                  setOpenMenuTaker(null);
-                  router.push({
-                    pathname: "/(private)/(tabs)/profile/users/[id]",
-                    params: { id: openMenuTaker.id },
-                  });
-                }}
-              >
-                <AppText variant="body" color={colors.onSurface}>
-                  {t("common.viewProfile", "View Profile")}
-                </AppText>
-              </Pressable>
-              {openMenuTaker.id !== user?.id ? (
-                <Pressable
-                  style={{ paddingHorizontal: 16, paddingVertical: 12 }}
-                  onPress={() => {
-                    setTakerForSendRequest(openMenuTaker);
-                    setOpenMenuTaker(null);
-                    setSelectedSeekingPet(null);
-                    setSendRequestOpen(true);
-                  }}
-                >
-                  <AppText variant="body" color={colors.onSurface}>
-                    {t("common.sendRequest", "Send Request")}
-                  </AppText>
-                </Pressable>
-              ) : null}
-            </View>
-          )}
-        </Pressable>
-      </Modal>
+        menuPosition={menuPosition}
+        takerId={openMenuTaker?.id ?? null}
+        currentUserId={user?.id ?? null}
+        colors={colors}
+        t={(key, fallback) => t(key, fallback as string)}
+        onClose={() => setOpenMenuTaker(null)}
+        onViewProfile={() => {
+          if (!openMenuTaker) return;
+          setOpenMenuTaker(null);
+          router.push({
+            pathname: "/(private)/(tabs)/profile/users/[id]",
+            params: { id: openMenuTaker.id },
+          });
+        }}
+        onSendRequest={() => {
+          if (!openMenuTaker) return;
+          setTakerForSendRequest(openMenuTaker);
+          setOpenMenuTaker(null);
+          setSelectedSeekingPet(null);
+          setSendRequestOpen(true);
+        }}
+      />
 
-      <Modal
-        transparent
+      <SendRequestToUserModal
         visible={sendRequestOpen}
-        animationType="fade"
-        onRequestClose={() => setSendRequestOpen(false)}
-      >
-        <TouchableWithoutFeedback onPress={() => setSendRequestOpen(false)}>
-          <View style={styles.sendRequestOverlay}>
-            <TouchableWithoutFeedback>
-              <View
-                style={[
-                  styles.sendRequestCard,
-                  {
-                    backgroundColor: colors.surfaceBright,
-                    borderColor: colors.outlineVariant,
-                  },
-                ]}
-              >
-                <AppText
-                  variant="title"
-                  color={colors.onSurface}
-                  style={styles.sendRequestTitle}
-                >
-                  {t("home.sendRequest.selectPetTitle", "Select Pet")}
-                </AppText>
-
-                <ScrollView
-                  showsVerticalScrollIndicator={false}
-                  contentContainerStyle={styles.sendRequestListContent}
-                >
-                  {userPets
-                    .filter((pet: any) => {
-                      // Only show pets that currently have an open request (Seeking).
-                      // `petSendSubtitleById` is populated from open `care_requests` rows.
-                      return Boolean(petSendSubtitleById[pet.id as string]);
-                    })
-                    .map((pet: any) => {
-                      const selected = selectedSeekingPet?.id === pet.id;
-                      const subtitle =
-                        petSendSubtitleById[pet.id as string] ||
-                        `${pet.species || "Pet"} · ${pet.breed || "—"}`;
-                      const uri = petGalleryUrls(pet)[0] ?? "";
-                      return (
-                        <TouchableOpacity
-                          key={pet.id}
-                          activeOpacity={0.9}
-                          onPress={() => setSelectedSeekingPet(pet)}
-                          style={[styles.sendRequestPetRow]}
-                        >
-                          <View
-                            style={[
-                              styles.sendRequestRadioOuter,
-                              {
-                                borderColor: selected
-                                  ? colors.primary
-                                  : colors.outlineVariant,
-                              },
-                            ]}
-                          >
-                            {selected ? (
-                              <View
-                                style={[
-                                  styles.sendRequestRadioInner,
-                                  { backgroundColor: colors.primary },
-                                ]}
-                              />
-                            ) : null}
-                          </View>
-                          {uri ? (
-                            <AppImage
-                              source={{ uri }}
-                              style={styles.sendRequestPetThumb}
-                              contentFit="cover"
-                              width={32}
-                              height={32}
-                            />
-                          ) : (
-                            <View
-                              style={[
-                                styles.sendRequestPetThumb,
-                                {
-                                  backgroundColor:
-                                    colors.surfaceContainerHighest,
-                                },
-                              ]}
-                            />
-                          )}
-                          <View style={{ flex: 1, minWidth: 0 }}>
-                            <AppText
-                              variant="headline"
-                              color={colors.onSurface}
-                              style={styles.sendRequestPetName}
-                              numberOfLines={1}
-                            >
-                              {pet.name}
-                            </AppText>
-                            <AppText
-                              variant="caption"
-                              color={colors.onSurfaceVariant}
-                              numberOfLines={2}
-                              style={styles.sendRequestPetMeta}
-                            >
-                              {subtitle}
-                            </AppText>
-                          </View>
-                        </TouchableOpacity>
-                      );
-                    })}
-                </ScrollView>
-
-                <AppText
-                  variant="caption"
-                  color={colors.onSurfaceVariant}
-                  style={styles.sendRequestSendingTo}
-                >
-                  {t("home.sendRequest.sendingTo", {
-                    name:
-                      takerForSendRequest?.name?.trim() ||
-                      t("common.user", "User"),
-                  })}
-                </AppText>
-
-                <View style={styles.sendRequestActions}>
-                  <Button
-                    label={t("common.cancel", "Cancel")}
-                    variant="secondary"
-                    fullWidth={false}
-                    onPress={() => setSendRequestOpen(false)}
-                    disabled={sendRequestBusy}
-                    style={styles.sendRequestActionBtn}
-                  />
-                  <Button
-                    label={t("common.sendRequest", "Send request")}
-                    variant="primary"
-                    fullWidth={false}
-                    onPress={() => {
-                      void (async () => {
-                        if (
-                          !selectedSeekingPet ||
-                          !takerForSendRequest ||
-                          !user?.id
-                        )
-                          return;
-                        if (sendRequestBusy) return;
-                        setSendRequestBusy(true);
-                        try {
-                          const petId = selectedSeekingPet.id as string;
-                          const takerId = takerForSendRequest.id;
-
-                          const { data: openReqRows, error: openReqErr } =
-                            await supabase
-                              .from("care_requests")
-                              .select(
-                                "id,pet_id,owner_id,start_date,end_date,points_offered,care_type",
-                              )
-                              .eq("owner_id", user.id)
-                              .eq("pet_id", petId)
-                              .eq("status", "open")
-                              .order("start_date", { ascending: false })
-                              .order("created_at", { ascending: false })
-                              .limit(1);
-                          if (
-                            openReqErr &&
-                            !isMissingBackendResourceError(openReqErr)
-                          )
-                            throw openReqErr;
-                          const openReq = openReqRows?.[0] as any | undefined;
-                          if (!openReq?.id) {
-                            showToast({
-                              variant: "info",
-                              message: t(
-                                "home.sendRequest.needsOpenRequest",
-                                "Create an open care request for this pet first, then you can message a taker.",
-                              ),
-                              durationMs: 3200,
-                            });
-                            router.push({
-                              pathname: "/(private)/post-requests",
-                              params: { petId },
-                            } as any);
-                            setSendRequestOpen(false);
-                            return;
-                          }
-
-                          const requestId = openReq.id as string;
-                          const participants = [user.id, takerId].sort();
-
-                          let threadId: string | null = null;
-                          const { data: existing, error: existingError } =
-                            await supabase
-                              .from("threads")
-                              .select("id")
-                              .eq("request_id", requestId)
-                              .contains("participant_ids", participants)
-                              .maybeSingle();
-                          if (
-                            existingError &&
-                            !isMissingBackendResourceError(existingError)
-                          )
-                            throw existingError;
-                          if (existing?.id) {
-                            threadId = existing.id;
-                          } else {
-                            const { data: inserted, error: insertError } =
-                              await supabase
-                                .from("threads")
-                                .insert({
-                                  participant_ids: participants,
-                                  request_id: requestId,
-                                })
-                                .select("id")
-                                .single();
-                            if (
-                              insertError &&
-                              !isMissingBackendResourceError(insertError)
-                            )
-                              throw insertError;
-                            threadId = inserted?.id ?? null;
-                          }
-                          if (!threadId)
-                            throw new Error("Could not create chat thread.");
-
-                          const petName =
-                            selectedSeekingPet.name ??
-                            t("pets.add.name", "Pet");
-                          const breed = selectedSeekingPet.breed ?? "";
-                          const dateRange =
-                            openReq.start_date && openReq.end_date
-                              ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(
-                                  openReq.end_date,
-                                ).toLocaleDateString()}`
-                              : "";
-                          const price =
-                            openReq.start_date && openReq.end_date
-                              ? formatCarePointsPts(
-                                  openReq.care_type,
-                                  openReq.start_date,
-                                  openReq.end_date,
-                                )
-                              : "";
-
-                          const { error: msgError } = await supabase
-                            .from("messages")
-                            .insert({
-                              thread_id: threadId,
-                              sender_id: user.id,
-                              content: t("common.sendRequest", "Send request"),
-                              type: "proposal",
-                              metadata: { requestId },
-                            });
-                          if (
-                            msgError &&
-                            !isMissingBackendResourceError(msgError)
-                          )
-                            throw msgError;
-
-                          await supabase
-                            .from("threads")
-                            .update({
-                              last_message_at: new Date().toISOString(),
-                            })
-                            .eq("id", threadId);
-
-                          setSendRequestOpen(false);
-                          router.push({
-                            pathname:
-                              "/(private)/(tabs)/messages/[threadId]" as any,
-                            params: {
-                              threadId,
-                              mode: "seeking",
-                              petName,
-                              breed,
-                              date: dateRange,
-                              time: "",
-                              price,
-                              offerId: requestId,
-                            } as any,
-                          });
-                        } catch (err) {
-                          showToast({
-                            variant: "error",
-                            message: errorMessageFromUnknown(
-                              err,
-                              t(
-                                "home.sendRequest.sendFailed",
-                                "Couldn't send the request right now. Please try again.",
-                              ),
-                            ),
-                            durationMs: 3400,
-                          });
-                        } finally {
-                          setSendRequestBusy(false);
-                        }
-                      })();
-                    }}
-                    disabled={
-                      !selectedSeekingPet ||
-                      !takerForSendRequest ||
-                      userPets.length === 0 ||
-                      sendRequestBusy
-                    }
-                    loading={sendRequestBusy}
-                    style={styles.sendRequestActionBtn}
-                  />
-                </View>
-              </View>
-            </TouchableWithoutFeedback>
-          </View>
-        </TouchableWithoutFeedback>
-      </Modal>
+        colors={colors}
+        styles={styles}
+        userPets={userPets}
+        selectedSeekingPet={selectedSeekingPet}
+        petSendSubtitleById={petSendSubtitleById}
+        sendingToName={takerForSendRequest?.name?.trim() || ""}
+        sendRequestBusy={sendRequestBusy}
+        t={t as any}
+        onClose={() => setSendRequestOpen(false)}
+        onSelectPet={setSelectedSeekingPet}
+        onSend={() => {
+          void handleConfirmSendRequest();
+        }}
+        onAddRequest={() => {
+          setSendRequestOpen(false);
+          router.push({
+            pathname: "/(private)/post-requests",
+            params: userPets?.[0]?.id ? { petId: userPets[0].id } : undefined,
+          } as any);
+        }}
+      />
     </PageContainer>
   );
 }

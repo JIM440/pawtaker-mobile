@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { BREEDS_BY_KIND } from "@/src/constants/pet-breeds";
 import type { PetKindId } from "@/src/constants/pet-kinds";
+import { PetBreedStep } from "@/src/features/pets/components/PetBreedStep";
 import { PetFormFields } from "@/src/features/pets/components/PetFormFields";
 import { PetKindPickGrid } from "@/src/features/pets/components/PetKindPickGrid";
 import { PetPhotoSelector } from "@/src/features/pets/components/PetPhotoSelector";
@@ -19,19 +20,15 @@ import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
-import { Input } from "@/src/shared/components/ui/Input";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
-import { Search } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BackHandler,
   ScrollView,
   StyleSheet,
-  Text,
-  TouchableOpacity,
   View,
 } from "react-native";
 
@@ -268,97 +265,17 @@ export default function AddPetScreen() {
       )}
 
       {step === "breed" && (
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <AppText
-            variant="title"
-            color={colors.onSurface}
-            style={styles.question}
-          >
-            What breed is your pet?
-          </AppText>
-          {kind && (
-            <View
-              style={{
-                marginBottom: 16,
-              }}
-            >
-              <AppText style={{ color: colors.onSurface, fontSize: 12 }}>
-                Your pet is a:{" "}
-                <Text
-                  style={{
-                    lineHeight: 0,
-                    borderRadius: 8,
-                    color: colors.primary,
-                    fontSize: 12,
-                  }}
-                >
-                  {kind}
-                </Text>
-              </AppText>
-            </View>
-          )}
-          <Input
-            placeholder={t("pets.add.breedSearch", "Search pet breed")}
-            value={breedQuery}
-            onChangeText={setBreedQuery}
-            rightIcon={<Search size={22} color={colors.onSurfaceVariant} />}
-            containerStyle={{
-              ...styles.searchField,
-              backgroundColor: colors.surfaceContainerLow,
-              marginBottom: 12,
-            }}
-            inputStyle={{ paddingTop: 0, paddingBottom: 0 }}
-            onFocus={() => {}}
-            onBlur={() => {}}
-          />
-          <ScrollView
-            style={[
-              styles.breedList,
-              {
-                backgroundColor: colors.surfaceBright,
-                borderColor: colors.outlineVariant,
-                maxHeight: 340, // Adjust the maxHeight value as needed for your design
-              },
-            ]}
-            contentContainerStyle={{ paddingVertical: 0 }}
-            keyboardShouldPersistTaps="handled"
-            showsVerticalScrollIndicator={false}
-          >
-            {filteredBreeds.map((item, index) => {
-              const active = breed === item;
-              const isLast = index === filteredBreeds.length - 1;
-              return (
-                <TouchableOpacity
-                  key={item}
-                  style={{
-                    ...styles.breedRow,
-                    backgroundColor: active
-                      ? colors.surfaceContainer
-                      : colors.surfaceBright,
-                    borderBottomWidth: isLast ? 0 : 0.8,
-                    borderBottomColor: colors.outlineVariant,
-                  }}
-                  onPress={() => setBreed(item)}
-                >
-                  <AppText
-                    variant="body"
-                    color={colors.onSurfaceVariant}
-                    style={{
-                      paddingHorizontal: 16,
-                    }}
-                  >
-                    {item}
-                  </AppText>
-                </TouchableOpacity>
-              );
-            })}
-          </ScrollView>
-        </ScrollView>
+        <PetBreedStep
+          kind={kind}
+          breed={breed}
+          breedQuery={breedQuery}
+          filteredBreeds={filteredBreeds}
+          colors={colors}
+          styles={styles}
+          t={(key, fallback) => t(key, fallback as string)}
+          setBreedQuery={setBreedQuery}
+          setBreed={setBreed}
+        />
       )}
 
       {step === "details" && (

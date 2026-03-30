@@ -6,10 +6,12 @@ import {
   PET_GRID_GAP,
 } from "@/src/constants/pet-grid";
 import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
+import { RequestPetSelectionStep } from "@/src/features/post/components/request-pet-selection-step";
 import {
   RequestPreviewCard,
   RequestPreviewRow,
 } from "@/src/features/post/components/request-preview-card";
+import { formatRequestDateRange } from "@/src/lib/datetime/request-date-time-format";
 import { formatLocalYyyyMmDd } from "@/src/lib/datetime/localDate";
 import {
   careTypeForCareRequestDb,
@@ -26,12 +28,10 @@ import {
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { DateTimeField } from "@/src/shared/components/forms/DateTimeField";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
-import { PetSelectGridSkeleton } from "@/src/shared/components/skeletons";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { DataState } from "@/src/shared/components/ui";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
 import { useLocalSearchParams, useRouter } from "expo-router";
@@ -46,10 +46,7 @@ import {
   useWindowDimensions,
   View,
 } from "react-native";
-import {
-  IllustratedEmptyState,
-  IllustratedEmptyStateIllustrations,
-} from "@/src/shared/components/ui";
+import { IllustratedEmptyState, IllustratedEmptyStateIllustrations } from "@/src/shared/components/ui";
 
 const TOTAL_STEPS = 4;
 
@@ -155,15 +152,10 @@ export default function LaunchRequestWizardScreen() {
           if (!pid) continue;
           if (nextPetSeekingById[pid]) continue;
 
-          const start = req?.start_date ? new Date(req.start_date) : null;
-          const end = req?.end_date ? new Date(req.end_date) : null;
-
-          const seekingDateRange =
-            start && end
-              ? `${start.toLocaleDateString(undefined, { month: "short", day: "numeric" })}-${end.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-              : start
-                ? start.toLocaleDateString(undefined, { month: "short", day: "numeric" })
-                : "";
+          const seekingDateRange = formatRequestDateRange(
+            req?.start_date,
+            req?.end_date,
+          );
 
           if (seekingDateRange) nextPetSeekingById[pid] = seekingDateRange;
         }
@@ -417,85 +409,23 @@ export default function LaunchRequestWizardScreen() {
         )}
 
         {step === 1 && (
-          <View style={styles.stepContainer}>
-            <AppText variant="title" style={styles.stepTitle}>
-              {t("post.request.selectPetTitle")}
-            </AppText>
-            {petsLoading ? (
-              <PetSelectGridSkeleton columnWidth={columnWidth} rowCount={2} />
-            ) : null}
-            {petsError ? (
-              <DataState
-                title={t("post.request.petsLoadFailedTitle")}
-                message={petsError}
-                actionLabel={t("common.retry")}
-                mode="inline"
-                onAction={() => {
-                  void loadPets();
-                }}
-              />
-            ) : null}
-            {!petsLoading && !petsError && pets.length > 0 ? (
-              <View style={styles.petGrid}>
-                {petRows.map((row, rowIndex) => (
-                  <View key={rowIndex} style={styles.petRow}>
-                    {row.map((pet) => (
-                      <PetGridTile
-                        key={pet.id}
-                        width={columnWidth}
-                        imageUri={pet.imageUri ?? ""}
-                        name={pet.name}
-                        selected={selectedPet === pet.id}
-                        onPress={() => setSelectedPet(pet.id)}
-                        seekingDateRange={
-                          petSeekingDateRangeById[pet.id] ?? undefined
-                        }
-                      />
-                    ))}
-                  </View>
-                ))}
-              </View>
-            ) : null}
-
-            {!petsLoading && !petsError && pets.length > 0 ? (
-              <TouchableOpacity
-                accessibilityRole="button"
-                accessibilityLabel={t(
-                  "post.request.addAnotherPet",
-                  "or add another pet",
-                )}
-                onPress={() => router.push("/(private)/pets/add" as any)}
-                activeOpacity={0.8}
-                style={styles.addPetRow}
-              >
-                <AppText
-                  variant="body"
-                  color={colors.primary}
-                  style={{ fontWeight: "600" }}
-                >
-                  {"+ "}
-                  {t("post.request.addAnotherPet", "or add another pet")}
-                </AppText>
-              </TouchableOpacity>
-            ) : null}
-            {!petsLoading && !petsError && pets.length === 0 ? (
-              <IllustratedEmptyState
-                title={t("post.request.emptyPetsTitle")}
-                message={t("post.request.emptyPetsSubtitle")}
-                illustration={{
-                  ...IllustratedEmptyStateIllustrations.noPet,
-                  width: 200,
-                  height: 188,
-                  style: [
-                    IllustratedEmptyStateIllustrations.noPet.style,
-                    styles.emptyIllustration,
-                  ],
-                }}
-                actionLabel={t("post.request.addAPet", "Add a pet")}
-                onAction={() => router.push("/(private)/pets/add" as any)}
-              />
-            ) : null}
-          </View>
+          <RequestPetSelectionStep
+            t={(key, fallback) => t(key, fallback as string)}
+            colors={colors}
+            styles={styles}
+            columnWidth={columnWidth}
+            petsLoading={petsLoading}
+            petsError={petsError}
+            pets={pets}
+            petRows={petRows}
+            selectedPet={selectedPet}
+            petSeekingDateRangeById={petSeekingDateRangeById}
+            onRetry={() => {
+              void loadPets();
+            }}
+            onSelectPet={setSelectedPet}
+            onAddPet={() => router.push("/(private)/pets/add" as any)}
+          />
         )}
 
         {step === 2 && (

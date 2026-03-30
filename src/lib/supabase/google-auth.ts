@@ -37,7 +37,26 @@ export const signInWithGoogleNative = async () => {
 
   try {
     await GoogleSignin.hasPlayServices();
-    const userInfo = await GoogleSignin.signIn();
+
+    // Always force account selection instead of reusing a cached session.
+    // `signOut()` is safe even when not signed in, but can throw on some devices — ignore.
+    try {
+      await GoogleSignin.signOut();
+    } catch {
+      /* ignore */
+    }
+
+    // Some versions support `prompt: "select_account"`; fall back to plain signIn().
+    let userInfo: any;
+    const signInFn = (GoogleSignin as any).signIn;
+    if (typeof signInFn !== "function") {
+      throw new Error("Google sign-in is not available in this build.");
+    }
+    try {
+      userInfo = await signInFn.call(GoogleSignin, { prompt: "select_account" });
+    } catch {
+      userInfo = await signInFn.call(GoogleSignin);
+    }
     let idToken = null;
 
     // Handle different versions of the google-signin library safely

@@ -1,3 +1,4 @@
+import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useRouter } from "expo-router";
@@ -22,6 +23,13 @@ export function useOrCreateThread() {
     }
     if (userId === otherUserId) {
       const msg = "You cannot open a chat with yourself.";
+      setError(msg);
+      return { ok: false, message: msg };
+    }
+    const blocked = await hasUserBlockRelation(userId, otherUserId);
+    if (blocked) {
+      const msg =
+        "You cannot message this user because one of you has blocked the other.";
       setError(msg);
       return { ok: false, message: msg };
     }

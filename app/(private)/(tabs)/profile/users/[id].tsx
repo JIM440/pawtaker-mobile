@@ -4,12 +4,16 @@ import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
+import { PublicProfileActionsMenu } from "@/src/features/profile/components/public-profile/PublicProfileActionsMenu";
+import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
+import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { formatCarePointsPts } from "@/src/lib/points/carePoints";
 import { supabase } from "@/src/lib/supabase/client";
 import { useOrCreateThread } from "@/src/features/messages/hooks/useOrCreateThread";
 import { useAuthStore } from "@/src/lib/store/auth.store";
@@ -65,6 +69,13 @@ export default function PublicProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [sendRequestBusy, setSendRequestBusy] = useState(false);
+  const [blockBusy, setBlockBusy] = useState(false);
+  const [sendRequestOpen, setSendRequestOpen] = useState(false);
+  const [userPets, setUserPets] = useState<any[]>([]);
+  const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(null);
+  const [petSendSubtitleById, setPetSendSubtitleById] = useState<Record<string, string>>({});
+  const [openReqByPetId, setOpenReqByPetId] = useState<Record<string, any>>({});
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -127,6 +138,197 @@ export default function PublicProfileScreen() {
       await loadPublicProfile({ refresh: true });
     } finally {
       setRefreshing(false);
+    }
+  };
+
+  const loadSendRequestPets = async () => {
+    if (!sendRequestOpen || !user?.id) return;
+    setSelectedSeekingPet(null);
+    setUserPets([]);
+    setPetSendSubtitleById({});
+    setOpenReqByPetId({});
+    try {
+      const { data: pets, error: petsError } = await supabase
+        .from("pets")
+        .select("*")
+        .eq("owner_id", user.id)
+        .order("created_at", { ascending: false });
+      if (petsError) throw petsError;
+      if (!pets?.length) {
+        showToast({
+          message: t("post.request.emptyPetsSubtitle", "You have not added any pets yet"),
+        });
+        setSendRequestOpen(false);
+        return;
+      }
+      setUserPets(pets);
+
+      const { data: openReqRows, error: reqError } = await supabase
+        .from("care_requests")
+        .select("id,pet_id,care_type,start_date,end_date")
+        .eq("owner_id", user.id)
+        .eq("status", "open")
+        .in("pet_id", pets.map((p: any) => p.id))
+        .order("created_at", { ascending: false });
+      if (reqError) throw reqError;
+
+      const reqByPet: Record<string, any> = {};
+      (openReqRows ?? []).forEach((r: any) => {
+        if (!reqByPet[r.pet_id]) reqByPet[r.pet_id] = r;
+      });
+      const subtitleByPet: Record<string, string> = {};
+      Object.entries(reqByPet).forEach(([pid, r]: [string, any]) => {
+        subtitleByPet[pid] = r.start_date && r.end_date
+          ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
+          : "";
+      });
+      setOpenReqByPetId(reqByPet);
+      setPetSendSubtitleById(subtitleByPet);
+
+      const firstEligible = pets.find((p: any) => Boolean(reqByPet[p.id]));
+      if (!firstEligible) {
+        showToast({
+          message: t(
+            "home.sendRequest.needsOpenRequest",
+            "Create an open care request for this pet first, then you can message a taker.",
+          ),
+        });
+        setSendRequestOpen(false);
+        return;
+      }
+      setSelectedSeekingPet(firstEligible);
+    } catch (err) {
+      showToast({
+        message:
+          err instanceof Error
+            ? err.message
+            : t(
+                "home.sendRequest.sendFailed",
+                "Couldn't send the request right now. Please try again.",
+              ),
+      });
+      setSendRequestOpen(false);
+    }
+  };
+
+  useEffect(() => {
+    void loadSendRequestPets();
+  }, [sendRequestOpen, user?.id]);
+
+  const handleSendRequest = async () => {
+    if (!user?.id || !profileId || isOwnProfile || sendRequestBusy || !selectedSeekingPet) return;
+    const blocked = await hasUserBlockRelation(user.id, profileId);
+    if (blocked) {
+      showToast({
+        message: t(
+          "messages.blockedNoMessaging",
+          "You cannot message this user because one of you has blocked the other.",
+        ),
+      });
+      return;
+    }
+    const openReq = openReqByPetId[selectedSeekingPet.id];
+    if (!openReq?.id) return;
+
+    setSendRequestBusy(true);
+    try {
+      const participants = [user.id, profileId].sort();
+      const { data: existing, error: existingError } = await supabase
+        .from("threads")
+        .select("id")
+        .eq("request_id", openReq.id)
+        .contains("participant_ids", participants)
+        .maybeSingle();
+      if (existingError) throw existingError;
+
+      let threadId = existing?.id as string | undefined;
+      if (!threadId) {
+        const { data: inserted, error: insertError } = await supabase
+          .from("threads")
+          .insert({ participant_ids: participants, request_id: openReq.id })
+          .select("id")
+          .single();
+        if (insertError) throw insertError;
+        threadId = inserted?.id;
+      }
+      if (!threadId) throw new Error("Could not create chat thread.");
+
+      const { error: msgError } = await supabase.from("messages").insert({
+        thread_id: threadId,
+        sender_id: user.id,
+        content: t("common.sendRequest", "Send request"),
+        type: "proposal",
+        metadata: { requestId: openReq.id },
+      });
+      if (msgError) throw msgError;
+
+      await supabase
+        .from("threads")
+        .update({ last_message_at: new Date().toISOString() })
+        .eq("id", threadId);
+
+      const dateRange =
+        openReq.start_date && openReq.end_date
+          ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(openReq.end_date).toLocaleDateString()}`
+          : "";
+      const price =
+        openReq.start_date && openReq.end_date
+          ? formatCarePointsPts(openReq.care_type, openReq.start_date, openReq.end_date)
+          : "";
+
+      setSendRequestOpen(false);
+      router.push({
+        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        params: {
+          threadId,
+          mode: "seeking",
+          petName: selectedSeekingPet.name ?? t("pets.add.name", "Pet"),
+          breed: selectedSeekingPet.breed ?? "",
+          date: dateRange,
+          time: "",
+          price,
+          offerId: openReq.id,
+        } as any,
+      });
+    } catch (err) {
+      showToast({
+        message:
+          err instanceof Error
+            ? err.message
+            : t(
+                "home.sendRequest.sendFailed",
+                "Couldn't send the request right now. Please try again.",
+              ),
+      });
+    } finally {
+      setSendRequestBusy(false);
+    }
+  };
+
+  const handleBlockUser = async () => {
+    if (!user?.id || !profileId || blockBusy) return;
+    setBlockBusy(true);
+    try {
+      const { error } = await supabase
+        .from("user_blocks")
+        .upsert(
+          { blocker_id: user.id, blocked_id: profileId },
+          { onConflict: "blocker_id,blocked_id" },
+        );
+      if (error) throw error;
+
+      setShowBlockConfirm(false);
+      showToast({ message: t("messages.blockedToast", "User blocked.") });
+      router.replace("/(private)/(tabs)/(home)" as any);
+    } catch (err) {
+      showToast({
+        message:
+          err instanceof Error
+            ? err.message
+            : t("common.error", "Something went wrong"),
+      });
+    } finally {
+      setBlockBusy(false);
     }
   };
 
@@ -332,74 +534,59 @@ export default function PublicProfileScreen() {
         )}
       </ScrollView>
 
-      {optionsVisible && (
-        <Pressable
-          style={styles.menuOverlay}
-          onPress={() => setOptionsVisible(false)}
-        >
-          <View
-            style={[
-              styles.menuContainer,
-              {
-                backgroundColor: colors.surfaceContainerLowest,
-                borderColor: colors.outlineVariant,
-              },
-            ]}
-          >
-            <TouchableOpacity
-              style={[
-                styles.menuItem,
-                {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.outlineVariant,
-                },
-              ]}
-              onPress={() => setOptionsVisible(false)}
-            >
-              <AppText variant="body" color={colors.onSurface}>
-                Send request
-              </AppText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={[
-                styles.menuItem,
-                {
-                  borderBottomWidth: 1,
-                  borderBottomColor: colors.outlineVariant,
-                },
-              ]}
-              disabled={chatOpening || !profileId || isOwnProfile}
-              onPress={() => {
-                void (async () => {
-                  setOptionsVisible(false);
-                  if (!profileId || isOwnProfile) return;
-                  const result = await openThread(profileId);
-                  if (!result.ok) {
-                    showToast({
-                      message: result.message,
-                    });
-                  }
-                })();
-              }}
-            >
-              <AppText variant="body" color={colors.onSurface}>
-                {t("myCare.goToChat")}
-              </AppText>
-            </TouchableOpacity>
-            <TouchableOpacity
-              style={styles.menuItem}
-              onPress={() => {
-                setOptionsVisible(false);
-                setShowBlockConfirm(true);
-              }}
-            >
-              <AppText variant="body" color={colors.error}>
-                Block this user
-              </AppText>
-            </TouchableOpacity>
-          </View>
-        </Pressable>
-      )}
+      <PublicProfileActionsMenu
+        visible={optionsVisible}
+        canSendRequest={!sendRequestBusy && Boolean(profileId) && !isOwnProfile}
+        canOpenChat={!chatOpening && Boolean(profileId) && !isOwnProfile}
+        colors={colors}
+        t={(key, fallback) => t(key, fallback as string)}
+        styles={styles}
+        onClose={() => setOptionsVisible(false)}
+        onSendRequest={() => {
+          setOptionsVisible(false);
+          setSendRequestOpen(true);
+        }}
+        onOpenChat={() => {
+          void (async () => {
+            setOptionsVisible(false);
+            if (!profileId || isOwnProfile) return;
+            const result = await openThread(profileId);
+            if (!result.ok) {
+              showToast({
+                message: result.message,
+              });
+            }
+          })();
+        }}
+        onBlock={() => {
+          setOptionsVisible(false);
+          setShowBlockConfirm(true);
+        }}
+      />
+
+      <SendRequestToUserModal
+        visible={sendRequestOpen}
+        colors={colors}
+        styles={styles}
+        userPets={userPets}
+        selectedSeekingPet={selectedSeekingPet}
+        petSendSubtitleById={petSendSubtitleById}
+        sendingToName={derived.name || ""}
+        sendRequestBusy={sendRequestBusy}
+        t={t as any}
+        onClose={() => setSendRequestOpen(false)}
+        onSelectPet={setSelectedSeekingPet}
+        onSend={() => {
+          void handleSendRequest();
+        }}
+        onAddRequest={() => {
+          setSendRequestOpen(false);
+          router.push({
+            pathname: "/(private)/post-requests",
+            params: userPets?.[0]?.id ? { petId: userPets[0].id } : undefined,
+          } as any);
+        }}
+      />
 
       <FeedbackModal
         visible={showBlockConfirm}
@@ -408,12 +595,12 @@ export default function PublicProfileScreen() {
         primaryLabel={t("profile.blockUser")}
         secondaryLabel={t("common.cancel")}
         destructive
+        primaryLoading={blockBusy}
         onPrimary={() => {
-          // TODO: wire real block user flow
-          setShowBlockConfirm(false);
+          void handleBlockUser();
         }}
-        onSecondary={() => setShowBlockConfirm(false)}
-        onRequestClose={() => setShowBlockConfirm(false)}
+        onSecondary={() => !blockBusy && setShowBlockConfirm(false)}
+        onRequestClose={() => !blockBusy && setShowBlockConfirm(false)}
       />
       <ImageViewerModal
         visible={avatarViewerOpen}
@@ -457,6 +644,68 @@ const styles = StyleSheet.create({
   menuItem: {
     paddingVertical: 12,
     paddingHorizontal: 16,
+  },
+  sendRequestOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.35)",
+    justifyContent: "center",
+    alignItems: "center",
+    paddingHorizontal: 20,
+  },
+  sendRequestCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    maxHeight: "84%",
+  },
+  sendRequestTitle: {
+    marginBottom: 12,
+  },
+  sendRequestListContent: {
+    gap: 10,
+  },
+  sendRequestPetRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 6,
+  },
+  sendRequestRadioOuter: {
+    width: 18,
+    height: 18,
+    borderRadius: 9,
+    borderWidth: 1.5,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sendRequestRadioInner: {
+    width: 9,
+    height: 9,
+    borderRadius: 999,
+  },
+  sendRequestPetThumb: {
+    width: 32,
+    height: 32,
+    borderRadius: 999,
+  },
+  sendRequestPetName: {
+    fontSize: 14,
+  },
+  sendRequestPetMeta: {
+    marginTop: 2,
+  },
+  sendRequestSendingTo: {
+    marginTop: 12,
+  },
+  sendRequestActions: {
+    marginTop: 14,
+    flexDirection: "row",
+    gap: 10,
+  },
+  sendRequestActionBtn: {
+    flex: 1,
   },
   scroll: {
     flex: 1,

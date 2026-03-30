@@ -4,9 +4,14 @@ import {
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { normalizeCareTypeForPoints } from "@/src/lib/points/carePoints";
+import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -14,7 +19,7 @@ import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { DetailPetGalleryChrome } from "@/src/shared/components/pets/DetailPetGalleryChrome";
+import { PetDetailHeaderSection } from "@/src/shared/components/pets/PetDetailHeaderSection";
 import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
 import { PetDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
@@ -23,7 +28,7 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Calendar, Clock, Heart, MapPin, PawPrint } from "lucide-react-native";
+import { PawPrint } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, ScrollView, StyleSheet, View } from "react-native";
@@ -131,18 +136,15 @@ export default function PetDetailScreen() {
     return t(`feed.careTypes.${key}`);
   }, [openRequest?.care_type, t]);
 
-  const seekingDateRange = useMemo(() => {
-    if (!openRequest?.start_date || !openRequest?.end_date) return "";
-    return `${new Date(openRequest.start_date).toLocaleDateString()} - ${new Date(
-      openRequest.end_date,
-    ).toLocaleDateString()}`;
-  }, [openRequest?.end_date, openRequest?.start_date]);
+  const seekingDateRange = useMemo(
+    () => formatRequestDateRange(openRequest?.start_date, openRequest?.end_date),
+    [openRequest?.end_date, openRequest?.start_date],
+  );
 
-  const seekingTime = useMemo(() => {
-    if (typeof openRequest?.start_time !== "string") return "";
-    if (typeof openRequest?.end_time !== "string") return "";
-    return `${openRequest.start_time.slice(0, 5)} - ${openRequest.end_time.slice(0, 5)}`;
-  }, [openRequest?.end_time, openRequest?.start_time]);
+  const seekingTime = useMemo(
+    () => formatRequestTimeRange(openRequest?.start_time, openRequest?.end_time),
+    [openRequest?.end_time, openRequest?.start_time],
+  );
 
   const canApply = useMemo(() => {
     if (!openRequest?.id) return false;
@@ -212,107 +214,71 @@ export default function PetDetailScreen() {
       >
         <View style={styles.imageContainer}>
           {images.length > 0 ? (
-            <DetailPetGalleryChrome onBack={() => router.back()}>
-              <PetPhotoCarousel
-                urls={images}
-                height={IMAGE_HEIGHT}
-                horizontalInset={H_PADDING}
-                imageBorderRadius={16}
-                showCounterBadge={false}
-                dotsVariant="onImage"
-                showSegmentProgressBar
-              />
-            </DetailPetGalleryChrome>
+            <PetPhotoCarousel
+              urls={images}
+              height={IMAGE_HEIGHT}
+              horizontalInset={H_PADDING}
+              imageBorderRadius={16}
+              showCounterBadge={false}
+              dotsVariant="onImage"
+              showSegmentProgressBar={false}
+            />
           ) : (
-            <DetailPetGalleryChrome onBack={() => router.back()}>
-              <View
-                style={[
-                  styles.emptyGalleryPlaceholder,
-                  {
-                    backgroundColor: colors.surfaceContainerHighest,
-                  },
-                ]}
-              >
-                <PawPrint size={34} color={colors.onSurfaceVariant} />
-              </View>
-            </DetailPetGalleryChrome>
+            <View
+              style={[
+                styles.emptyGalleryPlaceholder,
+                {
+                  backgroundColor: colors.surfaceContainerHighest,
+                },
+              ]}
+            >
+              <PawPrint size={34} color={colors.onSurfaceVariant} />
+            </View>
           )}
         </View>
 
         <View style={styles.content}>
-          <View style={styles.headerRow}>
-            <View>
-              <AppText variant="headline" style={styles.petName}>
-                {pet.name}
-              </AppText>
-              <AppText variant="body" color={colors.onSurfaceVariant}>
-                {pet.breed || t("pets.add.breed", "Breed")} •{" "}
-                {pet.species || t("pets.add.kind", "Pet")}
-              </AppText>
-            </View>
-            {openRequest ? (
-              <View
-                style={[
-                  styles.seekingPill,
-                  { backgroundColor: colors.tertiaryContainer },
-                ]}
-              >
-                <AppText variant="caption" color={colors.onTertiaryContainer}>
-                  {t("pet.detail.seeking")}
-                </AppText>
-              </View>
-            ) : null}
-          </View>
-
-          {openRequest ? (
-            <View style={styles.metaRow}>
-              <View style={styles.metaItem}>
-                <Calendar size={16} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {seekingDateRange}
-                </AppText>
-              </View>
-              <AppText variant="caption" color={colors.onSurfaceVariant}>
-                {" "}
-                •{" "}
-              </AppText>
-              <View style={styles.metaItem}>
-                <Clock size={16} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {careTypeLabel}
-                </AppText>
-              </View>
-            </View>
-          ) : (
+          <PetDetailHeaderSection
+            colors={colors}
+            petName={pet.name}
+            breed={pet.breed || t("pets.add.breed", "Breed")}
+            petType={pet.species || t("pets.add.kind", "Pet")}
+            dateRange={openRequest ? seekingDateRange : undefined}
+            time={openRequest ? seekingTime : undefined}
+            careType={openRequest ? careTypeLabel : undefined}
+            location={location}
+            description={
+              parsedNotes.bio ||
+              (typeof pet?.notes === "string" ? pet.notes : "") ||
+              t("post.request.noDescription", "No description yet.")
+            }
+            rightNode={
+              openRequest ? (
+                <View
+                  style={[
+                    styles.seekingPill,
+                    { backgroundColor: colors.tertiaryContainer },
+                  ]}
+                >
+                  <AppText variant="caption" color={colors.onTertiaryContainer}>
+                    {t("pet.detail.seeking")}
+                  </AppText>
+                </View>
+              ) : undefined
+            }
+          />
+          {!openRequest ? (
             <AppText
               variant="caption"
               color={colors.onSurfaceVariant}
-              style={{ marginBottom: 8 }}
+              style={{ marginBottom: 8, paddingHorizontal: 16 }}
             >
               {t(
                 "pet.detail.noOpenRequest",
                 "This pet doesn’t have an open care request right now.",
               )}
             </AppText>
-          )}
-
-          <View style={styles.locationRow}>
-            <MapPin size={16} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {location}
-            </AppText>
-          </View>
-
-          {/* Description */}
-          <AppText
-            variant="body"
-            color={colors.onSurfaceVariant}
-            style={styles.description}
-          >
-            {parsedNotes.bio ||
-              (typeof pet?.notes === "string" ? pet.notes : "") ||
-              t("post.request.noDescription", "No description yet.")}
-          </AppText>
+          ) : null}
 
           {/* Pet owner card */}
           <View
@@ -350,20 +316,23 @@ export default function PetDetailScreen() {
 
           <View style={styles.detailsCard}>
             <View style={styles.detailPills}>
-              <DetailPill
+              <PetDetailPill
                 label={t("requestDetails.yardType", "Yard type")}
                 value={yardType ?? t("common.empty", "—")}
                 colors={colors}
+                styles={styles}
               />
-              <DetailPill
+              <PetDetailPill
                 label={t("requestDetails.age", "Age")}
                 value={ageRange ?? t("common.empty", "—")}
                 colors={colors}
+                styles={styles}
               />
-              <DetailPill
+              <PetDetailPill
                 label={t("requestDetails.energyLevel", "Energy")}
                 value={energyLevel ?? t("common.empty", "—")}
                 colors={colors}
+                styles={styles}
               />
             </View>
           </View>
@@ -539,30 +508,3 @@ const styles = StyleSheet.create({
     paddingHorizontal: 0,
   },
 });
-
-function DetailPill({
-  label,
-  value,
-  colors,
-}: {
-  label: string;
-  value: string;
-  colors: typeof Colors.light | typeof Colors.dark;
-}) {
-  return (
-    <View style={styles.detailPillGroup}>
-      <AppText
-        variant="caption"
-        color={colors.onSurfaceVariant}
-        style={styles.pillLabel}
-      >
-        {label}
-      </AppText>
-      <View style={[styles.pillValue, { borderColor: colors.outlineVariant }]}>
-        <AppText variant="caption" color={colors.onSurfaceVariant}>
-          {value}
-        </AppText>
-      </View>
-    </View>
-  );
-}

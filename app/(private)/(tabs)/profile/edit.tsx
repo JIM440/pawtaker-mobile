@@ -2,9 +2,8 @@ import { Colors } from "@/src/constants/colors";
 import { AvailabilityFormValues, EditAvailabilityTab } from "@/src/features/profile/components/EditAvailabilityTab";
 import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab";
 import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
+import { EditProfileTabPanels } from "@/src/features/profile/components/edit-profile/EditProfileTabPanels";
 import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
-import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -15,12 +14,10 @@ import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { DataState, ErrorState } from "@/src/shared/components/ui";
+import { ErrorState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import {
   EditAvailabilityFormSkeleton,
-  EditProfileDetailsSkeleton,
-  ProfilePetsTabSkeleton,
 } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import * as ImagePicker from "expo-image-picker";
@@ -518,151 +515,69 @@ export default function EditProfileScreen() {
           <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
         }
       >
-        {activeTab === "details" && (
-          <>
-            {detailsLoading ? (
-              <EditProfileDetailsSkeleton />
-            ) : detailsError ? (
-              <ErrorState
-                error={detailsError}
-                actionLabel={t("common.retry", "Retry")}
-                onAction={() => {
-                  if (user?.id) void fetchProfile(user.id);
-                }}
-                mode="inline"
-              />
-            ) : (
-              <EditDetailsTab
-                avatarUri={avatarUri}
-                username={username}
-                bio={bio}
-                zipCode={zipCode}
-                location={location}
-                onChangeUsername={setUsername}
-                onChangeBio={setBio}
-                onChangeZipCode={setZipCode}
-                onChangeLocation={setLocation}
-                onChooseImage={() => {
-                  void handleChooseImage();
-                }}
-                onSave={handleSave}
-                saveLabel={
-                  isSaving
-                    ? t("common.saving", "Saving...")
-                    : t("common.save", "Save")
-                }
-                isSaving={isSaving}
-              />
-            )}
-          </>
-        )}
-        {activeTab === "pets" && (
-          <>
-            {petsLoading ? (
-              <ProfilePetsTabSkeleton count={2} />
-            ) : petsError ? (
-              <ErrorState
-                error={petsError}
-                actionLabel={t("common.retry", "Retry")}
-                onAction={() => {
-                  setPetsError(null);
-                  setPetsLoaded(false);
-                  void loadPetsTab({ refresh: true });
-                }}
-                mode="inline"
-              />
-            ) : (
-              <EditPetsTab
-                pets={pets.map((pet) => {
-                  const parsed = parsePetNotes(pet.notes);
-                  return {
-                    id: pet.id,
-                    imageSource: petGalleryUrls(pet)[0] ?? "",
-                    petName: pet.name || "Unnamed pet",
-                    breed: pet.breed || "Unknown breed",
-                    petType: pet.species || "Pet",
-                    bio: parsed.bio || "No pet bio yet.",
-                    yardType:
-                      ((pet as any)?.yard_type ?? parsed.yardType) ||
-                      null,
-                    ageRange:
-                      ((pet as any)?.age_range ?? parsed.ageRange) || null,
-                    energyLevel:
-                      ((pet as any)?.energy_level ??
-                        parsed.energyLevel) || null,
-                  };
-                })}
-                onAddPet={() => {
-                  if (blockIfKycNotApproved()) return;
-                  router.push("/(private)/pets/add");
-                }}
-                onEditPet={(id) =>
-                  router.push({
-                    pathname: "/(private)/pets/[id]/edit",
-                    params: { id },
-                  })
-                }
-                onDeletePet={(id) => {
-                  void handleDeletePet(id);
-                }}
-                onLaunchPetRequest={(id) => {
-                  if (blockIfKycNotApproved()) return;
-                  router.push({
-                    pathname: "/(private)/post-requests",
-                    params: { petId: id },
-                  });
-                }}
-                onSave={handleSave}
-              />
-            )}
-          </>
-        )}
-        {activeTab === "availability" && (
-          <>
-            {availabilityLoading ? (
-              <EditAvailabilityFormSkeleton />
-            ) : availabilityError ? (
-              <ErrorState
-                error={availabilityError}
-                actionLabel={t("common.retry", "Retry")}
-                onAction={() => {
-                  setAvailabilityError(null);
-                  setAvailabilityLoaded(false);
-                  void loadAvailabilityTab({ refresh: true });
-                }}
-                mode="inline"
-              />
-            ) : (
-              availabilityInitialValues ? (
-                <EditAvailabilityTab
-                  key={JSON.stringify({
-                    d: availabilityInitialValues.days,
-                    s: availabilityInitialValues.services,
-                    p: availabilityInitialValues.petKinds,
-                    n: availabilityInitialValues.note,
-                  })}
-                  initialValues={availabilityInitialValues}
-                  onSave={handleSaveAvailability}
-                  isSaving={isSavingAvailability}
-                  saveLabel={
-                    isSavingAvailability
-                      ? t("common.saving", "Saving...")
-                      : t("common.save", "Save")
-                  }
-                />
-              ) : (
-                <DataState
-                  title={t("profile.availability.emptyTitle", "No availability yet")}
-                  message={t(
-                    "profile.availability.emptyMessage",
-                    "You haven't posted availability yet. Publish availability to show it here.",
-                  )}
-                  mode="inline"
-                />
-              )
-            )}
-          </>
-        )}
+        <EditProfileTabPanels
+          activeTab={activeTab}
+          userId={user?.id}
+          t={(key, fallback) => t(key, fallback as string)}
+          detailsLoading={detailsLoading}
+          detailsError={detailsError}
+          fetchProfile={fetchProfile}
+          avatarUri={avatarUri}
+          username={username}
+          bio={bio}
+          zipCode={zipCode}
+          location={location}
+          setUsername={setUsername}
+          setBio={setBio}
+          setZipCode={setZipCode}
+          setLocation={setLocation}
+          onChooseImage={() => {
+            void handleChooseImage();
+          }}
+          onSaveDetails={handleSave}
+          saveLabel={
+            isSaving ? t("common.saving", "Saving...") : t("common.save", "Save")
+          }
+          isSaving={isSaving}
+          petsLoading={petsLoading}
+          petsError={petsError}
+          setPetsError={setPetsError}
+          setPetsLoaded={setPetsLoaded}
+          loadPetsTab={() => {
+            void loadPetsTab({ refresh: true });
+          }}
+          pets={pets}
+          onAddPet={() => {
+            if (blockIfKycNotApproved()) return;
+            router.push("/(private)/pets/add");
+          }}
+          onEditPet={(id) =>
+            router.push({
+              pathname: "/(private)/pets/[id]/edit",
+              params: { id },
+            })
+          }
+          onDeletePet={(id) => {
+            void handleDeletePet(id);
+          }}
+          onLaunchPetRequest={(id) => {
+            if (blockIfKycNotApproved()) return;
+            router.push({
+              pathname: "/(private)/post-requests",
+              params: { petId: id },
+            });
+          }}
+          availabilityLoading={availabilityLoading}
+          availabilityError={availabilityError}
+          setAvailabilityError={setAvailabilityError}
+          setAvailabilityLoaded={setAvailabilityLoaded}
+          loadAvailabilityTab={() => {
+            void loadAvailabilityTab({ refresh: true });
+          }}
+          availabilityInitialValues={availabilityInitialValues}
+          onSaveAvailability={handleSaveAvailability}
+          isSavingAvailability={isSavingAvailability}
+        />
       </ScrollView>
 
       <FeedbackModal

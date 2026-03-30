@@ -112,6 +112,7 @@ export function IllustratedEmptyState({
       type={illustration.type ?? "svg"}
       height={illustration.height ?? 145}
       width={illustration.width ?? 200}
+      withBackground={false}
       style={illustration.style}
       contentFit="contain"
     />

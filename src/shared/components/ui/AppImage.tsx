@@ -10,6 +10,7 @@ type AppImageProps = Omit<ImageProps, "style" | "contentFit"> & {
   style?: ImageProps["style"];
   contentFit?: ImageProps["contentFit"];
   type?: "image" | "svg";
+  withBackground?: boolean;
 };
 
 /**
@@ -24,6 +25,7 @@ export function AppImage({
   style,
   contentFit = "cover",
   type = "image",
+  withBackground = true,
   ...rest
 }: AppImageProps) {
   const { resolvedTheme } = useThemeStore();
@@ -39,7 +41,7 @@ export function AppImage({
          
         style={[
           {
-            backgroundColor: colors.surfaceContainer,
+            ...(withBackground ? { backgroundColor: colors.surfaceContainer } : {}),
             ...(width !== undefined && { width }),
             ...(height !== undefined && { height }),
           },
@@ -56,7 +58,7 @@ export function AppImage({
       contentFit={contentFit}
       style={[
         {
-          backgroundColor: colors.surfaceContainer,
+          ...(withBackground ? { backgroundColor: colors.surfaceContainer } : {}),
           ...(width !== undefined && { width }),
           ...(height !== undefined && { height }),
         },

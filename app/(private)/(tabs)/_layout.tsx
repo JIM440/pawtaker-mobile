@@ -2,9 +2,9 @@ import { Colors } from "@/src/constants/colors";
 import { tabPerfScreenOptions } from "@/src/constants/navigation";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Tabs, usePathname, useRouter } from "expo-router";
 import {
@@ -111,10 +111,7 @@ export default function TabsLayout() {
                   overflow: "hidden",
                 }}
               >
-                <Home
-                  size={ICON_SIZE}
-                  color={focused ? colors.primary : colors.onSecondaryContainer}
-                />
+                <Home size={ICON_SIZE} color={colors.onSecondaryContainer} />
               </View>
             ),
           }}
@@ -135,7 +132,7 @@ export default function TabsLayout() {
               >
                 <TrendingUp
                   size={ICON_SIZE}
-                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                  color={colors.onSecondaryContainer}
                 />
               </View>
             ),
@@ -189,7 +186,8 @@ export default function TabsLayout() {
           name="messages"
           options={{
             title: t("messages.title"),
-            tabBarBadge: messageUnreadCount > 0 ? messageUnreadCount : undefined,
+            tabBarBadge:
+              messageUnreadCount > 0 ? messageUnreadCount : undefined,
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{
@@ -202,7 +200,7 @@ export default function TabsLayout() {
               >
                 <MessageSquareText
                   size={ICON_SIZE}
-                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                  color={colors.onSecondaryContainer}
                 />
               </View>
             ),
@@ -245,7 +243,7 @@ export default function TabsLayout() {
               >
                 <CircleUserRound
                   size={ICON_SIZE}
-                  color={focused ? colors.primary : colors.onSecondaryContainer}
+                  color={colors.onSecondaryContainer}
                 />
               </View>
             ),

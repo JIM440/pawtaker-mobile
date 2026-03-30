@@ -8,7 +8,7 @@ import {
   Handshake,
   PawPrint,
   Shield,
-  Star
+  Star,
 } from "lucide-react-native";
 import React, { ForwardedRef, forwardRef } from "react";
 import {
@@ -59,20 +59,23 @@ export type NotificationCardProps = {
 };
 
 export const NotificationCard = forwardRef<View, NotificationCardProps>(
-  ({
-    id,
-    title,
-    body,
-    time,
-    unread,
-    type,
-    image,
-    isLast,
-    onPress,
-    onPressMenu,
-    actionLabel,
-    onActionPress,
-  }, ref) => {
+  (
+    {
+      id,
+      title,
+      body,
+      time,
+      unread,
+      type,
+      image,
+      isLast,
+      onPress,
+      onPressMenu,
+      actionLabel,
+      onActionPress,
+    },
+    ref,
+  ) => {
     const { resolvedTheme } = useThemeStore();
     const colors = Colors[resolvedTheme];
 
@@ -80,7 +83,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
       const containerStyle: StyleProp<ViewStyle> = [
         styles.itemAvatar,
         {
-          backgroundColor: colors.primaryContainer,
+          backgroundColor: colors.primary,
           alignItems: "center",
           justifyContent: "center",
         },
@@ -96,33 +99,37 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
             />
           ) : (
             <View style={containerStyle}>
-              <PawPrint size={20} color={colors.primary} />
+              <PawPrint size={20} color={colors.onPrimary} />
             </View>
           );
         case "care_request_posted":
           return (
             <View style={containerStyle}>
-              <Activity size={20} color={colors.primary} />
+              <Activity size={20} color={colors.onPrimary} />
             </View>
           );
         case "availability_posted":
         case "availability_saved":
           return (
             <View style={containerStyle}>
-              <Handshake size={20} color={colors.primary} />
+              <Handshake size={20} color={colors.onPrimary} />
             </View>
           );
         case "review_received":
         case "review_submitted":
           return (
             <View style={containerStyle}>
-              <Star size={20} color={colors.primary} fill={colors.primary} />
+              <Star
+                size={20}
+                color={colors.onPrimary}
+                fill={colors.onPrimary}
+              />
             </View>
           );
         case "contract_completed":
           return (
             <View style={containerStyle}>
-              <Handshake size={20} color={colors.primary} />
+              <Handshake size={20} color={colors.onPrimary} />
             </View>
           );
         case "verification":
@@ -130,28 +137,28 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
         case "kyc_rejected":
           return (
             <View style={containerStyle}>
-              <Shield size={20} color={colors.primary} />
+              <Shield size={20} color={colors.onPrimary} />
             </View>
           );
         case "care_given":
         case "handshake":
           return (
             <View style={containerStyle}>
-              <Handshake size={20} color={colors.primary} />
+              <Handshake size={20} color={colors.onPrimary} />
             </View>
           );
         case "paws":
         case "paws_given":
           return (
             <View style={containerStyle}>
-              <PawPrint size={20} color={colors.primary} />
+              <PawPrint size={20} color={colors.onPrimary} />
             </View>
           );
         case "points":
         case "points_gained":
           return (
             <View style={containerStyle}>
-              <Activity size={20} color={colors.primary} />
+              <Activity size={20} color={colors.onPrimary} />
             </View>
           );
         case "chat":
@@ -160,7 +167,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
             <AppImage source={{ uri: image }} style={styles.itemAvatar} />
           ) : (
             <View style={containerStyle}>
-              <Activity size={20} color={colors.primary} />
+              <Activity size={20} color={colors.onPrimary} />
             </View>
           );
         default:
@@ -168,7 +175,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
             <AppImage source={{ uri: image }} style={styles.itemAvatar} />
           ) : (
             <View style={containerStyle}>
-              <PawPrint size={20} color={colors.primary} />
+              <PawPrint size={20} color={colors.onPrimary} />
             </View>
           );
       }
@@ -286,9 +293,7 @@ const styles = StyleSheet.create({
   mainRow: {
     flexDirection: "row",
   },
-  iconTap: {
-    marginRight: 12,
-  },
+  iconTap: {},
   mainPressed: {
     opacity: 0.7,
   },
@@ -303,6 +308,7 @@ const styles = StyleSheet.create({
   },
   itemContent: {
     flex: 1,
+    marginLeft: 12,
   },
   row: {
     flexDirection: "row",

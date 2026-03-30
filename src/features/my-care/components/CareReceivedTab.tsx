@@ -8,9 +8,17 @@ interface CareReceivedTabProps {
     colors: any;
     rows: CareRow[];
     loading?: boolean;
+    onPressPerson?: (row: CareRow) => void;
+    onPressPet?: (row: CareRow) => void;
 }
 
-export function CareReceivedTab({ colors, rows, loading = false }: CareReceivedTabProps) {
+export function CareReceivedTab({
+    colors,
+    rows,
+    loading = false,
+    onPressPerson,
+    onPressPet,
+}: CareReceivedTabProps) {
     if (loading) {
         return <CareTableSkeleton colors={colors} rowCount={5} />;
     }
@@ -31,6 +39,8 @@ export function CareReceivedTab({ colors, rows, loading = false }: CareReceivedT
             rows={rows}
             headerLabel="Taker"
             footerText={footer}
+            onPressPerson={onPressPerson}
+            onPressPet={onPressPet}
         />
     );
 }

@@ -1,5 +1,19 @@
 import { ChatTypography } from "@/src/constants/chatTypography";
 import { Colors } from "@/src/constants/colors";
+import { useMessages } from "@/src/features/messages/hooks/useMessages";
+import { useSendMessage } from "@/src/features/messages/hooks/useSendMessage";
+import {
+  mapThreadMessagesToUi,
+  type UiMessage,
+} from "@/src/features/messages/threadMessageUi";
+import { ThreadScreenHeader } from "@/src/features/messages/components/ThreadScreenHeader";
+import { ThreadBlockConfirmModal } from "@/src/features/messages/components/ThreadBlockConfirmModal";
+import { ThreadMenus } from "@/src/features/messages/components/ThreadMenus";
+import {
+  CLOUDINARY_GALLERY_UPLOAD_PRESET,
+  uploadRawToCloudinary,
+  uploadToCloudinary,
+} from "@/src/lib/cloudinary/upload";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
@@ -7,12 +21,6 @@ import {
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
-import {
-  mapThreadMessagesToUi,
-  type UiMessage,
-} from "@/src/features/messages/threadMessageUi";
-import { useMessages } from "@/src/features/messages/hooks/useMessages";
-import { useSendMessage } from "@/src/features/messages/hooks/useSendMessage";
 import { supabase } from "@/src/lib/supabase/client";
 import type { Json } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
@@ -25,27 +33,23 @@ import {
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
+import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
+  ArrowLeft,
   Calendar,
-  Camera,
-  ChevronLeft,
-  EllipsisVertical,
   FileText,
-  Image as ImageIcon,
   SendHorizonal,
   Upload,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import * as ImagePicker from "expo-image-picker";
 import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
   Linking,
-  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -55,14 +59,14 @@ import {
   View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
-import {
-  CLOUDINARY_GALLERY_UPLOAD_PRESET,
-  uploadRawToCloudinary,
-  uploadToCloudinary,
-} from "@/src/lib/cloudinary/upload";
 
-function MessageBubble({ message, colors }: { message: UiMessage; colors: any }) {
+function MessageBubble({
+  message,
+  colors,
+}: {
+  message: UiMessage;
+  colors: any;
+}) {
   const { t } = useTranslation();
   const router = useRouter();
   const isRight = message.side === "right";
@@ -422,7 +426,7 @@ export default function ThreadScreen() {
   const threadId =
     typeof threadIdParam === "string"
       ? threadIdParam
-      : threadIdParam?.[0] ?? "";
+      : (threadIdParam?.[0] ?? "");
 
   const router = useRouter();
   const { t } = useTranslation();
@@ -684,8 +688,7 @@ export default function ThreadScreen() {
   const openPhotoLibrary = async () => {
     setAttachMenuVisible(false);
     await new Promise<void>((resolve) => setTimeout(resolve, 250));
-    const { status } =
-      await ImagePicker.requestMediaLibraryPermissionsAsync();
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== "granted") {
       showToast({
         message: t(
@@ -744,7 +747,10 @@ export default function ThreadScreen() {
       const asset = picked.assets[0];
       if (!threadId || !preset) {
         showToast({
-          message: t("messages.uploadNotConfigured", "Upload is not configured."),
+          message: t(
+            "messages.uploadNotConfigured",
+            "Upload is not configured.",
+          ),
         });
         return;
       }
@@ -773,7 +779,8 @@ export default function ThreadScreen() {
         );
         if (!result.ok) {
           showToast({
-            message: result.message || t("common.error", "Something went wrong"),
+            message:
+              result.message || t("common.error", "Something went wrong"),
           });
         } else {
           void refetchMessages();
@@ -812,437 +819,272 @@ export default function ThreadScreen() {
           behavior={Platform.OS === "ios" ? "padding" : undefined}
           keyboardVerticalOffset={Platform.OS === "ios" ? 90 : 0}
         >
-        {metaLoading ? (
-          <ChatThreadScreenSkeleton onPressBack={() => router.back()} />
-        ) : isResourceNotFound(loadError) ? (
-          <>
-            <View
-              style={[
-                styles.header,
-                { borderBottomColor: colors.outlineVariant },
-              ]}
-            >
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backBtn}
-                hitSlop={12}
+          {metaLoading ? (
+            <ChatThreadScreenSkeleton onPressBack={() => router.back()} />
+          ) : isResourceNotFound(loadError) ? (
+            <>
+              <View
+                style={[
+                  styles.header,
+                  { borderBottomColor: colors.outlineVariant },
+                ]}
               >
-                <ChevronLeft size={24} color={colors.onSurface} />
-              </TouchableOpacity>
-              <View style={styles.headerText}>
-                <AppText
-                  variant="body"
-                  numberOfLines={1}
-                  style={ChatTypography.threadHeaderName}
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  style={styles.backBtn}
+                  hitSlop={12}
                 >
-                  {t("messages.chatUnavailable")}
-                </AppText>
+                  <ArrowLeft size={24} color={colors.onSurface} />
+                </TouchableOpacity>
+                <View style={styles.headerText}>
+                  <AppText
+                    variant="body"
+                    numberOfLines={1}
+                    style={ChatTypography.threadHeaderName}
+                  >
+                    {t("messages.chatUnavailable")}
+                  </AppText>
+                </View>
+                <View style={{ width: 40 }} />
               </View>
-              <View style={{ width: 40 }} />
-            </View>
-            <ResourceMissingState
-              onBack={() => router.back()}
-              onHome={() =>
-                router.replace(
-                  "/(private)/(tabs)/(home)" as Parameters<
-                    typeof router.replace
-                  >[0],
-                )
-              }
-            />
-          </>
-        ) : loadError ? (
-          <>
-            <View
-              style={[
-                styles.header,
-                { borderBottomColor: colors.outlineVariant },
-              ]}
-            >
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backBtn}
-                hitSlop={12}
-              >
-                <ChevronLeft size={24} color={colors.onSurface} />
-              </TouchableOpacity>
-              <View style={{ flex: 1 }} />
-              <View style={{ width: 40 }} />
-            </View>
-            <ErrorState
-              error={loadError}
-              actionLabel={t("common.retry", "Retry")}
-              onAction={() => {
-                setMetaRetryKey((k) => k + 1);
-              }}
-              mode="full"
-            />
-          </>
-        ) : (
-          <>
-            {/* Header: back, avatar, name, subtitle, menu */}
-            <View
-              style={[
-                styles.header,
-                { borderBottomColor: colors.outlineVariant },
-              ]}
-            >
-              <TouchableOpacity
-                onPress={() => router.back()}
-                style={styles.backBtn}
-                hitSlop={12}
-              >
-                <ChevronLeft size={24} color={colors.onSurface} />
-              </TouchableOpacity>
-              {threadHeader.avatarUri ? (
-                <AppImage
-                  source={{ uri: threadHeader.avatarUri }}
-                  style={styles.headerAvatar}
-                  contentFit="cover"
-                />
-              ) : (
-                <View
-                  style={[
-                    styles.headerAvatar,
-                    { backgroundColor: colors.surfaceContainer },
-                  ]}
-                />
-              )}
-              <View style={styles.headerText}>
-                <AppText
-                  variant="body"
-                  numberOfLines={1}
-                  style={ChatTypography.threadHeaderName}
-                >
-                  {threadHeader.name}
-                </AppText>
-                <AppText
-                  variant="body"
-                  color={colors.onSurfaceVariant}
-                  numberOfLines={1}
-                  ellipsizeMode="tail"
-                  style={ChatTypography.threadHeaderSubtitle}
-                >
-                  {threadHeader.subtitle}
-                </AppText>
-              </View>
-              <TouchableOpacity
-                style={[
-                  styles.menuBtn,
-                  {
-                    backgroundColor: actionsOpen
-                      ? colors.surfaceContainer
-                      : "transparent",
-                  },
-                ]}
-                hitSlop={12}
-                onPress={() => setActionsOpen(true)}
-              >
-                <EllipsisVertical size={24} color={colors.onSurface} />
-              </TouchableOpacity>
-            </View>
-
-            {/* Chat actions menu (Figma 374-13745) */}
-            <Modal
-              transparent
-              visible={actionsOpen}
-              onRequestClose={() => setActionsOpen(false)}
-              animationType="fade"
-            >
-              <Pressable
-                style={styles.actionsOverlay}
-                onPress={() => setActionsOpen(false)}
-              >
-                <View
-                  style={[
-                    styles.actionsCard,
-                    {
-                      backgroundColor: colors.surfaceContainerLowest,
-                      borderColor: colors.outlineVariant,
-                    },
-                  ]}
-                  onStartShouldSetResponder={() => true}
-                >
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.actionItem,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                    onPress={() => {
-                      setActionsOpen(false);
-                      router.push({
-                        pathname: "/(private)/(tabs)/profile/users/[id]",
-                        params: { id: threadHeader.userId },
-                      });
-                    }}
-                  >
-                    <AppText
-                      variant="body"
-                      color={colors.onSurface}
-                      numberOfLines={1}
-                      style={styles.actionItemText}
-                    >
-                      {t("messages.viewProfile")}
-                    </AppText>
-                  </Pressable>
-
-                  <View
-                    style={[
-                      styles.menuDivider,
-                      { backgroundColor: colors.outlineVariant },
-                    ]}
-                  />
-
-                  <Pressable
-                    style={({ pressed }) => [
-                      styles.actionItem,
-                      styles.actionItemDanger,
-                      pressed && { opacity: 0.7 },
-                    ]}
-                    onPress={() => {
-                      setActionsOpen(false);
-                      setShowBlockConfirm(true);
-                    }}
-                  >
-                    <AppText
-                      variant="body"
-                      color={colors.error}
-                      numberOfLines={1}
-                      style={styles.actionItemText}
-                    >
-                      {t("messages.block")}
-                    </AppText>
-                  </Pressable>
-                </View>
-              </Pressable>
-            </Modal>
-
-            <Modal
-              transparent
-              visible={attachMenuVisible}
-              animationType="fade"
-              onRequestClose={() => setAttachMenuVisible(false)}
-            >
-              <Pressable
-                style={[
-                  styles.attachOverlay,
-                  {
-                    paddingBottom: tabBarHeight + 52 + Math.max(insets.bottom, 8) + 20,
-                  },
-                ]}
-                onPress={() => setAttachMenuVisible(false)}
-              >
-                <View
-                  style={[
-                    styles.attachPopup,
-                    {
-                      backgroundColor: colors.surfaceContainerLowest,
-                      borderColor: colors.outlineVariant,
-                    },
-                  ]}
-                  onStartShouldSetResponder={() => true}
-                >
-                  <Pressable
-                    android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
-                    style={({ pressed }) => pressed ? { opacity: 0.75 } : undefined}
-                    onPress={() => { void openPhotoLibrary(); }}
-                  >
-                    <View style={styles.attachPopupRow}>
-                      <ImageIcon size={18} color={colors.onSurfaceVariant} />
-                      <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
-                        {t("messages.attachPhotosVideos", "Photos & videos")}
-                      </AppText>
-                    </View>
-                  </Pressable>
-
-                  <View style={[styles.attachPopupDivider, { backgroundColor: colors.outlineVariant }]} />
-
-                  <Pressable
-                    android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
-                    style={({ pressed }) => pressed ? { opacity: 0.75 } : undefined}
-                    onPress={() => { void openDocumentPicker(); }}
-                  >
-                    <View style={styles.attachPopupRow}>
-                      <FileText size={18} color={colors.onSurfaceVariant} />
-                      <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
-                        {t("messages.attachDocument", "Document")}
-                      </AppText>
-                    </View>
-                  </Pressable>
-
-                  <View style={[styles.attachPopupDivider, { backgroundColor: colors.outlineVariant }]} />
-
-                  <Pressable
-                    android_ripple={{ color: colors.surfaceContainerHighest, borderless: false }}
-                    style={({ pressed }) => pressed ? { opacity: 0.75 } : undefined}
-                    onPress={() => { void openCamera(); }}
-                  >
-                    <View style={styles.attachPopupRow}>
-                      <Camera size={18} color={colors.onSurfaceVariant} />
-                      <AppText variant="body" color={colors.onSurface} style={styles.attachPopupLabel}>
-                        {t("messages.attachCamera", "Camera")}
-                      </AppText>
-                    </View>
-                  </Pressable>
-                </View>
-              </Pressable>
-            </Modal>
-
-            <FeedbackModal
-              visible={showBlockConfirm}
-              title={t("messages.blockConfirmTitle")}
-              description={t("messages.blockConfirmDescription")}
-              primaryLabel={t("messages.block")}
-              secondaryLabel={t("common.cancel")}
-              destructive
-              primaryLoading={blockBusy}
-              onPrimary={() => {
-                void (async () => {
-                  if (!user?.id || !threadHeader.userId) return;
-                  if (blockBusy) return;
-                  setBlockBusy(true);
-                  try {
-                    const { error } = await supabase
-                      .from("user_blocks")
-                      .upsert(
-                        { blocker_id: user.id, blocked_id: threadHeader.userId },
-                        { onConflict: "blocker_id,blocked_id" },
-                      );
-                    if (error) throw error;
-                    setShowBlockConfirm(false);
-                    showToast({
-                      message: t("messages.blockedToast", "User blocked."),
-                    });
-                    // Back to chats list after blocking.
-                    router.replace("/(private)/(tabs)/messages" as any);
-                  } catch (err) {
-                    showToast({
-                      message:
-                        err instanceof Error
-                          ? err.message
-                          : t("common.error", "Something went wrong"),
-                    });
-                  } finally {
-                    setBlockBusy(false);
-                  }
-                })();
-              }}
-              onSecondary={() => setShowBlockConfirm(false)}
-              onRequestClose={() => setShowBlockConfirm(false)}
-            />
-
-            {/* Messages */}
-            <ScrollView
-              ref={scrollRef}
-              style={styles.scroll}
-              contentContainerStyle={styles.scrollContent}
-              keyboardShouldPersistTaps="handled"
-              showsVerticalScrollIndicator={false}
-            >
-              {messagesLoadError ? (
-                <ErrorState
-                  error={messagesLoadError}
-                  actionLabel={t("common.retry", "Retry")}
-                  onAction={() => {
-                    void refetchMessages();
-                  }}
-                  mode="inline"
-                />
-              ) : messagesLoading && uiMessages.length === 0 ? (
-                <View style={{ paddingVertical: 32, alignItems: "center" }}>
-                  <ActivityIndicator size="small" color={colors.primary} />
-                </View>
-              ) : uiMessages.length > 0 ? (
-                uiMessages.map((msg) => (
-                  <MessageBubble key={msg.id} message={msg} colors={colors} />
-                ))
-              ) : (
-                <DataState
-                  title={t("messages.noMessagesTitle", "No messages yet")}
-                  message={t(
-                    "messages.noMessagesSubtitle",
-                    "Start the conversation by sending your first message.",
-                  )}
-                  mode="inline"
-                />
-              )}
-            </ScrollView>
-
-            {/* Input */}
-            <View
-              style={[
-                styles.composerWrapper,
-                {
-                  backgroundColor: colors.surfaceBright,
-                  borderColor: colors.outlineVariant,
-                  marginBottom:
-                    keyboardInset > 0 ? 8 : Math.max(insets.bottom, 8),
-                },
-              ]}
-            >
-              <TouchableOpacity
-                style={[styles.attachBtn, { backgroundColor: "transparent" }]}
-                hitSlop={8}
-                disabled={uploadingAttachment || sending}
-                onPress={() => setAttachMenuVisible(true)}
-              >
-                <Upload size={18} color={colors.onSurface} />
-              </TouchableOpacity>
-              <TextInput
-                style={[
-                  styles.composerInput,
-                  ChatTypography.composerInput,
-                  {
-                    color: colors.onSurface,
-                    ...(Platform.OS === "android"
-                      ? {
-                          paddingVertical: 10,
-                          minHeight: 40,
-                        }
-                      : { paddingVertical: 8 }),
-                  },
-                ]}
-                placeholder={t("messages.typeMessage")}
-                placeholderTextColor={colors.onSurfaceVariant}
-                value={input}
-                onChangeText={setInput}
-                multiline={false}
-                maxLength={500}
-                autoCorrect={false}
-                textAlignVertical="center"
-                underlineColorAndroid="transparent"
-                selectionColor={colors.primary}
-                {...(Platform.OS === "android"
-                  ? { cursorColor: colors.primary }
-                  : {})}
+              <ResourceMissingState
+                onBack={() => router.back()}
+                onHome={() =>
+                  router.replace(
+                    "/(private)/(tabs)/(home)" as Parameters<
+                      typeof router.replace
+                    >[0],
+                  )
+                }
               />
-              {uploadingAttachment ? (
-                <ActivityIndicator
-                  size="small"
-                  color={colors.primary}
-                  style={{ marginRight: 4 }}
-                />
-              ) : null}
-              <TouchableOpacity
+            </>
+          ) : loadError ? (
+            <>
+              <View
                 style={[
-                  styles.sendBtn,
+                  styles.header,
+                  { borderBottomColor: colors.outlineVariant },
+                ]}
+              >
+                <TouchableOpacity
+                  onPress={() => router.back()}
+                  style={styles.backBtn}
+                  hitSlop={12}
+                >
+                  <ArrowLeft size={24} color={colors.onSurface} />
+                </TouchableOpacity>
+                <View style={{ flex: 1 }} />
+                <View style={{ width: 40 }} />
+              </View>
+              <ErrorState
+                error={loadError}
+                actionLabel={t("common.retry", "Retry")}
+                onAction={() => {
+                  setMetaRetryKey((k) => k + 1);
+                }}
+                mode="full"
+              />
+            </>
+          ) : (
+            <>
+              <ThreadScreenHeader
+                colors={colors}
+                styles={styles}
+                threadHeader={threadHeader}
+                actionsOpen={actionsOpen}
+                onBack={() => router.back()}
+                onOpenActions={() => setActionsOpen(true)}
+              />
+
+              <ThreadMenus
+                actionsOpen={actionsOpen}
+                attachMenuVisible={attachMenuVisible}
+                colors={colors}
+                styles={styles}
+                insetsBottom={insets.bottom}
+                tabBarHeight={tabBarHeight}
+                t={(key, fallback) => t(key, fallback as string)}
+                onCloseActions={() => setActionsOpen(false)}
+                onViewProfile={() => {
+                  setActionsOpen(false);
+                  router.push({
+                    pathname: "/(private)/(tabs)/profile/users/[id]",
+                    params: { id: threadHeader.userId },
+                  });
+                }}
+                onBlock={() => {
+                  setActionsOpen(false);
+                  setShowBlockConfirm(true);
+                }}
+                onCloseAttach={() => setAttachMenuVisible(false)}
+                onOpenPhotoLibrary={() => {
+                  void openPhotoLibrary();
+                }}
+                onOpenDocumentPicker={() => {
+                  void openDocumentPicker();
+                }}
+                onOpenCamera={() => {
+                  void openCamera();
+                }}
+              />
+
+              <ThreadBlockConfirmModal
+                visible={showBlockConfirm}
+                blockBusy={blockBusy}
+                t={(key, fallback) => t(key, fallback as string)}
+                onConfirm={() => {
+                  void (async () => {
+                    if (!user?.id || !threadHeader.userId) return;
+                    if (blockBusy) return;
+                    setBlockBusy(true);
+                    try {
+                      const { error } = await supabase
+                        .from("user_blocks")
+                        .upsert(
+                          {
+                            blocker_id: user.id,
+                            blocked_id: threadHeader.userId,
+                          },
+                          { onConflict: "blocker_id,blocked_id" },
+                        );
+                      if (error) throw error;
+                      setShowBlockConfirm(false);
+                      showToast({
+                        message: t("messages.blockedToast", "User blocked."),
+                      });
+                      // Back to chats list after blocking.
+                      router.replace("/(private)/(tabs)/messages" as any);
+                    } catch (err) {
+                      showToast({
+                        message:
+                          err instanceof Error
+                            ? err.message
+                            : t("common.error", "Something went wrong"),
+                      });
+                    } finally {
+                      setBlockBusy(false);
+                    }
+                  })();
+                }}
+                onCancel={() => setShowBlockConfirm(false)}
+              />
+
+              {/* Messages */}
+              <ScrollView
+                ref={scrollRef}
+                style={styles.scroll}
+                contentContainerStyle={styles.scrollContent}
+                keyboardShouldPersistTaps="handled"
+                showsVerticalScrollIndicator={false}
+              >
+                {messagesLoadError ? (
+                  <ErrorState
+                    error={messagesLoadError}
+                    actionLabel={t("common.retry", "Retry")}
+                    onAction={() => {
+                      void refetchMessages();
+                    }}
+                    mode="inline"
+                  />
+                ) : messagesLoading && uiMessages.length === 0 ? (
+                  <View style={{ paddingVertical: 32, alignItems: "center" }}>
+                    <ActivityIndicator size="small" color={colors.primary} />
+                  </View>
+                ) : uiMessages.length > 0 ? (
+                  uiMessages.map((msg) => (
+                    <MessageBubble key={msg.id} message={msg} colors={colors} />
+                  ))
+                ) : (
+                  <DataState
+                    title={t("messages.noMessagesTitle", "No messages yet")}
+                    message={t(
+                      "messages.noMessagesSubtitle",
+                      "Start the conversation by sending your first message.",
+                    )}
+                    illustration={<View />}
+                    mode="inline"
+                  />
+                )}
+              </ScrollView>
+
+              {/* Input */}
+              <View
+                style={[
+                  styles.composerWrapper,
                   {
-                    backgroundColor: colors.tertiaryContainer,
+                    backgroundColor: colors.surfaceBright,
                     borderColor: colors.outlineVariant,
+                    marginBottom:
+                      keyboardInset > 0 ? 8 : Math.max(insets.bottom, 2),
                   },
                 ]}
-                hitSlop={8}
-                onPress={() => {
-                  void sendMessage();
-                }}
-                disabled={sending || !input.trim() || uploadingAttachment}
               >
-                <SendHorizonal size={22} color={colors.primary} />
-              </TouchableOpacity>
-            </View>
-          </>
-        )}
-      </KeyboardAvoidingView>
+                <TouchableOpacity
+                  style={[styles.attachBtn, { backgroundColor: "transparent" }]}
+                  hitSlop={8}
+                  disabled={uploadingAttachment || sending}
+                  onPress={() => setAttachMenuVisible(true)}
+                >
+                  <Upload size={18} color={colors.onSurface} />
+                </TouchableOpacity>
+                <TextInput
+                  style={[
+                    styles.composerInput,
+                    ChatTypography.composerInput,
+                    {
+                      color: colors.onSurface,
+                      ...(Platform.OS === "android"
+                        ? {
+                            paddingVertical: 10,
+                            minHeight: 40,
+                          }
+                        : { paddingVertical: 8 }),
+                    },
+                  ]}
+                  placeholder={t("messages.typeMessage")}
+                  placeholderTextColor={colors.onSurfaceVariant}
+                  value={input}
+                  onChangeText={setInput}
+                  multiline={false}
+                  maxLength={500}
+                  autoCorrect={false}
+                  textAlignVertical="center"
+                  underlineColorAndroid="transparent"
+                  selectionColor={colors.primary}
+                  {...(Platform.OS === "android"
+                    ? { cursorColor: colors.primary }
+                    : {})}
+                />
+                {uploadingAttachment ? (
+                  <ActivityIndicator
+                    size="small"
+                    color={colors.primary}
+                    style={{ marginRight: 4 }}
+                  />
+                ) : null}
+                <TouchableOpacity
+                  style={[
+                    styles.sendBtn,
+                    {
+                      backgroundColor: colors.secondaryContainer,
+                      borderColor: colors.outlineVariant,
+                    },
+                  ]}
+                  hitSlop={8}
+                  onPress={() => {
+                    void sendMessage();
+                  }}
+                  disabled={sending || !input.trim() || uploadingAttachment}
+                >
+                  <SendHorizonal
+                    size={22}
+                    color={colors.onSecondaryContainer}
+                  />
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
+        </KeyboardAvoidingView>
       </View>
     </View>
   );
@@ -1425,7 +1267,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     height: 52,
     marginHorizontal: 12,
-    marginBottom: 8,
+    // marginBottom: 8,
     gap: 6,
     borderWidth: 1,
     borderRadius: 999,

@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
@@ -168,6 +169,15 @@ export default function SendOfferScreen() {
       setSending(true);
       try {
         const ownerId = reqRow.owner_id as string;
+        const blocked = await hasUserBlockRelation(user.id, ownerId);
+        if (blocked) {
+          throw new Error(
+            t(
+              "messages.blockedNoMessaging",
+              "You cannot message this user because one of you has blocked the other.",
+            ),
+          );
+        }
         const participants = [user.id, ownerId].sort();
 
         let threadId: string | null = null;

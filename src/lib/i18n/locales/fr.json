@@ -36,6 +36,9 @@
     "user": "Utilisateur",
     "saving": "Enregistrement…",
     "success": "Succès",
+    "ok": "OK",
+    "camera": "Caméra",
+    "gallery": "Galerie",
     "deleteConfirmTitle": "Supprimer cet animal ?",
     "deleteConfirmMessage": "Cela supprimera définitivement l’animal de votre compte."
   },
@@ -188,6 +191,7 @@
         "requiredImagesTwo": "Images requises : 2 photos du document",
         "requiredImagesOne": "Images requises : 1 photo du document",
         "pickSourceTitle": "Choisir la source de l'image",
+        "pickSourceDescription": "Choisissez une image depuis votre galerie ou prenez une nouvelle photo.",
         "useCamera": "Utiliser l'appareil photo",
         "useGallery": "Choisir dans la galerie",
         "retakeSelfie": "Reprendre le selfie",
@@ -197,6 +201,9 @@
         "progressSubmitting": "Envoi…",
         "cameraPermissionRequired": "Autorisation de la caméra requise",
         "galleryPermissionRequired": "L’accès à la photothèque est nécessaire pour choisir une image.",
+        "misconfiguredUploads": "Les envois ne sont pas configurés sur cette version. Veuillez contacter le support.",
+        "uploadFailed": "Impossible d’envoyer vos photos. Réessayez ou changez de réseau.",
+        "fileTooLarge": "Cette photo est trop volumineuse. Choisissez une image plus petite puis réessayez.",
         "submissionFailed": "Échec de l'envoi de la vérification",
         "submit": "Soumettre pour vérification"
       },
@@ -279,7 +286,6 @@
     },
     "resultsLabel": "Résultats",
     "distanceKmRange": "{{min}}km–{{max}}km",
-    "takerAvailable": "Disponible",
     "careTypes": {
       "daytime": "Journée",
       "playwalk": "Jeu / promenade",
@@ -536,7 +542,7 @@
     "muteNotifications": "Désactiver les notifications",
     "block": "Bloquer",
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
-    "blockConfirmDescription": "Il ou elle ne pourra plus vous envoyer de messages. Vous pourrez débloquer plus tard dans Paramètres.",
+    "blockConfirmDescription": "Si vous bloquez cet utilisateur, vous ne pourrez plus vous envoyer de messages. Vous pourrez le débloquer plus tard dans Paramètres.",
     "blockedToast": "Utilisateur bloqué.",
     "chatUnavailable": "Discussion indisponible",
     "noMessagesTitle": "Pas encore de messages",
@@ -557,7 +563,8 @@
     "cameraPermissionRequired": "Autorisez l’accès à la caméra pour prendre une photo.",
     "documentPickerRebuildRequired": "Pour joindre des documents, reconstruisez l’application (ex. npx expo run:android ou expo run:ios), puis réessayez.",
     "lastMessagePhoto": "Photo",
-    "attachSheetTitle": "Joindre"
+    "attachSheetTitle": "Joindre",
+    "actionsTitle": "Actions"
   },
   "requestDetails": {
     "title": "Détails de la demande",
@@ -656,7 +663,9 @@
     "deleteConfirm": "Cela supprimera définitivement votre compte et toutes les données associées. Cette action est irréversible.",
     "logoutCta": "Se déconnecter",
     "signingOut": "Déconnexion…",
+    "deleting": "Suppression…",
     "signOutFailed": "Impossible de se déconnecter. Réessayez.",
+    "deleteFailed": "Impossible de supprimer le compte. Veuillez réessayer.",
     "deactivateCta": "Désactiver",
     "deleteCta": "Supprimer"
   },

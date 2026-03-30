@@ -1,5 +1,12 @@
 import { Colors } from "@/src/constants/colors";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { ApplyConfirmModal } from "@/src/features/post/components/ApplyConfirmModal";
+import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
+import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
@@ -24,18 +31,13 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { RequestDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
-import { DetailPetGalleryChrome } from "@/src/shared/components/pets/DetailPetGalleryChrome";
 import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { PetDetailHeaderSection } from "@/src/shared/components/pets/PetDetailHeaderSection";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
-  Calendar,
-  Clock,
   Handshake,
-  Heart,
-  MapPin,
   PawPrint,
   Star,
 } from "lucide-react-native";
@@ -68,18 +70,6 @@ function localYyyyMmDd(d: Date) {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const day = String(d.getDate()).padStart(2, "0");
   return `${y}-${m}-${day}`;
-}
-
-function formatTimeRangeFromDb(
-  start: string | null | undefined,
-  end: string | null | undefined,
-): string {
-  if (!start?.trim() || !end?.trim()) return "";
-  const clip = (s: string) => {
-    const m = s.trim().match(/^(\d{1,2}):(\d{2})/);
-    return m ? `${m[1]}:${m[2]}` : s.trim();
-  };
-  return `${clip(start)}–${clip(end)}`;
 }
 
 export default function RequestDetailScreen() {
@@ -233,12 +223,14 @@ export default function RequestDetailScreen() {
     [reqRow?.care_type],
   );
 
-  const dateRange = useMemo(() => {
-    if (!reqRow?.start_date || !reqRow?.end_date) return "";
-    return `${new Date(reqRow.start_date).toLocaleDateString()} - ${new Date(
-      reqRow.end_date,
-    ).toLocaleDateString()}`;
-  }, [reqRow?.end_date, reqRow?.start_date]);
+  const dateRange = useMemo(
+    () => formatRequestDateRange(reqRow?.start_date, reqRow?.end_date),
+    [reqRow?.end_date, reqRow?.start_date],
+  );
+  const timeRange = useMemo(
+    () => formatRequestTimeRange(reqRow?.start_time, reqRow?.end_time),
+    [reqRow?.end_time, reqRow?.start_time],
+  );
 
   const isExpired = useMemo(() => {
     if (!reqRow?.end_date) return false;
@@ -284,7 +276,7 @@ export default function RequestDetailScreen() {
     breed: pet?.breed ?? t("pets.add.breed", "Breed"),
     petType: pet?.species ?? t("pets.add.kind", "Pet"),
     dateRange,
-    time: formatTimeRangeFromDb(reqRow?.start_time, reqRow?.end_time),
+    time: timeRange,
     careType: careTypeLabel,
     location,
     distance: distanceLabel,
@@ -354,11 +346,52 @@ export default function RequestDetailScreen() {
   };
 
   const openApplyConfirm = () => {
-    if (blockIfKycNotApproved()) return;
-    if (!user?.id || !id || !reqRow?.owner_id) return;
-    if (isOwner) return;
-    if (isExpired) return;
-    setApplyConfirmOpen(true);
+    void (async () => {
+      if (blockIfKycNotApproved()) return;
+      if (!user?.id || !id || !reqRow?.owner_id) {
+        showToast({
+          variant: "error",
+          message: t("common.error", "Something went wrong"),
+          durationMs: 4200,
+        });
+        return;
+      }
+      if (isOwner) {
+        showToast({
+          variant: "info",
+          message: t(
+            "requestDetails.cannotApplyOwnRequest",
+            "You cannot apply to your own request.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
+      if (isExpired) {
+        showToast({
+          variant: "info",
+          message: t(
+            "requestDetails.requestExpired",
+            "This request has ended and is no longer accepting applications.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
+      const blocked = await hasUserBlockRelation(user.id, reqRow.owner_id as string);
+      if (blocked) {
+        showToast({
+          variant: "error",
+          message: t(
+            "messages.blockedNoMessaging",
+            "You cannot message this user because one of you has blocked the other.",
+          ),
+          durationMs: 4800,
+        });
+        return;
+      }
+      setApplyConfirmOpen(true);
+    })();
   };
 
   const runApply = async () => {
@@ -368,6 +401,15 @@ export default function RequestDetailScreen() {
     }
     if (!user?.id || !id || !reqRow?.owner_id) return;
     const ownerId = reqRow.owner_id as string;
+    const blocked = await hasUserBlockRelation(user.id, ownerId);
+    if (blocked) {
+      throw new Error(
+        t(
+          "messages.blockedNoMessaging",
+          "You cannot message this user because one of you has blocked the other.",
+        ),
+      );
+    }
     const participants = [user.id, ownerId].sort();
 
     let threadId: string | null = null;
@@ -495,168 +537,61 @@ export default function RequestDetailScreen() {
   }
 
   return (
-    <PageContainer contentStyle={{ paddingTop: 0 }}>
+    <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
       <View style={styles.screenWrap}>
+        <BackHeader title="" onBack={() => router.back()} />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
         >
-          <DetailPetGalleryChrome
-            onBack={() => router.back()}
+          <PetPhotoCarousel
+            urls={images}
+            height={IMAGE_HEIGHT}
+            horizontalInset={H_PADDING}
+            imageBorderRadius={16}
+            showCounterBadge={false}
+            dotsVariant="onImage"
+            showSegmentProgressBar={false}
             style={{ marginBottom: 8 }}
-          >
-            <PetPhotoCarousel
-              urls={images}
-              height={IMAGE_HEIGHT}
-              horizontalInset={H_PADDING}
-              imageBorderRadius={16}
-              showCounterBadge={false}
-              dotsVariant="onImage"
-              showSegmentProgressBar
-            />
-          </DetailPetGalleryChrome>
+          />
 
-          {/* Pet name, breed, favorite */}
-          <View style={styles.nameRow}>
-            <View style={styles.nameBreedRow}>
-              <TouchableOpacity
-                disabled={!pet?.id}
-                activeOpacity={0.7}
-                onPress={() => {
-                  if (!pet?.id) return;
-                  router.push({
-                    pathname: "/(private)/pets/[id]",
-                    params: { id: pet.id },
-                  });
-                }}
-              >
-                <AppText
-                  variant="headline"
-                  color={colors.onSurface}
-                  style={styles.petName}
-                >
-                  {request.petName}
-                </AppText>
-              </TouchableOpacity>
-              <View style={styles.breedRow}>
-                <AppText variant="caption" color={colors.onSurface}>
-                  {request.breed}
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {" "}
-                  •{" "}
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {request.petType}
-                </AppText>
-              </View>
-            </View>
-            {!isOwner ? (
-              <TouchableOpacity
-                onPress={togglePetLike}
-                disabled={likeBusy}
-                style={[
-                  styles.heartBtn,
-                  { backgroundColor: colors.surfaceContainer },
-                ]}
-              >
-                <Heart
-                  size={20}
-                  color={colors.onSurface}
-                  fill={isFavorite ? colors.primary : "transparent"}
-                />
-              </TouchableOpacity>
-            ) : null}
-          </View>
+          <PetDetailHeaderSection
+            colors={colors}
+            petName={request.petName}
+            breed={request.breed}
+            petType={request.petType}
+            dateRange={request.dateRange}
+            time={request.time}
+            careType={request.careType}
+            location={request.location}
+            distance={request.distance}
+            description={request.description}
+            showFavorite={!isOwner}
+            isFavorite={isFavorite}
+            favoriteDisabled={likeBusy}
+            onFavoritePress={togglePetLike}
+            onNamePress={
+              pet?.id
+                ? () =>
+                    router.push({
+                      pathname: "/(private)/pets/[id]",
+                      params: { id: pet.id },
+                    })
+                : undefined
+            }
+          />
 
-          {/* Date & time */}
-          <View style={[styles.metaRow, { marginBottom: 6 }]}>
-            <View style={styles.metaItem}>
-              <Calendar size={16} color={colors.onSurfaceVariant} />
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.metaText}
-              >
-                {request.dateRange}
-              </AppText>
-            </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {" "}
-              •{" "}
-            </AppText>
-            <View style={styles.metaItem}>
-              <Clock size={16} color={colors.onSurfaceVariant} />
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.metaText}
-              >
-                {request.time}
-              </AppText>
-            </View>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {" "}
-              •{" "}
-            </AppText>
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={styles.metaText}
+          <View style={styles.contentPad}>
+            {/* Pet owner card */}
+            <View
+              style={[
+                styles.ownerCard,
+                {
+                  backgroundColor: colors.surfaceContainerHighest,
+                },
+              ]}
             >
-              {request.careType}
-            </AppText>
-          </View>
-
-          {/* Location */}
-          <View style={styles.metaRow}>
-            <View style={styles.metaItem}>
-              <MapPin size={16} color={colors.onSurfaceVariant} />
-              <AppText
-                variant="caption"
-                color={colors.onSurfaceVariant}
-                style={styles.metaText}
-              >
-                {request.location}
-              </AppText>
-            </View>
-            {request.distance ? (
-              <>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {" "}
-                  •{" "}
-                </AppText>
-                <AppText
-                  variant="caption"
-                  color={colors.onSurfaceVariant}
-                  style={styles.metaText}
-                >
-                  {request.distance}
-                </AppText>
-              </>
-            ) : null}
-          </View>
-
-          {request.description.trim().length > 0 ? (
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.description}
-            >
-              {request.description}
-            </AppText>
-          ) : null}
-
-          {/* Pet owner card */}
-          <View
-            style={[
-              styles.ownerCard,
-              {
-                backgroundColor: colors.surfaceContainerHighest,
-              },
-            ]}
-          >
             <View style={styles.ownerLeft}>
               <AppImage
                 source={{ uri: request.owner.avatar }}
@@ -723,55 +658,59 @@ export default function RequestDetailScreen() {
                 {t("requestDetails.viewProfile")}
               </AppText>
             </TouchableOpacity>
-          </View>
-
-          <View
-            style={[styles.divider, { backgroundColor: colors.outlineVariant }]}
-          />
-
-          {/* Details section (Figma apply details) */}
-          <AppText
-            variant="title"
-            color={colors.onSurface}
-            style={styles.sectionTitle}
-          >
-            {t("requestDetails.details")}
-          </AppText>
-          <View style={styles.detailsCard}>
-            <View style={styles.detailPills}>
-              <DetailPill
-                label={t("requestDetails.yardType")}
-                value={request.details.yardType}
-                colors={colors}
-              />
-              <DetailPill
-                label={t("requestDetails.age")}
-                value={request.details.age}
-                colors={colors}
-              />
-              <DetailPill
-                label={t("requestDetails.energyLevel")}
-                value={request.details.energyLevel}
-                colors={colors}
-              />
             </View>
-          </View>
 
-          {/* Special needs */}
-          <AppText
-            variant="label"
-            color={colors.onSurfaceVariant}
-            style={styles.specialLabel}
-          >
-            *{t("requestDetails.specialNeeds")}
-          </AppText>
-          <AppText
-            variant="body"
-            color={colors.onSurfaceVariant}
-            style={styles.specialText}
-          >
-            {request.specialNeeds}
-          </AppText>
+            <View
+              style={[styles.divider, { backgroundColor: colors.outlineVariant }]}
+            />
+
+            {/* Details section (Figma apply details) */}
+            <AppText
+              variant="title"
+              color={colors.onSurface}
+              style={styles.sectionTitle}
+            >
+              {t("requestDetails.details")}
+            </AppText>
+            <View style={styles.detailsCard}>
+              <View style={styles.detailPills}>
+                <PetDetailPill
+                  label={t("requestDetails.yardType")}
+                  value={request.details.yardType}
+                  colors={colors}
+                  styles={styles}
+                />
+                <PetDetailPill
+                  label={t("requestDetails.age")}
+                  value={request.details.age}
+                  colors={colors}
+                  styles={styles}
+                />
+                <PetDetailPill
+                  label={t("requestDetails.energyLevel")}
+                  value={request.details.energyLevel}
+                  colors={colors}
+                  styles={styles}
+                />
+              </View>
+            </View>
+
+            {/* Special needs */}
+            <AppText
+              variant="label"
+              color={colors.onSurfaceVariant}
+              style={styles.specialLabel}
+            >
+              *{t("requestDetails.specialNeeds")}
+            </AppText>
+            <AppText
+              variant="body"
+              color={colors.onSurfaceVariant}
+              style={styles.specialText}
+            >
+              {request.specialNeeds}
+            </AppText>
+          </View>
         </ScrollView>
 
         <View style={[styles.fixedFooter]} pointerEvents="box-none">
@@ -781,56 +720,21 @@ export default function RequestDetailScreen() {
               onPress={openApplyConfirm}
               style={styles.applyBtn}
               loading={applying}
-              disabled={applying || isOwner || isExpired}
+              disabled={applying}
             />
           </View>
         </View>
       </View>
 
-      <FeedbackModal
+      <ApplyConfirmModal
         visible={applyConfirmOpen}
-        onRequestClose={() => !applying && setApplyConfirmOpen(false)}
-        icon={<PawPrint size={24} color={colors.primary} strokeWidth={2} />}
-        title={t("requestDetails.applyConfirmTitle", "Applying for this pet?")}
-        description={t(
-          "requestDetails.applyConfirmBody",
-          "A message with your availability details will be sent to this pet’s owner",
-        )}
-        secondaryLabel={t("common.cancel", "Cancel")}
-        onSecondary={() => !applying && setApplyConfirmOpen(false)}
-        secondaryVariant="secondary"
-        primaryLabel={t("common.continue", "Continue")}
-        onPrimary={onApplyConfirmed}
-        primaryLoading={applying}
+        applying={applying}
+        colors={colors}
+        t={(key, fallback) => t(key, fallback as string)}
+        onClose={() => setApplyConfirmOpen(false)}
+        onConfirm={onApplyConfirmed}
       />
     </PageContainer>
-  );
-}
-
-function DetailPill({
-  label,
-  value,
-  colors,
-}: {
-  label: string;
-  value: string;
-  colors: typeof Colors.light | typeof Colors.dark;
-}) {
-  return (
-    <View style={styles.detailPillGroup}>
-      <AppText
-        variant="caption"
-        color={colors.onSurfaceVariant}
-        style={styles.pillLabel}
-      >
-        {label}
-      </AppText>
-      <View style={[styles.pillValue, { borderColor: colors.outlineVariant }]}>
-        <AppText variant="caption" color={colors.onSurfaceVariant}>
-          {value}
-        </AppText>
-      </View>
-    </View>
   );
 }
 
@@ -859,6 +763,9 @@ const styles = StyleSheet.create({
   fixedFooterInner: {
     width: "100%",
     paddingHorizontal: 0,
+  },
+  contentPad: {
+    paddingHorizontal: 16,
   },
   nameRow: {
     flexDirection: "row",

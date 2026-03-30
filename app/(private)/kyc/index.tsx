@@ -1,13 +1,14 @@
 import { Colors } from "@/src/constants/colors";
+import { KycModals } from "@/src/features/kyc/components/KycModals";
 import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useKycStore } from "@/src/lib/store/kyc.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
@@ -174,6 +175,19 @@ export default function KycScreen() {
     setSubmitting(true);
     setError(null);
     try {
+      // Fail early with a clear message if Cloudinary env is missing.
+      if (
+        !process.env.EXPO_PUBLIC_CLOUDINARY_CLOUD_NAME ||
+        !process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET
+      ) {
+        throw new Error(
+          t(
+            "auth.kyc.submit.misconfiguredUploads",
+            "Uploads are not configured on this build. Please contact support.",
+          ),
+        );
+      }
+
       const front = await uploadToCloudinary(frontUri);
       let back: { secure_url: string; public_id: string } | null = null;
       if (requiresBack && backUri) {
@@ -206,8 +220,41 @@ export default function KycScreen() {
         "/(private)/(tabs)" as Parameters<typeof router.replace>[0],
       );
     } catch (e: unknown) {
+      console.warn("[kyc] submitKyc failed", e);
+
+      const raw =
+        e instanceof Error ? (e.message ?? "") : typeof e === "string" ? e : "";
+      const lower = raw.toLowerCase();
+
+      // Cloudinary errors are often technical. Provide a readable message.
+      if (
+        lower.includes("cloudinary") ||
+        lower.includes("upload preset") ||
+        lower.includes("unsigned") ||
+        lower.includes("resource_type") ||
+        lower.includes("invalid signature")
+      ) {
+        setError(
+          t(
+            "auth.kyc.submit.uploadFailed",
+            "We couldn’t upload your photos. Please try again, or switch to a different network.",
+          ),
+        );
+        return;
+      }
+
+      if (lower.includes("too large") || lower.includes("file size")) {
+        setError(
+          t(
+            "auth.kyc.submit.fileTooLarge",
+            "That photo is too large. Please choose a smaller photo and try again.",
+          ),
+        );
+        return;
+      }
+
       setError(
-        e instanceof Error ? e.message : t("auth.kyc.submit.submissionFailed"),
+        errorMessageFromUnknown(e, t("auth.kyc.submit.submissionFailed")),
       );
     } finally {
       setSubmitting(false);
@@ -611,31 +658,23 @@ export default function KycScreen() {
         </View>
       </ScrollView>
 
-      <FeedbackModal
-        visible={pickSourceFor !== null}
-        title={t("auth.kyc.submit.pickSourceTitle", "Select image source")}
-        primaryLabel={t("auth.kyc.submit.useCamera", "Use Camera")}
-        onPrimary={() => {
+      <KycModals
+        pickSourceFor={pickSourceFor}
+        permissionMessage={permissionMessage}
+        colors={colors}
+        t={(key, fallback) => t(key, fallback as string)}
+        onCamera={() => {
           const slot = pickSourceFor;
           setPickSourceFor(null);
           if (slot) void pickImage(slot, true);
         }}
-        secondaryLabel={t("auth.kyc.submit.useGallery", "Choose from Gallery")}
-        onSecondary={() => {
+        onGallery={() => {
           const slot = pickSourceFor;
           setPickSourceFor(null);
           if (slot) void pickImage(slot, false);
         }}
-        onRequestClose={() => setPickSourceFor(null)}
-      />
-
-      <FeedbackModal
-        visible={permissionMessage !== null}
-        title={t("common.notice", "Notice")}
-        description={permissionMessage ?? undefined}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setPermissionMessage(null)}
-        onRequestClose={() => setPermissionMessage(null)}
+        onClosePickSource={() => setPickSourceFor(null)}
+        onClosePermission={() => setPermissionMessage(null)}
       />
     </PageContainer>
   );

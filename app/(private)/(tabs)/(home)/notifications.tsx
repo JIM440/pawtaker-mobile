@@ -102,24 +102,142 @@ export default function NotificationsScreen() {
         .order("created_at", { ascending: false });
       if (error) throw error;
       const rows = (data ?? []) as TablesRow<"notifications">[];
-      const mapped: NotificationItem[] = rows.map((item) => {
-        const rawData = (item.data as Record<string, unknown> | null) ?? null;
-        const photoUrl =
-          item.type === "pet_added" &&
-          rawData &&
-          typeof rawData.photo_url === "string" &&
-          rawData.photo_url.trim().length > 0
+      const rawById = new Map<
+        string,
+        {
+          row: TablesRow<"notifications">;
+          rawData: Record<string, any> | null;
+        }
+      >();
+      const petIds = new Set<string>();
+      const personIds = new Set<string>();
+      const threadIds = new Set<string>();
+
+      for (const row of rows) {
+        const rawData = (row.data as Record<string, any> | null) ?? null;
+        rawById.set(row.id, { row, rawData });
+        const petId = rawData?.pet_id;
+        const reviewerId = rawData?.reviewer_id;
+        const revieweeId = rawData?.reviewee_id;
+        const takerId = rawData?.taker_id;
+        const threadId = rawData?.threadId;
+
+        if (
+          (row.type === "pet_added" || row.type === "care_request_posted") &&
+          typeof petId === "string" &&
+          petId.trim().length > 0
+        ) {
+          petIds.add(petId);
+        }
+        if (typeof reviewerId === "string" && reviewerId.trim().length > 0) {
+          personIds.add(reviewerId);
+        }
+        if (typeof revieweeId === "string" && revieweeId.trim().length > 0) {
+          personIds.add(revieweeId);
+        }
+        if (typeof takerId === "string" && takerId.trim().length > 0) {
+          personIds.add(takerId);
+        }
+        if (row.type === "chat" && typeof threadId === "string" && threadId.trim()) {
+          threadIds.add(threadId);
+        }
+      }
+
+      const [{ data: petsData }, { data: threadsData }] = await Promise.all([
+        petIds.size > 0
+          ? supabase.from("pets").select("id,photo_urls").in("id", Array.from(petIds))
+          : Promise.resolve({ data: [] } as any),
+        threadIds.size > 0
+          ? supabase
+              .from("threads")
+              .select("id,participant_ids")
+              .in("id", Array.from(threadIds))
+          : Promise.resolve({ data: [] } as any),
+      ]);
+
+      const petImageById = new Map<string, string>();
+      for (const p of petsData ?? []) {
+        const first = Array.isArray((p as any)?.photo_urls)
+          ? ((p as any).photo_urls[0] as string | undefined)
+          : undefined;
+        if (typeof first === "string" && first.trim().length > 0) {
+          petImageById.set((p as any).id, first.trim());
+        }
+      }
+
+      const chatOtherUserByThreadId = new Map<string, string>();
+      for (const thread of threadsData ?? []) {
+        const parts = Array.isArray((thread as any)?.participant_ids)
+          ? ((thread as any).participant_ids as string[])
+          : [];
+        const other = parts.find((p) => p && p !== user.id);
+        if (other) {
+          chatOtherUserByThreadId.set((thread as any).id, other);
+          personIds.add(other);
+        }
+      }
+
+      const { data: usersData } =
+        personIds.size > 0
+          ? await supabase
+              .from("users")
+              .select("id,avatar_url")
+              .in("id", Array.from(personIds))
+          : ({ data: [] } as any);
+      const personAvatarById = new Map<string, string>();
+      for (const u of usersData ?? []) {
+        if (typeof (u as any)?.avatar_url === "string" && (u as any).avatar_url.trim()) {
+          personAvatarById.set((u as any).id, (u as any).avatar_url.trim());
+        }
+      }
+
+      const mapped: NotificationItem[] = rows.map((row) => {
+        const rawData = rawById.get(row.id)?.rawData ?? null;
+        const directPetPhoto =
+          typeof rawData?.photo_url === "string" && rawData.photo_url.trim().length > 0
             ? rawData.photo_url.trim()
             : undefined;
+        const petPhoto =
+          directPetPhoto ||
+          (typeof rawData?.pet_id === "string"
+            ? petImageById.get(rawData.pet_id)
+            : undefined);
+
+        const threadOtherUserId =
+          row.type === "chat" && typeof rawData?.threadId === "string"
+            ? chatOtherUserByThreadId.get(rawData.threadId)
+            : undefined;
+        const personImage =
+          (typeof rawData?.reviewer_id === "string"
+            ? personAvatarById.get(rawData.reviewer_id)
+            : undefined) ||
+          (typeof rawData?.reviewee_id === "string"
+            ? personAvatarById.get(rawData.reviewee_id)
+            : undefined) ||
+          (typeof rawData?.taker_id === "string"
+            ? personAvatarById.get(rawData.taker_id)
+            : undefined) ||
+          (threadOtherUserId ? personAvatarById.get(threadOtherUserId) : undefined);
+
+        const image =
+          row.type === "pet_added" || row.type === "care_request_posted"
+            ? petPhoto
+            : row.type === "review_received" ||
+                row.type === "review_submitted" ||
+                row.type === "chat" ||
+                row.type === "applied"
+              ? personImage
+              : undefined;
+
         return {
-          id: item.id,
-          title: item.title,
-          body: item.body,
-          time: relativeTime(item.created_at),
-          unread: !item.read,
-          type: item.type,
-          data: (item.data as Record<string, any> | null) ?? null,
-          image: photoUrl,
+          id: row.id,
+          title: row.title,
+          body: row.body,
+          time: relativeTime(row.created_at),
+          unread: !row.read,
+          type: row.type,
+          data: rawData,
+          image,
         };
       });
       setItems(mapped);
@@ -134,6 +252,29 @@ export default function NotificationsScreen() {
 
   React.useEffect(() => {
     void loadNotifications();
+  }, [user?.id]);
+
+  React.useEffect(() => {
+    if (!user?.id) return;
+    const channel = supabase
+      .channel(`notifications:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "notifications",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => {
+          void loadNotifications({ refresh: true });
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
   }, [user?.id]);
 
   const onRefresh = async () => {

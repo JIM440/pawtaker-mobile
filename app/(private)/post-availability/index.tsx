@@ -2,6 +2,7 @@ import { Colors } from "@/src/constants/colors";
 import type { PetKindId } from "@/src/constants/pet-kinds";
 import { PET_TYPE_OPTIONS } from "@/src/constants/pets";
 import { CareTypeFirstStep } from "@/src/features/post/components/care-type-first-step";
+import { AvailabilityPreviewStep } from "@/src/features/post/components/availability-preview-step";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -434,172 +435,33 @@ export default function AvailabilityWizardScreen() {
         )}
 
         {step === 7 && (
-          <View style={styles.stepContainer}>
-            <AppText variant="title" style={styles.stepTitle}>
-              {t("post.availability.previewTitle")}
-            </AppText>
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.previewSubtitle}
-            >
-              {t("post.availability.previewSubtitle")}
-            </AppText>
-
-            {/* Same structure as profile/edit availability (EditAvailabilityTab) */}
-            <View style={styles.editLikeSection}>
-              <View style={styles.previewSwitchRow}>
-                <AppText
-                  variant="body"
-                  color={colors.onSurface}
-                  style={{ fontWeight: "600" }}
-                >
-                  {t("availability.available", "Available")}
-                </AppText>
-                <AppSwitch value={isAvailable} onValueChange={setIsAvailable} />
-              </View>
-
-              <View style={styles.previewFields}>
-                <View style={styles.inlineCol}>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.fieldLabel}
-                  >
-                    {t(
-                      "post.availability.careFieldLabel",
-                      "Care you will provide:",
-                    )}
-                  </AppText>
-                  <CareTypeSelector
-                    selectedKeys={careTypes}
-                    onToggle={toggleCareType}
-                  />
-                </View>
-
-                <View style={styles.inlineCol}>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.fieldLabel}
-                  >
-                    {t("post.availability.petTypeLabel", "Pet type:")}
-                  </AppText>
-                  <PetKindSelector
-                    options={Array.from(PET_TYPE_OPTIONS)}
-                    selectedKeys={petKinds}
-                    onToggle={togglePetKind}
-                    variant="small"
-                    singleSelect={false}
-                  />
-                </View>
-
-                <View style={styles.inlineCol}>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.fieldLabel}
-                  >
-                    {t("post.availability.yardChipLabel", "Yard type:")}
-                  </AppText>
-                  <RadioGroup
-                    options={yardRadioOptions}
-                    value={yardType}
-                    onChange={setYardType}
-                  />
-                </View>
-
-                <View style={styles.inlineCol}>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.fieldLabel}
-                  >
-                    {t("post.availability.petOwnerChipLabel", "Pet owner:")}
-                  </AppText>
-                  <RadioGroup
-                    options={petOwnerRadioOptions}
-                    value={isPetOwner}
-                    onChange={setIsPetOwner}
-                  />
-                </View>
-
-                <View style={styles.inlineCol}>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.fieldLabel}
-                  >
-                    {t("post.availability.daysFieldLabel", "Days:")}
-                  </AppText>
-                  <DaySelector
-                    days={["M", "Tu", "W", "Th", "F", "Sa", "Su"]}
-                    selectedDays={days}
-                    onToggle={toggleDay}
-                  />
-                </View>
-
-                <View style={styles.inlineCol}>
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurfaceVariant}
-                    style={styles.fieldLabel}
-                  >
-                    {t("post.availability.timeFieldLabel", "Time:")}
-                  </AppText>
-                  <View style={styles.timeRow}>
-                    <View style={styles.timeField}>
-                      <DateTimeField
-                        mode="time"
-                        label={t(
-                          "post.availability.startTimeLabel",
-                          "Start time",
-                        )}
-                        value={startTime}
-                        onChange={(d) => {
-                          setStartTime(d);
-                          setErrors((e) => ({ ...e, timeRange: undefined }));
-                        }}
-                        error={errors.timeRange}
-                      />
-                    </View>
-                    <View style={styles.timeField}>
-                      <DateTimeField
-                        mode="time"
-                        label={t("post.availability.endTimeLabel", "End time")}
-                        value={endTime}
-                        onChange={(d) => {
-                          setEndTime(d);
-                          setErrors((e) => ({ ...e, timeRange: undefined }));
-                        }}
-                        error={errors.timeRange}
-                        showErrorText={false}
-                      />
-                    </View>
-                  </View>
-                </View>
-
-                <Input
-                  label={t("availability.note", "Short note")}
-                  value={note}
-                  onChangeText={setNote}
-                  multiline
-                  placeholder={t("post.availability.notePlaceholder")}
-                  containerStyle={{ marginBottom: 0 }}
-                  inputStyle={styles.previewNoteInput}
-                  showErrorOnlyAfterFocus={false}
-                />
-              </View>
-            </View>
-
-            <AppText
-              variant="caption"
-              color={colors.onSurfaceVariant}
-              style={styles.disclaimer}
-            >
-              {t("post.availability.previewDisclaimer")}
-            </AppText>
-          </View>
+          <AvailabilityPreviewStep
+            t={(key, fallback) => t(key, fallback as string)}
+            colors={colors}
+            styles={styles}
+            isAvailable={isAvailable}
+            setIsAvailable={setIsAvailable}
+            careTypes={careTypes}
+            toggleCareType={toggleCareType}
+            petKinds={petKinds as any}
+            togglePetKind={togglePetKind as any}
+            yardRadioOptions={yardRadioOptions}
+            yardType={yardType}
+            setYardType={setYardType}
+            petOwnerRadioOptions={petOwnerRadioOptions}
+            isPetOwner={isPetOwner}
+            setIsPetOwner={setIsPetOwner}
+            days={days}
+            toggleDay={toggleDay}
+            startTime={startTime}
+            endTime={endTime}
+            setStartTime={setStartTime}
+            setEndTime={setEndTime}
+            setErrors={setErrors as any}
+            errors={errors}
+            note={note}
+            setNote={setNote}
+          />
         )}
       </ScrollView>
 

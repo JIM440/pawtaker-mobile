@@ -1,12 +1,10 @@
 import { Colors } from "@/src/constants/colors";
-import { ProfileAvailabilityTab } from "@/src/features/profile/components/ProfileAvailabilityTab";
-import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
-import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab";
-import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
-import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
-import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { ProfileTabContent } from "@/src/features/profile/components/ProfileTabContent";
+import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -18,12 +16,7 @@ import {
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
-import {
-  ProfileAvailabilityTabSkeleton,
-  ProfilePetsTabSkeleton,
-  ProfileReviewsTabSkeleton,
-} from "@/src/shared/components/skeletons/ProfileTabSkeletons";
-import { AppText, ErrorState } from "@/src/shared/components/ui";
+import { AppText } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
@@ -188,26 +181,19 @@ export default function ProfileScreen() {
         const pid = p?.id as string | undefined;
         const req = pid ? openRequestsByPetId[pid] : undefined;
 
-        const start = req?.start_date ? new Date(req.start_date) : null;
-        const end = req?.end_date ? new Date(req.end_date) : null;
-
-        const seekingDateRange =
-          start && end
-            ? `${start.toLocaleDateString()} - ${end.toLocaleDateString()}`
-            : start
-              ? start.toLocaleDateString()
-              : undefined;
-
-        const seekingTime =
-          typeof req?.start_time === "string" &&
-          typeof req?.end_time === "string"
-            ? `${req.start_time.slice(0, 5)} - ${req.end_time.slice(0, 5)}`
-            : undefined;
+        const seekingDateRange = formatRequestDateRange(
+          req?.start_date,
+          req?.end_date,
+        );
+        const seekingTime = formatRequestTimeRange(
+          req?.start_time,
+          req?.end_time,
+        );
 
         return {
           ...p,
-          seekingDateRange,
-          seekingTime,
+          seekingDateRange: seekingDateRange || undefined,
+          seekingTime: seekingTime || undefined,
         };
       });
 
@@ -554,153 +540,38 @@ export default function ProfileScreen() {
           </>
         )}
 
-        {/* Tab content — each tab manages its own fetch/loading */}
-        {activeTab === "pets" && (
-          <>
-            {petsLoading ? (
-              <ProfilePetsTabSkeleton count={3} />
-            ) : petsError ? (
-              <ErrorState
-                error={petsError}
-                actionLabel={t("common.retry", "Retry")}
-                onAction={() => {
-                  setPetsError(null);
-                  setPetsLoaded(false);
-                  void loadPetsTab({ refresh: true });
-                }}
-                mode="inline"
-              />
-            ) : (
-              <ProfilePetsTab
-                pets={pets.map((pet) => {
-                  const parsed = parsePetNotes(pet.notes);
-                  return {
-                    id: pet.id,
-                    imageSource: petGalleryUrls(pet)[0] ?? "",
-                    petName: pet.name || "Unnamed pet",
-                    breed: pet.breed || "Unknown breed",
-                    petType: pet.species || "Pet",
-                    bio: parsed.bio || "No pet bio yet.",
-                    yardType:
-                      ((pet as any)?.yard_type ?? parsed.yardType) || undefined,
-                    ageRange:
-                      ((pet as any)?.age_range ?? parsed.ageRange) || undefined,
-                    energyLevel:
-                      ((pet as any)?.energy_level ?? parsed.energyLevel) ||
-                      undefined,
-                    seekingDateRange: pet.seekingDateRange,
-                    seekingTime: pet.seekingTime,
-                  };
-                })}
-                onAddPet={() => {
-                  if (blockIfKycNotApproved()) return;
-                  router.push("/(private)/pets/add");
-                }}
-                showAddPetButton
-                onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
-                showPetActions
-                onLaunchRequest={(id) => {
-                  if (blockIfKycNotApproved()) return;
-                  router.push({
-                    pathname: "/(private)/post-requests",
-                    params: { petId: id },
-                  });
-                }}
-                onEditPet={(id) =>
-                  router.push({
-                    pathname: "/(private)/pets/[id]/edit",
-                    params: { id },
-                  })
-                }
-                onDeletePet={(id) => setDeletePetId(id)}
-              />
-            )}
-          </>
-        )}
-        {activeTab === "availability" && (
-          <>
-            {availabilityLoading ? (
-              <ProfileAvailabilityTabSkeleton />
-            ) : availabilityError ? (
-              <ErrorState
-                error={availabilityError}
-                actionLabel={t("common.retry", "Retry")}
-                onAction={() => {
-                  setAvailabilityError(null);
-                  setAvailabilityLoaded(false);
-                  void loadAvailabilityTab({ refresh: true });
-                }}
-                mode="inline"
-              />
-            ) : (
-              <ProfileAvailabilityTab
-                data={{
-                  card: {
-                    avatarUri: profileData.avatarUri,
-                    name: profileData.name,
-                    rating: profileData.rating,
-                    handshakes: profileData.handshakes,
-                    paws: profileData.paws,
-                    isAvailable: availability?.available ?? false,
-                    petTypes:
-                      availability?.petKinds?.length > 0
-                        ? (availability?.petKinds ?? [])
-                        : [],
-                    services:
-                      availability?.services?.length > 0
-                        ? (availability?.services ?? [])
-                        : [],
-                    location: profileData.location,
-                  },
-                  note: availability?.note || "",
-                  time:
-                    availability?.startTime && availability?.endTime
-                      ? `${availability.startTime} - ${availability.endTime}`
-                      : "",
-                  days:
-                    availability?.days?.length > 0
-                      ? (availability?.days as string[])
-                      : [],
-                  yardType: availability?.yardType || "",
-                  isPetOwner: availability?.petOwner || "",
-                }}
-                emptyMessage={t("profile.availability.emptyMine")}
-              />
-            )}
-          </>
-        )}
-        {activeTab === "bio" && <ProfileBioTab bio={profile?.bio} isMine />}
-        {activeTab === "reviews" && (
-          <>
-            {reviewsLoading ? (
-              <ProfileReviewsTabSkeleton />
-            ) : reviewsError ? (
-              <ErrorState
-                error={reviewsError}
-                actionLabel={t("common.retry", "Retry")}
-                onAction={() => {
-                  setReviewsError(null);
-                  setReviewsLoaded(false);
-                  void loadReviewsTab({ refresh: true });
-                }}
-                mode="inline"
-              />
-            ) : (
-              <ProfileReviewsTab
-                rating={profileData.rating}
-                handshakes={profileData.handshakes}
-                paws={profileData.paws}
-                items={reviewsUiItems}
-                onReviewerPress={(id) =>
-                  router.push({
-                    pathname: "/(private)/(tabs)/profile/users/[id]",
-                    params: { id },
-                  })
-                }
-              />
-            )}
-          </>
-        )}
+        <ProfileTabContent
+          activeTab={activeTab}
+          t={(key, fallback) => t(key, fallback as string)}
+          petsLoading={petsLoading}
+          petsError={petsError}
+          setPetsError={setPetsError}
+          setPetsLoaded={setPetsLoaded}
+          loadPetsTab={() => {
+            void loadPetsTab({ refresh: true });
+          }}
+          pets={pets}
+          onDeletePet={(id) => setDeletePetId(id)}
+          availabilityLoading={availabilityLoading}
+          availabilityError={availabilityError}
+          setAvailabilityError={setAvailabilityError}
+          setAvailabilityLoaded={setAvailabilityLoaded}
+          loadAvailabilityTab={() => {
+            void loadAvailabilityTab({ refresh: true });
+          }}
+          availability={availability}
+          profileData={profileData}
+          profileBio={profile?.bio}
+          reviewsLoading={reviewsLoading}
+          reviewsError={reviewsError}
+          setReviewsError={setReviewsError}
+          setReviewsLoaded={setReviewsLoaded}
+          loadReviewsTab={() => {
+            void loadReviewsTab({ refresh: true });
+          }}
+          reviewsUiItems={reviewsUiItems}
+          router={router}
+        />
       </ScrollView>
       <ImageViewerModal
         visible={avatarViewerOpen}
