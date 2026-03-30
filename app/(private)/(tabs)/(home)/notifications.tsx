@@ -154,11 +154,19 @@ export default function NotificationsScreen() {
     );
   }, [items, query]);
 
-  const handleDelete = () => {
+  const handleDelete = async () => {
     if (!menuForId) return;
-    setItems((prev) => prev.filter((n) => n.id !== menuForId));
+    const id = menuForId;
+    setItems((prev) => prev.filter((n) => n.id !== id));
     setMenuForId(null);
     setMenuPosition(null);
+    const { error } = await supabase
+      .from('notifications')
+      .delete()
+      .eq('id', id);
+    if (error) {
+      console.error('[Notifications] Delete failed:', error.message);
+    }
   };
 
   const markNotificationRead = async (notificationId: string) => {

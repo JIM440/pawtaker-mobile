@@ -1,9 +1,12 @@
 import { Colors } from "@/src/constants/colors";
 import { stackPerfScreenOptions } from "@/src/constants/navigation";
+import { useNotificationToast } from "@/src/lib/notifications/useNotificationToast";
 import { usePushRegistration } from "@/src/lib/notifications/usePushRegistration";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { navigateForNotificationPayload } from "@/src/features/notifications/notificationNavigation";
 import { KycGlobalPrompt } from "@/src/shared/components/kyc/KycGlobalPrompt";
-import { Stack } from "expo-router";
+import { NotificationToast } from "@/src/shared/components/ui/NotificationToast";
+import { Stack, useRouter } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { Platform } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
@@ -15,7 +18,9 @@ import { SafeAreaView } from "react-native-safe-area-context";
 export default function PrivateLayout() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const router = useRouter();
   usePushRegistration();
+  const { toast, dismissToast } = useNotificationToast();
 
   return (
     <SafeAreaView
@@ -25,6 +30,16 @@ export default function PrivateLayout() {
     >
       <StatusBar style={resolvedTheme === "light" ? "dark" : "light"} />
       <KycGlobalPrompt />
+      <NotificationToast
+        notification={toast}
+        onDismiss={dismissToast}
+        onPress={(data) => {
+          dismissToast();
+          if (data?.type) {
+            navigateForNotificationPayload(router, { type: data.type, data });
+          }
+        }}
+      />
       <Stack
         screenOptions={{
           headerShown: false,
