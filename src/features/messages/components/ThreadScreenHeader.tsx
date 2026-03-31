@@ -1,6 +1,6 @@
 import { ChatTypography } from "@/src/constants/chatTypography";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { ArrowLeft, EllipsisVertical } from "lucide-react-native";
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
@@ -31,20 +31,12 @@ export function ThreadScreenHeader({
       <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={12}>
         <ArrowLeft size={24} color={colors.onSurface} />
       </TouchableOpacity>
-      {threadHeader.avatarUri ? (
-        <AppImage
-          source={{ uri: threadHeader.avatarUri }}
-          style={styles.headerAvatar}
-          contentFit="cover"
-        />
-      ) : (
-        <View
-          style={[
-            styles.headerAvatar,
-            { backgroundColor: colors.surfaceContainer },
-          ]}
-        />
-      )}
+      <UserAvatar
+        uri={threadHeader.avatarUri}
+        name={threadHeader.name}
+        size={40}
+        style={styles.headerAvatar}
+      />
       <View style={styles.headerText}>
         <AppText
           variant="body"

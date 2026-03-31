@@ -1,3 +1,7 @@
+import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import { formatCarePointsPts } from "@/src/lib/points/carePoints";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
@@ -22,6 +26,9 @@ export type UiMessage = {
     petName: string;
     breed: string;
     petType?: string;
+    yardType?: string;
+    ageRange?: string;
+    energyLevel?: string;
     imageUri?: string;
     description?: string;
     tags?: string[];
@@ -147,6 +154,18 @@ export function mapThreadMessagesToUi(ctx: ThreadMessageUiContext): UiMessage[] 
           petName: paramPetName ?? pet?.name ?? "Pet",
           breed: paramBreed ?? pet?.breed ?? "Unknown breed",
           petType: pet?.species ?? "",
+          yardType:
+            typeof (pet?.yard_type ?? petNotes.yardType) === "string"
+              ? (pet?.yard_type ?? petNotes.yardType)
+              : undefined,
+          ageRange:
+            typeof (pet?.age_range ?? petNotes.ageRange) === "string"
+              ? (pet?.age_range ?? petNotes.ageRange)
+              : undefined,
+          energyLevel:
+            typeof (pet?.energy_level ?? petNotes.energyLevel) === "string"
+              ? (pet?.energy_level ?? petNotes.energyLevel)
+              : undefined,
           imageUri: img || undefined,
           description:
             (petNotes.bio || "").trim().length > 0
@@ -160,13 +179,19 @@ export function mapThreadMessagesToUi(ctx: ThreadMessageUiContext): UiMessage[] 
           date:
             paramDate ??
             (req?.start_date && req?.end_date
-              ? `${new Date(req.start_date as string).toLocaleDateString()} - ${new Date(req.end_date as string).toLocaleDateString()}`
+              ? formatRequestDateRange(
+                  req.start_date as string,
+                  req.end_date as string,
+                )
               : ""),
           time:
             paramTime ??
             (typeof req?.start_time === "string" &&
             typeof req?.end_time === "string"
-              ? `${(req.start_time as string).slice(0, 5)} - ${(req.end_time as string).slice(0, 5)}`
+              ? formatRequestTimeRange(
+                  req.start_time as string,
+                  req.end_time as string,
+                )
               : ""),
           price:
             paramPrice ??

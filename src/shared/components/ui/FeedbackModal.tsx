@@ -30,6 +30,7 @@ type FeedbackModalProps = {
   primaryLoading?: boolean;
   onRequestClose?: () => void;
   containerStyle?: StyleProp<ViewStyle>;
+  body?: React.ReactNode;
 };
 
 /**
@@ -50,6 +51,7 @@ export function FeedbackModal({
   primaryLoading = false,
   onRequestClose,
   containerStyle,
+  body,
 }: FeedbackModalProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -108,6 +110,7 @@ export function FeedbackModal({
                 {description}
               </AppText>
             ) : null}
+            {body ? <View style={styles.bodyWrap}>{body}</View> : null}
             <View style={styles.buttons}>
               {secondaryLabel && onSecondary && (
                 <Button
@@ -177,6 +180,9 @@ const styles = StyleSheet.create({
   buttons: {
     flexDirection: "row",
     gap: 16,
+  },
+  bodyWrap: {
+    marginBottom: 12,
   },
   button: {
     flex: 1,

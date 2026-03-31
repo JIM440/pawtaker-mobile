@@ -5,6 +5,7 @@ import {
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -178,27 +179,11 @@ export default function SendOfferScreen() {
             ),
           );
         }
-        const participants = [user.id, ownerId].sort();
-
-        let threadId: string | null = null;
-        const { data: existing, error: existingError } = await supabase
-          .from("threads")
-          .select("id")
-          .eq("request_id", requestId)
-          .contains("participant_ids", participants)
-          .maybeSingle();
-        if (existingError) throw existingError;
-        if (existing?.id) {
-          threadId = existing.id;
-        } else {
-          const { data: inserted, error: insertError } = await supabase
-            .from("threads")
-            .insert({ participant_ids: participants, request_id: requestId })
-            .select("id")
-            .single();
-          if (insertError) throw insertError;
-          threadId = inserted.id;
-        }
+        const threadId = await getOrCreateThreadForUsers({
+          userA: user.id,
+          userB: ownerId,
+          requestId,
+        });
         if (!threadId) throw new Error("Could not create chat thread.");
 
         const body =

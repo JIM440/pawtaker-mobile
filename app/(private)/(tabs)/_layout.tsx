@@ -188,6 +188,17 @@ export default function TabsLayout() {
             title: t("messages.title"),
             tabBarBadge:
               messageUnreadCount > 0 ? messageUnreadCount : undefined,
+            tabBarBadgeStyle: {
+              backgroundColor: colors.primary,
+              color: colors.onPrimary,
+              fontSize: 10,
+              lineHeight: 14,
+              width: 16,
+              height: 16,
+              borderRadius: 8,
+              justifyContent: "center",
+              alignItems: "center",
+            },
             tabBarIcon: ({ color, focused }) => (
               <View
                 style={{

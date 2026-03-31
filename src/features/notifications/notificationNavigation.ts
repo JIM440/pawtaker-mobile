@@ -94,6 +94,30 @@ export function navigateForNotificationPayload(
       }
       break;
     }
+    case "contract_accepted":
+    case "agreement_accepted":
+    case "offer_accepted":
+    case "contract_terminated":
+    case "agreement_terminated":
+    case "offer_terminated": {
+      const contractId =
+        typeof d.contract_id === "string" ? d.contract_id : null;
+      const requestId = typeof d.request_id === "string" ? d.request_id : null;
+      if (contractId) {
+        router.push({
+          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          params: { id: contractId },
+        });
+      } else if (requestId) {
+        router.push({
+          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          params: { id: requestId },
+        });
+      } else {
+        router.push("/(private)/(tabs)/my-care" as any);
+      }
+      break;
+    }
     case "chat": {
       const threadId = d.threadId;
       if (typeof threadId === "string" && threadId) {

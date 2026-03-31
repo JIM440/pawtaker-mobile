@@ -1,7 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { Handshake, PawPrint, Star } from "lucide-react-native";
 import React from "react";
 import { StyleSheet, TouchableOpacity, View } from "react-native";
@@ -26,10 +26,6 @@ export function CaretakerInfo({
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
-  const hasAvatar =
-    avatarUri != null &&
-    (typeof avatarUri !== "string" || avatarUri.trim().length > 0);
-
   return (
     <TouchableOpacity
       activeOpacity={0.85}
@@ -39,21 +35,16 @@ export function CaretakerInfo({
         { backgroundColor: colors.surfaceContainer },
       ]}
     >
-      {hasAvatar ? (
-        <AppImage
-          source={
-            typeof avatarUri === "string"
-              ? { uri: avatarUri.trim() }
-              : avatarUri
-          }
-          style={styles.avatar}
-        />
+      {typeof avatarUri === "number" ? (
+        <View style={styles.avatar}>
+          <UserAvatar uri={null} name={name} size={32} />
+        </View>
       ) : (
-        <View
-          style={[
-            styles.avatarPlaceholder,
-            { backgroundColor: colors.surfaceVariant },
-          ]}
+        <UserAvatar
+          uri={typeof avatarUri === "string" ? avatarUri : null}
+          name={name}
+          size={32}
+          style={styles.avatar}
         />
       )}
       <View style={styles.info}>

@@ -18,6 +18,7 @@ import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -25,6 +26,7 @@ import { supabase } from "@/src/lib/supabase/client";
 import type { Json } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { ChatThreadScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
+import { ProfilePetCard } from "@/src/shared/components/cards/ProfilePetCard";
 import {
   DataState,
   ErrorState,
@@ -36,13 +38,7 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  ArrowLeft,
-  Calendar,
-  FileText,
-  SendHorizonal,
-  Upload,
-} from "lucide-react-native";
+import { ArrowLeft, FileText, SendHorizonal, Upload } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -230,119 +226,21 @@ function MessageBubble({
             </View>
           ) : null}
 
-          {/* Pet preview card */}
-          <View
-            style={[
-              styles.requestPetPreview,
-              { backgroundColor: colors.surfaceBright },
-            ]}
-          >
-            <View
-              style={[
-                styles.requestPetImage,
-                { backgroundColor: colors.surfaceContainerHighest },
-              ]}
-            >
-              {rd.imageUri ? (
-                <AppImage
-                  source={{ uri: rd.imageUri }}
-                  style={styles.requestPetImage}
-                  contentFit="cover"
-                />
-              ) : null}
-            </View>
-
-            <View style={styles.requestPetBody}>
-              <View style={styles.requestPetNameRow}>
-                <AppText
-                  variant="title"
-                  color={colors.onSurface}
-                  style={styles.requestPetName}
-                  numberOfLines={1}
-                >
-                  {rd.petName}
-                </AppText>
-              </View>
-
-              <View style={styles.requestPetBreedRow}>
-                <AppText
-                  variant="caption"
-                  color={colors.onSurface}
-                  style={styles.requestPetBreed}
-                  numberOfLines={1}
-                >
-                  {rd.breed}
-                </AppText>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {" "}
-                  •{" "}
-                </AppText>
-                <AppText
-                  variant="caption"
-                  color={colors.onSurfaceVariant}
-                  style={styles.requestPetBreed}
-                  numberOfLines={1}
-                >
-                  {rd.petType ?? ""}
-                </AppText>
-              </View>
-
-              <View style={styles.requestPetMetaRow}>
-                <View style={styles.metaItemTight}>
-                  <Calendar size={16} color={colors.onSurfaceVariant} />
-                  <AppText
-                    variant="caption"
-                    color={colors.onSurface}
-                    style={styles.metaText}
-                    numberOfLines={1}
-                  >
-                    {rd.date}
-                  </AppText>
-                </View>
-                {rd.careType ? (
-                  <>
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {" "}
-                      •{" "}
-                    </AppText>
-                    <View style={styles.metaItemTight}>
-                      <AppText
-                        variant="caption"
-                        color={colors.onSurface}
-                        style={styles.metaText}
-                        numberOfLines={1}
-                      >
-                        {rd.careType}
-                      </AppText>
-                    </View>
-                  </>
-                ) : null}
-              </View>
-
-              {Array.isArray(rd.tags) && rd.tags.length > 0 ? (
-                <View style={styles.requestTagsRow}>
-                  {rd.tags.slice(0, 3).map((tag: string, idx: number) => (
-                    <View
-                      key={`${tag}-${idx}`}
-                      style={[
-                        styles.requestTag,
-                        { backgroundColor: colors.surfaceContainerHigh },
-                      ]}
-                    >
-                      <AppText
-                        variant="caption"
-                        color={colors.onSecondaryContainer}
-                        style={styles.requestTagText}
-                        numberOfLines={1}
-                      >
-                        {tag}
-                      </AppText>
-                    </View>
-                  ))}
-                </View>
-              ) : null}
-            </View>
-          </View>
+          {/* Pet preview card (same renderer as profile cards) */}
+          <ProfilePetCard
+            imageSource={rd.imageUri ? { uri: rd.imageUri } : ""}
+            petName={rd.petName}
+            breed={rd.breed}
+            petType={rd.petType ?? ""}
+            bio={rd.description ?? ""}
+            yardType={rd.yardType}
+            ageRange={rd.ageRange}
+            energyLevel={rd.energyLevel}
+            tags={[]}
+            seekingDateRange={rd.date}
+            seekingTime={rd.time}
+            showMenu={false}
+          />
 
           <Button
             label={ctaLabel}
@@ -350,12 +248,25 @@ function MessageBubble({
             style={styles.requestCta}
             disabled={!offerId}
             onPress={() => {
-              if (!offerId) return;
-              if (context === "seeking") {
-                router.push(`/(private)/post-requests/${offerId}` as any);
-                return;
-              }
-              router.push(`/(private)/post-availability/${offerId}` as any);
+              void (async () => {
+                if (!offerId) return;
+                try {
+                  const eligibility = await getRequestEligibility(offerId);
+                  if (!eligibility.eligible && eligibility.contractId) {
+                    router.push(
+                      `/(private)/(tabs)/my-care/contract/${eligibility.contractId}` as any,
+                    );
+                    return;
+                  }
+                } catch {
+                  // Fall back to previous route behavior if eligibility lookup fails.
+                }
+                if (context === "seeking") {
+                  router.push(`/(private)/post-requests/${offerId}` as any);
+                  return;
+                }
+                router.push(`/(private)/post-availability/${offerId}` as any);
+              })();
             }}
           />
         </View>
@@ -932,7 +843,7 @@ export default function ThreadScreen() {
                 visible={showBlockConfirm}
                 blockBusy={blockBusy}
                 t={(key, fallback) => t(key, fallback as string)}
-                onConfirm={() => {
+                onConfirm={(_reason) => {
                   void (async () => {
                     if (!user?.id || !threadHeader.userId) return;
                     if (blockBusy) return;

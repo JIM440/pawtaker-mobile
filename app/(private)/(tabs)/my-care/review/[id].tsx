@@ -24,7 +24,10 @@ import { ScrollView, StyleSheet, View } from "react-native";
  * Create review after care (Figma ~989-33186 form, ~1029-29385 thank-you).
  */
 export default function PostCareReviewScreen() {
-  const { id: routeId } = useLocalSearchParams<{ id: string }>();
+  const { id: routeId, revieweeId: revieweeIdParam } = useLocalSearchParams<{
+    id: string;
+    revieweeId?: string;
+  }>();
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuthStore();
@@ -92,10 +95,15 @@ export default function PostCareReviewScreen() {
         return;
       }
 
+      const explicitRevieweeId =
+        typeof revieweeIdParam === "string" && revieweeIdParam.trim().length > 0
+          ? revieweeIdParam.trim()
+          : null;
       const revieweeId =
-        contract.owner_id === user.id
+        explicitRevieweeId ??
+        (contract.owner_id === user.id
           ? (contract.taker_id as string)
-          : (contract.owner_id as string);
+          : (contract.owner_id as string));
 
       const [{ data: peer, error: peerErr }, { data: revs, error: revErr }] = await Promise.all([
         supabase
@@ -154,7 +162,7 @@ export default function PostCareReviewScreen() {
     } finally {
       setLoading(false);
     }
-  }, [routeId, t, user?.id]);
+  }, [revieweeIdParam, routeId, t, user?.id]);
 
   useFocusEffect(
     useCallback(() => {

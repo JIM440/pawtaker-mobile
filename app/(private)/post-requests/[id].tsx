@@ -1,8 +1,9 @@
 import { Colors } from "@/src/constants/colors";
-import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
-import { ApplyConfirmModal } from "@/src/features/post/components/ApplyConfirmModal";
 import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
+import { ApplyConfirmModal } from "@/src/features/post/components/ApplyConfirmModal";
+import { RequestPetDetailView } from "@/src/features/requests/components/RequestPetDetailView";
 import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
   formatRequestDateRange,
   formatRequestTimeRange,
@@ -11,39 +12,44 @@ import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
+import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import {
   computeCarePoints,
   normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
-import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { PetDetailHeaderSection } from "@/src/shared/components/pets/PetDetailHeaderSection";
+import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
+import { RequestDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
+import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { RequestDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
-import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
-import { PetDetailHeaderSection } from "@/src/shared/components/pets/PetDetailHeaderSection";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  Handshake,
-  PawPrint,
-  Star,
-} from "lucide-react-native";
+import { Handshake, PawPrint, Star } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
+import {
+  Platform,
+  ScrollView,
+  StyleSheet,
+  TouchableOpacity,
+  View,
+} from "react-native";
 
 const H_PADDING = 16;
 const IMAGE_HEIGHT = 216;
@@ -52,7 +58,10 @@ function toRad(d: number) {
   return (d * Math.PI) / 180;
 }
 
-function haversineKm(a: { lat: number; lon: number }, b: { lat: number; lon: number }) {
+function haversineKm(
+  a: { lat: number; lon: number },
+  b: { lat: number; lon: number },
+) {
   const R = 6371;
   const dLat = toRad(b.lat - a.lat);
   const dLon = toRad(b.lon - a.lon);
@@ -123,23 +132,34 @@ export default function RequestDetailScreen() {
         return;
       }
 
-      const [{ data: petRow, error: petError }, { data: ownerRow, error: ownerError }, { data: meRow, error: meError }, { data: reviews, error: reviewsError }] =
-        await Promise.all([
-          supabase.from("pets").select("*").eq("id", request.pet_id).maybeSingle(),
-          supabase
-            .from("users")
-            .select(
-              "id,full_name,avatar_url,city,latitude,longitude,points_balance,care_given_count,care_received_count",
-            )
-            .eq("id", request.owner_id)
-            .maybeSingle(),
-          supabase
-            .from("users")
-            .select("id,latitude,longitude")
-            .eq("id", user.id)
-            .maybeSingle(),
-          supabase.from("reviews").select("rating").eq("reviewee_id", request.owner_id),
-        ]);
+      const [
+        { data: petRow, error: petError },
+        { data: ownerRow, error: ownerError },
+        { data: meRow, error: meError },
+        { data: reviews, error: reviewsError },
+      ] = await Promise.all([
+        supabase
+          .from("pets")
+          .select("*")
+          .eq("id", request.pet_id)
+          .maybeSingle(),
+        supabase
+          .from("users")
+          .select(
+            "id,full_name,avatar_url,city,latitude,longitude,points_balance,care_given_count,care_received_count",
+          )
+          .eq("id", request.owner_id)
+          .maybeSingle(),
+        supabase
+          .from("users")
+          .select("id,latitude,longitude")
+          .eq("id", user.id)
+          .maybeSingle(),
+        supabase
+          .from("reviews")
+          .select("rating")
+          .eq("reviewee_id", request.owner_id),
+      ]);
       if (petError) throw petError;
       if (ownerError) throw ownerError;
       if (meError) throw meError;
@@ -162,11 +182,7 @@ export default function RequestDetailScreen() {
       setOwnerReviews(reviews ?? []);
 
       const petForLike = petRow as TablesRow<"pets">;
-      if (
-        petForLike.id &&
-        user.id &&
-        petForLike.owner_id !== user.id
-      ) {
+      if (petForLike.id && user.id && petForLike.owner_id !== user.id) {
         const { data: likeRow } = await supabase
           .from("pet_likes")
           .select("pet_id")
@@ -178,7 +194,11 @@ export default function RequestDetailScreen() {
         setIsFavorite(false);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+      setError(
+        err instanceof Error
+          ? err.message
+          : t("common.error", "Something went wrong"),
+      );
     } finally {
       setLoading(false);
     }
@@ -241,8 +261,7 @@ export default function RequestDetailScreen() {
 
   const careTypeLabel = t(`feed.careTypes.${careTypeKey}`);
 
-  const location =
-    owner?.city?.trim() || t("profile.noLocation");
+  const location = owner?.city?.trim() || t("profile.noLocation");
 
   const distanceLabel = useMemo(() => {
     const olat = owner?.latitude;
@@ -268,7 +287,8 @@ export default function RequestDetailScreen() {
 
   const ownerRating =
     ownerReviews.length > 0
-      ? ownerReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / ownerReviews.length
+      ? ownerReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) /
+        ownerReviews.length
       : 0;
 
   const request = {
@@ -305,7 +325,9 @@ export default function RequestDetailScreen() {
         .join("\n\n") || t("pet.detail.none", "None"),
   };
 
-  const isOwner = Boolean(user?.id && reqRow?.owner_id && user.id === reqRow.owner_id);
+  const isOwner = Boolean(
+    user?.id && reqRow?.owner_id && user.id === reqRow.owner_id,
+  );
 
   const togglePetLike = () => {
     if (!user?.id || !pet?.id || isOwner || likeBusy) return;
@@ -378,7 +400,22 @@ export default function RequestDetailScreen() {
         });
         return;
       }
-      const blocked = await hasUserBlockRelation(user.id, reqRow.owner_id as string);
+      const eligibility = await getRequestEligibility(id);
+      if (!eligibility.eligible) {
+        showToast({
+          variant: "info",
+          message: t(
+            "requestDetails.requestClosedForApplications",
+            "This request is no longer accepting applications.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
+      const blocked = await hasUserBlockRelation(
+        user.id,
+        reqRow.owner_id as string,
+      );
       if (blocked) {
         showToast({
           variant: "error",
@@ -410,31 +447,11 @@ export default function RequestDetailScreen() {
         ),
       );
     }
-    const participants = [user.id, ownerId].sort();
-
-    let threadId: string | null = null;
-
-    const { data: existing, error: existingError } = await supabase
-      .from("threads")
-      .select("id,participant_ids,request_id")
-      .eq("request_id", id)
-      .contains("participant_ids", participants)
-      .maybeSingle();
-    if (existingError) throw existingError;
-    if (existing?.id) {
-      threadId = existing.id;
-    } else {
-      const { data: inserted, error: insertError } = await supabase
-        .from("threads")
-        .insert({
-          participant_ids: participants,
-          request_id: id,
-        })
-        .select("id")
-        .single();
-      if (insertError) throw insertError;
-      threadId = inserted.id;
-    }
+    const threadId = await getOrCreateThreadForUsers({
+      userA: user.id,
+      userB: ownerId,
+      requestId: id,
+    });
 
     if (!threadId) throw new Error("Could not create chat thread.");
 
@@ -446,8 +463,7 @@ export default function RequestDetailScreen() {
             reqRow.end_date as string,
           )
         : null;
-    const price =
-      formulaPoints != null ? `${formulaPoints} pts` : "";
+    const price = formulaPoints != null ? `${formulaPoints} pts` : "";
 
     const { error: msgError } = await supabase.from("messages").insert({
       thread_id: threadId,
@@ -488,7 +504,11 @@ export default function RequestDetailScreen() {
       try {
         await runApply();
       } catch (err) {
-        setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+        setError(
+          err instanceof Error
+            ? err.message
+            : t("common.error", "Something went wrong"),
+        );
       } finally {
         setApplying(false);
       }
@@ -497,8 +517,12 @@ export default function RequestDetailScreen() {
 
   if (loading) {
     return (
-      <PageContainer>
-        <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+      <PageContainer contentStyle={{ paddingTop: 0 }}>
+        <BackHeader
+          className="pl-0 pt-0"
+          title=""
+          onBack={() => router.back()}
+        />
         <View style={styles.screenWrap}>
           <RequestDetailScreenSkeleton />
         </View>
@@ -508,12 +532,20 @@ export default function RequestDetailScreen() {
 
   if (isResourceNotFound(error)) {
     return (
-      <PageContainer>
-        <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+      <PageContainer contentStyle={{ paddingTop: 0 }}>
+        <BackHeader
+          className="pl-0 pt-0"
+          title=""
+          onBack={() => router.back()}
+        />
         <ResourceMissingState
           onBack={() => router.back()}
           onHome={() =>
-            router.replace("/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0])
+            router.replace(
+              "/(private)/(tabs)/(home)" as Parameters<
+                typeof router.replace
+              >[0],
+            )
           }
         />
       </PageContainer>
@@ -522,8 +554,12 @@ export default function RequestDetailScreen() {
 
   if (error || !reqRow || !pet || !owner) {
     return (
-      <PageContainer>
-        <BackHeader className="pl-0 pt-0" title="" onBack={() => router.back()} />
+      <PageContainer contentStyle={{ paddingTop: 0 }}>
+        <BackHeader
+          className="pl-0 pt-0"
+          title=""
+          onBack={() => router.back()}
+        />
         <ErrorState
           error={error}
           actionLabel={t("common.retry", "Retry")}
@@ -538,193 +574,41 @@ export default function RequestDetailScreen() {
 
   return (
     <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
-      <View style={styles.screenWrap}>
-        <BackHeader title="" onBack={() => router.back()} />
-        <ScrollView
-          style={styles.scroll}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-        >
-          <PetPhotoCarousel
-            urls={images}
-            height={IMAGE_HEIGHT}
-            horizontalInset={H_PADDING}
-            imageBorderRadius={16}
-            showCounterBadge={false}
-            dotsVariant="onImage"
-            showSegmentProgressBar={false}
-            style={{ marginBottom: 8 }}
-          />
-
-          <PetDetailHeaderSection
-            colors={colors}
-            petName={request.petName}
-            breed={request.breed}
-            petType={request.petType}
-            dateRange={request.dateRange}
-            time={request.time}
-            careType={request.careType}
-            location={request.location}
-            distance={request.distance}
-            description={request.description}
-            showFavorite={!isOwner}
-            isFavorite={isFavorite}
-            favoriteDisabled={likeBusy}
-            onFavoritePress={togglePetLike}
-            onNamePress={
-              pet?.id
-                ? () =>
-                    router.push({
-                      pathname: "/(private)/pets/[id]",
-                      params: { id: pet.id },
-                    })
-                : undefined
-            }
-          />
-
-          <View style={styles.contentPad}>
-            {/* Pet owner card */}
-            <View
-              style={[
-                styles.ownerCard,
-                {
-                  backgroundColor: colors.surfaceContainerHighest,
-                },
-              ]}
-            >
-            <View style={styles.ownerLeft}>
-              <AppImage
-                source={{ uri: request.owner.avatar }}
-                style={[
-                  styles.ownerAvatar,
-                  { backgroundColor: colors.surfaceContainer },
-                ]}
-                contentFit="cover"
-              />
-              <View style={styles.ownerInfo}>
-                <AppText
-                  variant="body"
-                  color={colors.onSurfaceVariant}
-                  style={styles.ownerName}
-                >
-                  {request.owner.name}
-                </AppText>
-                <View style={styles.ownerStats}>
-                  <View style={styles.ownerStatItem}>
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {request.owner.rating}
-                    </AppText>
-                    <Star
-                      size={12}
-                      color={colors.tertiary}
-                      fill={colors.tertiary}
-                    />
-                  </View>
-                  <View
-                    style={[
-                      styles.ownerStatItem,
-                      { backgroundColor: colors.surfaceContainer },
-                    ]}
-                  >
-                    <Handshake size={12} color={colors.tertiary} />
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {request.owner.handshakes}
-                    </AppText>
-                  </View>
-                  <View
-                    style={[
-                      styles.ownerStatItem,
-                      { backgroundColor: colors.surfaceContainer },
-                    ]}
-                  >
-                    <PawPrint size={12} color={colors.tertiary} />
-                    <AppText variant="caption" color={colors.onSurfaceVariant}>
-                      {request.owner.paws}
-                    </AppText>
-                  </View>
-                </View>
-              </View>
-            </View>
-            <TouchableOpacity
-              onPress={() =>
+      <BackHeader title="" onBack={() => router.back()} />
+      <RequestPetDetailView
+        colors={colors}
+        t={(key: string, fallback?: string) => t(key, fallback as string)}
+        images={images}
+        request={request}
+        isOwner={isOwner}
+        isFavorite={isFavorite}
+        favoriteDisabled={likeBusy}
+        onFavoritePress={togglePetLike}
+        onPetNamePress={
+          pet?.id
+            ? () =>
                 router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
-                  params: { id: request.owner.id },
+                  pathname: "/(private)/pets/[id]",
+                  params: { id: pet.id },
                 })
-              }
-              style={styles.viewProfileBtn}
-            >
-              <AppText variant="label" color={colors.primary}>
-                {t("requestDetails.viewProfile")}
-              </AppText>
-            </TouchableOpacity>
-            </View>
-
-            <View
-              style={[styles.divider, { backgroundColor: colors.outlineVariant }]}
-            />
-
-            {/* Details section (Figma apply details) */}
-            <AppText
-              variant="title"
-              color={colors.onSurface}
-              style={styles.sectionTitle}
-            >
-              {t("requestDetails.details")}
-            </AppText>
-            <View style={styles.detailsCard}>
-              <View style={styles.detailPills}>
-                <PetDetailPill
-                  label={t("requestDetails.yardType")}
-                  value={request.details.yardType}
-                  colors={colors}
-                  styles={styles}
-                />
-                <PetDetailPill
-                  label={t("requestDetails.age")}
-                  value={request.details.age}
-                  colors={colors}
-                  styles={styles}
-                />
-                <PetDetailPill
-                  label={t("requestDetails.energyLevel")}
-                  value={request.details.energyLevel}
-                  colors={colors}
-                  styles={styles}
-                />
-              </View>
-            </View>
-
-            {/* Special needs */}
-            <AppText
-              variant="label"
-              color={colors.onSurfaceVariant}
-              style={styles.specialLabel}
-            >
-              *{t("requestDetails.specialNeeds")}
-            </AppText>
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.specialText}
-            >
-              {request.specialNeeds}
-            </AppText>
-          </View>
-        </ScrollView>
-
-        <View style={[styles.fixedFooter]} pointerEvents="box-none">
-          <View style={styles.fixedFooterInner}>
-            <Button
-              label={t("requestDetails.applyNow")}
-              onPress={openApplyConfirm}
-              style={styles.applyBtn}
-              loading={applying}
-              disabled={applying}
-            />
-          </View>
-        </View>
-      </View>
+            : undefined
+        }
+        onViewProfile={() =>
+          request.owner.id === user?.id
+            ? router.push("/(private)/(tabs)/profile" as any)
+            : router.push({
+                pathname: "/(private)/(tabs)/profile/users/[id]",
+                params: { id: request.owner.id },
+              })
+        }
+        apply={{
+          visible: true,
+          label: t("requestDetails.applyNow"),
+          onPress: openApplyConfirm,
+          loading: applying,
+          disabled: applying,
+        }}
+      />
 
       <ApplyConfirmModal
         visible={applyConfirmOpen}
@@ -762,7 +646,7 @@ const styles = StyleSheet.create({
   },
   fixedFooterInner: {
     width: "100%",
-    paddingHorizontal: 0,
+    paddingHorizontal: 16,
   },
   contentPad: {
     paddingHorizontal: 16,

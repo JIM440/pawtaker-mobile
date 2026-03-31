@@ -1,5 +1,5 @@
 import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
-import { supabase } from "@/src/lib/supabase/client";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useRouter } from "expo-router";
 import { useState } from "react";
@@ -37,37 +37,21 @@ export function useOrCreateThread() {
     setLoading(true);
     setError(null);
 
-    const { data: existing } = await supabase
-      .from("threads")
-      .select("id")
-      .contains("participant_ids", [userId, otherUserId])
-      .maybeSingle();
-
-    if (existing?.id) {
+    try {
+      const threadId = await getOrCreateThreadForUsers({
+        userA: userId,
+        userB: otherUserId,
+        requestId: requestId ?? null,
+      });
       setLoading(false);
-      router.push(`/(private)/(tabs)/messages/${existing.id}` as any);
+      router.push(`/(private)/(tabs)/messages/${threadId}` as any);
       return { ok: true };
-    }
-
-    const { data: newThread, error: createError } = await supabase
-      .from("threads")
-      .insert({
-        participant_ids: [userId, otherUserId],
-        request_id: requestId ?? null,
-      })
-      .select("id")
-      .single();
-
-    setLoading(false);
-
-    if (createError || !newThread) {
+    } catch (createError: any) {
+      setLoading(false);
       const msg = createError?.message ?? "Failed to create thread.";
       setError(msg);
       return { ok: false, message: msg };
     }
-
-    router.push(`/(private)/(tabs)/messages/${newThread.id}` as any);
-    return { ok: true };
   };
 
   return { openThread, loading, error };

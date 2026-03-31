@@ -69,9 +69,7 @@ export function PetCardBase({
   const menuDots = <MoreHorizontal size={20} color={colors.onSurfaceVariant} />;
 
   return (
-    <View
-      style={[styles.card, { backgroundColor: colors.surfaceBright }]}
-    >
+    <View style={[styles.card, { backgroundColor: colors.surfaceBright }]}>
       <TouchableOpacity
         activeOpacity={0.9}
         onPress={onPress}
@@ -101,7 +99,11 @@ export function PetCardBase({
                     { backgroundColor: colors.tertiaryContainer },
                   ]}
                 >
-                  <AppText variant="caption" color={colors.onTertiaryContainer}>
+                  <AppText
+                    variant="caption"
+                    color={colors.onTertiaryContainer}
+                    style={styles.seekingMarkerText}
+                  >
                     Seeking
                   </AppText>
                 </View>
@@ -109,88 +111,112 @@ export function PetCardBase({
             </View>
           </View>
 
-        <View style={styles.breedRow}>
-          <AppText
-            variant="caption"
-            color={colors.onSurface}
-            style={styles.breed}
-          >
-            {breed}
-          </AppText>
-          <AppText
-            variant="caption"
-            color={colors.onSurface}
-            style={styles.breedDot}
-          >
-            {" "}
-            ·{" "}
-          </AppText>
-          <AppText
-            variant="caption"
-            color={colors.onSurface}
-            style={styles.breed}
-          >
-            {petType}
-          </AppText>
-        </View>
-
-        {showSeeking && seekingDateRange && (
-          <View style={styles.dateRow}>
-            <Calendar size={16} color={colors.onSurfaceVariant} />
-            <AppText variant="caption" style={styles.metaText}>
-              {seekingDateRange}
+          <View style={styles.breedRow}>
+            <AppText
+              variant="caption"
+              color={colors.onSurface}
+              style={styles.breed}
+            >
+              {breed}
             </AppText>
-            {seekingTime ? (
-              <>
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {" "}
-                  •{" "}
-                </AppText>
-                <Clock size={16} color={colors.onSurfaceVariant} />
-                <AppText variant="caption" style={styles.metaText}>
-                  {seekingTime}
-                </AppText>
-              </>
-            ) : null}
+            <AppText
+              variant="caption"
+              color={colors.onSurface}
+              style={styles.breedDot}
+            >
+              {" "}
+              ·{" "}
+            </AppText>
+            <AppText
+              variant="caption"
+              color={colors.onSurface}
+              style={styles.breed}
+            >
+              {petType}
+            </AppText>
           </View>
-        )}
 
-        <AppText
-          variant="caption"
-          color={colors.onSurfaceVariant}
-          numberOfLines={4}
-          style={styles.bio}
-        >
-          {bio}
-        </AppText>
+          {showSeeking && seekingDateRange && (
+            <View style={styles.dateRow}>
+              <Calendar size={16} color={colors.onSurfaceVariant} />
+              <AppText variant="caption" style={styles.metaText}>
+                {seekingDateRange}
+              </AppText>
+              {seekingTime ? (
+                <>
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>
+                    {" "}
+                    •{" "}
+                  </AppText>
+                  <Clock size={16} color={colors.onSurfaceVariant} />
+                  <AppText variant="caption" style={styles.metaText}>
+                    {seekingTime}
+                  </AppText>
+                </>
+              ) : null}
+            </View>
+          )}
 
-        {tags.length > 0 && (
-          <View style={styles.tags}>
-            {tags.map((tag, index) => (
-              <View
-                key={`${tag}-${index}`}
-                style={[
-                  styles.tag,
-                  {
-                    backgroundColor:
-                      index === 0
-                        ? colors.surfaceContainerHighest
-                        : colors.surfaceContainerHigh,
-                  },
-                ]}
-              >
-                <AppText
-                  variant="body"
-                  color={colors.onSecondaryContainer}
-                  style={styles.tagText}
+          <AppText
+            variant="caption"
+            color={colors.onSurfaceVariant}
+            numberOfLines={4}
+            style={styles.bio}
+          >
+            {bio}
+          </AppText>
+
+          {pills.length > 0 ? (
+            <View style={styles.pillsRow}>
+              {pills.map((pill) => (
+                <View
+                  key={pill}
+                  style={[
+                    styles.pill,
+                    {
+                      backgroundColor: colors.surfaceContainerHigh,
+                    },
+                  ]}
                 >
-                  {tag}
-                </AppText>
-              </View>
-            ))}
-          </View>
-        )}
-      </View>
+                  <AppText
+                    variant="caption"
+                    color={colors.onSecondaryContainer}
+                    style={styles.pillText}
+                  >
+                    {pill}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+          ) : null}
+
+          {tags.length > 0 && (
+            <View style={styles.tags}>
+              {tags.map((tag, index) => (
+                <View
+                  key={`${tag}-${index}`}
+                  style={[
+                    styles.tag,
+                    {
+                      backgroundColor:
+                        index === 0
+                          ? colors.surfaceContainerHighest
+                          : colors.surfaceContainerHigh,
+                    },
+                  ]}
+                >
+                  <AppText
+                    variant="body"
+                    color={colors.onSecondaryContainer}
+                    style={styles.tagText}
+                  >
+                    {tag}
+                  </AppText>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
       </TouchableOpacity>
 
       {showMenu ? (
@@ -257,8 +283,13 @@ const styles = StyleSheet.create({
   },
   seekingMarker: {
     paddingHorizontal: 4,
-    paddingVertical: 2,
+    paddingVertical: 0,
     borderRadius: 12,
+  },
+  seekingMarkerText: {
+    fontSize: 10,
+    lineHeight: 14,
+    fontWeight: "500",
   },
   menuBtn: {
     minHeight: 20,
@@ -303,14 +334,12 @@ const styles = StyleSheet.create({
   pillsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
-    marginTop: 6,
+    gap: 4,
   },
   pill: {
-    paddingVertical: 4,
-    paddingHorizontal: 14,
+    paddingVertical: 2,
+    paddingHorizontal: 4,
     borderRadius: 999,
-    borderWidth: StyleSheet.hairlineWidth,
     alignItems: "center",
     justifyContent: "center",
     minHeight: 24,
@@ -318,14 +347,11 @@ const styles = StyleSheet.create({
     marginBottom: 0,
   },
   pillText: {
-    fontSize: 13,
-    lineHeight: 18,
-    fontWeight: "500",
+    fontSize: 11,
+    lineHeight: 13,
   },
   bio: {
-    fontSize: 14,
-    lineHeight: 20,
-    marginTop: 4,
+    marginTop: 2,
   },
   tags: {
     flexDirection: "row",

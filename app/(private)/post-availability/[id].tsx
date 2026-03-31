@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { ensureCareContractForRequest } from "@/src/lib/contracts/ensureCareContract";
+import { createInAppNotification } from "@/src/lib/notifications/in-app";
 import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
 import {
   isResourceNotFound,
@@ -12,9 +13,10 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { Input } from "@/src/shared/components/ui/Input";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { ViewOfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
@@ -60,6 +62,11 @@ export default function ViewOfferScreen() {
   );
   const [actionsOpen, setActionsOpen] = React.useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = React.useState(false);
+  const [showTerminateConfirm, setShowTerminateConfirm] = React.useState(false);
+  const [showReportConfirm, setShowReportConfirm] = React.useState(false);
+  const [reportReason, setReportReason] = React.useState("");
+  const [blockReason, setBlockReason] = React.useState("");
+  const [busyAction, setBusyAction] = React.useState(false);
   const showToast = useToastStore((s) => s.showToast);
 
   const load = useCallback(async () => {
@@ -403,15 +410,12 @@ export default function ViewOfferScreen() {
           disabled={!takerId}
           style={[styles.takerCard, { backgroundColor: colors.surfaceContainerLowest }]}
         >
-          {offer.taker.avatarUri ? (
-            <AppImage
-              source={{ uri: offer.taker.avatarUri }}
-              style={[styles.takerAvatar, { backgroundColor: colors.surfaceContainer }]}
-              contentFit="cover"
-            />
-          ) : (
-            <View style={[styles.takerAvatar, { backgroundColor: colors.surfaceContainer }]} />
-          )}
+          <UserAvatar
+            uri={offer.taker.avatarUri}
+            name={offer.taker.name}
+            size={64}
+            style={styles.takerAvatar}
+          />
           <View style={styles.takerBody}>
             <View style={styles.takerTitleRow}>
               <AppText variant="title" numberOfLines={1} style={styles.takerName}>
@@ -499,12 +503,12 @@ export default function ViewOfferScreen() {
         onClose={() => setActionsOpen(false)}
         onTerminate={() => {
           setActionsOpen(false);
-          setAccepted(false);
-          showToast({
-            variant: "info",
-            message: t("myCare.contract.terminatedToast", "Agreement ended."),
-            durationMs: 3000,
-          });
+          setShowTerminateConfirm(true);
+        }}
+        terminateDisabled={busyAction}
+        onReport={() => {
+          setActionsOpen(false);
+          setShowReportConfirm(true);
         }}
         onBlock={() => {
           setActionsOpen(false);
@@ -520,7 +524,149 @@ export default function ViewOfferScreen() {
             });
             return;
           }
-          router.push(`/(private)/(tabs)/my-care/review/${contractId}` as any);
+          router.push({
+            pathname: "/(private)/(tabs)/my-care/review/[id]" as any,
+            params: {
+              id: contractId,
+              ...(takerId ? { revieweeId: takerId } : {}),
+            },
+          });
+        }}
+      />
+
+      <FeedbackModal
+        visible={showTerminateConfirm}
+        title={t("myCare.contract.terminateConfirmTitle", "Terminate agreement?")}
+        description={t(
+          "myCare.contract.terminateConfirmDescription",
+          "This action cannot be undone.",
+        )}
+        primaryLabel={t("myCare.contract.terminate")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={busyAction}
+        onPrimary={() => {
+          void (async () => {
+            if (!contractId) {
+              setShowTerminateConfirm(false);
+              return;
+            }
+            setBusyAction(true);
+            try {
+              const { error } = await supabase
+                .from("contracts")
+                .update({ status: "completed" })
+                .eq("id", contractId);
+              if (error) throw error;
+              if (requestId) {
+                await supabase
+                  .from("care_requests")
+                  .update({ status: "terminated" })
+                  .eq("id", requestId);
+              }
+              if (takerId) {
+                await createInAppNotification({
+                  userId: takerId,
+                  type: "offer_terminated",
+                  title: t("myCare.contract.terminatedToast", "Agreement ended."),
+                  body: t(
+                    "myCare.contract.terminatedNotificationBody",
+                    "A care agreement was terminated.",
+                  ),
+                  data: { contract_id: contractId, request_id: requestId },
+                });
+              }
+              setAccepted(false);
+              setShowTerminateConfirm(false);
+              showToast({
+                variant: "info",
+                message: t("myCare.contract.terminatedToast", "Agreement ended."),
+                durationMs: 3000,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+                durationMs: 3200,
+              });
+            } finally {
+              setBusyAction(false);
+            }
+          })();
+        }}
+        onSecondary={() => setShowTerminateConfirm(false)}
+        onRequestClose={() => setShowTerminateConfirm(false)}
+      />
+
+      <FeedbackModal
+        visible={showReportConfirm}
+        title={t("messages.reportUser", "Report user")}
+        description={t(
+          "messages.reportConfirmDescription",
+          "Are you sure? Please provide a reason.",
+        )}
+        body={
+          <Input
+            label={t("messages.reportReasonLabel", "Reason")}
+            placeholder={t("messages.reportReasonPlaceholder", "Describe what happened")}
+            value={reportReason}
+            onChangeText={setReportReason}
+            maxLength={250}
+            multiline
+            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+            containerStyle={{ marginBottom: 0 }}
+          />
+        }
+        primaryLabel={t("messages.reportUser", "Report user")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={busyAction}
+        onPrimary={() => {
+          void (async () => {
+            if (!user?.id || !takerId) return;
+            const details = reportReason.trim();
+            if (!details) {
+              showToast({
+                variant: "error",
+                message: t("messages.reportReasonRequired", "Please enter a reason."),
+                durationMs: 2800,
+              });
+              return;
+            }
+            setBusyAction(true);
+            try {
+              const { error } = await supabase.from("reports").insert({
+                reporter_id: user.id,
+                reported_user_id: takerId,
+                reason: "agreement_report",
+                details,
+              });
+              if (error) throw error;
+              setShowReportConfirm(false);
+              setReportReason("");
+              showToast({
+                variant: "success",
+                message: t("messages.reportSubmitted", "Report submitted."),
+                durationMs: 2800,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+                durationMs: 3200,
+              });
+            } finally {
+              setBusyAction(false);
+            }
+          })();
+        }}
+        onSecondary={() => {
+          setShowReportConfirm(false);
+          setReportReason("");
+        }}
+        onRequestClose={() => {
+          setShowReportConfirm(false);
+          setReportReason("");
         }}
       />
 
@@ -528,19 +674,41 @@ export default function ViewOfferScreen() {
         visible={showBlockConfirm}
         title={t('messages.blockConfirmTitle')}
         description={t('messages.blockConfirmDescription')}
+        body={
+          <Input
+            label={t("messages.blockReasonLabel", "Reason (optional)")}
+            placeholder={t(
+              "messages.blockReasonPlaceholder",
+              "Tell us why you are blocking this user",
+            )}
+            value={blockReason}
+            onChangeText={setBlockReason}
+            maxLength={250}
+            multiline
+            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+            containerStyle={{ marginBottom: 0 }}
+          />
+        }
         primaryLabel={t('messages.block')}
         secondaryLabel={t('common.cancel')}
         destructive
         onPrimary={() => {
           setShowBlockConfirm(false);
+          setBlockReason("");
           showToast({
             variant: 'info',
             message: t("messages.blockedToast", "User blocked."),
             durationMs: 3000,
           });
         }}
-        onSecondary={() => setShowBlockConfirm(false)}
-        onRequestClose={() => setShowBlockConfirm(false)}
+        onSecondary={() => {
+          setShowBlockConfirm(false);
+          setBlockReason("");
+        }}
+        onRequestClose={() => {
+          setShowBlockConfirm(false);
+          setBlockReason("");
+        }}
       />
 
       <FeedbackModal
@@ -561,6 +729,21 @@ export default function ViewOfferScreen() {
                 requestId,
                 ownerId,
                 takerId,
+              });
+              await supabase
+                .from("care_requests")
+                .update({ status: "accepted", taker_id: takerId })
+                .eq("id", requestId)
+                .eq("owner_id", ownerId);
+              await createInAppNotification({
+                userId: takerId,
+                type: "offer_accepted",
+                title: t("messages.agreementAccepted", "Agreement accepted"),
+                body: t(
+                  "myCare.contract.acceptedNotificationBody",
+                  "Your care agreement was accepted.",
+                ),
+                data: { contract_id: cid, request_id: requestId },
               });
               setContractId(cid);
               setAccepted(true);

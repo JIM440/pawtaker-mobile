@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { useOrCreateThread } from "@/src/features/messages/hooks/useOrCreateThread";
 import { ProfileAvailabilityTab } from "@/src/features/profile/components/ProfileAvailabilityTab";
 import { ProfileBioTab } from "@/src/features/profile/components/ProfileBioTab";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
@@ -7,23 +8,22 @@ import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileRevi
 import { PublicProfileActionsMenu } from "@/src/features/profile/components/public-profile/PublicProfileActionsMenu";
 import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
 import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
-import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import { formatCarePointsPts } from "@/src/lib/points/carePoints";
-import { supabase } from "@/src/lib/supabase/client";
-import { useOrCreateThread } from "@/src/features/messages/hooks/useOrCreateThread";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
+import { supabase } from "@/src/lib/supabase/client";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
-import { AppText } from "@/src/shared/components/ui/AppText";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
 import { ProfilePetsTabSkeleton } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
 import {
@@ -32,15 +32,16 @@ import {
   IllustratedEmptyStateIllustrations,
   ResourceMissingState,
 } from "@/src/shared/components/ui";
+import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
+import { Input } from "@/src/shared/components/ui/Input";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MoreHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
@@ -51,30 +52,35 @@ import {
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function PublicProfileScreen() {
-  const { id: profileIdParam } = useLocalSearchParams<{ id: string | string[] }>();
+  const { id: profileIdParam } = useLocalSearchParams<{
+    id: string | string[];
+  }>();
   const profileId =
     typeof profileIdParam === "string"
       ? profileIdParam
-      : profileIdParam?.[0] ?? "";
+      : (profileIdParam?.[0] ?? "");
   const router = useRouter();
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const showToast = useToastStore((s) => s.showToast);
   const { openThread, loading: chatOpening } = useOrCreateThread();
-  const isOwnProfile = Boolean(
-    user?.id && profileId && user.id === profileId,
-  );
+  const isOwnProfile = Boolean(user?.id && profileId && user.id === profileId);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [blockReason, setBlockReason] = useState("");
   const [sendRequestBusy, setSendRequestBusy] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
   const [userPets, setUserPets] = useState<any[]>([]);
-  const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(null);
-  const [petSendSubtitleById, setPetSendSubtitleById] = useState<Record<string, string>>({});
+  const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(
+    null,
+  );
+  const [petSendSubtitleById, setPetSendSubtitleById] = useState<
+    Record<string, string>
+  >({});
   const [openReqByPetId, setOpenReqByPetId] = useState<Record<string, any>>({});
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -82,7 +88,10 @@ export default function PublicProfileScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [publicProfile, setPublicProfile] = useState<any | null>(null);
   const [publicPets, setPublicPets] = useState<any[]>([]);
-  const [publicAvailability, setPublicAvailability] = useState<Record<string, any> | null>(null);
+  const [publicAvailability, setPublicAvailability] = useState<Record<
+    string,
+    any
+  > | null>(null);
   const [publicReviews, setPublicReviews] = useState<any[]>([]);
 
   const loadPublicProfile = async (opts?: { refresh?: boolean }) => {
@@ -94,17 +103,29 @@ export default function PublicProfileScreen() {
     if (!opts?.refresh) setLoading(true);
     setLoadError(null);
     try {
-      const [{ data: userData, error: userError }, { data: petsData }, { data: availabilityData }, { data: reviewsData }] =
-        await Promise.all([
-          supabase.from("users").select("*").eq("id", profileId).maybeSingle(),
-          supabase
-            .from("pets")
-            .select("*")
-            .eq("owner_id", profileId)
-            .order("created_at", { ascending: false }),
-          supabase.from("taker_profiles").select("*").eq("user_id", profileId).maybeSingle(),
-          supabase.from("reviews").select("*").eq("reviewee_id", profileId).order("created_at", { ascending: false }),
-        ]);
+      const [
+        { data: userData, error: userError },
+        { data: petsData },
+        { data: availabilityData },
+        { data: reviewsData },
+      ] = await Promise.all([
+        supabase.from("users").select("*").eq("id", profileId).maybeSingle(),
+        supabase
+          .from("pets")
+          .select("*")
+          .eq("owner_id", profileId)
+          .order("created_at", { ascending: false }),
+        supabase
+          .from("taker_profiles")
+          .select("*")
+          .eq("user_id", profileId)
+          .maybeSingle(),
+        supabase
+          .from("reviews")
+          .select("*")
+          .eq("reviewee_id", profileId)
+          .order("created_at", { ascending: false }),
+      ]);
       if (userError) throw userError;
       if (!userData) {
         setPublicProfile(null);
@@ -116,13 +137,17 @@ export default function PublicProfileScreen() {
       }
       setPublicProfile(userData);
       setPublicPets(petsData ?? []);
-      const takerRow = availabilityData as { availability_json?: unknown } | null;
+      const takerRow = availabilityData as {
+        availability_json?: unknown;
+      } | null;
       setPublicAvailability(
         (takerRow?.availability_json as Record<string, any> | null) ?? null,
       );
       setPublicReviews(reviewsData ?? []);
     } catch (err) {
-      setLoadError(err instanceof Error ? err.message : "Failed to load profile.");
+      setLoadError(
+        err instanceof Error ? err.message : "Failed to load profile.",
+      );
     } finally {
       setLoading(false);
     }
@@ -156,7 +181,10 @@ export default function PublicProfileScreen() {
       if (petsError) throw petsError;
       if (!pets?.length) {
         showToast({
-          message: t("post.request.emptyPetsSubtitle", "You have not added any pets yet"),
+          message: t(
+            "post.request.emptyPetsSubtitle",
+            "You have not added any pets yet",
+          ),
         });
         setSendRequestOpen(false);
         return;
@@ -168,7 +196,10 @@ export default function PublicProfileScreen() {
         .select("id,pet_id,care_type,start_date,end_date")
         .eq("owner_id", user.id)
         .eq("status", "open")
-        .in("pet_id", pets.map((p: any) => p.id))
+        .in(
+          "pet_id",
+          pets.map((p: any) => p.id),
+        )
         .order("created_at", { ascending: false });
       if (reqError) throw reqError;
 
@@ -178,9 +209,10 @@ export default function PublicProfileScreen() {
       });
       const subtitleByPet: Record<string, string> = {};
       Object.entries(reqByPet).forEach(([pid, r]: [string, any]) => {
-        subtitleByPet[pid] = r.start_date && r.end_date
-          ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
-          : "";
+        subtitleByPet[pid] =
+          r.start_date && r.end_date
+            ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
+            : "";
       });
       setOpenReqByPetId(reqByPet);
       setPetSendSubtitleById(subtitleByPet);
@@ -216,7 +248,14 @@ export default function PublicProfileScreen() {
   }, [sendRequestOpen, user?.id]);
 
   const handleSendRequest = async () => {
-    if (!user?.id || !profileId || isOwnProfile || sendRequestBusy || !selectedSeekingPet) return;
+    if (
+      !user?.id ||
+      !profileId ||
+      isOwnProfile ||
+      sendRequestBusy ||
+      !selectedSeekingPet
+    )
+      return;
     const blocked = await hasUserBlockRelation(user.id, profileId);
     if (blocked) {
       showToast({
@@ -229,28 +268,24 @@ export default function PublicProfileScreen() {
     }
     const openReq = openReqByPetId[selectedSeekingPet.id];
     if (!openReq?.id) return;
+    const eligibility = await getRequestEligibility(openReq.id);
+    if (!eligibility.eligible) {
+      showToast({
+        message: t(
+          "requestDetails.requestClosedForApplications",
+          "This request is no longer accepting applications.",
+        ),
+      });
+      return;
+    }
 
     setSendRequestBusy(true);
     try {
-      const participants = [user.id, profileId].sort();
-      const { data: existing, error: existingError } = await supabase
-        .from("threads")
-        .select("id")
-        .eq("request_id", openReq.id)
-        .contains("participant_ids", participants)
-        .maybeSingle();
-      if (existingError) throw existingError;
-
-      let threadId = existing?.id as string | undefined;
-      if (!threadId) {
-        const { data: inserted, error: insertError } = await supabase
-          .from("threads")
-          .insert({ participant_ids: participants, request_id: openReq.id })
-          .select("id")
-          .single();
-        if (insertError) throw insertError;
-        threadId = inserted?.id;
-      }
+      const threadId = await getOrCreateThreadForUsers({
+        userA: user.id,
+        userB: profileId,
+        requestId: openReq.id,
+      });
       if (!threadId) throw new Error("Could not create chat thread.");
 
       const { error: msgError } = await supabase.from("messages").insert({
@@ -273,7 +308,11 @@ export default function PublicProfileScreen() {
           : "";
       const price =
         openReq.start_date && openReq.end_date
-          ? formatCarePointsPts(openReq.care_type, openReq.start_date, openReq.end_date)
+          ? formatCarePointsPts(
+              openReq.care_type,
+              openReq.start_date,
+              openReq.end_date,
+            )
           : "";
 
       setSendRequestOpen(false);
@@ -318,7 +357,10 @@ export default function PublicProfileScreen() {
       if (error) throw error;
 
       setShowBlockConfirm(false);
-      showToast({ message: t("messages.blockedToast", "User blocked.") });
+      setBlockReason("");
+      showToast({
+        message: t("messages.blockedToast", "User blocked."),
+      });
       router.replace("/(private)/(tabs)/(home)" as any);
     } catch (err) {
       showToast({
@@ -336,20 +378,22 @@ export default function PublicProfileScreen() {
     return {
       avatarUri: publicProfile?.avatar_url || null,
       name: resolveDisplayName(publicProfile) || "User",
-      location: publicProfile?.city?.trim() || t("profile.noLocation", "No location"),
+      location:
+        publicProfile?.city?.trim() || t("profile.noLocation", "No location"),
       points: publicProfile?.points_balance ?? 0,
       handshakes: 0,
       paws: publicReviews.length,
       rating:
         publicReviews.length > 0
-          ? publicReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / publicReviews.length
+          ? publicReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) /
+            publicReviews.length
           : 0,
       currentTask: undefined as string | undefined,
     };
   }, [publicProfile, publicReviews, t]);
 
   return (
-    <PageContainer contentStyle={{ paddingHorizontal: 0 }}>
+    <PageContainer contentStyle={{ paddingHorizontal: 0, paddingTop: 0 }}>
       <View style={styles.header}>
         <BackHeader
           rightSlot={
@@ -373,20 +417,25 @@ export default function PublicProfileScreen() {
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
         refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={() => void onRefresh()} />
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={() => void onRefresh()}
+          />
         }
       >
         {loading ? (
           <>
             <ProfileHeaderAndTabsSkeleton />
-            <ProfilePetsTabSkeleton count={2} />
+            <ProfilePetsTabSkeleton count={3} />
           </>
         ) : isResourceNotFound(loadError) ? (
           <ResourceMissingState
             onBack={() => router.back()}
             onHome={() =>
               router.replace(
-                "/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0],
+                "/(private)/(tabs)/(home)" as Parameters<
+                  typeof router.replace
+                >[0],
               )
             }
           />
@@ -401,135 +450,148 @@ export default function PublicProfileScreen() {
           />
         ) : (
           <>
-        <ProfileHeader
-          name={derived.name}
-          avatarUri={derived.avatarUri}
-          location={derived.location}
-          points={derived.points}
-          handshakes={derived.handshakes}
-          paws={derived.paws}
-          rating={derived.rating}
-          currentTask={derived.currentTask}
-          isAvailable={Boolean(publicAvailability?.available)}
-          isVerified={publicProfile?.kyc_status === "approved"}
-          onAvatarPress={() => setAvatarViewerOpen(true)}
-        />
+            <ProfileHeader
+              name={derived.name}
+              avatarUri={derived.avatarUri}
+              location={derived.location}
+              points={derived.points}
+              handshakes={derived.handshakes}
+              paws={derived.paws}
+              rating={derived.rating}
+              currentTask={derived.currentTask}
+              isAvailable={Boolean(publicAvailability?.available)}
+              isVerified={publicProfile?.kyc_status === "approved"}
+              onAvatarPress={() => setAvatarViewerOpen(true)}
+            />
 
-        {/* Tabs */}
-        <TabBar<ProfileTab>
-          tabs={[
-            { key: "pets", label: t("profile.pets.tab", "Pets") },
-            {
-              key: "availability",
-              label: t("profile.edit.availabilityTab", "Availability"),
-            },
-            { key: "bio", label: t("auth.signup.profile.bio", "Short Bio") },
-            { key: "reviews", label: t("profile.reviews", "Reviews") },
-          ]}
-          activeKey={activeTab}
-          onChange={setActiveTab}
-          variant="underline"
-        />
-
-        {/* Tab content */}
-        {activeTab === "pets" && (
-          <ProfilePetsTab
-            pets={publicPets.map((pet) => {
-              const parsed = parsePetNotes(pet.notes);
-              return {
-                id: pet.id,
-                imageSource: petGalleryUrls(pet)[0] ?? "",
-                petName: pet.name || "Pet",
-                breed: pet.breed || "Unknown breed",
-                petType: pet.species || "Pet",
-                bio: parsed.bio || "No pet bio yet.",
-                yardType:
-                  ((pet as any)?.yard_type ?? parsed.yardType) ||
-                  undefined,
-                ageRange:
-                  ((pet as any)?.age_range ?? parsed.ageRange) ||
-                  undefined,
-                energyLevel:
-                  ((pet as any)?.energy_level ?? parsed.energyLevel) ||
-                  undefined,
-              };
-            })}
-            showAddPetButton={false}
-            showPetActions={false}
-            onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
-          />
-        )}
-        {activeTab === "availability" && (
-          publicAvailability ? (
-            <ProfileAvailabilityTab
-              data={{
-                card: {
-                  avatarUri: derived.avatarUri,
-                  name: derived.name,
-                  rating: derived.rating,
-                  handshakes: derived.handshakes,
-                  paws: derived.paws,
-                  isAvailable: publicAvailability.available ?? false,
-                  petTypes: publicAvailability.petKinds ?? [],
-                  services: publicAvailability.services ?? [],
-                  location: derived.location,
+            {/* Tabs */}
+            <TabBar<ProfileTab>
+              tabs={[
+                { key: "pets", label: t("profile.pets.tab", "Pets") },
+                {
+                  key: "availability",
+                  label: t("profile.edit.availabilityTab", "Availability"),
                 },
-                note: publicAvailability.note ?? "",
-                time:
-                  publicAvailability.startTime && publicAvailability.endTime
-                    ? `${publicAvailability.startTime} - ${publicAvailability.endTime}`
-                    : "",
-                days: publicAvailability.days ?? [],
-                yardType: publicAvailability.yardType ?? "",
-                isPetOwner: publicAvailability.petOwner ?? "",
-              }}
-              emptyMessage={t("profile.availability.publicEmptyMessage")}
+                {
+                  key: "bio",
+                  label: t("auth.signup.profile.bio", "Short Bio"),
+                },
+                { key: "reviews", label: t("profile.reviews", "Reviews") },
+              ]}
+              activeKey={activeTab}
+              onChange={setActiveTab}
+              variant="underline"
             />
-          ) : (
-            <DataState
-              title={t("profile.availability.publicEmptyTitle")}
-              message={t("profile.availability.publicEmptyMessage")}
-              illustration={
-                <AppImage
-                  source={IllustratedEmptyStateIllustrations.noAvailability.source}
-                  type={IllustratedEmptyStateIllustrations.noAvailability.type ?? "svg"}
-                  height={IllustratedEmptyStateIllustrations.noAvailability.height}
-                  width={IllustratedEmptyStateIllustrations.noAvailability.width}
-                  style={IllustratedEmptyStateIllustrations.noAvailability.style}
-                  contentFit="contain"
+
+            {/* Tab content */}
+            {activeTab === "pets" && (
+              <ProfilePetsTab
+                pets={publicPets.map((pet) => {
+                  const parsed = parsePetNotes(pet.notes);
+                  return {
+                    id: pet.id,
+                    imageSource: petGalleryUrls(pet)[0] ?? "",
+                    petName: pet.name || "Pet",
+                    breed: pet.breed || "Unknown breed",
+                    petType: pet.species || "Pet",
+                    bio: parsed.bio || "No pet bio yet.",
+                    yardType:
+                      ((pet as any)?.yard_type ?? parsed.yardType) || undefined,
+                    ageRange:
+                      ((pet as any)?.age_range ?? parsed.ageRange) || undefined,
+                    energyLevel:
+                      ((pet as any)?.energy_level ?? parsed.energyLevel) ||
+                      undefined,
+                  };
+                })}
+                showAddPetButton={false}
+                showPetActions={false}
+                onPetPress={(id) => router.push(`/(private)/pets/${id}`)}
+              />
+            )}
+            {activeTab === "availability" &&
+              (publicAvailability ? (
+                <ProfileAvailabilityTab
+                  data={{
+                    card: {
+                      avatarUri: derived.avatarUri,
+                      name: derived.name,
+                      rating: derived.rating,
+                      handshakes: derived.handshakes,
+                      paws: derived.paws,
+                      isAvailable: publicAvailability.available ?? false,
+                      petTypes: publicAvailability.petKinds ?? [],
+                      services: publicAvailability.services ?? [],
+                      location: derived.location,
+                    },
+                    note: publicAvailability.note ?? "",
+                    time:
+                      publicAvailability.startTime && publicAvailability.endTime
+                        ? `${publicAvailability.startTime} - ${publicAvailability.endTime}`
+                        : "",
+                    days: publicAvailability.days ?? [],
+                    yardType: publicAvailability.yardType ?? "",
+                    isPetOwner: publicAvailability.petOwner ?? "",
+                  }}
+                  emptyMessage={t("profile.availability.publicEmptyMessage")}
                 />
-              }
-            />
-          )
-        )}
-        {activeTab === "bio" && <ProfileBioTab bio={publicProfile?.bio} isMine={false} />}
-        {activeTab === "reviews" ? (
-          <ProfileReviewsTab
-            rating={derived.rating}
-            handshakes={derived.handshakes}
-            paws={derived.paws}
-            items={publicReviews.map((r) => ({
-              id: r.id,
-              reviewerId: r.reviewer_id,
-              name: "Reviewer",
-              avatar: null,
-              rating: r.rating ?? 0,
-              handshakes: 0,
-              paws: 0,
-              date: r.created_at
-                ? new Date(r.created_at).toLocaleDateString()
-                : "",
-              review: r.comment || "No review comment.",
-            }))}
-            onReviewerPress={(reviewerId) => {
-              router.push({
-                pathname: "/(private)/(tabs)/profile/users/[id]",
-                params: { id: reviewerId },
-              });
-            }}
-            scrollEnabled={false}
-          />
-        ) : null}
+              ) : (
+                <DataState
+                  title={t("profile.availability.publicEmptyTitle")}
+                  message={t("profile.availability.publicEmptyMessage")}
+                  illustration={
+                    <AppImage
+                      source={
+                        IllustratedEmptyStateIllustrations.noAvailability.source
+                      }
+                      type={
+                        IllustratedEmptyStateIllustrations.noAvailability
+                          .type ?? "svg"
+                      }
+                      height={
+                        IllustratedEmptyStateIllustrations.noAvailability.height
+                      }
+                      width={
+                        IllustratedEmptyStateIllustrations.noAvailability.width
+                      }
+                      style={
+                        IllustratedEmptyStateIllustrations.noAvailability.style
+                      }
+                      contentFit="contain"
+                    />
+                  }
+                />
+              ))}
+            {activeTab === "bio" && (
+              <ProfileBioTab bio={publicProfile?.bio} isMine={false} />
+            )}
+            {activeTab === "reviews" ? (
+              <ProfileReviewsTab
+                rating={derived.rating}
+                handshakes={derived.handshakes}
+                paws={derived.paws}
+                items={publicReviews.map((r) => ({
+                  id: r.id,
+                  reviewerId: r.reviewer_id,
+                  name: "Reviewer",
+                  avatar: null,
+                  rating: r.rating ?? 0,
+                  handshakes: 0,
+                  paws: 0,
+                  date: r.created_at
+                    ? new Date(r.created_at).toLocaleDateString()
+                    : "",
+                  review: r.comment || "No review comment.",
+                }))}
+                onReviewerPress={(reviewerId) => {
+                  router.push({
+                    pathname: "/(private)/(tabs)/profile/users/[id]",
+                    params: { id: reviewerId },
+                  });
+                }}
+                scrollEnabled={false}
+              />
+            ) : null}
           </>
         )}
       </ScrollView>
@@ -592,6 +654,21 @@ export default function PublicProfileScreen() {
         visible={showBlockConfirm}
         title={t("profile.blockConfirmTitle")}
         description={t("profile.blockConfirmDescription")}
+        body={
+          <Input
+            label={t("messages.blockReasonLabel", "Reason (optional)")}
+            placeholder={t(
+              "messages.blockReasonPlaceholder",
+              "Tell us why you are blocking this user",
+            )}
+            value={blockReason}
+            onChangeText={setBlockReason}
+            maxLength={250}
+            multiline
+            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+            containerStyle={{ marginBottom: 0 }}
+          />
+        }
         primaryLabel={t("profile.blockUser")}
         secondaryLabel={t("common.cancel")}
         destructive
@@ -599,8 +676,16 @@ export default function PublicProfileScreen() {
         onPrimary={() => {
           void handleBlockUser();
         }}
-        onSecondary={() => !blockBusy && setShowBlockConfirm(false)}
-        onRequestClose={() => !blockBusy && setShowBlockConfirm(false)}
+        onSecondary={() => {
+          if (blockBusy) return;
+          setShowBlockConfirm(false);
+          setBlockReason("");
+        }}
+        onRequestClose={() => {
+          if (blockBusy) return;
+          setShowBlockConfirm(false);
+          setBlockReason("");
+        }}
       />
       <ImageViewerModal
         visible={avatarViewerOpen}

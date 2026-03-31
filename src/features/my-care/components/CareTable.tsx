@@ -1,5 +1,5 @@
-import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppText } from '@/src/shared/components/ui/AppText';
+import { UserAvatar } from '@/src/shared/components/ui/UserAvatar';
 import { Handshake, PawPrint } from 'lucide-react-native';
 import React from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
@@ -50,10 +50,11 @@ export function CareTable({
                         onPress={() => onPressPerson?.(row)}
                         disabled={!onPressPerson}
                     >
-                        <AppImage
-                            source={{ uri: row.personAvatar }}
+                        <UserAvatar
+                            uri={row.personAvatar}
+                            name={row.personName}
+                            size={32}
                             style={styles.rowAvatar}
-                            contentFit="cover"
                         />
                         <View style={styles.rowOwnerDetails}>
                             <AppText variant="body" style={{ fontSize: 13, fontWeight: '600', lineHeight: 14 }} numberOfLines={1}>{row.personName}</AppText>

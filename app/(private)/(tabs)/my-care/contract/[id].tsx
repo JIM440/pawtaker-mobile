@@ -13,12 +13,14 @@ import {
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { createInAppNotification } from "@/src/lib/notifications/in-app";
 import { supabase } from "@/src/lib/supabase/client";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { Input } from "@/src/shared/components/ui/Input";
 import { ContractDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
@@ -273,6 +275,10 @@ export default function ContractDetailScreen() {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
+  const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
+  const [showReportConfirm, setShowReportConfirm] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [blockReason, setBlockReason] = useState("");
   const [busy, setBusy] = useState(false);
 
   const onAccept = () => {
@@ -344,6 +350,27 @@ export default function ContractDetailScreen() {
           })
           .eq("id", cid);
         if (updErr) throw updErr;
+        await supabase
+          .from("care_requests")
+          .update({ status: "accepted", taker_id: fresh.taker_id })
+          .eq("id", fresh.request_id)
+          .eq("owner_id", fresh.owner_id);
+        const recipientId = user.id === fresh.owner_id ? fresh.taker_id : fresh.owner_id;
+        if (recipientId) {
+          await createInAppNotification({
+            userId: recipientId,
+            type: "contract_accepted",
+            title: t("messages.agreementAccepted", "Agreement accepted"),
+            body: t(
+              "myCare.contract.acceptedNotificationBody",
+              "Your care agreement was accepted.",
+            ),
+            data: {
+              contract_id: cid,
+              request_id: fresh.request_id,
+            },
+          });
+        }
 
         setContractRow({ ...fresh, signed_owner: signedOwner, signed_taker: signedTaker, status });
         setShowAcceptConfirm(false);
@@ -378,6 +405,25 @@ export default function ContractDetailScreen() {
           .eq("id", resolvedContractId);
         if (error) throw error;
         setContractRow((c: any) => (c ? { ...c, status: "completed" } : c));
+        if (contractRow?.owner_id && contractRow?.taker_id) {
+          const recipientId =
+            user?.id === contractRow.owner_id ? contractRow.taker_id : contractRow.owner_id;
+          if (recipientId) {
+            await createInAppNotification({
+              userId: recipientId,
+              type: "contract_terminated",
+              title: t("myCare.contract.terminatedToast"),
+              body: t(
+                "myCare.contract.terminatedNotificationBody",
+                "A care agreement was terminated.",
+              ),
+              data: {
+                contract_id: resolvedContractId,
+                request_id: contractRow.request_id,
+              },
+            });
+          }
+        }
         if (user?.id) {
           void useAuthStore.getState().fetchProfile(user.id);
         }
@@ -385,6 +431,50 @@ export default function ContractDetailScreen() {
           variant: "info",
           message: t("myCare.contract.terminatedToast"),
           durationMs: 3000,
+        });
+      } catch (err) {
+        showToast({
+          variant: "error",
+          message:
+            err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+          durationMs: 3200,
+        });
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
+
+  const submitReport = () => {
+    void (async () => {
+      if (!user?.id || !requestRow) return;
+      const details = reportReason.trim();
+      if (!details) {
+        showToast({
+          variant: "error",
+          message: t("messages.reportReasonRequired", "Please enter a reason."),
+          durationMs: 2800,
+        });
+        return;
+      }
+      const reportedUserId =
+        user.id === requestRow.owner_id ? requestRow.taker_id : requestRow.owner_id;
+      if (!reportedUserId) return;
+      setBusy(true);
+      try {
+        const { error } = await supabase.from("reports").insert({
+          reporter_id: user.id,
+          reported_user_id: reportedUserId,
+          reason: "agreement_report",
+          details,
+        });
+        if (error) throw error;
+        setShowReportConfirm(false);
+        setReportReason("");
+        showToast({
+          variant: "success",
+          message: t("messages.reportSubmitted", "Report submitted."),
+          durationMs: 2800,
         });
       } catch (err) {
         showToast({
@@ -569,22 +659,97 @@ export default function ContractDetailScreen() {
       />
 
       <FeedbackModal
+        visible={showTerminateConfirm}
+        title={t("myCare.contract.terminateConfirmTitle", "Terminate agreement?")}
+        description={t(
+          "myCare.contract.terminateConfirmDescription",
+          "This action cannot be undone.",
+        )}
+        primaryLabel={t("myCare.contract.terminate")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={busy}
+        onPrimary={() => {
+          setShowTerminateConfirm(false);
+          confirmTerminate();
+        }}
+        onSecondary={() => setShowTerminateConfirm(false)}
+        onRequestClose={() => setShowTerminateConfirm(false)}
+      />
+
+      <FeedbackModal
         visible={showBlockConfirm}
         title={t("messages.blockConfirmTitle")}
         description={t("messages.blockConfirmDescription")}
+        body={
+          <Input
+            label={t("messages.blockReasonLabel", "Reason (optional)")}
+            placeholder={t(
+              "messages.blockReasonPlaceholder",
+              "Tell us why you are blocking this user",
+            )}
+            value={blockReason}
+            onChangeText={setBlockReason}
+            maxLength={250}
+            multiline
+            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+            containerStyle={{ marginBottom: 0 }}
+          />
+        }
         primaryLabel={t("messages.block")}
         secondaryLabel={t("common.cancel")}
         destructive
         onPrimary={() => {
           setShowBlockConfirm(false);
+          setBlockReason("");
           showToast({
             variant: "info",
             message: t("messages.blockedToast"),
             durationMs: 3000,
           });
         }}
-        onSecondary={() => setShowBlockConfirm(false)}
-        onRequestClose={() => setShowBlockConfirm(false)}
+        onSecondary={() => {
+          setShowBlockConfirm(false);
+          setBlockReason("");
+        }}
+        onRequestClose={() => {
+          setShowBlockConfirm(false);
+          setBlockReason("");
+        }}
+      />
+
+      <FeedbackModal
+        visible={showReportConfirm}
+        title={t("messages.reportUser", "Report user")}
+        description={t(
+          "messages.reportConfirmDescription",
+          "Are you sure? Please provide a reason.",
+        )}
+        body={
+          <Input
+            label={t("messages.reportReasonLabel", "Reason")}
+            placeholder={t("messages.reportReasonPlaceholder", "Describe what happened")}
+            value={reportReason}
+            onChangeText={setReportReason}
+            maxLength={250}
+            multiline
+            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+            containerStyle={{ marginBottom: 0 }}
+          />
+        }
+        primaryLabel={t("messages.reportUser", "Report user")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={busy}
+        onPrimary={submitReport}
+        onSecondary={() => {
+          setShowReportConfirm(false);
+          setReportReason("");
+        }}
+        onRequestClose={() => {
+          setShowReportConfirm(false);
+          setReportReason("");
+        }}
       />
 
       <MyCareContractActionsMenu
@@ -595,7 +760,12 @@ export default function ContractDetailScreen() {
         onClose={() => setActionsOpen(false)}
         onTerminate={() => {
           setActionsOpen(false);
-          confirmTerminate();
+          setShowTerminateConfirm(true);
+        }}
+        terminateDisabled={agreementEnded || busy}
+        onReport={() => {
+          setActionsOpen(false);
+          setShowReportConfirm(true);
         }}
         onBlock={() => {
           setActionsOpen(false);
@@ -604,6 +774,10 @@ export default function ContractDetailScreen() {
         onRateAndReview={() => {
           setActionsOpen(false);
           const rid = resolvedContractId;
+          const revieweeId =
+            user?.id === contractRow?.owner_id
+              ? contractRow?.taker_id
+              : contractRow?.owner_id;
           if (!rid) {
             showToast({
               variant: "error",
@@ -612,7 +786,13 @@ export default function ContractDetailScreen() {
             });
             return;
           }
-          router.push(`/(private)/(tabs)/my-care/review/${rid}` as any);
+          router.push({
+            pathname: "/(private)/(tabs)/my-care/review/[id]" as any,
+            params: {
+              id: rid,
+              ...(revieweeId ? { revieweeId } : {}),
+            },
+          });
         }}
       />
     </PageContainer>

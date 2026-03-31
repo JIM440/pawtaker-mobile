@@ -9,6 +9,8 @@ type Props = {
   t: (key: string, fallback?: string) => string;
   onClose: () => void;
   onTerminate: () => void;
+  terminateDisabled?: boolean;
+  onReport?: () => void;
   onBlock: () => void;
   onRateAndReview: () => void;
 };
@@ -20,6 +22,8 @@ export function MyCareContractActionsMenu({
   t,
   onClose,
   onTerminate,
+  terminateDisabled = false,
+  onReport,
   onBlock,
   onRateAndReview,
 }: Props) {
@@ -44,13 +48,32 @@ export function MyCareContractActionsMenu({
           <Pressable
             style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}
             onPress={onTerminate}
+            disabled={terminateDisabled}
           >
-            <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
+            <AppText
+              variant="body"
+              color={terminateDisabled ? colors.onSurfaceVariant : colors.onSurface}
+              numberOfLines={1}
+            >
               {t("myCare.contract.terminate")}
             </AppText>
           </Pressable>
 
           <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
+
+          {onReport ? (
+            <>
+              <Pressable
+                style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}
+                onPress={onReport}
+              >
+                <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
+                  {t("messages.reportUser", "Report user")}
+                </AppText>
+              </Pressable>
+              <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
+            </>
+          ) : null}
 
           <Pressable
             style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}

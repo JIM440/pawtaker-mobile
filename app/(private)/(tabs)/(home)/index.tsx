@@ -2,6 +2,8 @@ import { Colors } from "@/src/constants/colors";
 import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { filterOutBlockedUsers, hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
@@ -798,32 +800,23 @@ export default function HomeScreen() {
       }
 
       const requestId = openReq.id as string;
-      const participants = [user.id, takerId].sort();
-
-      let threadId: string | null = null;
-      const { data: existing, error: existingError } = await supabase
-        .from("threads")
-        .select("id")
-        .eq("request_id", requestId)
-        .contains("participant_ids", participants)
-        .maybeSingle();
-      if (existingError && !isMissingBackendResourceError(existingError))
-        throw existingError;
-      if (existing?.id) {
-        threadId = existing.id;
-      } else {
-        const { data: inserted, error: insertError } = await supabase
-          .from("threads")
-          .insert({
-            participant_ids: participants,
-            request_id: requestId,
-          })
-          .select("id")
-          .single();
-        if (insertError && !isMissingBackendResourceError(insertError))
-          throw insertError;
-        threadId = inserted?.id ?? null;
+      const eligibility = await getRequestEligibility(requestId);
+      if (!eligibility.eligible) {
+        showToast({
+          variant: "info",
+          message: t(
+            "requestDetails.requestClosedForApplications",
+            "This request is no longer accepting applications.",
+          ),
+          durationMs: 3200,
+        });
+        return;
       }
+      const threadId = await getOrCreateThreadForUsers({
+        userA: user.id,
+        userB: takerId,
+        requestId,
+      });
       if (!threadId) throw new Error("Could not create chat thread.");
 
       const petName = selectedSeekingPet.name ?? t("pets.add.name", "Pet");
@@ -1293,6 +1286,10 @@ export default function HomeScreen() {
               }
               onCaretakerPress={() => {
                 if (!item.caretaker?.id) return;
+                if (item.caretaker.id === user?.id) {
+                  router.push("/(private)/(tabs)/profile" as any);
+                  return;
+                }
                 router.push({
                   pathname: "/(private)/(tabs)/profile/users/[id]",
                   params: { id: item.caretaker.id },
@@ -1373,10 +1370,12 @@ export default function HomeScreen() {
                         ),
                       }}
                       onPress={() =>
-                        router.push({
-                          pathname: "/(private)/(tabs)/profile/users/[id]",
-                          params: { id: taker.id },
-                        })
+                        taker.id === user?.id
+                          ? router.push("/(private)/(tabs)/profile" as any)
+                          : router.push({
+                              pathname: "/(private)/(tabs)/profile/users/[id]",
+                              params: { id: taker.id },
+                            })
                       }
                       onMenuPress={(ref) => {
                         ref?.measureInWindow(
@@ -1416,6 +1415,10 @@ export default function HomeScreen() {
         onViewProfile={() => {
           if (!openMenuTaker) return;
           setOpenMenuTaker(null);
+          if (openMenuTaker.id === user?.id) {
+            router.push("/(private)/(tabs)/profile" as any);
+            return;
+          }
           router.push({
             pathname: "/(private)/(tabs)/profile/users/[id]",
             params: { id: openMenuTaker.id },
