@@ -34,6 +34,7 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
+import { useLocationGate } from "@/src/lib/location/useLocationGate";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PawPrint } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
@@ -59,6 +60,11 @@ function startOfDayMs(d: Date) {
 export default function LaunchRequestWizardScreen() {
   const router = useRouter();
   const params = useLocalSearchParams<{ petId?: string }>();
+  const { checkLocation } = useLocationGate();
+
+  useEffect(() => {
+    checkLocation();
+  }, []);
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const { width: windowWidth } = useWindowDimensions();

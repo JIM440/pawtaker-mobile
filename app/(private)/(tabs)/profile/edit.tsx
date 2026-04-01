@@ -4,6 +4,7 @@ import { EditDetailsTab } from "@/src/features/profile/components/EditDetailsTab
 import { EditPetsTab } from "@/src/features/profile/components/EditPetsTab";
 import { EditProfileTabPanels } from "@/src/features/profile/components/edit-profile/EditProfileTabPanels";
 import { uploadToCloudinary } from "@/src/lib/cloudinary/upload";
+import { geocodeCity } from "@/src/lib/location/geocode";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -427,12 +428,28 @@ export default function EditProfileScreen() {
         uploadedAvatarUrl = uploaded.secure_url;
       }
 
+      let latitude: number | null = profile?.latitude ?? null;
+      let longitude: number | null = profile?.longitude ?? null;
+
+      const trimmedLocation = location.trim();
+      if (trimmedLocation && trimmedLocation !== initialValues.current.location) {
+        const coords = await geocodeCity(trimmedLocation);
+        if (coords) {
+          latitude = coords.latitude;
+          longitude = coords.longitude;
+        } else {
+          console.warn('[ProfileEdit] Geocoding failed for:', trimmedLocation);
+        }
+      }
+
       const trimmedName = username.trim() || null;
       const payload = {
         full_name: trimmedName,
         bio: bio.trim() || null,
-        city: location.trim() || null,
+        city: trimmedLocation || null,
         avatar_url: uploadedAvatarUrl || null,
+        latitude,
+        longitude,
       };
 
       const { data, error } = await supabase
