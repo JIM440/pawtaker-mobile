@@ -456,7 +456,29 @@ export interface Database {
       };
     };
     Views: Record<string, never>;
-    Functions: Record<string, never>;
+    Functions: {
+      delete_my_account: {
+        Args: Record<string, never>;
+        Returns: undefined;
+      };
+      search_nearby_takers: {
+        Args: {
+          user_lat: number;
+          user_lng: number;
+          radius_km: number;
+        };
+        Returns: Json;
+      };
+      search_nearby_requests: {
+        Args: {
+          user_lat: number;
+          user_lng: number;
+          radius_km: number;
+          care_type_filter: string | null;
+        };
+        Returns: Json;
+      };
+    };
     Enums: Record<string, never>;
   };
 }

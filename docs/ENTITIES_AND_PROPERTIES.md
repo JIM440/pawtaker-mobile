@@ -169,7 +169,7 @@ This document lists each **database entity** (Supabase `public` table) and its *
 | `sender_id`  | `string`  | |
 | `content`    | `string`  | |
 | `type`       | `string`  | default `text`; app may use e.g. `proposal` |
-| `metadata`   | `Json \| null` | DB `jsonb` |
+| `metadata`   | `Json \| null` | DB `jsonb`; app may store attachment/request context (e.g. `kind`, `file_name`, `requestId`) |
 | `read_at`    | `string \| null` | |
 | `created_at` | `string`  | |
 
@@ -183,6 +183,8 @@ This document lists each **database entity** (Supabase `public` table) and its *
 | `participant_ids`   | `string[]` | |
 | `request_id`        | `string \| null` | Optional link to `care_requests` |
 | `last_message_at`   | `string \| null` | |
+| `last_message_preview` | `string \| null` | Denormalized preview content used by thread list |
+| `last_sender_id`    | `string \| null` | Sender id for last message (used for "You:" preview attribution) |
 | `created_at`        | `string`  | |
 
 ---

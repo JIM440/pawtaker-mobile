@@ -92,7 +92,13 @@ function getEasProjectId(): string | undefined {
 export async function registerForPushNotificationsAsync(): Promise<
   string | null
 > {
-  if (!shouldLoadExpoPushStack()) return null;
+  console.log("[push] registerForPushNotificationsAsync called");
+
+  if (!shouldLoadExpoPushStack()) {
+    console.log("[push] STOPPED: shouldLoadExpoPushStack() = false");
+    return null;
+  }
+  console.log("[push] shouldLoadExpoPushStack() = true");
 
   try {
     const [Device, mod] = await Promise.all([
@@ -100,9 +106,16 @@ export async function registerForPushNotificationsAsync(): Promise<
       import("expo-notifications"),
     ]);
     const Notifications = unwrapExpoNotificationsModule(mod);
-    if (!Notifications?.getExpoPushTokenAsync) return null;
+    if (!Notifications?.getExpoPushTokenAsync) {
+      console.log("[push] STOPPED: could not unwrap expo-notifications module");
+      return null;
+    }
 
-    if (!Device.isDevice) return null;
+    console.log("[push] Device.isDevice =", Device.isDevice);
+    if (!Device.isDevice) {
+      console.log("[push] STOPPED: not a physical device (emulator/simulator)");
+      return null;
+    }
 
     if (Platform.OS === "android") {
       await Notifications.setNotificationChannelAsync("default", {
@@ -114,24 +127,29 @@ export async function registerForPushNotificationsAsync(): Promise<
     }
 
     const { status: existing } = await Notifications.getPermissionsAsync();
+    console.log("[push] existing permission status =", existing);
     let finalStatus = existing;
     if (existing !== "granted") {
       const { status } = await Notifications.requestPermissionsAsync();
       finalStatus = status;
+      console.log("[push] after request, permission status =", finalStatus);
     }
     if (finalStatus !== "granted") {
+      console.log("[push] STOPPED: permission not granted, status =", finalStatus);
       return null;
     }
 
     const projectId = getEasProjectId();
+    console.log("[push] projectId =", projectId);
     const tokenData = await Notifications.getExpoPushTokenAsync(
       projectId ? { projectId } : undefined,
     );
     const token = tokenData.data;
+    console.log("[push] token obtained =", token);
     lastRegisteredToken = token;
     return token;
   } catch (e) {
-    console.warn("[push] registerForPushNotificationsAsync", e);
+    console.warn("[push] registerForPushNotificationsAsync ERROR:", e);
     return null;
   }
 }
@@ -163,9 +181,15 @@ export async function savePushToken(
 export async function registerAndSavePushToken(
   userId: string,
 ): Promise<void> {
+  console.log("[push] registerAndSavePushToken called for userId =", userId);
   const token = await registerForPushNotificationsAsync();
-  if (!token) return;
+  if (!token) {
+    console.log("[push] STOPPED: no token returned");
+    return;
+  }
+  console.log("[push] saving token to Supabase...");
   await savePushToken(userId, token);
+  console.log("[push] token saved successfully");
 }
 
 /** Remove this device's token row for the user (call before sign-out). */

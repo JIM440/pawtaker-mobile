@@ -33,7 +33,15 @@ export function usePushRegistration(): void {
   const responseSub = useRef<{ remove: () => void } | null>(null);
 
   useEffect(() => {
-    if (!shouldLoadExpoPushStack() || !userId) return;
+    console.log("[push-reg] useEffect fired — userId:", userId);
+    if (!userId) {
+      console.log("[push-reg] STOPPED: no userId");
+      return;
+    }
+    if (!shouldLoadExpoPushStack()) {
+      console.log("[push-reg] STOPPED: shouldLoadExpoPushStack = false");
+      return;
+    }
 
     void registerAndSavePushToken(userId);
 

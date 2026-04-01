@@ -18,6 +18,7 @@ import { DaySelector } from "@/src/shared/components/ui/DaySelector";
 import { Input } from "@/src/shared/components/ui/Input";
 import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
 import { RadioGroup } from "@/src/shared/components/ui/RadioGroup";
+import { useLocationGate } from "@/src/lib/location/useLocationGate";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -47,6 +48,11 @@ export default function AvailabilityWizardScreen() {
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
   const showToast = useToastStore((s) => s.showToast);
+  const { checkLocation } = useLocationGate();
+
+  useEffect(() => {
+    checkLocation();
+  }, []);
 
   const [careTypes, setCareTypes] = useState<string[]>([]);
   const [petKinds, setPetKinds] = useState<PetKindId[]>([]);

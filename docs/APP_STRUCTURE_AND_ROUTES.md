@@ -145,8 +145,10 @@ app/
 | Typical `href` | File | Notes |
 | -------------- | ---- | ----- |
 | `/(private)/(tabs)/(home)` | `app/(private)/(tabs)/(home)/index.tsx` | Main feed / home. |
-| `/(private)/(tabs)/(home)/notifications` | `app/(private)/(tabs)/(home)/notifications.tsx` | Notifications list. |
+| `/(private)/(tabs)/(home)/notifications` | `app/(private)/(tabs)/(home)/notifications.tsx` | Notifications list (search, unread/read state, pull-to-refresh, deep-link navigation). |
 | `/(private)/(tabs)/(home)/search` | `app/(private)/(tabs)/(home)/search.tsx` | Search. |
+
+**Current behavior note:** foreground notification UX is handled via notification helpers under `src/lib/notifications/**` and a toast component at `src/shared/components/ui/NotificationToast.tsx`.
 
 ---
 
@@ -184,6 +186,8 @@ Heavy wizards live under `/(private)/post-requests` and `/(private)/post-availab
 | `/(private)/(tabs)/messages` | `app/(private)/(tabs)/messages/index.tsx` | Thread list. |
 | `/(private)/(tabs)/messages/[threadId]` | `app/(private)/(tabs)/messages/[threadId].tsx` | Single conversation. |
 
+**Current behavior note:** thread list previews rely on denormalized thread fields (`last_message_preview`, `last_sender_id`) and render semantic preview chips for media/doc links (e.g. Photo / Document) instead of raw URLs.
+
 ---
 
 ### Tab: Profile (`profile`)
@@ -212,6 +216,7 @@ These are important for structure but are **not** separate pages:
 | Shared components | `src/shared/**` |
 | Stores (Zustand) | `src/lib/store/**` |
 | Supabase client & types | `src/lib/supabase/**` |
+| Notifications (push registration, foreground handling, unread count helpers) | `src/lib/notifications/**` |
 | KYC gating helpers | `src/lib/kyc/**` |
 | i18n | `src/lib/i18n/**` |
 | Constants (colors, navigation) | `src/constants/**` |

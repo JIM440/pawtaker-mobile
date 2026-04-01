@@ -19,6 +19,8 @@ export type UserProfile = {
   kyc_status: 'not_submitted' | 'pending' | 'submitted' | 'approved' | 'rejected';
   is_admin?: boolean;
   language: string;
+  latitude: number | null;
+  longitude: number | null;
   created_at: string;
   updated_at: string;
 };

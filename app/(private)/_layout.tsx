@@ -1,5 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { stackPerfScreenOptions } from "@/src/constants/navigation";
+import { useLocationBackfill } from "@/src/lib/location/useLocationBackfill";
 import { useNotificationToast } from "@/src/lib/notifications/useNotificationToast";
 import { usePushRegistration } from "@/src/lib/notifications/usePushRegistration";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -20,6 +21,7 @@ export default function PrivateLayout() {
   const colors = Colors[resolvedTheme];
   const router = useRouter();
   usePushRegistration();
+  useLocationBackfill();
   const { toast, dismissToast } = useNotificationToast();
 
   return (
