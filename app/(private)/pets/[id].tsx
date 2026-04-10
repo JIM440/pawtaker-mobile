@@ -39,7 +39,7 @@ import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Handshake, PawPrint, Star } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Platform,
@@ -112,9 +112,8 @@ export default function PetDetailScreen() {
           .maybeSingle(),
         supabase
           .from("care_requests")
-          .select("id,status,start_date,end_date,start_time,end_time,care_type")
+          .select("id,status,taker_id,start_date,end_date,start_time,end_time,care_type")
           .eq("pet_id", petRow.id)
-          .eq("status", "open")
           .order("created_at", { ascending: false })
           .limit(1),
       ]);
@@ -140,6 +139,32 @@ export default function PetDetailScreen() {
       void load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (!openRequest?.id) return;
+
+    const channel = supabase
+      .channel(`pet-request-${openRequest.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "care_requests",
+          filter: `id=eq.${openRequest.id}`,
+        },
+        (payload) => {
+          setOpenRequest((prev: any) =>
+            prev ? { ...prev, ...payload.new } : payload.new,
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [openRequest?.id]);
 
   const parsedNotes = useMemo(() => parsePetNotes(pet?.notes), [pet?.notes]);
   const yardType = (pet as any)?.yard_type ?? parsedNotes.yardType;
@@ -174,10 +199,18 @@ export default function PetDetailScreen() {
   const canApply = useMemo(() => {
     if (!openRequest?.id) return false;
     if (isOwner) return false;
+    if (openRequest?.status !== "open") return false;
     if (!openRequest?.end_date) return true;
     const today = localYyyyMmDd(new Date());
     return String(openRequest.end_date) >= today;
-  }, [isOwner, openRequest?.end_date, openRequest?.id]);
+  }, [isOwner, openRequest?.end_date, openRequest?.id, openRequest?.status]);
+  const requestAcceptedByAnother =
+    Boolean(
+      !isOwner &&
+        openRequest?.status === "accepted" &&
+        openRequest?.taker_id &&
+        openRequest.taker_id !== user?.id,
+    );
 
   const location = owner?.city?.trim() || t("profile.noLocation");
 
@@ -294,10 +327,17 @@ export default function PetDetailScreen() {
       if (!eligibility.eligible) {
         showToast({
           variant: "info",
-          message: t(
-            "requestDetails.requestClosedForApplications",
-            "This request is no longer accepting applications.",
-          ),
+          message:
+            eligibility.selectedTakerId &&
+            eligibility.selectedTakerId !== user.id
+              ? t(
+                  "requestDetails.requestAcceptedByAnother",
+                  "Another caregiver has already accepted this request.",
+                )
+              : t(
+                  "requestDetails.requestClosedForApplications",
+                  "This request is no longer accepting applications.",
+                ),
           durationMs: 4200,
         });
         return;
@@ -525,7 +565,17 @@ export default function PetDetailScreen() {
                 "pet.detail.noOpenRequest",
                 "This pet doesn’t have an open care request right now.",
               )
-            : null
+            : requestAcceptedByAnother
+              ? t(
+                  "requestDetails.requestAcceptedByAnother",
+                  "Another caregiver has already accepted this request.",
+                )
+              : openRequest?.status !== "open"
+                ? t(
+                    "requestDetails.requestClosedForApplications",
+                    "This request is no longer accepting applications.",
+                  )
+                : null
         }
         apply={{
           visible: canApply,
@@ -725,3 +775,4 @@ const styles = StyleSheet.create({
     paddingVertical: 14,
   },
 });
+

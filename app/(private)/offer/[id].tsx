@@ -1,5 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
@@ -23,6 +24,7 @@ import { CareTypeSelector, type CareTypeKey } from "@/src/shared/components/ui/C
 import { Input } from "@/src/shared/components/ui/Input";
 import { OfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
@@ -54,6 +56,7 @@ export default function SendOfferScreen() {
   const [points, setPoints] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const load = useCallback(async () => {
     if (!requestId) {
@@ -148,24 +151,50 @@ export default function SendOfferScreen() {
     if (blockIfKycNotApproved()) return;
     if (!user?.id || !requestId || !reqRow?.owner_id) return;
     if (isOwner) return;
-    if (careTypes.length === 0) {
-      showToast({
-        variant: "error",
-        message: t("post.availability.validation.careTypeRequired"),
-        durationMs: 2600,
-      });
-      return;
-    }
-    const pointsNum = Number(points);
-    if (!points.trim() || !Number.isFinite(pointsNum) || pointsNum <= 0) {
-      showToast({
-        variant: "error",
-        message: t("offer.pointsLabel"),
-        durationMs: 2600,
-      });
-      return;
-    }
+    void (async () => {
+      const eligibility = await getRequestEligibility(requestId);
+      if (!eligibility.eligible) {
+        showToast({
+          variant: "info",
+          message:
+            eligibility.selectedTakerId &&
+            eligibility.selectedTakerId !== user.id
+              ? t(
+                  "requestDetails.requestAcceptedByAnother",
+                  "Another caregiver has already accepted this request.",
+                )
+              : t(
+                  "requestDetails.requestClosedForApplications",
+                  "This request is no longer accepting applications.",
+                ),
+          durationMs: 3200,
+        });
+        return;
+      }
+      if (careTypes.length === 0) {
+        showToast({
+          variant: "error",
+          message: t("post.availability.validation.careTypeRequired"),
+          durationMs: 2600,
+        });
+        return;
+      }
+      const pointsNum = Number(points);
+      if (!points.trim() || !Number.isFinite(pointsNum) || pointsNum <= 0) {
+        showToast({
+          variant: "error",
+          message: t("offer.pointsLabel"),
+          durationMs: 2600,
+        });
+        return;
+      }
+      setShowConfirm(true);
+    })();
+  };
 
+  const doSend = () => {
+    if (!user?.id || !requestId || !reqRow?.owner_id) return;
+    const pointsNum = Number(points);
     void (async () => {
       setSending(true);
       try {
@@ -349,9 +378,24 @@ export default function SendOfferScreen() {
           onPress={onSend}
           fullWidth
           loading={sending}
-          disabled={sending || isOwner}
+          disabled={sending || isOwner || reqRow?.status !== "open"}
         />
       </View>
+
+      <FeedbackModal
+        visible={showConfirm}
+        title={t("offer.confirmTitle", "Send offer?")}
+        description={t("offer.confirmDescription", "This will send your care proposal to the pet owner.")}
+        primaryLabel={t("offer.send")}
+        secondaryLabel={t("common.cancel")}
+        primaryLoading={sending}
+        onPrimary={() => {
+          setShowConfirm(false);
+          doSend();
+        }}
+        onSecondary={() => setShowConfirm(false)}
+        onRequestClose={() => setShowConfirm(false)}
+      />
     </PageContainer>
   );
 }

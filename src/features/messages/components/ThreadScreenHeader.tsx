@@ -1,7 +1,7 @@
 import { ChatTypography } from "@/src/constants/chatTypography";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
-import { ArrowLeft, EllipsisVertical } from "lucide-react-native";
+import { ArrowLeft, Ellipsis } from "lucide-react-native";
 import React from "react";
 import { TouchableOpacity, View } from "react-native";
 
@@ -27,7 +27,15 @@ export function ThreadScreenHeader({
   onOpenActions,
 }: Props) {
   return (
-    <View style={[styles.header, { borderBottomColor: colors.outlineVariant }]}>
+    <View
+      style={[
+        styles.header,
+        {
+          borderBottomColor: colors.outlineVariant,
+          backgroundColor: colors.surfaceContainerLow,
+        },
+      ]}
+    >
       <TouchableOpacity onPress={onBack} style={styles.backBtn} hitSlop={12}>
         <ArrowLeft size={24} color={colors.onSurface} />
       </TouchableOpacity>
@@ -67,7 +75,7 @@ export function ThreadScreenHeader({
         hitSlop={12}
         onPress={onOpenActions}
       >
-        <EllipsisVertical size={24} color={colors.onSurface} />
+        <Ellipsis size={24} color={colors.onSurface} />
       </TouchableOpacity>
     </View>
   );

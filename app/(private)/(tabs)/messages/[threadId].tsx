@@ -6,9 +6,12 @@ import {
   mapThreadMessagesToUi,
   type UiMessage,
 } from "@/src/features/messages/threadMessageUi";
+import { ThreadForwardModal } from "@/src/features/messages/components/ThreadForwardModal";
 import { ThreadScreenHeader } from "@/src/features/messages/components/ThreadScreenHeader";
+import { ThreadSelectionHeader } from "@/src/features/messages/components/ThreadSelectionHeader";
 import { ThreadBlockConfirmModal } from "@/src/features/messages/components/ThreadBlockConfirmModal";
 import { ThreadMenus } from "@/src/features/messages/components/ThreadMenus";
+import { useThreads } from "@/src/features/messages/hooks/useThreads";
 import {
   CLOUDINARY_GALLERY_UPLOAD_PRESET,
   uploadRawToCloudinary,
@@ -18,6 +21,10 @@ import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
+import {
+  getBlockDirection,
+  type BlockDirection,
+} from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -32,13 +39,25 @@ import {
   ErrorState,
   ResourceMissingState,
 } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { ArrowLeft, FileText, SendHorizonal, Upload } from "lucide-react-native";
+import {
+  ArrowLeft,
+  CircleAlert,
+  FileText,
+  Handshake,
+  MapPin,
+  PawPrint,
+  SendHorizonal,
+  Star,
+  Upload,
+} from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -56,16 +75,25 @@ import {
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
+function selectedBubbleStyle(_selected: boolean, _colors: any) {
+  return undefined;
+}
+
 function MessageBubble({
   message,
   colors,
+  selected,
+  onSelect,
 }: {
   message: UiMessage;
   colors: any;
+  selected: boolean;
+  onSelect: () => void;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
   const isRight = message.side === "right";
+  const hi = selectedBubbleStyle(selected, colors);
 
   if (message.type === "date") {
     return (
@@ -86,10 +114,14 @@ function MessageBubble({
     if (!uri) return null;
     const isRight = message.side === "right";
     return (
-      <View
+      <Pressable
+        onLongPress={onSelect}
+        delayLongPress={450}
         style={[
           styles.bubbleWrap,
           isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+          styles.bubbleSelectableWrap,
+          hi,
         ]}
       >
         <Pressable onPress={() => void Linking.openURL(uri)}>
@@ -109,7 +141,7 @@ function MessageBubble({
         >
           {message.timeLabel}
         </AppText>
-      </View>
+      </Pressable>
     );
   }
 
@@ -119,10 +151,14 @@ function MessageBubble({
     if (!url) return null;
     const isRight = message.side === "right";
     return (
-      <View
+      <Pressable
+        onLongPress={onSelect}
+        delayLongPress={450}
         style={[
           styles.bubbleWrap,
           isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+          styles.bubbleSelectableWrap,
+          hi,
         ]}
       >
         <Pressable
@@ -132,7 +168,7 @@ function MessageBubble({
             {
               backgroundColor: isRight
                 ? colors.primary
-                : colors.surfaceContainerHigh,
+                : colors.surfaceContainerHighest,
               borderColor: colors.outlineVariant,
             },
           ]}
@@ -161,7 +197,7 @@ function MessageBubble({
         >
           {message.timeLabel}
         </AppText>
-      </View>
+      </Pressable>
     );
   }
 
@@ -171,12 +207,16 @@ function MessageBubble({
     const context = rd.context === "seeking" ? "seeking" : "applying";
     const offerId = typeof rd.offerId === "string" ? rd.offerId.trim() : "";
     const ctaLabel = t("messages.viewOfferDetails");
+    const isTakerCard = rd.visual === "taker";
     return (
-      <View
+      <Pressable
+        onLongPress={onSelect}
+        delayLongPress={450}
         style={[
-          styles.bubbleWrap,
           styles.requestBubbleWrap,
           isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+          styles.bubbleSelectableWrap,
+          hi,
         ]}
       >
         <View
@@ -207,40 +247,157 @@ function MessageBubble({
             </AppText>
           </View>
 
-          {/* Description box */}
-          {rd.description ? (
+          {/* Short note (pet bio or offer message) — only for pet cards */}
+          {rd.description && !isTakerCard ? (
             <View
               style={[
                 styles.requestDescriptionBox,
-                { backgroundColor: colors.surfaceContainerHigh },
+                { backgroundColor: colors.surfaceContainerHighest },
               ]}
             >
               <AppText
                 variant="body"
                 color={colors.onSurfaceVariant}
                 style={styles.requestDescriptionText}
-                numberOfLines={5}
+                numberOfLines={2}
               >
                 {rd.description}
               </AppText>
             </View>
           ) : null}
 
-          {/* Pet preview card (same renderer as profile cards) */}
-          <ProfilePetCard
-            imageSource={rd.imageUri ? { uri: rd.imageUri } : ""}
-            petName={rd.petName}
-            breed={rd.breed}
-            petType={rd.petType ?? ""}
-            bio={rd.description ?? ""}
-            yardType={rd.yardType}
-            ageRange={rd.ageRange}
-            energyLevel={rd.energyLevel}
-            tags={[]}
-            seekingDateRange={rd.date}
-            seekingTime={rd.time}
-            showMenu={false}
-          />
+          {isTakerCard ? (
+            <TouchableOpacity
+              activeOpacity={0.9}
+              disabled={!rd.takerProfileUserId}
+              onPress={() => {
+                if (!rd.takerProfileUserId) return;
+                router.push({
+                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                  params: { id: rd.takerProfileUserId },
+                } as any);
+              }}
+              style={[
+                styles.threadTakerNestedCard,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.outlineVariant,
+                },
+              ]}
+            >
+              {/* Header row: avatar + name/badge/meta/bio */}
+              <View style={styles.takerOfferHeaderRow}>
+                <UserAvatar
+                  uri={rd.takerAvatarUri ?? null}
+                  name={rd.takerName ?? ""}
+                  size={80}
+                />
+                <View style={styles.takerOfferHeaderText}>
+                  {/* Name + available badge */}
+                  <View style={styles.threadTakerTitleRow}>
+                    <AppText variant="title" numberOfLines={1} style={{ flex: 1 }}>
+                      {rd.takerName?.trim()
+                        ? rd.takerName
+                        : t("messages.takerApplicant")}
+                    </AppText>
+                    {rd.takerAvailable ? (
+                      <View
+                        style={[
+                          styles.threadTakerAvailablePill,
+                          { backgroundColor: colors.tertiaryContainer },
+                        ]}
+                      >
+                        <AppText
+                          variant="caption"
+                          color={colors.onTertiaryContainer}
+                          numberOfLines={1}
+                        >
+                          {t("myCare.available")}
+                        </AppText>
+                      </View>
+                    ) : null}
+                  </View>
+
+                  {/* Compact meta: rating • handshakes • paws */}
+                  <View style={styles.takerCompactMetaRow}>
+                    <View style={[styles.takerCompactMetaItem, { backgroundColor: colors.surfaceContainer }]}>
+                      <AppText variant="caption" color={colors.onSurface}>
+                        {(rd.takerRating ?? 0).toFixed(1)}
+                      </AppText>
+                      <Star size={11} color={colors.tertiary} fill={colors.tertiary} />
+                    </View>
+                    <View style={[styles.takerCompactMetaItem, { backgroundColor: colors.surfaceContainer }]}>
+                      <Handshake size={11} color={colors.tertiary} />
+                      <AppText variant="caption" color={colors.tertiary}>
+                        {rd.takerHandshakes ?? 0}
+                      </AppText>
+                    </View>
+                    <View style={[styles.takerCompactMetaItem, { backgroundColor: colors.surfaceContainer }]}>
+                      <PawPrint size={11} color={colors.tertiary} />
+                      <AppText variant="caption" color={colors.tertiary}>
+                        {rd.takerPaws ?? 0}
+                      </AppText>
+                    </View>
+                  </View>
+
+                  {/* Bio */}
+                  {rd.takerBio ? (
+                    <AppText
+                      variant="caption"
+                      color={colors.onSurfaceVariant}
+                      numberOfLines={2}
+                      style={{ marginTop: 4 }}
+                    >
+                      {rd.takerBio}
+                    </AppText>
+                  ) : null}
+                </View>
+              </View>
+
+              {/* Tags row: species • care types • location — all small pills */}
+              <View style={styles.takerTagsRow}>
+                {rd.takerPetTypesLine ? (
+                  <View style={[styles.takerTagPill, { backgroundColor: colors.surfaceContainer }]}>
+                    <AppText variant="caption" color={colors.onSurface} numberOfLines={1}>
+                      {rd.takerPetTypesLine}
+                    </AppText>
+                  </View>
+                ) : null}
+                {rd.takerCareTypeKeys && rd.takerCareTypeKeys.length > 0 ? (
+                  <View style={[styles.takerTagPill, { backgroundColor: colors.surfaceContainer }]}>
+                    <AppText variant="caption" color={colors.onSecondaryContainer} numberOfLines={1}>
+                      {rd.takerCareTypeKeys
+                        .map((key) => t(`feed.careTypes.${key}`, key))
+                        .join(" • ")}
+                    </AppText>
+                  </View>
+                ) : null}
+                {rd.takerCity ? (
+                  <View style={[styles.takerTagPill, { backgroundColor: colors.surfaceContainer }]}>
+                    <MapPin size={12} color={colors.onSurfaceVariant} />
+                    <AppText variant="caption" color={colors.onSurfaceVariant} numberOfLines={1}>
+                      {rd.takerCity}
+                    </AppText>
+                  </View>
+                ) : null}
+              </View>
+            </TouchableOpacity>
+          ) : (
+            <ProfilePetCard
+              imageSource={rd.imageUri ? { uri: rd.imageUri } : ""}
+              petName={rd.petName}
+              breed={rd.breed}
+              petType={rd.petType ?? ""}
+              bio=""
+              yardType={rd.yardType}
+              ageRange={rd.ageRange}
+              energyLevel={rd.energyLevel}
+              tags={[]}
+              seekingDateRange={rd.date}
+              seekingTime={rd.time}
+              showMenu={false}
+            />
+          )}
 
           <Button
             label={ctaLabel}
@@ -270,15 +427,20 @@ function MessageBubble({
             }}
           />
         </View>
-      </View>
+      </Pressable>
     );
   }
 
   return (
-    <View
+    <Pressable
+      onPress={onSelect}
+      onLongPress={onSelect}
+      delayLongPress={450}
       style={[
         styles.bubbleWrap,
         isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+        styles.bubbleSelectableWrap,
+        hi,
       ]}
     >
       <View
@@ -287,7 +449,7 @@ function MessageBubble({
           isRight
             ? { backgroundColor: colors.primary, borderBottomRightRadius: 8 }
             : {
-                backgroundColor: colors.surfaceContainerHigh,
+                backgroundColor: colors.surfaceContainerHighest,
                 borderBottomLeftRadius: 8,
               },
         ]}
@@ -310,7 +472,7 @@ function MessageBubble({
       >
         {message.timeLabel}
       </AppText>
-    </View>
+    </Pressable>
   );
 }
 
@@ -352,6 +514,7 @@ export default function ThreadScreen() {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
+  const [blockStatus, setBlockStatus] = useState<BlockDirection>("none");
   const [threadHeader, setThreadHeader] = useState<{
     userId: string;
     name: string;
@@ -365,13 +528,30 @@ export default function ThreadScreen() {
   });
   const [pet, setPet] = useState<any>(null);
   const [req, setReq] = useState<any>(null);
+  const [takerProfile, setTakerProfile] = useState<any | null>(null);
+  const [takerUser, setTakerUser] = useState<any | null>(null);
+  const [takerRatingAvg, setTakerRatingAvg] = useState(0);
+  const [threadTakerParticipantId, setThreadTakerParticipantId] = useState<
+    string | null
+  >(null);
   const [metaRetryKey, setMetaRetryKey] = useState(0);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [showDeleteMessageModal, setShowDeleteMessageModal] = useState(false);
+  const [showForwardModal, setShowForwardModal] = useState(false);
+  const [deleteMessageBusy, setDeleteMessageBusy] = useState(false);
+
+  const {
+    threads: allThreads,
+    loading: threadsListLoading,
+    refetch: refetchThreadsList,
+  } = useThreads();
 
   const {
     messages,
     loading: messagesLoading,
     error: messagesLoadError,
     refetch: refetchMessages,
+    deleteMessage,
   } = useMessages(threadReady && threadId ? threadId : null);
   const { sendMessage: postMessage, sending } = useSendMessage();
   const scrollRef = useRef<ScrollView>(null);
@@ -417,6 +597,13 @@ export default function ThreadScreen() {
         userId: user?.id ?? "",
         pet,
         req,
+        requestOwnerId: req?.owner_id ?? null,
+        takerParticipantId: threadTakerParticipantId,
+        takerReviewRatingAvg: takerRatingAvg,
+        takerBundle:
+          takerProfile || takerUser
+            ? { profile: takerProfile, user: takerUser }
+            : null,
         context,
         paramPetName,
         paramBreed,
@@ -430,6 +617,10 @@ export default function ThreadScreen() {
       user?.id,
       pet,
       req,
+      threadTakerParticipantId,
+      takerRatingAvg,
+      takerProfile,
+      takerUser,
       context,
       paramPetName,
       paramBreed,
@@ -440,11 +631,26 @@ export default function ThreadScreen() {
     ],
   );
 
+  const canDeleteSelected =
+    selectedIds.size > 0 &&
+    Boolean(user?.id) &&
+    Array.from(selectedIds).every((sid) =>
+      messages.some((m) => m.id === sid && m.sender_id === user?.id),
+    );
+
   useEffect(() => {
     requestAnimationFrame(() => {
       scrollRef.current?.scrollToEnd({ animated: true });
     });
   }, [uiMessages.length]);
+
+  useEffect(() => {
+    if (selectedIds.size > 0) setActionsOpen(false);
+  }, [selectedIds]);
+
+  useEffect(() => {
+    if (showForwardModal) void refetchThreadsList({ silent: true });
+  }, [showForwardModal, refetchThreadsList]);
 
   useEffect(() => {
     let cancelled = false;
@@ -455,6 +661,10 @@ export default function ThreadScreen() {
       setLoadError(null);
       setPet(null);
       setReq(null);
+      setTakerProfile(null);
+      setTakerUser(null);
+      setTakerRatingAvg(0);
+      setThreadTakerParticipantId(null);
 
       if (!user?.id || !threadId) {
         setMetaLoading(false);
@@ -491,7 +701,7 @@ export default function ThreadScreen() {
             ? supabase
                 .from("care_requests")
                 .select(
-                  "id,pet_id,start_date,end_date,start_time,end_time,points_offered,care_type",
+                  "id,owner_id,pet_id,taker_id,start_date,end_date,start_time,end_time,points_offered,care_type",
                 )
                 .eq("id", threadRow.request_id)
                 .maybeSingle()
@@ -516,17 +726,79 @@ export default function ThreadScreen() {
 
         setReq(reqRow ?? null);
         setPet(petRow);
+
+        const ownerIdThread = (reqRow as any)?.owner_id as string | undefined;
+        let takerProf: any = null;
+        let takerUsr: any = null;
+        let ratingAvg = 0;
+        let takerParticipantResolved: string | null = null;
+        if (ownerIdThread && peerId && user.id) {
+          takerParticipantResolved =
+            peerId === ownerIdThread ? user.id : peerId;
+          const [
+            { data: tp },
+            { data: tu },
+            { data: revRows },
+          ] = await Promise.all([
+            supabase
+              .from("taker_profiles")
+              .select("*")
+              .eq("user_id", takerParticipantResolved)
+              .maybeSingle(),
+            supabase
+              .from("users")
+              .select(
+                "id,full_name,avatar_url,city,care_given_count,care_received_count,bio",
+              )
+              .eq("id", takerParticipantResolved)
+              .maybeSingle(),
+            supabase
+              .from("reviews")
+              .select("rating")
+              .eq("reviewee_id", takerParticipantResolved),
+          ]);
+          if (!cancelled) {
+            takerProf = tp ?? null;
+            takerUsr = tu ?? null;
+            const nums = (revRows ?? [])
+              .map((r) => (typeof r.rating === "number" ? r.rating : null))
+              .filter((x): x is number => x != null && Number.isFinite(x));
+            ratingAvg =
+              nums.length > 0
+                ? nums.reduce((a, b) => a + b, 0) / nums.length
+                : 0;
+          }
+        }
+        if (!cancelled) {
+          setTakerProfile(takerProf);
+          setTakerUser(takerUsr);
+          setTakerRatingAvg(ratingAvg);
+          setThreadTakerParticipantId(takerParticipantResolved);
+        }
+
+        // Load block direction
+        if (peerId && user.id) {
+          try {
+            const dir = await getBlockDirection(user.id, peerId);
+            if (!cancelled) setBlockStatus(dir);
+          } catch {
+            // non-fatal
+          }
+        }
+
         const bioLine =
           typeof peer?.bio === "string"
             ? peer.bio.replace(/\s+/g, " ").trim()
             : "";
-        const careLine = petRow?.name
-          ? t("messages.caringForPet", { petName: petRow.name })
-          : "";
+        const subtitle = petRow?.name
+          ? (reqRow as any)?.taker_id
+            ? t("messages.caringForPet", { petName: petRow.name })
+            : t("messages.applyingForPet", { petName: petRow.name })
+          : bioLine;
         setThreadHeader({
           userId: peer?.id ?? peerId,
           name: resolveDisplayName(peer) || "User",
-          subtitle: bioLine || careLine,
+          subtitle,
           avatarUri: peer?.avatar_url ?? null,
         });
         setThreadReady(true);
@@ -547,8 +819,51 @@ export default function ThreadScreen() {
     };
   }, [threadId, user?.id, metaRetryKey, t]);
 
+  const handleUnblock = async () => {
+    if (!user?.id || !threadHeader.userId) return;
+    setBusy(true);
+    try {
+      const { error } = await supabase
+        .from("user_blocks")
+        .delete()
+        .eq("blocker_id", user.id)
+        .eq("blocked_id", threadHeader.userId);
+      if (error) throw error;
+      setBlockStatus("none");
+      showToast({ variant: "success", message: t("messages.unblocked", "User unblocked.") });
+    } catch (err) {
+      showToast({ variant: "error", message: err instanceof Error ? err.message : t("common.error", "Something went wrong") });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const [busy, setBusy] = useState(false);
+  const blockBannerMessage =
+    blockStatus === "i_blocked"
+      ? t(
+          "messages.youBlockedBanner",
+          "You have blocked this user. Unblock them to message them.",
+        )
+      : blockStatus === "they_blocked"
+        ? t(
+            "messages.blockedByOtherBanner",
+            "This user has blocked you, so they can't message you and you can't message them.",
+          )
+        : null;
+
   const sendMessage = async () => {
     if (!user?.id || !threadId || !input.trim() || sending) return;
+    if (blockStatus !== "none") {
+      showToast({
+        variant: "error",
+        message: blockStatus === "i_blocked"
+          ? t("messages.blockedBySelfSend", "You blocked this user. Unblock them to send messages.")
+          : t("messages.blockedByOtherSend", "You can't message this user because they have blocked you."),
+        durationMs: 3200,
+      });
+      return;
+    }
     const body = input.trim();
     const result = await postMessage(threadId, body, "text", null);
     if (result.ok) {
@@ -737,7 +1052,7 @@ export default function ThreadScreen() {
               <View
                 style={[
                   styles.header,
-                  { borderBottomColor: colors.outlineVariant },
+                  { borderBottomColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLow },
                 ]}
               >
                 <TouchableOpacity
@@ -774,7 +1089,7 @@ export default function ThreadScreen() {
               <View
                 style={[
                   styles.header,
-                  { borderBottomColor: colors.outlineVariant },
+                  { borderBottomColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLow },
                 ]}
               >
                 <TouchableOpacity
@@ -798,14 +1113,26 @@ export default function ThreadScreen() {
             </>
           ) : (
             <>
-              <ThreadScreenHeader
-                colors={colors}
-                styles={styles}
-                threadHeader={threadHeader}
-                actionsOpen={actionsOpen}
-                onBack={() => router.back()}
-                onOpenActions={() => setActionsOpen(true)}
-              />
+              {selectedIds.size > 0 ? (
+                <ThreadSelectionHeader
+                  colors={colors}
+                  styles={styles}
+                  selectedCount={selectedIds.size}
+                  showDelete={canDeleteSelected}
+                  onBack={() => setSelectedIds(new Set())}
+                  onForward={() => setShowForwardModal(true)}
+                  onDelete={() => setShowDeleteMessageModal(true)}
+                />
+              ) : (
+                <ThreadScreenHeader
+                  colors={colors}
+                  styles={styles}
+                  threadHeader={threadHeader}
+                  actionsOpen={actionsOpen}
+                  onBack={() => router.back()}
+                  onOpenActions={() => setActionsOpen(true)}
+                />
+              )}
 
               <ThreadMenus
                 actionsOpen={actionsOpen}
@@ -827,6 +1154,10 @@ export default function ThreadScreen() {
                   setActionsOpen(false);
                   setShowBlockConfirm(true);
                 }}
+                onUnblock={blockStatus === "i_blocked" ? () => {
+                  setActionsOpen(false);
+                  void handleUnblock();
+                } : undefined}
                 onCloseAttach={() => setAttachMenuVisible(false)}
                 onOpenPhotoLibrary={() => {
                   void openPhotoLibrary();
@@ -860,11 +1191,10 @@ export default function ThreadScreen() {
                         );
                       if (error) throw error;
                       setShowBlockConfirm(false);
+                      setBlockStatus("i_blocked");
                       showToast({
                         message: t("messages.blockedToast", "User blocked."),
                       });
-                      // Back to chats list after blocking.
-                      router.replace("/(private)/(tabs)/messages" as any);
                     } catch (err) {
                       showToast({
                         message:
@@ -879,6 +1209,140 @@ export default function ThreadScreen() {
                 }}
                 onCancel={() => setShowBlockConfirm(false)}
               />
+
+              <FeedbackModal
+                visible={showDeleteMessageModal}
+                title={t("messages.deleteMessageTitle")}
+                description={t("messages.deleteMessageBody")}
+                primaryLabel={t("common.delete")}
+                secondaryLabel={t("common.cancel")}
+                destructive
+                primaryLoading={deleteMessageBusy}
+                onPrimary={async () => {
+                  if (selectedIds.size === 0) return;
+                  setDeleteMessageBusy(true);
+                  try {
+                    for (const sid of Array.from(selectedIds)) {
+                      await deleteMessage(sid);
+                    }
+                    setShowDeleteMessageModal(false);
+                    setSelectedIds(new Set());
+                  } catch {
+                    showToast({
+                      variant: "error",
+                      message: t(
+                        "messages.deleteMessageFailed",
+                        "Could not delete message.",
+                      ),
+                    });
+                  } finally {
+                    setDeleteMessageBusy(false);
+                  }
+                }}
+                onSecondary={() => setShowDeleteMessageModal(false)}
+                onRequestClose={() => setShowDeleteMessageModal(false)}
+              />
+
+              <ThreadForwardModal
+                visible={showForwardModal}
+                currentThreadId={threadId}
+                threads={allThreads}
+                threadsLoading={threadsListLoading}
+                onClose={() => setShowForwardModal(false)}
+                onSelectThread={(targetThreadId) => {
+                  void (async () => {
+                    const toForward = Array.from(selectedIds)
+                      .map((sid) => messages.find((m) => m.id === sid))
+                      .filter(Boolean) as typeof messages;
+                    if (toForward.length === 0) {
+                      setShowForwardModal(false);
+                      return;
+                    }
+                    setShowForwardModal(false);
+                    setSelectedIds(new Set());
+                    let failed = 0;
+                    for (const raw of toForward) {
+                      const result = await postMessage(
+                        targetThreadId,
+                        raw.content,
+                        raw.type,
+                        raw.metadata,
+                      );
+                      if (!result.ok) failed++;
+                    }
+                    if (failed === 0) {
+                      showToast({
+                        message: t(
+                          "messages.forwardSuccess",
+                          "Message forwarded.",
+                        ),
+                      });
+                    } else {
+                      showToast({
+                        variant: "error",
+                        message: t(
+                          "messages.forwardFailed",
+                          "Could not forward message.",
+                        ),
+                      });
+                    }
+                  })();
+                }}
+              />
+
+              <View
+                style={[
+                  styles.blockBanner,
+                  {
+                    backgroundColor:
+                      blockStatus === "none"
+                        ? "transparent"
+                        : colors.errorContainer,
+                    borderColor:
+                      blockStatus === "none"
+                        ? "transparent"
+                        : colors.error,
+                    borderWidth: blockStatus === "none" ? 0 : 1,
+                  },
+                ]}
+              >
+                {blockStatus !== "none" && (
+                  <CircleAlert size={16} color={colors.onErrorContainer} />
+                )}
+                <AppText
+                  variant="caption"
+                  color={
+                    blockStatus === "none"
+                      ? colors.onSurfaceVariant
+                      : colors.onErrorContainer
+                  }
+                  style={[
+                    styles.blockBannerText,
+                    blockStatus === "none" && { textAlign: "center" },
+                  ]}
+                >
+                  {blockStatus === "none"
+                    ? t(
+                        "messages.adviceMeet",
+                        "You are advised to meet users before confirming care agreements.",
+                      )
+                    : blockBannerMessage}
+                </AppText>
+                {blockStatus === "i_blocked" && (
+                  <TouchableOpacity
+                    onPress={() => void handleUnblock()}
+                    hitSlop={8}
+                  >
+                    <AppText
+                      variant="caption"
+                      color={colors.error}
+                      style={styles.blockBannerAction}
+                    >
+                      {t("messages.unblock", "Unblock")}
+                    </AppText>
+                  </TouchableOpacity>
+                )}
+              </View>
 
               {/* Messages */}
               <ScrollView
@@ -902,9 +1366,35 @@ export default function ThreadScreen() {
                     <ActivityIndicator size="small" color={colors.primary} />
                   </View>
                 ) : uiMessages.length > 0 ? (
-                  uiMessages.map((msg) => (
-                    <MessageBubble key={msg.id} message={msg} colors={colors} />
-                  ))
+                  <>
+                    {uiMessages.map((msg) => {
+                      const isSelected = selectedIds.has(msg.id);
+                      return (
+                        <View
+                          key={msg.id}
+                          style={
+                            isSelected
+                              ? { backgroundColor: colors.primaryContainer }
+                              : undefined
+                          }
+                        >
+                          <MessageBubble
+                            message={msg}
+                            colors={colors}
+                            selected={isSelected}
+                            onSelect={() =>
+                              setSelectedIds((prev) => {
+                                const next = new Set(prev);
+                                if (next.has(msg.id)) next.delete(msg.id);
+                                else next.add(msg.id);
+                                return next;
+                              })
+                            }
+                          />
+                        </View>
+                      );
+                    })}
+                  </>
                 ) : (
                   <DataState
                     title={t("messages.noMessagesTitle", "No messages yet")}
@@ -925,8 +1415,7 @@ export default function ThreadScreen() {
                   {
                     backgroundColor: colors.surfaceBright,
                     borderColor: colors.outlineVariant,
-                    marginBottom:
-                      keyboardInset > 0 ? 8 : Math.max(insets.bottom, 2),
+                    marginBottom: keyboardInset > 0 ? 8 : 4,
                   },
                 ]}
               >
@@ -1031,11 +1520,26 @@ const styles = StyleSheet.create({
   menuBtn: {
     padding: 4,
   },
+  selectionHeaderSpacer: {
+    flex: 1,
+  },
+  selectionHeaderActions: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  selectionHeaderIconBtn: {
+    padding: 4,
+  },
+  bubbleSelectableWrap: {
+    borderRadius: 16,
+  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingVertical: 16,
+    paddingHorizontal: 12,
     paddingBottom: 24,
   },
   dateLabel: {
@@ -1046,9 +1550,11 @@ const styles = StyleSheet.create({
     marginBottom: 12,
     maxWidth: "85%",
   },
+  /** Proposal / application cards: wide (~90%) but not full width so side alignment still reads as sender. */
   requestBubbleWrap: {
-    maxWidth: "100%",
-    alignSelf: "stretch",
+    marginBottom: 12,
+    maxWidth: "92%",
+    width: "92%",
   },
   bubbleWrapLeft: {
     alignSelf: "flex-start",
@@ -1171,7 +1677,107 @@ const styles = StyleSheet.create({
   },
 
   requestCta: {
-    marginTop: 2,
+    marginTop: 6,
+  },
+  threadTakerNestedCard: {
+    width: "100%",
+    borderRadius: 16,
+    padding: 12,
+    gap: 10,
+    borderWidth: 1,
+  },
+  threadTakerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    minWidth: 0,
+  },
+  threadTakerAvailablePill: {
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 999,
+    flexShrink: 0,
+  },
+  takerCompactMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 6,
+    marginTop: 4,
+  },
+  takerCompactMetaItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 3,
+    paddingHorizontal: 6,
+    paddingVertical: 3,
+    borderRadius: 999,
+  },
+  takerTagsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  takerTagPill: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 999,
+    flexShrink: 1,
+  },
+  takerOfferBody: {
+    width: "100%",
+    gap: 10,
+  },
+  takerOfferHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  takerOfferHeaderText: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  takerChipWrap: {
+    gap: 6,
+  },
+  takerSubLabel: {
+    marginBottom: 2,
+    fontWeight: "600",
+  },
+  takerChipRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  takerChip: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 999,
+    maxWidth: "100%",
+  },
+  takerDetailLine: {
+    gap: 4,
+  },
+  blockBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 16,
+    marginTop: 8,
+    marginBottom: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 12,
+    gap: 8,
+  },
+  blockBannerText: {
+    flex: 1,
+  },
+  blockBannerAction: {
+    fontWeight: "600",
   },
   composerWrapper: {
     flexDirection: "row",

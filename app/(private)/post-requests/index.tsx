@@ -438,7 +438,7 @@ export default function LaunchRequestWizardScreen() {
           <View style={styles.stepContainer}>
             <View>
               <AppText variant="title" style={styles.stepTitle}>
-                Select date
+                {t("post.request.selectDate")}
               </AppText>
               <View
                 style={[
@@ -531,7 +531,7 @@ export default function LaunchRequestWizardScreen() {
             </View>
             <View style={styles.timeRowContainer}>
               <AppText variant="title" style={styles.stepTitle}>
-                Select time
+                {t("post.request.selectTime")}
               </AppText>
               <View style={styles.timeRow}>
                 <DateTimeField
@@ -747,7 +747,7 @@ export default function LaunchRequestWizardScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={step === TOTAL_STEPS - 1 ? "Launch" : "Next"}
+          label={step === TOTAL_STEPS - 1 ? t("post.request.launch") : t("common.next")}
           onPress={goNext}
           fullWidth
           loading={isSubmitting}

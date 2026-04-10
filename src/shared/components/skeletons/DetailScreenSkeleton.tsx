@@ -1,7 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
-import { ChevronLeft } from "lucide-react-native";
+import { ArrowLeft } from "lucide-react-native";
 import React from "react";
 import {
   ScrollView,
@@ -160,22 +160,60 @@ export function ContractDetailScreenSkeleton() {
       contentContainerStyle={styles.contractScrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <View
-        style={[
-          styles.contractCard,
-          {
-            backgroundColor: colors.surfaceBright,
-            borderColor: colors.outlineVariant,
-          },
-        ]}
-      >
-        <Skeleton height={22} width="72%" borderRadius={8} />
-        <Skeleton height={16} width="88%" borderRadius={6} style={{ marginTop: 12 }} />
-        <Skeleton height={16} width="100%" borderRadius={6} style={{ marginTop: 8 }} />
-        <Skeleton height={16} width="94%" borderRadius={6} style={{ marginTop: 8 }} />
-        <View style={{ marginTop: 16, gap: 8 }}>
-          <Skeleton height={14} width="60%" borderRadius={6} />
-          <Skeleton height={14} width="45%" borderRadius={6} />
+      {/* Carousel */}
+      <View style={{ marginHorizontal: 16, marginTop: 8 }}>
+        <Skeleton height={216} width="100%" borderRadius={16} />
+      </View>
+
+      {/* Header Section */}
+      <View style={{ paddingHorizontal: 16, paddingTop: 16, gap: 12 }}>
+        <Skeleton height={28} width="60%" borderRadius={8} />
+        <Skeleton height={14} width="80%" borderRadius={6} />
+        <Skeleton height={14} width="40%" borderRadius={6} />
+        <Skeleton height={60} width="100%" borderRadius={8} style={{ marginTop: 8 }} />
+      </View>
+
+      {/* User Cards */}
+      <View style={{ paddingHorizontal: 16, gap: 12, marginTop: 16 }}>
+        {/* Owner Card (Pill) */}
+        <Skeleton height={56} width="100%" borderRadius={28} />
+        {/* Taker Card (Home Style) */}
+        <View style={{ 
+          padding: 16, 
+          borderRadius: 20, 
+          backgroundColor: colors.surfaceBright,
+          borderWidth: 1,
+          borderColor: colors.outlineVariant,
+          flexDirection: 'row',
+          gap: 12
+        }}>
+          <Skeleton height={80} width={80} borderRadius={40} />
+          <View style={{ flex: 1, gap: 8 }}>
+            <Skeleton height={20} width="70%" borderRadius={6} />
+            <Skeleton height={14} width="40%" borderRadius={6} />
+            <Skeleton height={14} width="90%" borderRadius={6} />
+          </View>
+        </View>
+      </View>
+
+      {/* Request Info Grid */}
+      <View style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
+        <View style={{ flexDirection: 'row', gap: 12 }}>
+          <View style={{ flex: 1, gap: 12 }}>
+            <Skeleton height={44} width="100%" borderRadius={12} />
+            <Skeleton height={44} width="100%" borderRadius={12} />
+          </View>
+          <Skeleton height={100} width={100} borderRadius={50} />
+        </View>
+      </View>
+
+      {/* Detail Pills */}
+      <View style={{ paddingHorizontal: 16, marginTop: 16, gap: 12 }}>
+        <Skeleton height={18} width={80} borderRadius={4} />
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12 }}>
+          <Skeleton height={44} width={100} borderRadius={12} />
+          <Skeleton height={44} width={100} borderRadius={12} />
+          <Skeleton height={44} width={100} borderRadius={12} />
         </View>
       </View>
     </ScrollView>
@@ -190,23 +228,29 @@ export function ReviewDetailScreenSkeleton() {
       contentContainerStyle={styles.formScrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.reviewHeaderBlock}>
-        <Skeleton height={80} width={80} borderRadius={40} />
-        <Skeleton height={24} width={160} borderRadius={8} style={{ marginTop: 12 }} />
-        <Skeleton height={14} width={120} borderRadius={6} style={{ marginTop: 8 }} />
-        <View style={styles.statsRowSk}>
-          <Skeleton height={28} width={88} borderRadius={999} />
-          <Skeleton height={28} width={100} borderRadius={999} />
-          <Skeleton height={28} width={56} borderRadius={999} />
+      <View style={styles.reviewProfileCard}>
+        <View style={styles.reviewProfileHeader}>
+          <Skeleton height={72} width={72} borderRadius={36} />
+          <View style={styles.reviewProfileText}>
+            <Skeleton height={22} width="68%" borderRadius={8} />
+            <Skeleton height={14} width="52%" borderRadius={6} style={{ marginTop: 8 }} />
+            <Skeleton height={14} width="44%" borderRadius={6} style={{ marginTop: 8 }} />
+          </View>
+        </View>
+        <View style={styles.reviewProfileStats}>
+          <Skeleton height={28} width={84} borderRadius={999} />
+          <Skeleton height={28} width={92} borderRadius={999} />
+          <Skeleton height={28} width={68} borderRadius={999} />
         </View>
       </View>
-      <Skeleton height={14} width={96} borderRadius={4} style={{ marginTop: 8 }} />
-      <View style={styles.starsRow}>
+      <View style={styles.reviewStarsWrap}>
         {[0, 1, 2, 3, 4].map((i) => (
           <Skeleton key={i} height={40} width={40} borderRadius={20} />
         ))}
       </View>
+      <Skeleton height={16} width={84} borderRadius={6} />
       <Skeleton height={120} width="100%" borderRadius={12} />
+      <Skeleton height={48} width="100%" borderRadius={999} />
     </ScrollView>
   );
 }
@@ -267,6 +311,7 @@ export function ChatThreadScreenSkeleton({
   const colors = Colors[resolvedTheme];
   return (
     <View style={[styles.flex, { backgroundColor: colors.background }]}>
+      {/* Header — matches ThreadScreenHeader layout */}
       <View
         style={[
           styles.chatHeader,
@@ -279,49 +324,85 @@ export function ChatThreadScreenSkeleton({
             style={styles.chatBackBtn}
             hitSlop={12}
           >
-            <ChevronLeft size={24} color={colors.onSurface} />
+            <ArrowLeft size={24} color={colors.onSurface} />
           </TouchableOpacity>
         ) : (
           <Skeleton height={32} width={32} borderRadius={16} />
         )}
-        <Skeleton height={40} width={40} borderRadius={20} style={{ marginLeft: 4 }} />
+        {/* Avatar */}
+        <Skeleton height={40} width={40} borderRadius={20} />
+        {/* Name + subtitle */}
         <View style={styles.chatHeaderText}>
           <Skeleton height={16} width="55%" borderRadius={6} />
-          <Skeleton height={14} width="40%" borderRadius={6} style={{ marginTop: 6 }} />
+          <Skeleton height={13} width="38%" borderRadius={5} style={{ marginTop: 5 }} />
         </View>
-        <Skeleton height={36} width={36} borderRadius={18} />
+        {/* EllipsisVertical menu button */}
+        <Skeleton height={24} width={24} borderRadius={4} />
       </View>
+
+      {/* Message list */}
       <ScrollView
         style={styles.flex}
         contentContainerStyle={styles.chatScrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={[styles.bubbleSk, { alignSelf: "flex-start" }]}>
-          <Skeleton height={16} width={200} borderRadius={12} />
+        {/* Date separator */}
+        <View style={styles.dateSeparatorSk}>
+          <Skeleton height={1} style={{ flex: 1 }} />
+          <Skeleton height={14} width={72} borderRadius={6} />
+          <Skeleton height={1} style={{ flex: 1 }} />
         </View>
+
+        {/* Other person — short */}
+        <View style={[styles.bubbleSk, { alignSelf: "flex-start" }]}>
+          <Skeleton height={36} width={200} borderRadius={16} />
+        </View>
+        {/* Other person — longer, 2-line */}
+        <View style={[styles.bubbleSk, { alignSelf: "flex-start" }]}>
+          <Skeleton height={56} width={240} borderRadius={16} />
+        </View>
+
+        {/* Me — short reply */}
         <View style={[styles.bubbleSk, { alignSelf: "flex-end" }]}>
-          <Skeleton height={16} width={160} borderRadius={12} />
+          <Skeleton height={36} width={160} borderRadius={16} />
         </View>
+
+        {/* Other person — medium */}
         <View style={[styles.bubbleSk, { alignSelf: "flex-start" }]}>
-          <Skeleton height={40} width={260} borderRadius={16} />
+          <Skeleton height={36} width={220} borderRadius={16} />
+        </View>
+
+        {/* Me — longer reply */}
+        <View style={[styles.bubbleSk, { alignSelf: "flex-end" }]}>
+          <Skeleton height={56} width={200} borderRadius={16} />
+        </View>
+
+        {/* Me — short follow-up */}
+        <View style={[styles.bubbleSk, { alignSelf: "flex-end" }]}>
+          <Skeleton height={36} width={120} borderRadius={16} />
         </View>
       </ScrollView>
+
+      {/* Composer — matches composerWrapper: height 52, pill shape */}
       <View
         style={[
           styles.composerSk,
           {
-            backgroundColor: colors.surfaceContainer,
+            backgroundColor: colors.surfaceBright,
             borderColor: colors.outlineVariant,
           },
         ]}
       >
-        <Skeleton height={32} width={32} borderRadius={16} />
+        {/* Upload / attach button — 28×28 */}
+        <Skeleton height={28} width={28} borderRadius={14} />
+        {/* Text input */}
         <Skeleton
           height={20}
           borderRadius={8}
-          style={{ flex: 1, marginHorizontal: 8 }}
+          style={{ flex: 1, marginHorizontal: 4 }}
         />
-        <Skeleton height={40} width={40} borderRadius={20} />
+        {/* Send button — 38×38 */}
+        <Skeleton height={38} width={38} borderRadius={19} />
       </View>
     </View>
   );
@@ -355,11 +436,58 @@ const styles = StyleSheet.create({
   contractScrollContent: {
     paddingHorizontal: H_PAD,
     paddingBottom: 24,
+    gap: 16,
+  },
+  contractHeroCard: {
+    borderRadius: 16,
+    borderWidth: 1,
+    padding: 16,
+    gap: 14,
+  },
+  contractHeroRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 14,
+  },
+  contractHeroInfo: {
+    flex: 1,
+    minWidth: 0,
+  },
+  contractCareTypesBlock: {
+    gap: 8,
+  },
+  contractCareTypesRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 12,
   },
   contractCard: {
     borderRadius: 16,
     borderWidth: 1,
     padding: 16,
+    gap: 12,
+  },
+  contractDetailRowSk: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  contractDetailSplitRowSk: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  contractPendingBannerSk: {
+    padding: 12,
+    borderRadius: 8,
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 8,
+  },
+  contractPendingCopySk: {
+    flex: 1,
+    minWidth: 0,
   },
   recipientCardSk: {
     flexDirection: "row",
@@ -379,6 +507,30 @@ const styles = StyleSheet.create({
   reviewHeaderBlock: {
     alignItems: "center",
     paddingBottom: 8,
+  },
+  reviewProfileCard: {
+    gap: 14,
+  },
+  reviewProfileHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+  },
+  reviewProfileText: {
+    flex: 1,
+    minWidth: 0,
+  },
+  reviewProfileStats: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  reviewStarsWrap: {
+    alignItems: "center",
+    flexDirection: "row",
+    justifyContent: "center",
+    gap: 8,
+    marginVertical: 8,
   },
   statsRowSk: {
     flexDirection: "row",
@@ -433,21 +585,26 @@ const styles = StyleSheet.create({
   chatScrollContent: {
     padding: 16,
     paddingBottom: 24,
-    gap: 12,
+    gap: 10,
+  },
+  dateSeparatorSk: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    marginVertical: 4,
   },
   bubbleSk: {
     maxWidth: "85%",
-    marginBottom: 4,
   },
   composerSk: {
     flexDirection: "row",
     alignItems: "center",
-    height: 48,
+    height: 52,
     marginHorizontal: 12,
     marginBottom: 8,
-    gap: 8,
+    gap: 6,
     borderWidth: 1,
     borderRadius: 999,
-    paddingHorizontal: 4,
+    paddingHorizontal: 8,
   },
 });

@@ -4,6 +4,7 @@ import { SettingsMenuOverlay } from "@/src/features/profile/components/settings/
 import i18n from "@/src/lib/i18n";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
@@ -22,12 +23,10 @@ export default function SettingsScreen() {
   >(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const showToast = useToastStore((s) => s.showToast);
   const { theme, setTheme, resolvedTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const [openMenu, setOpenMenu] = useState<"theme" | "language" | null>(null);
-  const [signOutErrorMessage, setSignOutErrorMessage] = useState<string | null>(
-    null,
-  );
   const [menuPosition, setMenuPosition] = useState<{
     x: number;
     y: number;
@@ -59,9 +58,7 @@ export default function SettingsScreen() {
       router.replace("/welcome");
     } catch (e) {
       console.error("[settings] signOut", e);
-      setSignOutErrorMessage(
-        t("settings.signOutFailed", "Could not sign out. Please try again."),
-      );
+      showToast({ variant: "error", message: t("settings.signOutFailed"), durationMs: 3200 });
     } finally {
       setIsSigningOut(false);
     }
@@ -84,9 +81,7 @@ export default function SettingsScreen() {
       router.replace("/welcome");
     } catch (e) {
       console.error("[settings] deleteAccount", e);
-      setSignOutErrorMessage(
-        t("settings.deleteFailed", "Could not delete account. Please try again."),
-      );
+      showToast({ variant: "error", message: t("settings.deleteFailed"), durationMs: 3200 });
     } finally {
       setIsDeletingAccount(false);
     }
@@ -412,14 +407,6 @@ export default function SettingsScreen() {
         onRequestClose={() => setConfirmAction(null)}
       />
 
-      <FeedbackModal
-        visible={signOutErrorMessage !== null}
-        title={t("common.error", "Something went wrong")}
-        description={signOutErrorMessage ?? undefined}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setSignOutErrorMessage(null)}
-        onRequestClose={() => setSignOutErrorMessage(null)}
-      />
     </View>
   );
 }

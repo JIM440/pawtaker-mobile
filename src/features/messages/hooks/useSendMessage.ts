@@ -1,4 +1,7 @@
-import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import {
+  getBlockDirection,
+  getBlockMessageForDirection,
+} from "@/src/lib/blocks/user-blocks";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import type { Json } from "@/src/lib/supabase/types";
@@ -36,10 +39,11 @@ export function useSendMessage() {
     const participants = ((threadRow as any)?.participant_ids ?? []) as string[];
     const otherUserId = participants.find((p) => p && p !== userId);
     if (otherUserId) {
-      const blocked = await hasUserBlockRelation(userId, otherUserId);
-      if (blocked) {
+      const blockDirection = await getBlockDirection(userId, otherUserId);
+      if (blockDirection !== "none") {
         const msg =
-          "You cannot message this user because one of you has blocked the other.";
+          getBlockMessageForDirection(blockDirection) ??
+          "You can't message this user right now.";
         setSending(false);
         setError(msg);
         return { ok: false, message: msg };

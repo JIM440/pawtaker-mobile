@@ -61,6 +61,22 @@ export function useMessages(threadId: string | null) {
       .then(() => {});
   }, [threadId, userId]);
 
+  const deleteMessage = useCallback(
+    async (messageId: string) => {
+      if (!userId || !threadId) {
+        throw new Error("Not signed in or no thread.");
+      }
+      const { error: delError } = await supabase
+        .from("messages")
+        .delete()
+        .eq("id", messageId)
+        .eq("sender_id", userId);
+      if (delError) throw delError;
+      setMessages((prev) => prev.filter((m) => m.id !== messageId));
+    },
+    [userId, threadId],
+  );
+
   useEffect(() => {
     if (!threadId) return;
 
@@ -89,6 +105,21 @@ export function useMessages(threadId: string | null) {
           }
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "DELETE",
+          schema: "public",
+          table: "messages",
+          filter: `thread_id=eq.${threadId}`,
+        },
+        (payload) => {
+          const oldRow = payload.old as { id?: string } | null;
+          const removedId = oldRow?.id;
+          if (!removedId) return;
+          setMessages((prev) => prev.filter((m) => m.id !== removedId));
+        },
+      )
       .subscribe();
 
     return () => {
@@ -96,5 +127,5 @@ export function useMessages(threadId: string | null) {
     };
   }, [threadId, userId]);
 
-  return { messages, loading, error, refetch: fetchMessages };
+  return { messages, loading, error, refetch: fetchMessages, deleteMessage };
 }

@@ -5,6 +5,7 @@ import {
   formatRequestDateRange,
   formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -181,14 +182,18 @@ export default function ProfileScreen() {
         const pid = p?.id as string | undefined;
         const req = pid ? openRequestsByPetId[pid] : undefined;
 
-        const seekingDateRange = formatRequestDateRange(
+        const todayRaw = new Date();
+        const today = `${todayRaw.getFullYear()}-${String(todayRaw.getMonth() + 1).padStart(2, "0")}-${String(todayRaw.getDate()).padStart(2, "0")}`;
+        const isExpired = req?.end_date && String(req.end_date) < today;
+
+        const seekingDateRange = !isExpired ? formatRequestDateRange(
           req?.start_date,
           req?.end_date,
-        );
-        const seekingTime = formatRequestTimeRange(
+        ) : undefined;
+        const seekingTime = !isExpired ? formatRequestTimeRange(
           req?.start_time,
           req?.end_time,
-        );
+        ) : undefined;
 
         return {
           ...p,
@@ -327,7 +332,7 @@ export default function ProfileScreen() {
       if (uniqueReviewerIds.length > 0) {
         const { data: reviewerUsers, error: reviewerUsersErr } = await supabase
           .from("users")
-          .select("id,full_name,avatar_url")
+          .select("id,full_name,avatar_url,care_given_count,care_received_count")
           .in("id", uniqueReviewerIds);
 
         if (
@@ -445,9 +450,9 @@ export default function ProfileScreen() {
           name: resolveDisplayName(reviewer) || "Anonymous",
           avatar: reviewer?.avatar_url || null,
           rating: item.rating ?? 0,
-          handshakes: 0,
-          paws: 0,
-          date: new Date(item.created_at).toLocaleDateString(),
+          handshakes: reviewer?.care_given_count ?? 0,
+          paws: reviewer?.care_received_count ?? 0,
+          date: formatReviewRelativeDate(item.created_at),
           review: item.comment || "No review comment.",
         };
       }),

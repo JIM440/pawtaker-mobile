@@ -3,11 +3,17 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import React from "react";
+import type { TextStyle } from "react-native";
 import { StyleSheet, View } from "react-native";
 
 type DataStateProps = {
   title: string;
   message?: string;
+  /** Smaller secondary line (e.g. empty-state subtext under a bold title). */
+  messageVariant?: "body" | "caption";
+  /** Overrides default `onSurface` title color (e.g. brand primary on marketing empty states). */
+  titleColor?: string;
+  titleStyle?: TextStyle;
   actionLabel?: string;
   onAction?: () => void;
   secondaryLabel?: string;
@@ -19,6 +25,9 @@ type DataStateProps = {
 export function DataState({
   title,
   message,
+  messageVariant = "body",
+  titleColor,
+  titleStyle,
   actionLabel,
   onAction,
   secondaryLabel,
@@ -67,12 +76,16 @@ export function DataState({
           ]}
         />
       )}
-      <AppText variant="title" color={colors.onSurface} style={styles.title}>
+      <AppText
+        variant="title"
+        color={titleColor ?? colors.onSurface}
+        style={[styles.title, titleStyle]}
+      >
         {title}
       </AppText>
       {!!message && (
         <AppText
-          variant="body"
+          variant={messageVariant}
           color={colors.onSurfaceVariant}
           style={styles.message}
         >
@@ -131,6 +144,7 @@ const styles = StyleSheet.create({
   },
   title: {
     textAlign: "center",
+    fontWeight: "600",
   },
   message: {
     textAlign: "center",

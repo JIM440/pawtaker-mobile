@@ -28,10 +28,16 @@ export type TakerCardProps = {
     petsHandled?: number;
   };
   onPress: () => void;
-  onMenuPress: (ref: any) => void;
+  onMenuPress?: (ref: any) => void;
+  showMenu?: boolean;
 };
 
-export function TakerCard({ taker, onPress, onMenuPress }: TakerCardProps) {
+export function TakerCard({
+  taker,
+  onPress,
+  onMenuPress,
+  showMenu = true,
+}: TakerCardProps) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -70,14 +76,16 @@ export function TakerCard({ taker, onPress, onMenuPress }: TakerCardProps) {
               )}
             </View>
 
-            <TouchableOpacity
-              ref={menuBtnRef}
-              onPress={() => onMenuPress(menuBtnRef.current)}
-              hitSlop={8}
-              style={styles.menuBtn}
-            >
-              <MoreHorizontal size={20} color={colors.onSurface} />
-            </TouchableOpacity>
+            {showMenu && onMenuPress && (
+              <TouchableOpacity
+                ref={menuBtnRef}
+                onPress={() => onMenuPress(menuBtnRef.current)}
+                hitSlop={8}
+                style={styles.menuBtn}
+              >
+                <MoreHorizontal size={20} color={colors.onSurface} />
+              </TouchableOpacity>
+            )}
           </View>
 
           <View style={styles.metaRow}>

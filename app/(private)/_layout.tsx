@@ -4,7 +4,8 @@ import { useLocationBackfill } from "@/src/lib/location/useLocationBackfill";
 import { useNotificationToast } from "@/src/lib/notifications/useNotificationToast";
 import { usePushRegistration } from "@/src/lib/notifications/usePushRegistration";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { navigateForNotificationPayload } from "@/src/features/notifications/notificationNavigation";
+import { navigateForNotificationPayloadAsync } from "@/src/features/notifications/notificationNavigation";
+import { useAuthStore } from "@/src/lib/store/auth.store";
 import { KycGlobalPrompt } from "@/src/shared/components/kyc/KycGlobalPrompt";
 import { NotificationToast } from "@/src/shared/components/ui/NotificationToast";
 import { Stack, useRouter } from "expo-router";
@@ -20,6 +21,7 @@ export default function PrivateLayout() {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const router = useRouter();
+  const userId = useAuthStore((s) => s.user?.id ?? null);
   usePushRegistration();
   useLocationBackfill();
   const { toast, dismissToast } = useNotificationToast();
@@ -38,7 +40,11 @@ export default function PrivateLayout() {
         onPress={(data) => {
           dismissToast();
           if (data?.type) {
-            navigateForNotificationPayload(router, { type: data.type, data });
+            void navigateForNotificationPayloadAsync(
+              router,
+              { type: data.type, data },
+              { currentUserId: userId },
+            );
           }
         }}
       />

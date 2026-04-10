@@ -1,6 +1,6 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
-import { navigateForNotificationPayload } from "@/src/features/notifications/notificationNavigation";
+import { navigateForNotificationPayloadAsync } from "@/src/features/notifications/notificationNavigation";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -46,6 +46,24 @@ type NotificationItem = {
 /** Matches DB trigger `notify_kyc_rejected` (`type = 'kyc_rejected'`). */
 function isKycRejectionNotification(n: NotificationItem): boolean {
   return n.type === "kyc_rejected";
+}
+
+function buildPersonAvatarById(
+  usersData:
+    | Array<{ id: string; avatar_url: string | null }>
+    | null
+    | undefined,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const u of usersData ?? []) {
+    if (
+      typeof u.avatar_url === "string" &&
+      u.avatar_url.trim().length > 0
+    ) {
+      map.set(u.id, u.avatar_url.trim());
+    }
+  }
+  return map;
 }
 
 export default function NotificationsScreen() {
@@ -121,6 +139,7 @@ export default function NotificationsScreen() {
         const revieweeId = rawData?.reviewee_id;
         const takerId = rawData?.taker_id;
         const threadId = rawData?.threadId;
+        const senderId = rawData?.sender_id;
 
         if (
           (row.type === "pet_added" || row.type === "care_request_posted") &&
@@ -138,14 +157,28 @@ export default function NotificationsScreen() {
         if (typeof takerId === "string" && takerId.trim().length > 0) {
           personIds.add(takerId);
         }
-        if (row.type === "chat" && typeof threadId === "string" && threadId.trim()) {
+        if (
+          row.type === "chat" &&
+          typeof threadId === "string" &&
+          threadId.trim().length > 0
+        ) {
           threadIds.add(threadId);
+        }
+        if (
+          row.type === "chat" &&
+          typeof senderId === "string" &&
+          senderId.trim().length > 0
+        ) {
+          personIds.add(senderId.trim());
         }
       }
 
       const [{ data: petsData }, { data: threadsData }] = await Promise.all([
         petIds.size > 0
-          ? supabase.from("pets").select("id,photo_urls").in("id", Array.from(petIds))
+          ? supabase
+              .from("pets")
+              .select("id,photo_urls")
+              .in("id", Array.from(petIds))
           : Promise.resolve({ data: [] } as any),
         threadIds.size > 0
           ? supabase
@@ -184,17 +217,15 @@ export default function NotificationsScreen() {
               .select("id,avatar_url")
               .in("id", Array.from(personIds))
           : ({ data: [] } as any);
-      const personAvatarById = new Map<string, string>();
-      for (const u of usersData ?? []) {
-        if (typeof (u as any)?.avatar_url === "string" && (u as any).avatar_url.trim()) {
-          personAvatarById.set((u as any).id, (u as any).avatar_url.trim());
-        }
-      }
+      const personAvatarById = buildPersonAvatarById(
+        usersData as Array<{ id: string; avatar_url: string | null }> | null,
+      );
 
       const mapped: NotificationItem[] = rows.map((row) => {
         const rawData = rawById.get(row.id)?.rawData ?? null;
         const directPetPhoto =
-          typeof rawData?.photo_url === "string" && rawData.photo_url.trim().length > 0
+          typeof rawData?.photo_url === "string" &&
+          rawData.photo_url.trim().length > 0
             ? rawData.photo_url.trim()
             : undefined;
         const petPhoto =
@@ -217,17 +248,33 @@ export default function NotificationsScreen() {
           (typeof rawData?.taker_id === "string"
             ? personAvatarById.get(rawData.taker_id)
             : undefined) ||
-          (threadOtherUserId ? personAvatarById.get(threadOtherUserId) : undefined);
+          (threadOtherUserId
+            ? personAvatarById.get(threadOtherUserId)
+            : undefined);
+
+        const senderIdTrim =
+          typeof rawData?.sender_id === "string"
+            ? rawData.sender_id.trim()
+            : "";
+        const directSenderAvatar =
+          typeof rawData?.sender_avatar_url === "string" &&
+          rawData.sender_avatar_url.trim().length > 0
+            ? rawData.sender_avatar_url.trim()
+            : undefined;
+        const senderImage =
+          directSenderAvatar ||
+          (senderIdTrim ? personAvatarById.get(senderIdTrim) : undefined);
 
         const image =
           row.type === "pet_added" || row.type === "care_request_posted"
             ? petPhoto
             : row.type === "review_received" ||
                 row.type === "review_submitted" ||
-                row.type === "chat" ||
                 row.type === "applied"
               ? personImage
-              : undefined;
+              : row.type === "chat"
+                ? senderImage || personImage
+                : undefined;
 
         return {
           id: row.id,
@@ -302,11 +349,11 @@ export default function NotificationsScreen() {
     setMenuForId(null);
     setMenuPosition(null);
     const { error } = await supabase
-      .from('notifications')
+      .from("notifications")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
     if (error) {
-      console.error('[Notifications] Delete failed:', error.message);
+      console.error("[Notifications] Delete failed:", error.message);
     }
   };
 
@@ -336,13 +383,6 @@ export default function NotificationsScreen() {
     }
   };
 
-  const navigateForNotification = (item: NotificationItem) => {
-    navigateForNotificationPayload(router, {
-      type: item.type ?? "",
-      data: item.data as Record<string, unknown> | null | undefined,
-    });
-  };
-
   const handleNotificationPress = (id: string) => {
     void (async () => {
       const item = items.find((n) => n.id === id);
@@ -350,7 +390,14 @@ export default function NotificationsScreen() {
       if (item.unread) {
         await markNotificationRead(id);
       }
-      navigateForNotification(item);
+      await navigateForNotificationPayloadAsync(
+        router,
+        {
+          type: item.type ?? "",
+          data: item.data as Record<string, unknown> | null | undefined,
+        },
+        { currentUserId: user?.id },
+      );
     })();
   };
 

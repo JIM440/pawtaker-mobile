@@ -1,4 +1,4 @@
-# PawTaker Mobile — Claude Code Guidelines
+# PawTaker Mobile — Codex Guidelines
 
 ## Project Overview
 Community P2P pet-sitting mobile app. Points-based (no money). 33 screens, 5 tabs.

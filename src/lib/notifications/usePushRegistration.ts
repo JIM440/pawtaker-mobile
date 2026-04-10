@@ -1,4 +1,4 @@
-import { navigateForNotificationPayload } from "@/src/features/notifications/notificationNavigation";
+import { navigateForNotificationPayloadAsync } from "@/src/features/notifications/notificationNavigation";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useRouter } from "expo-router";
 import { useEffect, useRef } from "react";
@@ -87,7 +87,11 @@ export function usePushRegistration(): void {
         if (type) {
           setTimeout(() => {
             if (alive) {
-              navigateForNotificationPayload(router, { type, data });
+              void navigateForNotificationPayloadAsync(
+                router,
+                { type, data },
+                { currentUserId: userId },
+              );
             }
           }, 400);
         }
@@ -99,7 +103,11 @@ export function usePushRegistration(): void {
               response.notification.request.content.data,
             );
             if (type) {
-              navigateForNotificationPayload(router, { type, data });
+              void navigateForNotificationPayloadAsync(
+                router,
+                { type, data },
+                { currentUserId: userId },
+              );
             }
           });
         if (!alive) {

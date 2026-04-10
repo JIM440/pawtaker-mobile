@@ -1,21 +1,16 @@
-import { Colors } from "@/src/constants/colors";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
-import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
-import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { ReviewDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { ErrorState } from "@/src/shared/components/ui";
-import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { Input } from "@/src/shared/components/ui/Input";
 import { StarRatingInput } from "@/src/shared/components/ui/StarRatingInput";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { MoreHorizontal } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, View } from "react-native";
@@ -32,12 +27,9 @@ export default function PostCareReviewScreen() {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const showToast = useToastStore((s) => s.showToast);
-  const { resolvedTheme } = useThemeStore();
-  const colors = Colors[resolvedTheme];
 
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
-  const [submitted, setSubmitted] = useState(false);
   const [submitting, setSubmitting] = useState(false);
 
   const [loading, setLoading] = useState(true);
@@ -61,6 +53,8 @@ export default function PostCareReviewScreen() {
 
     setLoading(true);
     setError(null);
+    setRating(0);
+    setComment("");
     setContextPetName(null);
     try {
       // Try direct contract id first (preferred).
@@ -121,20 +115,6 @@ export default function PostCareReviewScreen() {
       setContractId(contract.id as string);
       setReviewee(peer ?? null);
       setRevieweeReviews(revs ?? []);
-
-      const { data: existingReview } = await supabase
-        .from("reviews")
-        .select("rating,comment")
-        .eq("contract_id", contract.id)
-        .eq("reviewer_id", user.id)
-        .maybeSingle();
-      if (existingReview) {
-        setRating(existingReview.rating ?? 0);
-        setComment(
-          typeof existingReview.comment === "string" ? existingReview.comment : "",
-        );
-        setSubmitted(true);
-      }
 
       const reqId = contract.request_id as string | undefined;
       if (reqId) {
@@ -229,11 +209,14 @@ export default function PostCareReviewScreen() {
           comment: trimmedComment,
         });
         if (insertError) throw insertError;
-        setSubmitted(true);
         showToast({
           variant: "success",
           message: t("myCare.review.submitted", "Thanks! Your review was posted."),
           durationMs: 2600,
+        });
+        router.replace({
+          pathname: "/(private)/(tabs)/profile/users/[id]" as any,
+          params: { id: reviewee.id, initialTab: "reviews" },
         });
       } catch (err) {
         showToast({
@@ -252,9 +235,6 @@ export default function PostCareReviewScreen() {
       <PageContainer contentStyle={{ paddingTop: 0 }}>
         <BackHeader title="" onBack={() => router.back()} />
         <ReviewDetailScreenSkeleton />
-        <View style={styles.footer}>
-          <Skeleton height={48} width="100%" borderRadius={12} />
-        </View>
       </PageContainer>
     );
   }
@@ -275,76 +255,12 @@ export default function PostCareReviewScreen() {
     );
   }
 
-  if (submitted) {
-    return (
-      <PageContainer>
-        <BackHeader
-          title=""
-          onBack={() => router.back()}
-          rightSlot={
-            <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
-              <MoreHorizontal size={24} color={colors.onSurface} />
-            </View>
-          }
-        />
-        <View style={styles.successWrap}>
-          <View style={{ width: "100%" }}>
-            <ProfileHeader
-              name={header.name}
-              avatarUri={reviewee?.avatar_url}
-              location={header.location}
-              points={header.points}
-              handshakes={header.handshakes}
-              paws={header.paws}
-              rating={header.rating}
-              currentTask={reviewContextLabel}
-              isAvailable
-            />
-
-            <View style={styles.staticStarsWrap} pointerEvents="none">
-              <StarRatingInput
-                value={rating}
-                onChange={() => {}}
-                size={20}
-                maxStars={5}
-                accessibilityLabel="Rating"
-              />
-            </View>
-
-            <Input
-              label={t("myCare.review.comment", "Review")}
-              value={comment}
-              onChangeText={() => {}}
-              editable={false}
-              multiline
-              placeholder=""
-              inputStyle={styles.commentInput}
-              containerStyle={styles.commentContainer}
-              showErrorOnlyAfterFocus={false}
-            />
-
-            <Button
-              label={t("myCare.review.submit", "Submit")}
-              onPress={() => {}}
-              fullWidth
-              style={styles.doneBtn}
-            />
-          </View>
-        </View>
-      </PageContainer>
-    );
-  }
-
   return (
     <PageContainer>
       <BackHeader
         title=""
         onBack={() => router.back()}
-        rightSlot={
-          <View style={{ paddingHorizontal: 4, paddingVertical: 4 }}>
-            <MoreHorizontal size={24} color={colors.onSurface} />
-          </View>
-        }
+        style={{ paddingTop: 0 }}
       />
 
       <ScrollView
@@ -365,15 +281,14 @@ export default function PostCareReviewScreen() {
           isAvailable
         />
 
-        <AppText variant="label" color={colors.onSurfaceVariant} style={styles.ratingLabel}>
-          {t("myCare.review.rating")}
-        </AppText>
-        <StarRatingInput
-          value={rating}
-          onChange={setRating}
-          size={20}
-          accessibilityLabel={t("myCare.review.rating")}
-        />
+        <View style={styles.starsCenter}>
+          <StarRatingInput
+            value={rating}
+            onChange={setRating}
+            size={28}
+            accessibilityLabel={t("myCare.review.rating")}
+          />
+        </View>
 
         <Input
           label={t("myCare.review.comment")}
@@ -388,7 +303,7 @@ export default function PostCareReviewScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={t("myCare.review.submit")}
+          label={t("common.submit", "Submit")}
           onPress={onSubmit}
           fullWidth
           disabled={rating < 1 || submitting}
@@ -407,13 +322,9 @@ const styles = StyleSheet.create({
     paddingBottom: 24,
     gap: 16,
   },
-  intro: {
-    lineHeight: 22,
-    marginBottom: 4,
-  },
-  ratingLabel: {
-    marginTop: 8,
-    marginBottom: 4,
+  starsCenter: {
+    alignItems: "center",
+    marginVertical: 8,
   },
   commentContainer: {
     marginBottom: 0,
@@ -425,22 +336,5 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 8,
     paddingBottom: 24,
-  },
-  successWrap: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 24,
-    gap: 16,
-  },
-  doneBtn: {
-    marginTop: 8,
-    width: "100%",
-  },
-  staticStarsWrap: {
-    alignItems: "center",
-    justifyContent: "center",
-    marginTop: 10,
-    marginBottom: 8,
   },
 });

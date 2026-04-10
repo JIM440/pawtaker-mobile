@@ -5,28 +5,33 @@ import { Modal, Pressable, View } from "react-native";
 type Props = {
   visible: boolean;
   colors: Record<string, string>;
-  styles: any;
   t: (key: string, fallback?: string) => string;
   onClose: () => void;
-  onTerminate: () => void;
-  terminateDisabled?: boolean;
+  onPrimaryAction: () => void;
+  primaryActionLabel?: string;
+  primaryActionDisabled?: boolean;
   onReport?: () => void;
   onBlock: () => void;
-  onRateAndReview: () => void;
+  onRateAndReview?: () => void;
+  menuAnchor?: { x: number; y: number; width: number; height: number } | null;
 };
 
 export function MyCareContractActionsMenu({
   visible,
   colors,
-  styles,
   t,
   onClose,
-  onTerminate,
-  terminateDisabled = false,
+  onPrimaryAction,
+  primaryActionLabel,
+  primaryActionDisabled = false,
   onReport,
   onBlock,
   onRateAndReview,
+  menuAnchor,
 }: Props) {
+  const top = menuAnchor ? menuAnchor.y + menuAnchor.height + 8 : 64;
+  const right = 16;
+
   return (
     <Modal
       transparent
@@ -34,64 +39,86 @@ export function MyCareContractActionsMenu({
       onRequestClose={onClose}
       animationType="fade"
     >
-      <Pressable style={styles.actionsOverlay} onPress={onClose}>
+      <Pressable
+        style={{
+          flex: 1,
+          backgroundColor: 'rgba(0,0,0,0.12)',
+        }}
+        onPress={onClose}
+      >
         <View
-          style={[
-            styles.actionsCard,
-            {
-              backgroundColor: colors.surfaceContainerLowest,
-              borderColor: colors.outlineVariant,
-            },
-          ]}
+          style={{
+            position: "absolute",
+            top,
+            right,
+            minWidth: 200,
+            backgroundColor: colors.surfaceBright,
+            borderRadius: 12,
+            borderWidth: 1,
+            borderColor: colors.outlineVariant,
+            shadowColor: "#000",
+            shadowOffset: { width: 0, height: 12 },
+            shadowOpacity: 0.15,
+            shadowRadius: 16,
+            elevation: 6,
+            overflow: "hidden",
+            paddingVertical: 4,
+          }}
           onStartShouldSetResponder={() => true}
         >
           <Pressable
-            style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}
-            onPress={onTerminate}
-            disabled={terminateDisabled}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
+            onPress={onPrimaryAction}
+            disabled={primaryActionDisabled}
           >
             <AppText
               variant="body"
-              color={terminateDisabled ? colors.onSurfaceVariant : colors.onSurface}
-              numberOfLines={1}
+              color={primaryActionDisabled ? colors.onSurfaceVariant : colors.onSurface}
             >
-              {t("myCare.contract.terminate")}
+              {primaryActionLabel ?? t("myCare.contract.terminate")}
             </AppText>
           </Pressable>
 
-          <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
+          {onRateAndReview ? (
+            <Pressable
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+              onPress={onRateAndReview}
+            >
+              <AppText variant="body" color={colors.onSurface}>
+                {t("myCare.contract.rateAndReview")}
+              </AppText>
+            </Pressable>
+          ) : null}
 
           {onReport ? (
-            <>
-              <Pressable
-                style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}
-                onPress={onReport}
-              >
-                <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
-                  {t("messages.reportUser", "Report user")}
-                </AppText>
-              </Pressable>
-              <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
-            </>
+            <Pressable
+              style={{
+                paddingHorizontal: 12,
+                paddingVertical: 8,
+              }}
+              onPress={onReport}
+            >
+              <AppText variant="body" color={colors.onSurface}>
+                {t("messages.reportUser", "Report user")}
+              </AppText>
+            </Pressable>
           ) : null}
 
           <Pressable
-            style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}
+            style={{
+              paddingHorizontal: 12,
+              paddingVertical: 8,
+            }}
             onPress={onBlock}
           >
-            <AppText variant="body" color={colors.error} numberOfLines={1}>
+            <AppText variant="body" color={colors.error}>
               {t("profile.blockUser")}
-            </AppText>
-          </Pressable>
-
-          <View style={[styles.menuDivider, { backgroundColor: colors.outlineVariant }]} />
-
-          <Pressable
-            style={({ pressed }) => [styles.actionItem, pressed ? { opacity: 0.7 } : null]}
-            onPress={onRateAndReview}
-          >
-            <AppText variant="body" color={colors.onSurface} numberOfLines={1}>
-              {t("myCare.contract.rateAndReview")}
             </AppText>
           </Pressable>
         </View>

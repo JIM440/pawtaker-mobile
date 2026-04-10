@@ -1,7 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
-import { filterOutBlockedUsers, hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { filterOutBlockedUsers, getBlockDirection } from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
@@ -11,6 +11,7 @@ import {
   formatCarePointsPts,
   normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
+import { useLocationGate } from "@/src/lib/location/useLocationGate";
 import { useUnreadNotificationCount } from "@/src/lib/notifications/useUnreadNotificationCount";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -150,6 +151,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const { user, profile } = useAuthStore();
+  const { checkLocation, hasLocation } = useLocationGate();
   const colors = Colors[resolvedTheme];
   const [refreshing, setRefreshing] = useState(false);
 
@@ -218,9 +220,34 @@ export default function HomeScreen() {
         new Set(activeReqData.map((r: any) => r.owner_id)),
       );
       const blockedOwnerIds = await filterOutBlockedUsers(user.id, ownerIds);
-      const visibleReqData = activeReqData.filter(
+      let visibleReqData = activeReqData.filter(
         (r: any) => !blockedOwnerIds.has(r.owner_id),
       );
+      // Safety gate: hide requests that already have a contract, even if request status is stale.
+      if (visibleReqData.length > 0) {
+        const visibleRequestIds = visibleReqData
+          .map((r: any) => r?.id)
+          .filter(Boolean) as string[];
+        if (visibleRequestIds.length > 0) {
+          const { data: contractsRows, error: contractsError } = await supabase
+            .from("contracts")
+            .select("request_id")
+            .in("request_id", visibleRequestIds);
+          if (contractsError && !isMissingBackendResourceError(contractsError)) {
+            throw contractsError;
+          }
+          const contractedRequestIds = new Set(
+            (contractsRows ?? [])
+              .map((c: any) => c?.request_id)
+              .filter(Boolean) as string[],
+          );
+          if (contractedRequestIds.size > 0) {
+            visibleReqData = visibleReqData.filter(
+              (r: any) => !contractedRequestIds.has(r.id),
+            );
+          }
+        }
+      }
       const petIds = Array.from(
         new Set(visibleReqData.map((r: any) => r.pet_id)),
       );
@@ -710,9 +737,11 @@ export default function HomeScreen() {
         !careTypeFilter.includes(item.careTypeKey)
       )
         return false;
-      const distKm = parseDistanceKm(item.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max) {
-        return false;
+      if (hasLocation) {
+        const distKm = parseDistanceKm(item.distance);
+        if (distKm < distanceRange.min || distKm > distanceRange.max) {
+          return false;
+        }
       }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
@@ -723,7 +752,7 @@ export default function HomeScreen() {
         item.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, requests]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange, hasLocation, requests]);
 
   const filteredTakers = useMemo(() => {
     return takers.filter((taker) => {
@@ -733,9 +762,11 @@ export default function HomeScreen() {
         !taker.tags.some((tag) => careTypeFilter.includes(tag))
       )
         return false;
-      const distKm = parseDistanceKm(taker.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max) {
-        return false;
+      if (hasLocation) {
+        const distKm = parseDistanceKm(taker.distance);
+        if (distKm < distanceRange.min || distKm > distanceRange.max) {
+          return false;
+        }
       }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
@@ -745,10 +776,14 @@ export default function HomeScreen() {
         taker.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, takers]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange, hasLocation, takers]);
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
+  const hasActiveDistanceFilter =
+    hasLocation &&
+    (distanceRange.min > DISTANCE_MIN_KM ||
+      distanceRange.max < DISTANCE_MAX_KM);
 
   const handleConfirmSendRequest = async () => {
     if (!selectedSeekingPet || !takerForSendRequest || !user?.id) return;
@@ -757,13 +792,17 @@ export default function HomeScreen() {
     try {
       const petId = selectedSeekingPet.id as string;
       const takerId = takerForSendRequest.id;
-      const blocked = await hasUserBlockRelation(user.id, takerId);
-      if (blocked) {
+      const blockDirection = await getBlockDirection(user.id, takerId);
+      if (blockDirection !== "none") {
         showToast({
           variant: "error",
           message: t(
-            "messages.blockedNoMessaging",
-            "You cannot message this user because one of you has blocked the other.",
+            blockDirection === "i_blocked"
+              ? "messages.blockedBySelfSend"
+              : "messages.blockedByOtherSend",
+            blockDirection === "i_blocked"
+              ? "You blocked this user, so you can't message them."
+              : "This user blocked you, so you can't message them.",
           ),
           durationMs: 3200,
         });
@@ -1045,6 +1084,8 @@ export default function HomeScreen() {
                     </View>
                   </View>
 
+                  {hasLocation ? (
+                    <>
                   <AppText
                     variant="label"
                     color={colors.onSurfaceVariant}
@@ -1141,6 +1182,36 @@ export default function HomeScreen() {
                       }))
                     }
                   />
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        checkLocation();
+                      }}
+                      style={[
+                        styles.locationFilterNotice,
+                        {
+                          backgroundColor: colors.surfaceContainerHighest,
+                          borderColor: colors.outlineVariant,
+                        },
+                      ]}
+                    >
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                        style={styles.locationFilterNoticeText}
+                      >
+                        {t(
+                          "filters.locationRequired",
+                          "Set your location to enable distance filtering.",
+                        )}
+                      </AppText>
+                      <AppText variant="label" color={colors.primary}>
+                        {t("common.update", "Update")}
+                      </AppText>
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ) : null}
@@ -1178,16 +1249,14 @@ export default function HomeScreen() {
                   title={
                     searchQuery.trim() ||
                     careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
+                    hasActiveDistanceFilter
                       ? "Aw aw! No results"
                       : t("feed.noRequestsTitle", "No requests near you")
                   }
                   message={
                     searchQuery.trim() ||
                     careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
+                    hasActiveDistanceFilter
                       ? "We couldn't find any matches for your search. Try adjusting your filters"
                       : t(
                           "feed.noRequestsSubtitle",
@@ -1197,8 +1266,7 @@ export default function HomeScreen() {
                   illustration={
                     searchQuery.trim() ||
                     careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
+                    hasActiveDistanceFilter
                       ? IllustratedEmptyStateIllustrations.noSearchResult
                       : IllustratedEmptyStateIllustrations.noCare
                   }
@@ -1206,9 +1274,7 @@ export default function HomeScreen() {
                 />
               ) : (
                 <View style={styles.resultsHeader}>
-                  {careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM ? (
+                  {careTypeFilter.length > 0 || hasActiveDistanceFilter ? (
                     <View style={styles.resultsRow}>
                       <AppText variant="title" style={{ fontSize: 16 }}>
                         {t("feed.resultsLabel")}:{" "}
@@ -1228,10 +1294,14 @@ export default function HomeScreen() {
                           ...careTypeFilter.map((k) =>
                             t(`feed.careTypes.${k}`),
                           ),
-                          t("feed.distanceKmRange", {
-                            min: distanceRange.min,
-                            max: distanceRange.max,
-                          }),
+                          ...(hasActiveDistanceFilter
+                            ? [
+                                t("feed.distanceKmRange", {
+                                  min: distanceRange.min,
+                                  max: distanceRange.max,
+                                }),
+                              ]
+                            : []),
                         ].join(", ")}
                       </AppText>
                     </View>
@@ -1319,16 +1389,14 @@ export default function HomeScreen() {
                 title={
                   searchQuery.trim() ||
                   careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM
+                  hasActiveDistanceFilter
                     ? "Aw aw! No results"
                     : t("feed.noTakersTitle", "No caregivers available")
                 }
                 message={
                   searchQuery.trim() ||
                   careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM
+                  hasActiveDistanceFilter
                     ? "We couldn't find any matches for your search. Try adjusting your filters"
                     : t(
                         "feed.noTakersSubtitle",
@@ -1338,8 +1406,7 @@ export default function HomeScreen() {
                 illustration={
                   searchQuery.trim() ||
                   careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM
+                  hasActiveDistanceFilter
                     ? IllustratedEmptyStateIllustrations.noSearchResult
                     : IllustratedEmptyStateIllustrations.noCare
                 }
@@ -1525,6 +1592,20 @@ const styles = StyleSheet.create({
   },
   filterCareTypesBlock: {
     marginBottom: 20,
+  },
+  locationFilterNotice: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  locationFilterNoticeText: {
+    flex: 1,
   },
   careTypePillsRow: {
     flexDirection: "row",

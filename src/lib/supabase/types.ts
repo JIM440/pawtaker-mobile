@@ -166,6 +166,9 @@ export interface Database {
           signed_taker: boolean;
           /** DB `text`, default `draft` */
           status: string;
+          /** Set when first party requests termination; cleared on reactivation. */
+          terminate_requested_by: string | null;
+          terminate_requested_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -176,6 +179,8 @@ export interface Database {
           signed_owner?: boolean;
           signed_taker?: boolean;
           status?: string;
+          terminate_requested_by?: string | null;
+          terminate_requested_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['contracts']['Insert']>;

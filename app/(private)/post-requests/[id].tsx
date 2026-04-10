@@ -1,24 +1,23 @@
 import { Colors } from "@/src/constants/colors";
-import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
 import { ApplyConfirmModal } from "@/src/features/post/components/ApplyConfirmModal";
 import { RequestPetDetailView } from "@/src/features/requests/components/RequestPetDetailView";
-import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getBlockDirection } from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
-  formatRequestDateRange,
-  formatRequestTimeRange,
+    formatRequestDateRange,
+    formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
 import {
-  isResourceNotFound,
-  RESOURCE_NOT_FOUND,
+    isResourceNotFound,
+    RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import {
-  computeCarePoints,
-  normalizeCareTypeForPoints,
+    computeCarePoints,
+    normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -29,26 +28,26 @@ import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
-import { PetDetailHeaderSection } from "@/src/shared/components/pets/PetDetailHeaderSection";
-import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
 import { RequestDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Button } from "@/src/shared/components/ui/Button";
-import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Handshake, PawPrint, Star } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
+import {
+    Ellipsis,
+    Trash2
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Platform,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    Modal,
+    Platform,
+    Pressable,
+    StyleSheet,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 const H_PADDING = 16;
@@ -100,6 +99,16 @@ export default function RequestDetailScreen() {
   const [ownerReviews, setOwnerReviews] = useState<any[]>([]);
   const [applying, setApplying] = useState(false);
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [menuBtnLayout, setMenuBtnLayout] = useState<{
+    x: number;
+    y: number;
+    width: number;
+    height: number;
+  } | null>(null);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const menuBtnRef = useRef<View>(null);
 
   const load = useCallback(async () => {
     if (!id) {
@@ -209,6 +218,30 @@ export default function RequestDetailScreen() {
       void load();
     }, [load]),
   );
+
+  useEffect(() => {
+    if (!id) return;
+
+    const channel = supabase
+      .channel(`care-request-detail-${id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "care_requests",
+          filter: `id=eq.${id}`,
+        },
+        (payload) => {
+          setReqRow((prev: any) => (prev ? { ...prev, ...payload.new } : payload.new));
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [id]);
 
   const parsedPetNotes = useMemo(() => parsePetNotes(pet?.notes), [pet?.notes]);
 
@@ -328,6 +361,25 @@ export default function RequestDetailScreen() {
   const isOwner = Boolean(
     user?.id && reqRow?.owner_id && user.id === reqRow.owner_id,
   );
+  const requestStatus = typeof reqRow?.status === "string" ? reqRow.status : null;
+  const selectedTakerId =
+    typeof reqRow?.taker_id === "string" ? reqRow.taker_id : null;
+  const requestAcceptedByAnother =
+    !isOwner &&
+    requestStatus === "accepted" &&
+    Boolean(selectedTakerId) &&
+    selectedTakerId !== user?.id;
+  const requestTopNotice = requestAcceptedByAnother
+    ? t(
+        "requestDetails.requestAcceptedByAnother",
+        "Another caregiver has already accepted this request.",
+      )
+    : !isOwner && requestStatus && requestStatus !== "open"
+      ? t(
+          "requestDetails.requestClosedForApplications",
+          "This request is no longer accepting applications.",
+        )
+      : null;
 
   const togglePetLike = () => {
     if (!user?.id || !pet?.id || isOwner || likeBusy) return;
@@ -404,24 +456,35 @@ export default function RequestDetailScreen() {
       if (!eligibility.eligible) {
         showToast({
           variant: "info",
-          message: t(
-            "requestDetails.requestClosedForApplications",
-            "This request is no longer accepting applications.",
-          ),
+          message:
+            eligibility.selectedTakerId &&
+            eligibility.selectedTakerId !== user.id
+              ? t(
+                  "requestDetails.requestAcceptedByAnother",
+                  "Another caregiver has already accepted this request.",
+                )
+              : t(
+                  "requestDetails.requestClosedForApplications",
+                  "This request is no longer accepting applications.",
+                ),
           durationMs: 4200,
         });
         return;
       }
-      const blocked = await hasUserBlockRelation(
+      const blockDirection = await getBlockDirection(
         user.id,
         reqRow.owner_id as string,
       );
-      if (blocked) {
+      if (blockDirection !== "none") {
         showToast({
           variant: "error",
           message: t(
-            "messages.blockedNoMessaging",
-            "You cannot message this user because one of you has blocked the other.",
+            blockDirection === "i_blocked"
+              ? "messages.blockedBySelfSend"
+              : "messages.blockedByOtherSend",
+            blockDirection === "i_blocked"
+              ? "You blocked this user, so you can't message them."
+              : "This user blocked you, so you can't message them.",
           ),
           durationMs: 4800,
         });
@@ -438,12 +501,16 @@ export default function RequestDetailScreen() {
     }
     if (!user?.id || !id || !reqRow?.owner_id) return;
     const ownerId = reqRow.owner_id as string;
-    const blocked = await hasUserBlockRelation(user.id, ownerId);
-    if (blocked) {
+    const blockDirection = await getBlockDirection(user.id, ownerId);
+    if (blockDirection !== "none") {
       throw new Error(
         t(
-          "messages.blockedNoMessaging",
-          "You cannot message this user because one of you has blocked the other.",
+          blockDirection === "i_blocked"
+            ? "messages.blockedBySelfSend"
+            : "messages.blockedByOtherSend",
+          blockDirection === "i_blocked"
+            ? "You blocked this user, so you can't message them."
+            : "This user blocked you, so you can't message them.",
         ),
       );
     }
@@ -496,6 +563,59 @@ export default function RequestDetailScreen() {
         offerId: id,
       } as any,
     });
+  };
+
+  const openMenu = () => {
+    menuBtnRef.current?.measureInWindow((x, y, width, height) => {
+      setMenuBtnLayout({ x, y, width, height });
+      setMenuOpen(true);
+    });
+  };
+
+  const handleDeleteRequest = async () => {
+    setDeleteConfirmOpen(false);
+    if (!id || !user?.id) return;
+    setDeleting(true);
+    try {
+      const { data: existingContract } = await supabase
+        .from("contracts")
+        .select("id")
+        .eq("request_id", id)
+        .maybeSingle();
+
+      if (existingContract) {
+        showToast({
+          variant: "error",
+          message: t("requestDetails.deleteRequestContractExists"),
+          durationMs: 4800,
+        });
+        return;
+      }
+
+      const { error: deleteError } = await supabase
+        .from("care_requests")
+        .delete()
+        .eq("id", id)
+        .eq("owner_id", user.id);
+
+      if (deleteError) throw deleteError;
+
+      setReqRow(null);
+      setPet(null);
+      setOwner(null);
+      setError(RESOURCE_NOT_FOUND);
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("common.error", "Something went wrong"),
+        ),
+        durationMs: 3200,
+      });
+    } finally {
+      setDeleting(false);
+    }
   };
 
   const onApplyConfirmed = () => {
@@ -574,7 +694,23 @@ export default function RequestDetailScreen() {
 
   return (
     <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
-      <BackHeader title="" onBack={() => router.back()} />
+      <BackHeader
+        title=""
+        onBack={() => router.back()}
+        rightSlot={
+          isOwner ? (
+            <View ref={menuBtnRef}>
+              <TouchableOpacity
+                onPress={openMenu}
+                style={styles.menuBtn}
+                hitSlop={8}
+              >
+                <Ellipsis size={22} color={colors.onSurfaceVariant} />
+              </TouchableOpacity>
+            </View>
+          ) : undefined
+        }
+      />
       <RequestPetDetailView
         colors={colors}
         t={(key: string, fallback?: string) => t(key, fallback as string)}
@@ -601,8 +737,9 @@ export default function RequestDetailScreen() {
                 params: { id: request.owner.id },
               })
         }
+        topNotice={requestTopNotice}
         apply={{
-          visible: true,
+          visible: !isOwner && requestStatus === "open",
           label: t("requestDetails.applyNow"),
           onPress: openApplyConfirm,
           loading: applying,
@@ -617,6 +754,60 @@ export default function RequestDetailScreen() {
         t={(key, fallback) => t(key, fallback as string)}
         onClose={() => setApplyConfirmOpen(false)}
         onConfirm={onApplyConfirmed}
+      />
+
+      {/* Owner action dropdown */}
+      <Modal
+        transparent
+        visible={menuOpen}
+        animationType="fade"
+        onRequestClose={() => setMenuOpen(false)}
+      >
+        <Pressable
+          style={styles.menuOverlay}
+          onPress={() => setMenuOpen(false)}
+        >
+          {menuBtnLayout && (
+            <View
+              style={[
+                styles.menuCard,
+                {
+                  backgroundColor: colors.surfaceContainerLowest,
+                  borderColor: colors.outlineVariant,
+                  top: menuBtnLayout.y + menuBtnLayout.height + 6,
+                  right: 16,
+                },
+              ]}
+            >
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  setDeleteConfirmOpen(true);
+                }}
+              >
+                <Trash2 size={16} color={colors.error} />
+                <AppText variant="body" color={colors.error}>
+                  {t("requestDetails.deleteRequest")}
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          )}
+        </Pressable>
+      </Modal>
+
+      {/* Delete confirmation */}
+      <FeedbackModal
+        visible={deleteConfirmOpen}
+        title={t("requestDetails.deleteRequestConfirmTitle")}
+        description={t("requestDetails.deleteRequestConfirmMessage")}
+        primaryLabel={t("requestDetails.deleteRequest")}
+        destructive
+        primaryLoading={deleting}
+        onPrimary={() => void handleDeleteRequest()}
+        secondaryLabel={t("common.cancel", "Cancel")}
+        onSecondary={() => setDeleteConfirmOpen(false)}
+        onRequestClose={() => setDeleteConfirmOpen(false)}
       />
     </PageContainer>
   );
@@ -798,6 +989,35 @@ const styles = StyleSheet.create({
   },
   applyBtn: {
     alignSelf: "stretch",
+    paddingVertical: 14,
+  },
+  menuBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  menuOverlay: {
+    flex: 1,
+  },
+  menuCard: {
+    position: "absolute",
+    borderRadius: 12,
+    borderWidth: 1,
+    minWidth: 200,
+    shadowColor: "#000",
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+    overflow: "hidden",
+  },
+  menuItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    paddingHorizontal: 16,
     paddingVertical: 14,
   },
 });

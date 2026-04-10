@@ -3,21 +3,21 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import {
-  Activity,
-  Ellipsis,
-  Handshake,
-  PawPrint,
-  Shield,
-  Star,
+    Activity,
+    Ellipsis,
+    Handshake,
+    PawPrint,
+    Shield,
+    Star,
 } from "lucide-react-native";
 import React, { ForwardedRef, forwardRef } from "react";
 import {
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  type StyleProp,
-  type ViewStyle,
+    Pressable,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+    type StyleProp,
+    type ViewStyle,
 } from "react-native";
 
 export type NotificationType =
@@ -38,7 +38,8 @@ export type NotificationType =
   | "points_gained"
   | "chat"
   | "applied"
-  | "kyc_rejected";
+  | "kyc_rejected"
+  | "kyc_approved";
 
 export type NotificationCardProps = {
   id: string;
@@ -134,6 +135,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
           );
         case "verification":
         case "verification_complete":
+        case "kyc_approved":
         case "kyc_rejected":
           return (
             <View style={containerStyle}>

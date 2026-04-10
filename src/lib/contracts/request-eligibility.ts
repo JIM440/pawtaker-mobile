@@ -9,6 +9,7 @@ export type RequestEligibilityResult = {
     | "ok";
   requestStatus?: string | null;
   contractId?: string | null;
+  selectedTakerId?: string | null;
 };
 
 /**
@@ -25,7 +26,7 @@ export async function getRequestEligibility(
     await Promise.all([
       supabase
         .from("care_requests")
-        .select("id,status")
+        .select("id,status,taker_id")
         .eq("id", requestId)
         .maybeSingle(),
       supabase
@@ -43,7 +44,13 @@ export async function getRequestEligibility(
 
   const status = (req.status as string | null | undefined) ?? null;
   if (status !== "open") {
-    return { eligible: false, reason: "request_not_open", requestStatus: status };
+    return {
+      eligible: false,
+      reason: "request_not_open",
+      requestStatus: status,
+      contractId: (contract?.id as string | null | undefined) ?? null,
+      selectedTakerId: (req.taker_id as string | null | undefined) ?? null,
+    };
   }
   if (contract?.id) {
     return {
@@ -51,9 +58,14 @@ export async function getRequestEligibility(
       reason: "contract_exists",
       requestStatus: status,
       contractId: contract.id as string,
+      selectedTakerId: (req.taker_id as string | null | undefined) ?? null,
     };
   }
 
-  return { eligible: true, reason: "ok", requestStatus: status };
+  return {
+    eligible: true,
+    reason: "ok",
+    requestStatus: status,
+    selectedTakerId: (req.taker_id as string | null | undefined) ?? null,
+  };
 }
-

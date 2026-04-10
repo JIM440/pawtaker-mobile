@@ -1,79 +1,44 @@
 import { Colors } from "@/src/constants/colors";
-import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
-import { ensureCareContractForRequest } from "@/src/lib/contracts/ensureCareContract";
 import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
-import {
-  formatCarePointsPts,
-  normalizeCareTypeForPoints,
-} from "@/src/lib/points/carePoints";
+import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
+import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import {
+  formatCarePointsPts,
+  normalizeCareTypeForPoints,
+} from "@/src/lib/points/carePoints";
 import { useAuthStore } from "@/src/lib/store/auth.store";
-import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
-import { createInAppNotification } from "@/src/lib/notifications/in-app";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
-import type { TablesRow } from "@/src/lib/supabase/types";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { resolveDisplayName } from "@/src/lib/user/displayName";
+import { TakerCard } from "@/src/shared/components/cards";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
+import { PetDetailHeaderSection } from "@/src/shared/components/pets/PetDetailHeaderSection";
+import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel";
+import { PetDetailScreenSkeleton } from "@/src/shared/components/skeletons";
+import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { type CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { Input } from "@/src/shared/components/ui/Input";
-import { ContractDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
-import { Skeleton } from "@/src/shared/components/ui/Skeleton";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { EllipsisVertical } from "lucide-react-native";
-import React, { useCallback, useMemo, useState } from "react";
-import { useTranslation } from "react-i18next";
 import {
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-} from "react-native";
-
-async function resolveCaregiverIdForRequest(
-  requestId: string,
-  ownerId: string,
-): Promise<string | null> {
-  const { data: threads, error: threadsError } = await supabase
-    .from("threads")
-    .select("id,participant_ids")
-    .eq("request_id", requestId)
-    .limit(25);
-  if (threadsError) throw threadsError;
-
-  const peerFromParticipants = () => {
-    for (const th of threads ?? []) {
-      const parts = (th.participant_ids ?? []) as string[];
-      if (!parts.includes(ownerId)) continue;
-      const peer = parts.find((p) => p && p !== ownerId) ?? null;
-      if (peer) return peer;
-    }
-    return null;
-  };
-
-  const threadIds = (threads ?? []).map((th) => th.id).filter(Boolean);
-  if (threadIds.length) {
-    const { data: proposalSenders, error: proposalError } = await supabase
-      .from("messages")
-      .select("sender_id,created_at")
-      .eq("type", "proposal")
-      .in("thread_id", threadIds)
-      .neq("sender_id", ownerId)
-      .order("created_at", { ascending: false })
-      .limit(1);
-    if (proposalError) throw proposalError;
-    const sid = proposalSenders?.[0]?.sender_id as string | undefined;
-    if (sid) return sid;
-  }
-
-  return peerFromParticipants();
-}
+  AlertCircle,
+  Ellipsis,
+  Handshake,
+  PawPrint,
+  Star
+} from "lucide-react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { useTranslation } from "react-i18next";
+import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
 
 export default function ContractDetailScreen() {
   const {
@@ -107,9 +72,16 @@ export default function ContractDetailScreen() {
   const [contractRow, setContractRow] = useState<any | null>(null);
   const [requestRow, setRequestRow] = useState<any | null>(null);
   const [petRow, setPetRow] = useState<any | null>(null);
+  const [ownerRow, setOwnerRow] = useState<any | null>(null);
+  const [takerRow, setTakerRow] = useState<any | null>(null);
+  const [proposalCareTypes, setProposalCareTypes] = useState<string[]>([]);
+  const [takerAlreadyCaring, setTakerAlreadyCaring] = useState(false);
+  const [ownerRatingAvg, setOwnerRatingAvg] = useState(0);
+  const [takerRatingAvg, setTakerRatingAvg] = useState(0);
 
-  const paramAccepted =
-    acceptedParam === "1" || acceptedParam === "true";
+  const images = useMemo(() => petGalleryUrls(petRow ?? {}), [petRow]);
+
+  const paramAccepted = acceptedParam === "1" || acceptedParam === "true";
 
   const load = useCallback(async () => {
     if (!routeId) {
@@ -171,6 +143,8 @@ export default function ContractDetailScreen() {
         setContractRow(contract);
         setRequestRow(null);
         setPetRow(null);
+        setOwnerRow(null);
+        setTakerRow(null);
         setError(RESOURCE_NOT_FOUND);
         return;
       }
@@ -191,6 +165,8 @@ export default function ContractDetailScreen() {
         setContractRow(null);
         setRequestRow(null);
         setPetRow(null);
+        setOwnerRow(null);
+        setTakerRow(null);
         return;
       }
 
@@ -204,16 +180,111 @@ export default function ContractDetailScreen() {
         setContractRow(null);
         setRequestRow(null);
         setPetRow(null);
+        setOwnerRow(null);
+        setTakerRow(null);
         return;
+      }
+
+      const ownerId = (req.owner_id ?? contract?.owner_id) as string | null;
+      const takerId = (req.taker_id ?? contract?.taker_id) as string | null;
+
+      const [{ data: owner }, { data: taker }] = await Promise.all([
+        ownerId
+          ? supabase
+            .from("users")
+            .select(
+              "id,full_name,avatar_url,city,care_given_count,care_received_count",
+            )
+            .eq("id", ownerId)
+            .maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        takerId
+          ? supabase
+            .from("users")
+            .select(
+              "id,full_name,avatar_url,city,care_given_count,care_received_count",
+            )
+            .eq("id", takerId)
+            .maybeSingle()
+          : Promise.resolve({ data: null } as any),
+      ]);
+
+      let oRating = 0;
+      let tRating = 0;
+
+      const [oReviews, tReviews] = await Promise.all([
+        ownerId
+          ? supabase.from("reviews").select("rating").eq("reviewee_id", ownerId)
+          : Promise.resolve({ data: null }),
+        takerId
+          ? supabase.from("reviews").select("rating").eq("reviewee_id", takerId)
+          : Promise.resolve({ data: null }),
+      ]);
+
+      if (oReviews?.data?.length) {
+        const nums = oReviews.data.map((r: any) => r.rating).filter(Boolean);
+        oRating = nums.length ? nums.reduce((a: number, b: number) => a + b, 0) / nums.length : 0;
+      }
+      if (tReviews?.data?.length) {
+        const nums = tReviews.data.map((r: any) => r.rating).filter(Boolean);
+        tRating = nums.length ? nums.reduce((a: number, b: number) => a + b, 0) / nums.length : 0;
       }
 
       setContractRow(contract);
       setRequestRow(req);
       setPetRow(pet ?? null);
+      setOwnerRow(owner ?? null);
+      setTakerRow(taker ?? null);
+      setOwnerRatingAvg(oRating);
+      setTakerRatingAvg(tRating);
       setError(null);
+
+      if (takerId) {
+        const { data: threads } = await supabase
+          .from("threads")
+          .select("id")
+          .eq("request_id", req.id)
+          .limit(10);
+        const threadIds = (threads ?? []).map((th: any) => th.id);
+        if (threadIds.length) {
+          const { data: proposals } = await supabase
+            .from("messages")
+            .select("metadata")
+            .eq("type", "proposal")
+            .eq("sender_id", takerId)
+            .in("thread_id", threadIds)
+            .order("created_at", { ascending: false })
+            .limit(1);
+          const meta = (proposals?.[0]?.metadata as any) ?? null;
+          if (meta?.careTypes && Array.isArray(meta.careTypes)) {
+            setProposalCareTypes(meta.careTypes as string[]);
+          } else {
+            setProposalCareTypes([normalizeCareTypeForPoints(req.care_type as string)]);
+          }
+        } else {
+          setProposalCareTypes([normalizeCareTypeForPoints(req.care_type as string)]);
+        }
+
+        const currentContractId = contract?.id ?? null;
+        const { data: otherActive } = await supabase
+          .from("contracts")
+          .select("id")
+          .eq("taker_id", takerId)
+          .in("status", ["signed", "active"])
+          .limit(2);
+        const otherActiveFiltered = currentContractId
+          ? (otherActive ?? []).filter((c: any) => c.id !== currentContractId)
+          : (otherActive ?? []);
+        setTakerAlreadyCaring(otherActiveFiltered.length > 0);
+      } else {
+        setProposalCareTypes([normalizeCareTypeForPoints(req.care_type as string)]);
+        setTakerAlreadyCaring(false);
+      }
     } catch (err) {
       setError(
-        err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+        err instanceof Error
+          ? err.message
+          : t("common.error", "Something went wrong"),
       );
     } finally {
       setLoading(false);
@@ -227,7 +298,8 @@ export default function ContractDetailScreen() {
   );
 
   const careTypeKey: CareTypeKey = useMemo(
-    () => normalizeCareTypeForPoints(requestRow?.care_type as string | undefined),
+    () =>
+      normalizeCareTypeForPoints(requestRow?.care_type as string | undefined),
     [requestRow?.care_type],
   );
 
@@ -238,20 +310,17 @@ export default function ContractDetailScreen() {
   const dateRange =
     requestRow?.start_date && requestRow?.end_date
       ? `${new Date(requestRow.start_date).toLocaleDateString()} - ${new Date(
-          requestRow.end_date,
-        ).toLocaleDateString()}`
-      : dateParam ?? "";
-  const time =
-    timeParam && timeParam.trim()
-      ? timeParam
-      : careTypeLabel;
+        requestRow.end_date,
+      ).toLocaleDateString()}`
+      : (dateParam ?? "");
+  const time = timeParam && timeParam.trim() ? timeParam : careTypeLabel;
   const price =
     requestRow?.start_date && requestRow?.end_date
       ? formatCarePointsPts(
-          requestRow.care_type,
-          requestRow.start_date as string,
-          requestRow.end_date as string,
-        )
+        requestRow.care_type,
+        requestRow.start_date as string,
+        requestRow.end_date as string,
+      )
       : (priceParam ?? "");
 
   const mode =
@@ -261,129 +330,206 @@ export default function ContractDetailScreen() {
         ? "seeking"
         : "applying";
 
-  const resolvedContractId = contractRow?.id as string | undefined;
+  const isOwnerView = mode === "seeking";
+  const ownerName = resolveDisplayName(ownerRow) || t("requestDetails.owner", "Owner");
+  const takerName = resolveDisplayName(takerRow) || t("common.user");
+  const petType = typeof petRow?.species === "string" ? petRow.species : "";
+  const petBio =
+    typeof petRow?.notes === "string" && petRow.notes.trim().length > 0
+      ? petRow.notes.trim()
+      : t("post.request.noDescription", "No description yet.");
+  const formattedDateRange = useMemo(() => {
+    if (!requestRow?.start_date) return dateRange || null;
+    const start = new Date(requestRow.start_date);
+    const end = new Date(requestRow.end_date ?? requestRow.start_date);
+    const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const endStr = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    if (requestRow.start_date === requestRow.end_date) return startStr;
+    return `${startStr} - ${endStr}`;
+  }, [requestRow, dateRange]);
 
+  const isExpired = requestRow?.end_date && new Date(requestRow.end_date) < new Date();
+
+
+  const formattedTime =
+    requestRow?.start_time && requestRow?.end_time
+      ? `${requestRow.start_time.slice(0, 5)} - ${requestRow.end_time.slice(0, 5)}`
+      : (time || null);
+  const ownerLocation = ownerRow?.city?.trim() || t("profile.noLocation");
+  const takerLocation = takerRow?.city?.trim() || t("profile.noLocation");
+  const requestContextLabel = petName
+    ? t("messages.applyingForPet", { petName })
+    : t("myCare.contract.title", "Contract");
+  const petAttributes = {
+    yardType: petRow?.yard_type ?? t("common.empty", "-"),
+    ageRange: petRow?.age_range ?? t("common.empty", "-"),
+    energyLevel: petRow?.energy_level ?? t("common.empty", "-"),
+  };
+
+  const resolvedContractId = contractRow?.id as string | undefined;
   const contractStatus = contractRow?.status as string | undefined;
   const agreementLive =
     contractStatus === "signed" || contractStatus === "active";
   const agreementEnded = contractStatus === "completed";
 
   /** Deep-link param lets the UI unlock immediately after accepting an offer (before sign rows sync). */
-  const acceptedUI =
-    (paramAccepted && !agreementEnded) || agreementLive;
+  const acceptedUI = (paramAccepted && !agreementEnded) || agreementLive;
 
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
-  const [showAcceptConfirm, setShowAcceptConfirm] = useState(false);
   const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
+  const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
+  const [showAcceptTerminationConfirm, setShowAcceptTerminationConfirm] = useState(false);
   const [showReportConfirm, setShowReportConfirm] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [blockReason, setBlockReason] = useState("");
   const [busy, setBusy] = useState(false);
 
-  const onAccept = () => {
-    setShowAcceptConfirm(true);
+  const headerMenuBtnRef = React.useRef<any>(null);
+  const [headerMenuAnchor, setHeaderMenuAnchor] = useState<{ x: number; y: number; width: number; height: number } | null>(null);
+
+  const handleHeaderMenuPress = () => {
+    if (headerMenuBtnRef.current) {
+      headerMenuBtnRef.current.measure((x: number, y: number, width: number, height: number, pageX: number, pageY: number) => {
+        setHeaderMenuAnchor({ x: pageX, y: pageY, width, height });
+        setActionsOpen(true);
+      });
+    } else {
+      setActionsOpen(true);
+    }
   };
 
-  const confirmAccept = () => {
+  // Derived termination state
+  const terminationRequestedBy = contractRow?.terminate_requested_by as string | null | undefined;
+  const iTerminationRequester = terminationRequestedBy === user?.id;
+  const isTerminationPending = !!terminationRequestedBy && !agreementEnded;
+  const canAcceptTermination = isTerminationPending && !iTerminationRequester;
+  const terminationBannerTitle = iTerminationRequester
+    ? t(
+      "myCare.contract.terminationPendingRequesterTitle",
+      "You've initiated termination.",
+    )
+    : t(
+      "myCare.contract.terminationPendingRecipientTitle",
+      "Termination was requested.",
+    );
+  const terminationBannerBody = iTerminationRequester
+    ? t(
+      "myCare.contract.terminationPendingRequesterBody",
+      "The other party must also confirm before this agreement is fully terminated.",
+    )
+    : t(
+      "myCare.contract.terminationPendingRecipientBody",
+      "Confirm termination to fully end this agreement.",
+    );
+
+  const footerActionVisible = useMemo(() => {
+    return (
+      (acceptedUI && isTerminationPending && iTerminationRequester) ||
+      (acceptedUI && canAcceptTermination)
+    );
+  }, [acceptedUI, isTerminationPending, iTerminationRequester, canAcceptTermination]);
+
+  // Realtime: keep contractRow in sync with DB changes (e.g. other party triggers terminate)
+  useEffect(() => {
+    if (!resolvedContractId) return;
+    const channel = supabase
+      .channel(`contract-${resolvedContractId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "contracts",
+          filter: `id=eq.${resolvedContractId}`,
+        },
+        (payload) => {
+          setContractRow((prev: any) =>
+            prev ? { ...prev, ...payload.new } : payload.new,
+          );
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [resolvedContractId]);
+
+  /** Step 1 â€” current user requests termination. */
+  const requestTerminate = () => {
     void (async () => {
-      if (!user?.id || !requestRow?.id) return;
+      if (!resolvedContractId || !user?.id) return;
       setBusy(true);
       try {
-        let cid = resolvedContractId;
-        const ownerId = requestRow.owner_id as string;
-        let takerId =
-          (requestRow.taker_id as string | null) || (contractRow?.taker_id as string | null);
-        if (!takerId) {
-          takerId = await resolveCaregiverIdForRequest(requestRow.id, ownerId);
-          if (takerId) {
-            setRequestRow((r: any) => (r ? { ...r, taker_id: takerId } : r));
-            void supabase
-              .from("care_requests")
-              .update({ taker_id: takerId })
-              .eq("id", requestRow.id)
-              .eq("owner_id", ownerId);
-          }
-        }
-
-        if (!cid) {
-          if (!takerId) {
-            showToast({
-              variant: "error",
-              message: t("myCare.contract.needTaker"),
-              durationMs: 3200,
-            });
-            setShowAcceptConfirm(false);
-            return;
-          }
-          cid = await ensureCareContractForRequest({
-            requestId: requestRow.id,
-            ownerId,
-            takerId,
-          });
-        }
-
-        const { data: freshRaw, error: fetchErr } = await supabase
-          .from("contracts")
-          .select("*")
-          .eq("id", cid)
-          .single();
-        if (fetchErr) throw fetchErr;
-        const fresh = freshRaw as TablesRow<"contracts">;
-
-        const signedOwner =
-          user.id === fresh.owner_id ? true : fresh.signed_owner;
-        const signedTaker =
-          user.id === fresh.taker_id ? true : fresh.signed_taker;
-
-        let status = fresh.status as string;
-        if (signedOwner && signedTaker) status = "active";
-        else if (signedOwner || signedTaker) status = "signed";
-        else status = "draft";
-
-        const { error: updErr } = await supabase
+        const { error } = await supabase
           .from("contracts")
           .update({
-            signed_owner: signedOwner,
-            signed_taker: signedTaker,
-            status,
+            terminate_requested_by: user.id,
+            terminate_requested_at: new Date().toISOString(),
           })
-          .eq("id", cid);
-        if (updErr) throw updErr;
-        await supabase
-          .from("care_requests")
-          .update({ status: "accepted", taker_id: fresh.taker_id })
-          .eq("id", fresh.request_id)
-          .eq("owner_id", fresh.owner_id);
-        const recipientId = user.id === fresh.owner_id ? fresh.taker_id : fresh.owner_id;
-        if (recipientId) {
-          await createInAppNotification({
-            userId: recipientId,
-            type: "contract_accepted",
-            title: t("messages.agreementAccepted", "Agreement accepted"),
-            body: t(
-              "myCare.contract.acceptedNotificationBody",
-              "Your care agreement was accepted.",
-            ),
-            data: {
-              contract_id: cid,
-              request_id: fresh.request_id,
-            },
-          });
-        }
+          .eq("id", resolvedContractId);
+        if (error) throw error;
+        setContractRow((c: any) =>
+          c
+            ? {
+              ...c,
+              terminate_requested_by: user.id,
+              terminate_requested_at: new Date().toISOString(),
+            }
+            : c,
+        );
+        showToast({
+          variant: "info",
+          message: t("myCare.contract.terminationRequestedToast"),
+          durationMs: 3000,
+        });
+      } catch (err) {
+        console.error("[ContractDetail] Terminate Error:", err);
+        showToast({
+          variant: "error",
+          message:
+            err instanceof Error
+              ? `Error: ${err.message}`
+              : t("common.error", "Something went wrong"),
+          durationMs: 5000,
+        });
+      } finally {
+        setBusy(false);
+      }
+    })();
+  };
 
-        setContractRow({ ...fresh, signed_owner: signedOwner, signed_taker: signedTaker, status });
-        setShowAcceptConfirm(false);
+  /** Step 1b â€” requester cancels their own pending request (reactivate). */
+  const reactivateAgreement = () => {
+    void (async () => {
+      if (!resolvedContractId || !user?.id) return;
+      setBusy(true);
+      try {
+        const { error } = await supabase
+          .from("contracts")
+          .update({
+            terminate_requested_by: null,
+            terminate_requested_at: null,
+          })
+          .eq("id", resolvedContractId);
+        if (error) throw error;
+        setContractRow((c: any) =>
+          c
+            ? { ...c, terminate_requested_by: null, terminate_requested_at: null }
+            : c,
+        );
         showToast({
           variant: "success",
-          message: t("messages.agreementAccepted", "Agreement accepted"),
+          message: t("myCare.contract.terminationReactivatedToast"),
           durationMs: 3000,
         });
       } catch (err) {
         showToast({
           variant: "error",
           message:
-            err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+            err instanceof Error
+              ? err.message
+              : t("common.error", "Something went wrong"),
           durationMs: 3200,
         });
       } finally {
@@ -392,11 +538,10 @@ export default function ContractDetailScreen() {
     })();
   };
 
-  const confirmTerminate = () => {
+  /** Step 2 â€” other party confirms termination â†’ status = completed. */
+  const acceptTermination = () => {
     void (async () => {
-      if (!resolvedContractId) {
-        return;
-      }
+      if (!resolvedContractId || !user?.id) return;
       setBusy(true);
       try {
         const { error } = await supabase
@@ -405,25 +550,6 @@ export default function ContractDetailScreen() {
           .eq("id", resolvedContractId);
         if (error) throw error;
         setContractRow((c: any) => (c ? { ...c, status: "completed" } : c));
-        if (contractRow?.owner_id && contractRow?.taker_id) {
-          const recipientId =
-            user?.id === contractRow.owner_id ? contractRow.taker_id : contractRow.owner_id;
-          if (recipientId) {
-            await createInAppNotification({
-              userId: recipientId,
-              type: "contract_terminated",
-              title: t("myCare.contract.terminatedToast"),
-              body: t(
-                "myCare.contract.terminatedNotificationBody",
-                "A care agreement was terminated.",
-              ),
-              data: {
-                contract_id: resolvedContractId,
-                request_id: contractRow.request_id,
-              },
-            });
-          }
-        }
         if (user?.id) {
           void useAuthStore.getState().fetchProfile(user.id);
         }
@@ -433,11 +559,14 @@ export default function ContractDetailScreen() {
           durationMs: 3000,
         });
       } catch (err) {
+        console.error("[ContractDetail] Accept Termination Error:", err);
         showToast({
           variant: "error",
           message:
-            err instanceof Error ? err.message : t("common.error", "Something went wrong"),
-          durationMs: 3200,
+            err instanceof Error
+              ? `Error: ${err.message}`
+              : t("common.error", "Something went wrong"),
+          durationMs: 5000,
         });
       } finally {
         setBusy(false);
@@ -458,7 +587,9 @@ export default function ContractDetailScreen() {
         return;
       }
       const reportedUserId =
-        user.id === requestRow.owner_id ? requestRow.taker_id : requestRow.owner_id;
+        user.id === requestRow.owner_id
+          ? requestRow.taker_id
+          : requestRow.owner_id;
       if (!reportedUserId) return;
       setBusy(true);
       try {
@@ -480,7 +611,9 @@ export default function ContractDetailScreen() {
         showToast({
           variant: "error",
           message:
-            err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+            err instanceof Error
+              ? err.message
+              : t("common.error", "Something went wrong"),
           durationMs: 3200,
         });
       } finally {
@@ -491,24 +624,31 @@ export default function ContractDetailScreen() {
 
   if (loading) {
     return (
-      <PageContainer contentStyle={{ paddingTop: 0 }}>
-        <BackHeader title={t("myCare.contract.title")} onBack={() => router.back()} />
-        <ContractDetailScreenSkeleton />
-        <View style={styles.footer}>
-          <Skeleton height={48} width="100%" borderRadius={12} />
-        </View>
+      <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
+        <BackHeader
+          title={t("myCare.contract.title")}
+          onBack={() => router.back()}
+        />
+        <PetDetailScreenSkeleton />
       </PageContainer>
     );
   }
 
   if (isResourceNotFound(error)) {
     return (
-      <PageContainer>
-        <BackHeader title={t("myCare.contract.title")} onBack={() => router.back()} />
+      <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
+        <BackHeader
+          title={t("myCare.contract.title")}
+          onBack={() => router.back()}
+        />
         <ResourceMissingState
           onBack={() => router.back()}
           onHome={() =>
-            router.replace("/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0])
+            router.replace(
+              "/(private)/(tabs)/(home)" as Parameters<
+                typeof router.replace
+              >[0],
+            )
           }
         />
       </PageContainer>
@@ -517,8 +657,11 @@ export default function ContractDetailScreen() {
 
   if (error || !requestRow) {
     return (
-      <PageContainer>
-        <BackHeader title={t("myCare.contract.title")} onBack={() => router.back()} />
+      <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
+        <BackHeader
+          title={t("myCare.contract.title")}
+          onBack={() => router.back()}
+        />
         <ErrorState
           error={error}
           actionLabel={t("common.retry", "Retry")}
@@ -531,22 +674,24 @@ export default function ContractDetailScreen() {
     );
   }
 
+
   return (
-    <PageContainer>
+    <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
       <BackHeader
         title={t("myCare.contract.title")}
         onBack={() => router.back()}
         rightSlot={
           acceptedUI && !agreementEnded ? (
             <TouchableOpacity
-              onPress={() => setActionsOpen(true)}
+              ref={headerMenuBtnRef}
+              onPress={handleHeaderMenuPress}
               hitSlop={12}
               style={[
                 styles.menuBtnTop,
                 { backgroundColor: colors.surfaceContainerHighest },
               ]}
             >
-              <EllipsisVertical size={24} color={colors.onSurface} />
+              <Ellipsis size={24} color={colors.onSurface} />
             </TouchableOpacity>
           ) : undefined
         }
@@ -554,127 +699,293 @@ export default function ContractDetailScreen() {
 
       <ScrollView
         style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          !footerActionVisible && { paddingBottom: 24 }
+        ]}
         showsVerticalScrollIndicator={false}
       >
-        <View
-          style={[
-            styles.card,
-            { backgroundColor: colors.surfaceBright, borderColor: colors.outlineVariant },
-          ]}
-        >
-          <AppText
-            variant="title"
-            color={colors.onSurface}
-            style={styles.cardTitle}
-          >
-            {t("myCare.contract.title")}
-          </AppText>
+        <PetPhotoCarousel
+          urls={images}
+          height={216}
+          horizontalInset={16}
+          imageBorderRadius={16}
+          showCounterBadge={false}
+          dotsVariant="onImage"
+          showSegmentProgressBar={false}
+          style={{ marginBottom: 8 }}
+        />
 
-          {petName ? (
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.cardSub}
-            >
-              {mode === "seeking"
-                ? t("messages.seekingForPet", { petName })
-                : t("messages.applyingForPet", { petName })}
-            </AppText>
-          ) : (
-            <AppText
-              variant="body"
-              color={colors.onSurfaceVariant}
-              style={styles.cardSub}
-            >
-              {t("myCare.contract.idLabel", {
-                id: resolvedContractId ?? routeId,
-              })}
-            </AppText>
-          )}
+        <PetDetailHeaderSection
+          colors={colors}
+          petName={petName}
+          breed={breed}
+          petType={petType}
+          dateRange={formattedDateRange ?? undefined}
+          time={formattedTime ?? undefined}
+          careType={careTypeLabel}
+          location={ownerLocation}
+          description={petBio}
+          showFavorite={false}
+          // Hide seeking badge if expired
+          isSeeking={!isExpired && requestRow?.status === "open"}
+        />
 
-          <AppText
-            variant="body"
-            color={colors.onSurfaceVariant}
-            style={styles.bodyText}
-          >
-            {agreementEnded
-              ? t("myCare.contract.agreementEnded")
-              : acceptedUI
-                ? t("myCare.contract.agreementActive")
-                : t("myCare.contract.acceptHint")}
-          </AppText>
-
-          {(breed || dateRange || time || price) && (
-            <View style={styles.requestSummary}>
-              {breed ? (
-                <AppText variant="caption" color={colors.onSurface}>
-                  {breed}
-                </AppText>
-              ) : null}
-              {dateRange || time ? (
-                <AppText
-                  variant="caption"
-                  color={colors.onSurfaceVariant}
-                  style={styles.requestSummaryLine}
-                >
-                  {dateRange}
-                  {dateRange && time ? " • " : ""}
-                  {time}
-                </AppText>
-              ) : null}
-              {price ? (
-                <AppText variant="caption" color={colors.onSurfaceVariant}>
-                  {price}
-                </AppText>
-              ) : null}
+        <View style={styles.sectionPad}>
+          {price ? (
+            <View style={styles.headerPointsRow}>
+              <AppText variant="body" color={colors.onSurfaceVariant}>
+                {t("myCare.contract.pointsLabel")}
+              </AppText>
+              <AppText variant="title" color={colors.primary} style={{ fontWeight: "700" }}>
+                {price}
+              </AppText>
             </View>
-          )}
-        </View>
+          ) : null}
 
-        <View style={styles.sectionSpacer} />
+          {/* Owner/User Card */}
+          <AppText variant="label" color={colors.onSurfaceVariant} style={styles.roleLabel}>
+            {t("myCare.contract.petOwner", "Pet Owner")}
+          </AppText>
+          <TouchableOpacity
+            activeOpacity={0.9}
+            onPress={() => {
+              if (!ownerRow?.id) return;
+              if (ownerRow.id === user?.id) {
+                router.push("/(private)/(tabs)/profile" as any);
+                return;
+              }
+              router.push({
+                pathname: "/(private)/(tabs)/profile/users/[id]" as any,
+                params: { id: ownerRow.id },
+              });
+            }}
+            style={[
+              styles.userCard,
+              { backgroundColor: colors.surfaceContainerHighest },
+            ]}
+          >
+            <View style={styles.userCardLeft}>
+              <UserAvatar
+                uri={ownerRow?.avatar_url}
+                name={ownerName}
+                size={32}
+                style={styles.userAvatar}
+              />
+              <View style={styles.userInfo}>
+                <AppText variant="body" color={colors.onSurfaceVariant} style={styles.userName}>
+                  {ownerName}
+                </AppText>
+                <View style={styles.userStats}>
+                  <View style={styles.userStatItem}>
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {ownerRatingAvg.toFixed(1)}
+                    </AppText>
+                    <Star size={12} color={colors.tertiary} fill={colors.tertiary} />
+                  </View>
+                  <View style={[styles.userStatItem, { backgroundColor: colors.surfaceContainer }]}>
+                    <Handshake size={12} color={colors.tertiary} />
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {ownerRow?.care_given_count ?? 0}
+                    </AppText>
+                  </View>
+                  <View style={[styles.userStatItem, { backgroundColor: colors.surfaceContainer }]}>
+                    <PawPrint size={12} color={colors.tertiary} />
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {ownerRow?.care_received_count ?? 0}
+                    </AppText>
+                  </View>
+                </View>
+              </View>
+            </View>
+            <AppText variant="label" color={colors.primary}>
+              {t("requestDetails.viewProfile")}
+            </AppText>
+          </TouchableOpacity>
+
+          {/* Taker Card - Home Page style */}
+          {takerRow ? (
+            <View style={{ marginTop: 24, marginBottom: 12 }}>
+              <AppText variant="label" color={colors.onSurfaceVariant} style={styles.roleLabel}>
+                {t("myCare.contract.taker", "Taker")}
+              </AppText>
+              <TakerCard
+                taker={{
+                  id: takerRow.id,
+                  name: takerName,
+                  avatar: takerRow.avatar_url,
+                  rating: takerRatingAvg,
+                  species: petType,
+                  tags: proposalCareTypes.map(tag => t(`feed.careTypes.${tag}`)),
+                  location: takerLocation,
+                  distance: "-", // Distance not applicable here
+                  status: takerAlreadyCaring ? "unavailable" : "available",
+                  completedTasks: takerRow.care_given_count ?? 0,
+                  petsHandled: takerRow.care_received_count ?? 0,
+                }}
+                onPress={() => {
+                  if (takerRow.id === user?.id) {
+                    router.push("/(private)/(tabs)/profile" as any);
+                    return;
+                  }
+                  router.push({
+                    pathname: "/(private)/(tabs)/profile/users/[id]" as any,
+                    params: { id: takerRow.id },
+                  });
+                }}
+                showMenu={false}
+              />
+            </View>
+          ) : null}
+
+          {/* Details Section - Hide if expired */}
+          {!isExpired && (
+            <>
+              <AppText variant="title" color={colors.onSurface} style={styles.sectionTitle}>
+                {t("requestDetails.details")}
+              </AppText>
+              <View style={styles.detailsCard}>
+                <View style={styles.detailPills}>
+                  <PetDetailPill
+                    label={t("requestDetails.yardType")}
+                    value={petAttributes.yardType}
+                    colors={colors}
+                    styles={styles}
+                  />
+                  <PetDetailPill
+                    label={t("requestDetails.age")}
+                    value={petAttributes.ageRange}
+                    colors={colors}
+                    styles={styles}
+                  />
+                  <PetDetailPill
+                    label={t("requestDetails.energyLevel")}
+                    value={petAttributes.energyLevel}
+                    colors={colors}
+                    styles={styles}
+                  />
+                </View>
+              </View>
+
+              {/* Special Needs Section */}
+              <AppText variant="label" color={colors.onSurfaceVariant} style={styles.specialLabel}>
+                *{t("requestDetails.specialNeeds")}
+              </AppText>
+              <AppText variant="body" color={colors.onSurfaceVariant} style={styles.specialText}>
+                {petRow?.special_needs_description || t("pet.detail.none", "None")}
+              </AppText>
+            </>
+          )}
+
+          {/* Status Message */}
+          <View style={[styles.statusBox, { backgroundColor: colors.surfaceContainerLow }]}>
+            <AppText variant="body" color={colors.onSurfaceVariant}>
+              {agreementEnded
+                ? t("myCare.contract.agreementEnded")
+                : isExpired
+                  ? t("myCare.contract.agreementActive", "Agreement is active.") // Keep it active if it's just expired but not completed yet
+                  : acceptedUI
+                    ? t("myCare.contract.agreementActive")
+                    : t("myCare.contract.acceptHint")}
+            </AppText>
+          </View>
+
+          {isTerminationPending && !agreementEnded ? (
+            <View
+              style={[
+                styles.terminationBanner,
+                {
+                  backgroundColor: colors.tertiaryContainer,
+                  borderColor: colors.tertiaryContainer,
+                },
+              ]}
+            >
+              <View style={styles.terminationBannerIconWrap}>
+                <AlertCircle size={18} color={colors.error} />
+              </View>
+              <View style={styles.terminationBannerCopy}>
+                <AppText variant="caption" color={colors.error} style={{ fontWeight: "600" }}>
+                  {terminationBannerTitle}
+                </AppText>
+                <AppText variant="caption" color={colors.error}>
+                  {terminationBannerBody}
+                </AppText>
+              </View>
+            </View>
+          ) : null}
+        </View>
       </ScrollView>
 
-      <View style={styles.footer}>
-        {!acceptedUI && !agreementEnded ? (
-          <Button
-            label={t("myCare.contract.acceptOffer")}
-            onPress={onAccept}
-            fullWidth
-            disabled={busy}
-            loading={busy}
-          />
-        ) : null}
-      </View>
-
-      <FeedbackModal
-        visible={showAcceptConfirm}
-        title={t("myCare.contract.acceptConfirmTitle")}
-        description={t("myCare.contract.acceptConfirmDescription")}
-        primaryLabel={t("myCare.contract.acceptOffer")}
-        secondaryLabel={t("common.cancel")}
-        onPrimary={confirmAccept}
-        onSecondary={() => setShowAcceptConfirm(false)}
-        onRequestClose={() => setShowAcceptConfirm(false)}
-      />
+      {footerActionVisible ? (
+        <View style={styles.footer}>
+          {acceptedUI && isTerminationPending && iTerminationRequester ? (
+            <Button
+              label={t("myCare.contract.reactivate")}
+              variant="outline"
+              onPress={() => setShowReactivateConfirm(true)}
+              fullWidth
+              disabled={busy}
+              loading={busy}
+            />
+          ) : null}
+          {acceptedUI && canAcceptTermination ? (
+            <Button
+              label={t("myCare.contract.acceptTermination")}
+              variant="danger"
+              onPress={() => setShowAcceptTerminationConfirm(true)}
+              fullWidth
+              disabled={busy}
+              loading={busy}
+            />
+          ) : null}
+        </View>
+      ) : null}
 
       <FeedbackModal
         visible={showTerminateConfirm}
-        title={t("myCare.contract.terminateConfirmTitle", "Terminate agreement?")}
-        description={t(
-          "myCare.contract.terminateConfirmDescription",
-          "This action cannot be undone.",
-        )}
-        primaryLabel={t("myCare.contract.terminate")}
+        title={t("myCare.contract.terminateConfirmTitle")}
+        description={t("myCare.contract.terminateConfirmDescription")}
+        primaryLabel={t("myCare.contract.terminateConfirm", "Terminate")}
         secondaryLabel={t("common.cancel")}
         destructive
         primaryLoading={busy}
         onPrimary={() => {
           setShowTerminateConfirm(false);
-          confirmTerminate();
+          requestTerminate();
         }}
         onSecondary={() => setShowTerminateConfirm(false)}
         onRequestClose={() => setShowTerminateConfirm(false)}
+      />
+
+      <FeedbackModal
+        visible={showReactivateConfirm}
+        title={t("myCare.contract.reactivateConfirmTitle")}
+        description={t("myCare.contract.reactivateConfirmDescription")}
+        primaryLabel={t("myCare.contract.reactivate")}
+        secondaryLabel={t("common.cancel")}
+        primaryLoading={busy}
+        onPrimary={() => {
+          setShowReactivateConfirm(false);
+          reactivateAgreement();
+        }}
+        onSecondary={() => setShowReactivateConfirm(false)}
+        onRequestClose={() => setShowReactivateConfirm(false)}
+      />
+
+      <FeedbackModal
+        visible={showAcceptTerminationConfirm}
+        title={t("myCare.contract.acceptTerminationConfirmTitle")}
+        description={t("myCare.contract.acceptTerminationConfirmDescription")}
+        primaryLabel={t("myCare.contract.acceptTermination")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={busy}
+        onPrimary={() => {
+          setShowAcceptTerminationConfirm(false);
+          acceptTermination();
+        }}
+        onSecondary={() => setShowAcceptTerminationConfirm(false)}
+        onRequestClose={() => setShowAcceptTerminationConfirm(false)}
       />
 
       <FeedbackModal
@@ -728,7 +1039,10 @@ export default function ContractDetailScreen() {
         body={
           <Input
             label={t("messages.reportReasonLabel", "Reason")}
-            placeholder={t("messages.reportReasonPlaceholder", "Describe what happened")}
+            placeholder={t(
+              "messages.reportReasonPlaceholder",
+              "Describe what happened",
+            )}
             value={reportReason}
             onChangeText={setReportReason}
             maxLength={250}
@@ -755,14 +1069,29 @@ export default function ContractDetailScreen() {
       <MyCareContractActionsMenu
         visible={actionsOpen}
         colors={colors}
-        styles={styles}
-        t={(key, fallback) => t(key, fallback as string)}
+        menuAnchor={headerMenuAnchor}
+        t={(key: string, fallback?: string) => t(key, fallback as string)}
         onClose={() => setActionsOpen(false)}
-        onTerminate={() => {
+        onPrimaryAction={() => {
           setActionsOpen(false);
+          if (isTerminationPending) {
+            if (iTerminationRequester) {
+              setShowReactivateConfirm(true);
+            } else {
+              setShowAcceptTerminationConfirm(true);
+            }
+            return;
+          }
           setShowTerminateConfirm(true);
         }}
-        terminateDisabled={agreementEnded || busy}
+        primaryActionLabel={
+          isTerminationPending
+            ? iTerminationRequester
+              ? t("myCare.contract.reactivate")
+              : t("myCare.contract.acceptTermination")
+            : t("myCare.contract.terminate")
+        }
+        primaryActionDisabled={agreementEnded || busy}
         onReport={() => {
           setActionsOpen(false);
           setShowReportConfirm(true);
@@ -781,7 +1110,10 @@ export default function ContractDetailScreen() {
           if (!rid) {
             showToast({
               variant: "error",
-              message: t("myCare.review.noContract", "No contract found for this care yet."),
+              message: t(
+                "myCare.review.noContract",
+                "No contract found for this care yet.",
+              ),
               durationMs: 3200,
             });
             return;
@@ -801,53 +1133,137 @@ export default function ContractDetailScreen() {
 
 const styles = StyleSheet.create({
   scroll: { flex: 1 },
-  scrollContent: { paddingHorizontal: 16, paddingBottom: 120, gap: 16 },
-  card: { borderRadius: 16, borderWidth: 1, padding: 16, gap: 6 },
-  cardTitle: { marginBottom: 2 },
-  cardSub: { marginBottom: 4 },
-  bodyText: { marginTop: 6 },
-  requestSummary: { gap: 2, marginTop: 6 },
-  requestSummaryLine: { marginTop: 2 },
-  sectionSpacer: { height: 12 },
+  scrollContent: { paddingBottom: 40 },
+  sectionPad: { paddingHorizontal: 16, paddingBottom: 24 },
+  userCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    padding: 8,
+    borderRadius: 999,
+    marginBottom: 12,
+  },
+  roleLabel: {
+    marginBottom: 8,
+    marginTop: 4,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    fontSize: 10,
+    letterSpacing: 0.5,
+  },
+  headerPointsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    marginBottom: 12,
+    paddingHorizontal: 4,
+  },
+  userCardLeft: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
+    flex: 1,
+    minWidth: 0,
+  },
+  userAvatar: {
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  userInfo: {
+    flex: 1,
+    minWidth: 0,
+    gap: 2,
+  },
+  userName: {
+    fontSize: 14,
+    fontWeight: "700",
+    lineHeight: 16,
+  },
+  userStats: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+  },
+  userStatItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+  },
+  divider: {
+    height: 1,
+    marginVertical: 20,
+  },
+  sectionTitle: {
+    fontSize: 16,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
+  detailsCard: {
+    marginBottom: 20,
+  },
+  detailPills: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 8,
+  },
+  detailPillGroup: {
+    gap: 8,
+    flex: 1,
+    minWidth: "30%",
+  },
+  pillLabel: {
+    fontSize: 12,
+    fontWeight: "500",
+  },
+  pillValue: {
+    alignSelf: "flex-start",
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    borderRadius: 999,
+    borderWidth: 1,
+  },
+  specialLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  specialText: {
+    fontSize: 12,
+    lineHeight: 20,
+    marginBottom: 28,
+  },
+  statusBox: {
+    padding: 16,
+    borderRadius: 12,
+    marginBottom: 24,
+  },
   footer: {
     padding: 16,
-    paddingTop: 8,
+    paddingBottom: Platform.OS === "ios" ? 34 : 24,
     borderTopWidth: StyleSheet.hairlineWidth,
-    borderTopColor: "transparent",
   },
   menuBtnTop: {
-    padding: 6,
-    borderRadius: 999,
+    padding: 8,
+    borderRadius: 20,
   },
-  actionsOverlay: {
-    position: "absolute",
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    alignItems: "flex-end",
-    paddingTop: 60,
-    paddingRight: 16,
-    backgroundColor: "transparent",
-  },
-  actionsCard: {
-    width: 172,
-    borderRadius: 8,
+  terminationBanner: {
+    flexDirection: "row",
+    padding: 12,
+    borderRadius: 12,
     borderWidth: 1,
-    overflow: "hidden",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 12 },
-    shadowOpacity: 0.1,
-    shadowRadius: 16,
-    elevation: 6,
-    paddingVertical: 0,
-    paddingHorizontal: 0,
+    gap: 12,
   },
-  actionItem: {
-    height: 48,
-    paddingHorizontal: 16,
-    paddingVertical: 4,
-    justifyContent: "center",
+  terminationBannerIconWrap: {
+    paddingTop: 2,
   },
-  menuDivider: { height: 1, marginHorizontal: 12 },
+  terminationBannerCopy: {
+    flex: 1,
+    gap: 2,
+  },
 });

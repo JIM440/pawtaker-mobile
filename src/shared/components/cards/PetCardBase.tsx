@@ -160,7 +160,7 @@ export function PetCardBase({
           <AppText
             variant="caption"
             color={colors.onSurfaceVariant}
-            numberOfLines={4}
+            numberOfLines={3}
             style={styles.bio}
           >
             {bio}

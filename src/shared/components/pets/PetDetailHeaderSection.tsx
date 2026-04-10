@@ -20,6 +20,7 @@ type Props = {
   favoriteDisabled?: boolean;
   onFavoritePress?: () => void;
   onNamePress?: () => void;
+  isSeeking?: boolean;
 };
 
 export function PetDetailHeaderSection({
@@ -39,6 +40,7 @@ export function PetDetailHeaderSection({
   favoriteDisabled = false,
   onFavoritePress,
   onNamePress,
+  isSeeking = false,
 }: Props) {
   return (
     <View style={styles.wrap}>
@@ -53,6 +55,22 @@ export function PetDetailHeaderSection({
               {petName}
             </AppText>
           </TouchableOpacity>
+          {isSeeking && (
+            <View
+              style={[
+                styles.seekingBadge,
+                { backgroundColor: colors.accent, borderColor: colors.accent },
+              ]}
+            >
+              <AppText
+                variant="caption"
+                style={{ fontSize: 10, fontWeight: "700", textTransform: "uppercase" }}
+                color={colors.onTertiary}
+              >
+                Seeking
+              </AppText>
+            </View>
+          )}
           <View style={styles.breedRow}>
             <AppText variant="caption" color={colors.onSurface}>
               {breed}
@@ -202,5 +220,13 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     lineHeight: 13,
     fontSize: 11,
+  },
+  seekingBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    borderWidth: 1,
+    marginLeft: 4,
+    marginBottom: 4,
   },
 });

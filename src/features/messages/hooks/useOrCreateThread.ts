@@ -1,4 +1,7 @@
-import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import {
+  getBlockDirection,
+  getBlockMessageForDirection,
+} from "@/src/lib/blocks/user-blocks";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useRouter } from "expo-router";
@@ -26,10 +29,11 @@ export function useOrCreateThread() {
       setError(msg);
       return { ok: false, message: msg };
     }
-    const blocked = await hasUserBlockRelation(userId, otherUserId);
-    if (blocked) {
+    const blockDirection = await getBlockDirection(userId, otherUserId);
+    if (blockDirection !== "none") {
       const msg =
-        "You cannot message this user because one of you has blocked the other.";
+        getBlockMessageForDirection(blockDirection) ??
+        "You can't message this user right now.";
       setError(msg);
       return { ok: false, message: msg };
     }

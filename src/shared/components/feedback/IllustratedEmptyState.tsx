@@ -1,6 +1,7 @@
 import { DataState } from "@/src/shared/components/feedback/DataState";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import React from "react";
+import type { TextStyle } from "react-native";
 
 export type IllustratedEmptyStateIllustration = {
   source: any;
@@ -27,8 +28,9 @@ export const IllustratedEmptyStateIllustrations = {
   noChats: {
     source: require("@/assets/illustrations/pets/no-chats.svg"),
     type: "svg" as const,
-    height: 145,
-    width: 200,
+    height: 168,
+    width: 248,
+    style: { backgroundColor: "transparent" },
   },
   noCare: {
     source: require("@/assets/illustrations/pets/no-care.svg"),
@@ -84,6 +86,9 @@ export const IllustratedEmptyStateIllustrations = {
 type Props = {
   title: string;
   message?: string;
+  messageVariant?: "body" | "caption";
+  titleColor?: string;
+  titleStyle?: TextStyle;
   illustration?: IllustratedEmptyStateIllustration;
   actionLabel?: string;
   onAction?: () => void;
@@ -99,6 +104,9 @@ type Props = {
 export function IllustratedEmptyState({
   title,
   message,
+  messageVariant = "body",
+  titleColor,
+  titleStyle,
   illustration,
   actionLabel,
   onAction,
@@ -122,6 +130,9 @@ export function IllustratedEmptyState({
     <DataState
       title={title}
       message={message}
+      messageVariant={messageVariant}
+      titleColor={titleColor}
+      titleStyle={titleStyle}
       actionLabel={actionLabel}
       onAction={onAction}
       secondaryLabel={secondaryLabel}

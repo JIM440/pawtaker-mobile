@@ -7,8 +7,9 @@ import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { PublicProfileActionsMenu } from "@/src/features/profile/components/public-profile/PublicProfileActionsMenu";
 import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
-import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getBlockDirection } from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
@@ -52,8 +53,9 @@ import {
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
 export default function PublicProfileScreen() {
-  const { id: profileIdParam } = useLocalSearchParams<{
+  const { id: profileIdParam, initialTab: initialTabParam } = useLocalSearchParams<{
     id: string | string[];
+    initialTab?: string;
   }>();
   const profileId =
     typeof profileIdParam === "string"
@@ -67,7 +69,10 @@ export default function PublicProfileScreen() {
   const isOwnProfile = Boolean(user?.id && profileId && user.id === profileId);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
+  const validInitialTab = (["pets", "availability", "bio", "reviews"] as ProfileTab[]).includes(initialTabParam as ProfileTab)
+    ? (initialTabParam as ProfileTab)
+    : "pets";
+  const [activeTab, setActiveTab] = useState<ProfileTab>(validInitialTab);
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [blockReason, setBlockReason] = useState("");
@@ -93,6 +98,17 @@ export default function PublicProfileScreen() {
     any
   > | null>(null);
   const [publicReviews, setPublicReviews] = useState<any[]>([]);
+  const [reviewerMap, setReviewerMap] = useState<
+    Record<
+      string,
+      {
+        full_name: string | null;
+        avatar_url: string | null;
+        care_given_count: number | null;
+        care_received_count: number | null;
+      }
+    >
+  >({});
 
   const loadPublicProfile = async (opts?: { refresh?: boolean }) => {
     if (!profileId) {
@@ -143,7 +159,37 @@ export default function PublicProfileScreen() {
       setPublicAvailability(
         (takerRow?.availability_json as Record<string, any> | null) ?? null,
       );
-      setPublicReviews(reviewsData ?? []);
+      const reviews = reviewsData ?? [];
+      setPublicReviews(reviews);
+
+      // Fetch reviewer user data in one batch
+      const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id as string).filter(Boolean))];
+      if (reviewerIds.length > 0) {
+        const { data: reviewerUsers } = await supabase
+          .from("users")
+          .select("id,full_name,avatar_url,care_given_count,care_received_count")
+          .in("id", reviewerIds);
+        const map: Record<
+          string,
+          {
+            full_name: string | null;
+            avatar_url: string | null;
+            care_given_count: number | null;
+            care_received_count: number | null;
+          }
+        > = {};
+        for (const u of reviewerUsers ?? []) {
+          map[(u as any).id] = {
+            full_name: (u as any).full_name ?? null,
+            avatar_url: (u as any).avatar_url ?? null,
+            care_given_count: (u as any).care_given_count ?? 0,
+            care_received_count: (u as any).care_received_count ?? 0,
+          };
+        }
+        setReviewerMap(map);
+      } else {
+        setReviewerMap({});
+      }
     } catch (err) {
       setLoadError(
         err instanceof Error ? err.message : "Failed to load profile.",
@@ -256,12 +302,16 @@ export default function PublicProfileScreen() {
       !selectedSeekingPet
     )
       return;
-    const blocked = await hasUserBlockRelation(user.id, profileId);
-    if (blocked) {
+    const blockDirection = await getBlockDirection(user.id, profileId);
+    if (blockDirection !== "none") {
       showToast({
         message: t(
-          "messages.blockedNoMessaging",
-          "You cannot message this user because one of you has blocked the other.",
+          blockDirection === "i_blocked"
+            ? "messages.blockedBySelfSend"
+            : "messages.blockedByOtherSend",
+          blockDirection === "i_blocked"
+            ? "You blocked this user, so you can't message them."
+            : "This user blocked you, so you can't message them.",
         ),
       });
       return;
@@ -570,19 +620,20 @@ export default function PublicProfileScreen() {
                 rating={derived.rating}
                 handshakes={derived.handshakes}
                 paws={derived.paws}
-                items={publicReviews.map((r) => ({
-                  id: r.id,
-                  reviewerId: r.reviewer_id,
-                  name: "Reviewer",
-                  avatar: null,
-                  rating: r.rating ?? 0,
-                  handshakes: 0,
-                  paws: 0,
-                  date: r.created_at
-                    ? new Date(r.created_at).toLocaleDateString()
-                    : "",
-                  review: r.comment || "No review comment.",
-                }))}
+                items={publicReviews.map((r) => {
+                  const rev = reviewerMap[r.reviewer_id] ?? null;
+                  return {
+                    id: r.id,
+                    reviewerId: r.reviewer_id,
+                    name: rev?.full_name?.trim() || "User",
+                    avatar: rev?.avatar_url ?? null,
+                    rating: r.rating ?? 0,
+                    handshakes: rev?.care_given_count ?? 0,
+                    paws: rev?.care_received_count ?? 0,
+                    date: formatReviewRelativeDate(r.created_at),
+                    review: r.comment || "",
+                  };
+                })}
                 onReviewerPress={(reviewerId) => {
                   router.push({
                     pathname: "/(private)/(tabs)/profile/users/[id]",

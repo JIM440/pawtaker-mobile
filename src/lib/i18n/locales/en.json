@@ -1,7 +1,7 @@
 {
   "common": {
     "loading": "Loading...",
-    "error": "Something went wrong",
+    "error": "Something went wrong. Please try again.",
     "retry": "Try again",
     "save": "Save",
     "cancel": "Cancel",
@@ -330,11 +330,38 @@
       "acceptConfirmDescription": "Yes, I'm going to accept.",
       "acceptDisclaimer": "By tapping Accept Offer, you approve that anyone in the community can contact you in our chat system.",
       "rateAndReview": "Rate & Review",
-      "terminate": "Terminate Contract",
+      "terminate": "Terminate Agreement",
+      "terminateConfirm": "Terminate",
       "terminatedToast": "Agreement ended.",
+      "terminateConfirmTitle": "Terminate agreement?",
+      "terminateConfirmDescription": "The other party will need to confirm before the agreement is fully ended.",
+      "terminationPendingLabel": "Termination requested",
+      "terminationPendingHint": "Waiting for the other party to confirm.",
+      "terminationPendingRequesterTitle": "You've initiated termination.",
+      "terminationPendingRequesterBody": "The other party must also confirm before this agreement is fully terminated.",
+      "terminationPendingRecipientTitle": "Termination was requested.",
+      "terminationPendingRecipientBody": "Confirm termination to fully end this agreement.",
+      "reactivate": "Reactivate Agreement",
+      "reactivateConfirmTitle": "Cancel termination?",
+      "reactivateConfirmDescription": "This will cancel your termination request and keep the agreement active.",
+      "acceptTermination": "Confirm Termination",
+      "acceptTerminationConfirmTitle": "Confirm termination?",
+      "acceptTerminationConfirmDescription": "This will end the agreement and release points. This cannot be undone.",
+      "terminationRequestedToast": "Termination request sent.",
+      "terminationReactivatedToast": "Agreement reactivated.",
+      "acceptedNotificationBody": "Your care agreement was accepted.",
+      "terminatedNotificationBody": "A care agreement was terminated.",
+      "terminationRequestedNotificationBody": "{{name}} has requested to end the care agreement.",
+      "terminationReactivatedNotificationBody": "{{name}} cancelled the termination request.",
+      "terminationAcceptedNotificationBody": "The other party confirmed the termination.",
       "agreementEnded": "This agreement is closed.",
       "needTaker": "A caregiver must be matched on this request before you can sign.",
-      "active": "Active"
+      "active": "Active",
+      "requestDetails": "Request Details",
+      "pointsLabel": "Points",
+      "offeredCareTypes": "Care offered",
+      "careGivenCount": "{{count}} care sessions",
+      "takerAlreadyCaring": "This taker is currently active on another care agreement."
     },
     "checkin": {
       "title": "Check-in",
@@ -347,7 +374,7 @@
       "intro": "Share how the care went — ratings help keep the community trustworthy.",
       "reviewing": "You're reviewing",
       "rating": "Rating",
-      "comment": "Comment (optional)",
+      "comment": "Review",
       "commentPlaceholder": "What went well? Anything others should know?",
       "submit": "Submit review",
       "submitted": "Thanks! Your review was posted.",
@@ -385,7 +412,9 @@
     "defaultProposalMessage": "I’d like to help with this care request.",
     "sent": "Offer sent.",
     "wrongRecipient": "You can’t send an offer on your own request.",
-    "send": "Send offer"
+    "send": "Send offer",
+    "confirmTitle": "Send offer?",
+    "confirmDescription": "This will send your care proposal to the pet owner."
   },
   "post": {
     "title": "Post",
@@ -461,7 +490,9 @@
       "selectPetTitle": "Select pet",
       "loadingPetsTitle": "Loading pets…",
       "loadingPetsMessage": "Fetching your pets.",
-      "petsLoadFailedTitle": "Couldn’t load pets"
+      "petsLoadFailedTitle": "Couldn’t load pets",
+      "selectTime": "Select time",
+      "launch": "Launch"
     },
     "availability": {
       "title": "My Availability",
@@ -539,6 +570,8 @@
     "applyingFor": "Applying for ",
     "applyingForPet": "Applying for {{petName}}",
     "seekingForPet": "Seeking for {{petName}}",
+    "takerApplicant": "Applicant",
+    "threadPetKinds": "Pet kinds",
     "viewOfferDetails": "View Offer Details",
     "viewProfile": "View profile",
     "muteNotifications": "Mute notifications",
@@ -546,14 +579,30 @@
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "If you block this user, you and this user won't be able to message each other. You can unblock later in Settings.",
     "blockedToast": "User blocked.",
+    "unblocked": "User unblocked.",
+    "unblock": "Unblock",
+    "youBlockedBanner": "You have blocked this user. Unblock them to message them.",
+    "blockedByOtherBanner": "This user has blocked you, so they can't message you and you can't message them.",
+    "blockedBySelfSend": "You blocked this user, so you can't message them.",
+    "blockedByOtherSend": "This user blocked you, so you can't message them.",
     "chatUnavailable": "Chat unavailable",
     "noMessagesTitle": "No messages yet",
     "noMessagesSubtitle": "Start the conversation by sending your first message.",
     "agreementAccepted": "Agreement accepted",
+    "deleteMessageTitle": "Delete message?",
+    "deleteMessageBody": "This removes the message for you and the other person in this chat.",
+    "deleteMessageFailed": "Could not delete message.",
+    "forwardTitle": "Forward to",
+    "forwardSubtitle": "Choose a conversation.",
+    "forwardNoChats": "No other conversations yet.",
+    "forwardSuccess": "Message forwarded.",
+    "forwardFailed": "Could not forward message.",
     "noMessagesYet": "No messages yet.",
     "youPrefix": "You: ",
-    "noChatsTitle": "No chats yet",
-    "noChatsSubtitle": "When you start a conversation, it will appear here.",
+    "noChatsTitle": "Nothing to show yet",
+    "noChatsSubtitle": "Your chats will appear here.",
+    "noChatsSearchTitle": "No matching chats",
+    "noChatsSearchSubtitle": "Try a different name or keyword.",
     "caringForPet": "Caring for {{petName}}",
     "attachPhotosVideos": "Photos & videos",
     "attachDocument": "Document",
@@ -566,7 +615,14 @@
     "documentPickerRebuildRequired": "To attach documents, rebuild the app so the native module is included (e.g. npx expo run:android or expo run:ios), then try again.",
     "lastMessagePhoto": "Photo",
     "attachSheetTitle": "Attach",
-    "actionsTitle": "Actions"
+    "actionsTitle": "Actions",
+    "reportUser": "Report user",
+    "reportReasonLabel": "Reason",
+    "reportReasonPlaceholder": "Describe what happened",
+    "reportReasonRequired": "Please enter a reason.",
+    "reportConfirmDescription": "Are you sure? Please provide a reason.",
+    "reportSubmitted": "Report submitted.",
+    "adviceMeet": "You are advised to meet users before confirming care agreements."
   },
   "requestDetails": {
     "title": "Request details",
@@ -583,7 +639,16 @@
     "apply": "Apply",
     "applyNow": "Apply Now",
     "applyConfirmTitle": "Applying for this pet?",
-    "applyConfirmBody": "A message with your availability details will be sent to this pet’s owner"
+    "applyConfirmBody": "A message with your availability details will be sent to this pet’s owner",
+    "requestClosedForApplications": "This request is no longer accepting applications.",
+    "requestAcceptedByAnother": "Another caregiver has already accepted this request.",
+    "cannotApplyOwnRequest": "You cannot apply to your own request.",
+    "requestExpired": "This request has ended and is no longer accepting applications.",
+    "deleteRequest": "Delete Request",
+    "deleteRequestConfirmTitle": "Delete this request?",
+    "deleteRequestConfirmMessage": "This will permanently remove the care request. This action cannot be undone.",
+    "deleteRequestContractExists": "A contract already exists for this request and it cannot be deleted.",
+    "deleteRequestSuccess": "Request deleted."
   },
   "filters": {
     "title": "Filters",
@@ -789,7 +854,9 @@
       "bio": "Pet Short Bio",
       "specialNeeds": "Pet Special Needs",
       "saved": "Pet saved successfully.",
-      "saveFailed": "Couldn't save your pet. Please try again."
+      "saveFailed": "Couldn't save your pet. Please try again.",
+      "signInRequired": "Sign in to add a pet.",
+      "moreDetails": "Just some more details"
     },
     "profile": {
       "title": "Pet Profile",
@@ -824,3 +891,4 @@
     "unknownError": "An unexpected error occurred"
   }
 }
+
