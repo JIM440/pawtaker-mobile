@@ -22,9 +22,12 @@ import {
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import {
+  blockUser,
   getBlockDirection,
   type BlockDirection,
+  unblockUser,
 } from "@/src/lib/blocks/user-blocks";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -43,20 +46,25 @@ import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
+import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
   ArrowLeft,
   CircleAlert,
+  ExternalLink,
   FileText,
   Handshake,
   MapPin,
   PawPrint,
+  PlayCircle,
   SendHorizonal,
   Star,
   Upload,
+  X,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -65,6 +73,7 @@ import {
   Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   ScrollView,
@@ -79,16 +88,75 @@ function selectedBubbleStyle(_selected: boolean, _colors: any) {
   return undefined;
 }
 
+const MESSAGE_MAX_LINES = 10;
+const COMPOSER_MIN_HEIGHT = 44;
+const COMPOSER_MAX_HEIGHT = 44 + (MESSAGE_MAX_LINES - 1) * 18.7;
+const MAX_VIDEO_SIZE_BYTES = 10 * 1024 * 1024;
+
+type AttachmentKind = "image" | "video" | "file";
+
+type AttachmentPreview = {
+  kind: AttachmentKind;
+  uri: string;
+  name: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+};
+
+function formatAttachmentSize(bytes?: number | null) {
+  if (!bytes || !Number.isFinite(bytes) || bytes <= 0) return null;
+  if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
+  return `${bytes} B`;
+}
+
+function getAttachmentKind(params: {
+  mimeType?: string | null;
+  name?: string | null;
+  uri?: string | null;
+  explicitType?: string | null;
+}): AttachmentKind {
+  const { mimeType, name, uri, explicitType } = params;
+  if (explicitType === "video") return "video";
+  if (explicitType === "image") return "image";
+
+  const lowerMime = mimeType?.toLowerCase() ?? "";
+  const lowerName = name?.toLowerCase() ?? "";
+  const lowerUri = uri?.toLowerCase() ?? "";
+
+  if (
+    lowerMime.startsWith("video/") ||
+    /\.(mp4|mov|m4v|webm|mkv)$/i.test(lowerName || lowerUri)
+  ) {
+    return "video";
+  }
+
+  if (
+    lowerMime.startsWith("image/") ||
+    /\.(png|jpe?g|webp|gif|heic)$/i.test(lowerName || lowerUri)
+  ) {
+    return "image";
+  }
+
+  return "file";
+}
+
 function MessageBubble({
   message,
   colors,
   selected,
   onSelect,
+  onOpenImage,
+  onOpenVideo,
+  onOpenFile,
 }: {
   message: UiMessage;
   colors: any;
   selected: boolean;
   onSelect: () => void;
+  onOpenImage?: (uri: string) => void;
+  onOpenVideo?: (message: UiMessage) => void;
+  onOpenFile?: (message: UiMessage) => void;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -124,7 +192,7 @@ function MessageBubble({
           hi,
         ]}
       >
-        <Pressable onPress={() => void Linking.openURL(uri)}>
+        <Pressable onPress={() => onOpenImage?.(uri)}>
           <AppImage
             source={{ uri }}
             style={styles.chatImageAttachment}
@@ -148,6 +216,10 @@ function MessageBubble({
   if (message.type === "file") {
     const url = message.fileUrl?.trim();
     const name = message.fileName?.trim() || "File";
+    const sizeLabel = formatAttachmentSize(message.fileSizeBytes);
+    const secondaryLabel = [message.fileMimeType, sizeLabel]
+      .filter(Boolean)
+      .join(" • ");
     if (!url) return null;
     const isRight = message.side === "right";
     return (
@@ -162,7 +234,7 @@ function MessageBubble({
         ]}
       >
         <Pressable
-          onPress={() => void Linking.openURL(url)}
+          onPress={() => onOpenFile?.(message)}
           style={[
             styles.fileAttachmentBubble,
             {
@@ -177,15 +249,99 @@ function MessageBubble({
             size={18}
             color={isRight ? colors.onPrimary : colors.onSurface}
           />
-          <AppText
-            variant="body"
+          <View style={styles.fileAttachmentBody}>
+            <AppText
+              variant="body"
+              color={isRight ? colors.onPrimary : colors.onSurface}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={styles.fileAttachmentTitle}
+            >
+              {name}
+            </AppText>
+            {secondaryLabel ? (
+              <AppText
+                variant="caption"
+                color={
+                  isRight ? colors.onPrimary : colors.onSurfaceVariant
+                }
+                numberOfLines={1}
+                style={styles.fileAttachmentMeta}
+              >
+                {secondaryLabel}
+              </AppText>
+            ) : null}
+          </View>
+        </Pressable>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          style={[
+            ChatTypography.bubbleTime,
+            { marginTop: 4, alignSelf: isRight ? "flex-end" : "flex-start" },
+          ]}
+        >
+          {message.timeLabel}
+        </AppText>
+      </Pressable>
+    );
+  }
+
+  if (message.type === "video") {
+    const url = message.videoUrl?.trim();
+    const name = message.fileName?.trim() || "Video";
+    const sizeLabel = formatAttachmentSize(message.fileSizeBytes);
+    const secondaryLabel = [message.fileMimeType, sizeLabel]
+      .filter(Boolean)
+      .join(" • ");
+    if (!url) return null;
+    const isRight = message.side === "right";
+    return (
+      <Pressable
+        onLongPress={onSelect}
+        delayLongPress={450}
+        style={[
+          styles.bubbleWrap,
+          isRight ? styles.bubbleWrapRight : styles.bubbleWrapLeft,
+          styles.bubbleSelectableWrap,
+          hi,
+        ]}
+      >
+        <Pressable
+          onPress={() => onOpenVideo?.(message)}
+          style={[
+            styles.fileAttachmentBubble,
+            {
+              backgroundColor: isRight
+                ? colors.primary
+                : colors.surfaceContainerHighest,
+              borderColor: colors.outlineVariant,
+            },
+          ]}
+        >
+          <PlayCircle
+            size={18}
             color={isRight ? colors.onPrimary : colors.onSurface}
-            numberOfLines={1}
-            ellipsizeMode="tail"
-            style={{ flex: 1, minWidth: 0, marginLeft: 8 }}
-          >
-            {name}
-          </AppText>
+          />
+          <View style={styles.fileAttachmentBody}>
+            <AppText
+              variant="body"
+              color={isRight ? colors.onPrimary : colors.onSurface}
+              numberOfLines={1}
+              ellipsizeMode="tail"
+              style={styles.fileAttachmentTitle}
+            >
+              {name}
+            </AppText>
+            <AppText
+              variant="caption"
+              color={isRight ? colors.onPrimary : colors.onSurfaceVariant}
+              numberOfLines={1}
+              style={styles.fileAttachmentMeta}
+            >
+              {secondaryLabel || t("messages.videoLabel", "Video")}
+            </AppText>
+          </View>
         </Pressable>
         <AppText
           variant="caption"
@@ -273,7 +429,7 @@ function MessageBubble({
               onPress={() => {
                 if (!rd.takerProfileUserId) return;
                 router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                    pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id: rd.takerProfileUserId },
                 } as any);
               }}
@@ -513,6 +669,7 @@ export default function ThreadScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockStatus, setBlockStatus] = useState<BlockDirection>("none");
   const [threadHeader, setThreadHeader] = useState<{
@@ -560,6 +717,30 @@ export default function ThreadScreen() {
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [attachMenuVisible, setAttachMenuVisible] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [composerHeight, setComposerHeight] = useState(COMPOSER_MIN_HEIGHT);
+  const [messageImages, setMessageImages] = useState<string[]>([]);
+  const [imageViewerOpen, setImageViewerOpen] = useState(false);
+  const [pendingAttachment, setPendingAttachment] =
+    useState<AttachmentPreview | null>(null);
+  const [openVideo, setOpenVideo] = useState<{
+    uri: string;
+    name: string;
+  } | null>(null);
+  const [openFile, setOpenFile] = useState<{
+    url: string;
+    name: string;
+    mimeType?: string;
+    sizeBytes?: number | null;
+  } | null>(null);
+  const pendingVideoPlayer = useVideoPlayer(
+    pendingAttachment?.kind === "video" ? pendingAttachment.uri : null,
+    (player) => {
+      player.loop = false;
+    },
+  );
+  const messageVideoPlayer = useVideoPlayer(openVideo?.uri ?? null, (player) => {
+    player.loop = false;
+  });
 
   useEffect(() => {
     const showEvt =
@@ -577,6 +758,18 @@ export default function ThreadScreen() {
       hideSub.remove();
     };
   }, []);
+
+  useEffect(() => {
+    if (pendingAttachment?.kind !== "video") {
+      pendingVideoPlayer.pause();
+    }
+  }, [pendingAttachment?.kind, pendingVideoPlayer]);
+
+  useEffect(() => {
+    if (!openVideo) {
+      messageVideoPlayer.pause();
+    }
+  }, [messageVideoPlayer, openVideo]);
 
   const context = mode === "seeking" ? "seeking" : "applying";
   const paramPetName =
@@ -823,16 +1016,21 @@ export default function ThreadScreen() {
     if (!user?.id || !threadHeader.userId) return;
     setBusy(true);
     try {
-      const { error } = await supabase
-        .from("user_blocks")
-        .delete()
-        .eq("blocker_id", user.id)
-        .eq("blocked_id", threadHeader.userId);
-      if (error) throw error;
+      await unblockUser(user.id, threadHeader.userId);
       setBlockStatus("none");
-      showToast({ variant: "success", message: t("messages.unblocked", "User unblocked.") });
+      setShowUnblockConfirm(false);
+      showToast({
+        variant: "success",
+        message: t("messages.unblocked", "User unblocked."),
+      });
     } catch (err) {
-      showToast({ variant: "error", message: err instanceof Error ? err.message : t("common.error", "Something went wrong") });
+      showToast({
+        variant: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : t("common.error", "Could not unblock this user right now."),
+      });
     } finally {
       setBusy(false);
     }
@@ -868,10 +1066,17 @@ export default function ThreadScreen() {
     const result = await postMessage(threadId, body, "text", null);
     if (result.ok) {
       setInput("");
+      setComposerHeight(COMPOSER_MIN_HEIGHT);
       void refetchMessages();
     } else {
       showToast({
-        message: result.message || t("common.error", "Something went wrong"),
+        variant: "error",
+        message:
+          result.message ||
+          t(
+            "messages.sendFailed",
+            "We couldn't send your message right now. Please try again.",
+          ),
       });
     }
   };
@@ -881,30 +1086,120 @@ export default function ThreadScreen() {
     process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ||
     "";
 
-  const sendAttachmentImage = async (localUri: string) => {
+  const openExternalUrl = async (url: string, fallbackMessage: string) => {
+    try {
+      const supported = await Linking.canOpenURL(url);
+      if (!supported) {
+        showToast({ message: fallbackMessage, variant: "error" });
+        return;
+      }
+      await Linking.openURL(url);
+    } catch {
+      showToast({ message: fallbackMessage, variant: "error" });
+    }
+  };
+
+  const queueAttachmentPreview = (attachment: AttachmentPreview) => {
+    if (
+      attachment.kind === "video" &&
+      attachment.sizeBytes &&
+      attachment.sizeBytes > MAX_VIDEO_SIZE_BYTES
+    ) {
+      showToast({
+        variant: "error",
+        message: t(
+          "messages.videoTooLarge",
+          "Videos must be 10MB or smaller before you can send them.",
+        ),
+        durationMs: 3600,
+      });
+      return;
+    }
+
+    setPendingAttachment(attachment);
+  };
+
+  const sendPendingAttachment = async () => {
+    if (!pendingAttachment) return;
     if (!threadId || !preset) {
       showToast({
+        variant: "error",
         message: t("messages.uploadNotConfigured", "Upload is not configured."),
       });
       return;
     }
+
     setUploadingAttachment(true);
     try {
-      const { secure_url } = await uploadToCloudinary(localUri, preset);
-      const result = await postMessage(threadId, secure_url, "image", null);
-      if (!result.ok) {
-        showToast({
-          message: result.message || t("common.error", "Something went wrong"),
-        });
+      if (pendingAttachment.kind === "image") {
+        const { secure_url } = await uploadToCloudinary(
+          pendingAttachment.uri,
+          preset,
+        );
+        const result = await postMessage(threadId, secure_url, "image", null);
+        if (!result.ok) {
+          showToast({
+            variant: "error",
+            message:
+              result.message ||
+              t(
+                "messages.imageSendFailed",
+                "We couldn't send that image right now.",
+              ),
+          });
+          return;
+        }
       } else {
-        void refetchMessages();
+        const { secure_url } = await uploadRawToCloudinary(
+          pendingAttachment.uri,
+          pendingAttachment.name,
+          pendingAttachment.mimeType ?? "application/octet-stream",
+          preset,
+        );
+        const result = await postMessage(threadId, secure_url, "text", {
+          kind: pendingAttachment.kind === "video" ? "video" : "file",
+          file_name: pendingAttachment.name,
+          mime_type: pendingAttachment.mimeType ?? null,
+          size_bytes: pendingAttachment.sizeBytes ?? null,
+        } as Json);
+        if (!result.ok) {
+          showToast({
+            variant: "error",
+            message:
+              result.message ||
+              t(
+                pendingAttachment.kind === "video"
+                  ? "messages.videoSendFailed"
+                  : "messages.fileSendFailed",
+                pendingAttachment.kind === "video"
+                  ? "We couldn't send that video right now."
+                  : "We couldn't send that document right now.",
+              ),
+          });
+          return;
+        }
       }
+
+      setPendingAttachment(null);
+      void refetchMessages();
     } catch (e) {
       showToast({
+        variant: "error",
         message:
           e instanceof Error
             ? e.message
-            : t("messages.imageUploadFailed", "Could not send image."),
+            : t(
+                pendingAttachment.kind === "video"
+                  ? "messages.videoSendFailed"
+                  : pendingAttachment.kind === "image"
+                    ? "messages.imageSendFailed"
+                    : "messages.fileSendFailed",
+                pendingAttachment.kind === "video"
+                  ? "We couldn't send that video right now."
+                  : pendingAttachment.kind === "image"
+                    ? "We couldn't send that image right now."
+                    : "We couldn't send that document right now.",
+              ),
       });
     } finally {
       setUploadingAttachment(false);
@@ -925,12 +1220,24 @@ export default function ThreadScreen() {
       return;
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
-      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      mediaTypes: ImagePicker.MediaTypeOptions.All,
       allowsEditing: false,
       quality: 0.9,
     });
-    if (!picked.canceled && picked.assets[0]?.uri) {
-      await sendAttachmentImage(picked.assets[0].uri);
+    const asset = picked.canceled ? null : picked.assets[0];
+    if (asset?.uri) {
+      queueAttachmentPreview({
+        kind: getAttachmentKind({
+          mimeType: asset.mimeType,
+          name: asset.fileName,
+          uri: asset.uri,
+          explicitType: asset.type,
+        }),
+        uri: asset.uri,
+        name: asset.fileName ?? asset.assetId ?? "Attachment",
+        mimeType: asset.mimeType,
+        sizeBytes: asset.fileSize ?? null,
+      });
     }
   };
 
@@ -954,8 +1261,15 @@ export default function ThreadScreen() {
       allowsEditing: false,
       quality: 0.9,
     });
-    if (!shot.canceled && shot.assets[0]?.uri) {
-      await sendAttachmentImage(shot.assets[0].uri);
+    const asset = shot.canceled ? null : shot.assets[0];
+    if (asset?.uri) {
+      queueAttachmentPreview({
+        kind: "image",
+        uri: asset.uri,
+        name: asset.fileName ?? "Camera photo",
+        mimeType: asset.mimeType,
+        sizeBytes: asset.fileSize ?? null,
+      });
     }
   };
 
@@ -980,61 +1294,56 @@ export default function ThreadScreen() {
         });
         return;
       }
-      if (asset.mimeType?.startsWith("image/") && asset.uri) {
-        await sendAttachmentImage(asset.uri);
-        return;
-      }
       if (!asset.uri) return;
-      setUploadingAttachment(true);
-      try {
-        const { secure_url } = await uploadRawToCloudinary(
-          asset.uri,
-          asset.name ?? "file",
-          asset.mimeType ?? "application/octet-stream",
-          preset,
-        );
-        const fileMeta: Json = {
-          kind: "file",
-          file_name: asset.name ?? "File",
-        };
-        const result = await postMessage(
-          threadId,
-          secure_url,
-          "text",
-          fileMeta,
-        );
-        if (!result.ok) {
-          showToast({
-            message:
-              result.message || t("common.error", "Something went wrong"),
-          });
-        } else {
-          void refetchMessages();
-        }
-      } catch (e) {
-        showToast({
-          message:
-            e instanceof Error
-              ? e.message
-              : t("messages.fileUploadFailed", "Could not send file."),
-        });
-      } finally {
-        setUploadingAttachment(false);
-      }
+      queueAttachmentPreview({
+        kind: getAttachmentKind({
+          mimeType: asset.mimeType,
+          name: asset.name,
+          uri: asset.uri,
+        }),
+        uri: asset.uri,
+        name: asset.name ?? "Attachment",
+        mimeType: asset.mimeType,
+        sizeBytes: asset.size ?? null,
+      });
     } catch (e) {
       const errMsg = e instanceof Error ? e.message : String(e);
       const nativeMissing =
         errMsg.includes("ExpoDocumentPicker") ||
         errMsg.includes("Cannot find native module");
       showToast({
+        variant: "error",
         message: nativeMissing
           ? t(
               "messages.documentPickerRebuildRequired",
               "Document attachments need a new native build. Run npx expo run:android (or iOS), then open the app again.",
             )
-          : t("messages.fileUploadFailed", "Could not send file."),
+          : t(
+              "messages.filePickFailed",
+              "We couldn't open the document picker right now.",
+            ),
       });
     }
+  };
+
+  const openMessageVideo = (message: UiMessage) => {
+    const uri = message.videoUrl?.trim();
+    if (!uri) return;
+    setOpenVideo({
+      uri,
+      name: message.fileName?.trim() || t("messages.videoLabel", "Video"),
+    });
+  };
+
+  const openMessageFile = (message: UiMessage) => {
+    const url = message.fileUrl?.trim();
+    if (!url) return;
+    setOpenFile({
+      url,
+      name: message.fileName?.trim() || t("messages.attachment", "Attachment"),
+      mimeType: message.fileMimeType,
+      sizeBytes: message.fileSizeBytes,
+    });
   };
 
   return (
@@ -1146,7 +1455,7 @@ export default function ThreadScreen() {
                 onViewProfile={() => {
                   setActionsOpen(false);
                   router.push({
-                    pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
                     params: { id: threadHeader.userId },
                   });
                 }}
@@ -1156,7 +1465,7 @@ export default function ThreadScreen() {
                 }}
                 onUnblock={blockStatus === "i_blocked" ? () => {
                   setActionsOpen(false);
-                  void handleUnblock();
+                  setShowUnblockConfirm(true);
                 } : undefined}
                 onCloseAttach={() => setAttachMenuVisible(false)}
                 onOpenPhotoLibrary={() => {
@@ -1180,16 +1489,7 @@ export default function ThreadScreen() {
                     if (blockBusy) return;
                     setBlockBusy(true);
                     try {
-                      const { error } = await supabase
-                        .from("user_blocks")
-                        .upsert(
-                          {
-                            blocker_id: user.id,
-                            blocked_id: threadHeader.userId,
-                          },
-                          { onConflict: "blocker_id,blocked_id" },
-                        );
-                      if (error) throw error;
+                      await blockUser(user.id, threadHeader.userId);
                       setShowBlockConfirm(false);
                       setBlockStatus("i_blocked");
                       showToast({
@@ -1200,7 +1500,10 @@ export default function ThreadScreen() {
                         message:
                           err instanceof Error
                             ? err.message
-                            : t("common.error", "Something went wrong"),
+                            : t(
+                                "messages.blockFailed",
+                                "We couldn't update this block right now.",
+                              ),
                       });
                     } finally {
                       setBlockBusy(false);
@@ -1208,6 +1511,29 @@ export default function ThreadScreen() {
                   })();
                 }}
                 onCancel={() => setShowBlockConfirm(false)}
+              />
+
+              <FeedbackModal
+                visible={showUnblockConfirm}
+                title={t("messages.unblock", "Unblock")}
+                description={t(
+                  "messages.unblockConfirmDescription",
+                  "You’ll be able to message this user again after unblocking them.",
+                )}
+                primaryLabel={t("messages.unblock", "Unblock")}
+                secondaryLabel={t("common.cancel")}
+                primaryLoading={busy}
+                onPrimary={() => {
+                  void handleUnblock();
+                }}
+                onSecondary={() => {
+                  if (busy) return;
+                  setShowUnblockConfirm(false);
+                }}
+                onRequestClose={() => {
+                  if (busy) return;
+                  setShowUnblockConfirm(false);
+                }}
               />
 
               <FeedbackModal
@@ -1330,7 +1656,7 @@ export default function ThreadScreen() {
                 </AppText>
                 {blockStatus === "i_blocked" && (
                   <TouchableOpacity
-                    onPress={() => void handleUnblock()}
+                    onPress={() => setShowUnblockConfirm(true)}
                     hitSlop={8}
                   >
                     <AppText
@@ -1382,6 +1708,12 @@ export default function ThreadScreen() {
                             message={msg}
                             colors={colors}
                             selected={isSelected}
+                            onOpenImage={(uri) => {
+                              setMessageImages([uri]);
+                              setImageViewerOpen(true);
+                            }}
+                            onOpenVideo={openMessageVideo}
+                            onOpenFile={openMessageFile}
                             onSelect={() =>
                               setSelectedIds((prev) => {
                                 const next = new Set(prev);
@@ -1433,24 +1765,29 @@ export default function ThreadScreen() {
                     ChatTypography.composerInput,
                     {
                       color: colors.onSurface,
-                      ...(Platform.OS === "android"
-                        ? {
-                            paddingVertical: 10,
-                            minHeight: 40,
-                          }
-                        : { paddingVertical: 8 }),
+                      height: composerHeight,
                     },
                   ]}
                   placeholder={t("messages.typeMessage")}
                   placeholderTextColor={colors.onSurfaceVariant}
                   value={input}
                   onChangeText={setInput}
-                  multiline={false}
-                  maxLength={500}
+                  multiline
+                  maxLength={INPUT_LIMITS.message}
                   autoCorrect={false}
-                  textAlignVertical="center"
+                  textAlignVertical="top"
                   underlineColorAndroid="transparent"
                   selectionColor={colors.primary}
+                  onContentSizeChange={(event) => {
+                    const nextHeight = Math.min(
+                      COMPOSER_MAX_HEIGHT,
+                      Math.max(
+                        COMPOSER_MIN_HEIGHT,
+                        event.nativeEvent.contentSize.height,
+                      ),
+                    );
+                    setComposerHeight(nextHeight);
+                  }}
                   {...(Platform.OS === "android"
                     ? { cursorColor: colors.primary }
                     : {})}
@@ -1482,6 +1819,243 @@ export default function ThreadScreen() {
                   />
                 </TouchableOpacity>
               </View>
+              <View style={styles.composerMetaRow}>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={styles.composerMetaText}
+                >
+                  {`${input.length}/${INPUT_LIMITS.message}`}
+                </AppText>
+              </View>
+              <Modal
+                transparent
+                animationType="fade"
+                visible={pendingAttachment != null}
+                onRequestClose={() => {
+                  if (uploadingAttachment) return;
+                  setPendingAttachment(null);
+                }}
+              >
+                <View style={styles.previewOverlay}>
+                  <View
+                    style={[
+                      styles.previewCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.outlineVariant,
+                      },
+                    ]}
+                  >
+                    <View style={styles.previewHeader}>
+                      <AppText variant="title" style={styles.previewTitle}>
+                        {t("messages.previewAttachment", "Preview attachment")}
+                      </AppText>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        disabled={uploadingAttachment}
+                        onPress={() => setPendingAttachment(null)}
+                      >
+                        <X size={18} color={colors.onSurfaceVariant} />
+                      </TouchableOpacity>
+                    </View>
+
+                    {pendingAttachment?.kind === "image" ? (
+                      <AppImage
+                        source={{ uri: pendingAttachment.uri }}
+                        style={styles.previewImage}
+                        contentFit="cover"
+                      />
+                    ) : pendingAttachment?.kind === "video" ? (
+                      <View
+                        style={[
+                          styles.previewVideoWrap,
+                          { backgroundColor: colors.surfaceContainerHighest },
+                        ]}
+                      >
+                        <VideoView
+                          player={pendingVideoPlayer}
+                          style={styles.previewVideo}
+                          nativeControls
+                          contentFit="contain"
+                        />
+                      </View>
+                    ) : (
+                      <View
+                        style={[
+                          styles.previewFileWrap,
+                          { backgroundColor: colors.surfaceContainerHighest },
+                        ]}
+                      >
+                        <FileText size={32} color={colors.primary} />
+                      </View>
+                    )}
+
+                    <View style={styles.previewMetaBlock}>
+                      <AppText variant="body" style={styles.previewFileName}>
+                        {pendingAttachment?.name}
+                      </AppText>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                      >
+                        {[
+                          pendingAttachment?.mimeType,
+                          formatAttachmentSize(pendingAttachment?.sizeBytes),
+                        ]
+                          .filter(Boolean)
+                          .join(" • ") ||
+                          (pendingAttachment?.kind === "video"
+                            ? t("messages.videoLabel", "Video")
+                            : pendingAttachment?.kind === "image"
+                              ? t("messages.imageLabel", "Image")
+                              : t("messages.documentLabel", "Document"))}
+                      </AppText>
+                    </View>
+
+                    <View style={styles.previewActions}>
+                      <Button
+                        label={t("common.cancel", "Cancel")}
+                        variant="outline"
+                        onPress={() => setPendingAttachment(null)}
+                        style={styles.previewActionBtn}
+                        disabled={uploadingAttachment}
+                      />
+                      <Button
+                        label={t("messages.sendAttachment", "Send")}
+                        onPress={() => {
+                          void sendPendingAttachment();
+                        }}
+                        style={styles.previewActionBtn}
+                        loading={uploadingAttachment}
+                        disabled={uploadingAttachment}
+                      />
+                    </View>
+                  </View>
+                </View>
+              </Modal>
+              <Modal
+                transparent
+                animationType="fade"
+                visible={openVideo != null}
+                onRequestClose={() => setOpenVideo(null)}
+              >
+                <View style={styles.previewOverlay}>
+                  <View
+                    style={[
+                      styles.previewCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.outlineVariant,
+                      },
+                    ]}
+                  >
+                    <View style={styles.previewHeader}>
+                      <AppText variant="title" style={styles.previewTitle}>
+                        {openVideo?.name || t("messages.videoLabel", "Video")}
+                      </AppText>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={() => setOpenVideo(null)}
+                      >
+                        <X size={18} color={colors.onSurfaceVariant} />
+                      </TouchableOpacity>
+                    </View>
+                    <View
+                      style={[
+                        styles.previewVideoWrap,
+                        { backgroundColor: colors.surfaceContainerHighest },
+                      ]}
+                    >
+                      <VideoView
+                        player={messageVideoPlayer}
+                        style={styles.previewVideo}
+                        nativeControls
+                        contentFit="contain"
+                      />
+                    </View>
+                  </View>
+                </View>
+              </Modal>
+              <Modal
+                transparent
+                animationType="fade"
+                visible={openFile != null}
+                onRequestClose={() => setOpenFile(null)}
+              >
+                <View style={styles.previewOverlay}>
+                  <View
+                    style={[
+                      styles.previewCard,
+                      {
+                        backgroundColor: colors.surface,
+                        borderColor: colors.outlineVariant,
+                      },
+                    ]}
+                  >
+                    <View style={styles.previewHeader}>
+                      <AppText variant="title" style={styles.previewTitle}>
+                        {t("messages.documentLabel", "Document")}
+                      </AppText>
+                      <TouchableOpacity
+                        hitSlop={8}
+                        onPress={() => setOpenFile(null)}
+                      >
+                        <X size={18} color={colors.onSurfaceVariant} />
+                      </TouchableOpacity>
+                    </View>
+                    <View
+                      style={[
+                        styles.previewFileWrap,
+                        { backgroundColor: colors.surfaceContainerHighest },
+                      ]}
+                    >
+                      <FileText size={32} color={colors.primary} />
+                    </View>
+                    <View style={styles.previewMetaBlock}>
+                      <AppText variant="body" style={styles.previewFileName}>
+                        {openFile?.name}
+                      </AppText>
+                      <AppText
+                        variant="caption"
+                        color={colors.onSurfaceVariant}
+                      >
+                        {[
+                          openFile?.mimeType,
+                          formatAttachmentSize(openFile?.sizeBytes),
+                        ]
+                          .filter(Boolean)
+                          .join(" • ")}
+                      </AppText>
+                    </View>
+                    <Button
+                      label={t("messages.openDocument", "Open document")}
+                      onPress={() => {
+                        if (!openFile?.url) return;
+                        void openExternalUrl(
+                          openFile.url,
+                          t(
+                            "messages.documentOpenFailed",
+                            "We couldn't open this document on your device.",
+                          ),
+                        );
+                      }}
+                      style={styles.previewSingleAction}
+                      leftIcon={
+                        <ExternalLink
+                          size={16}
+                          color={colors.onPrimary}
+                        />
+                      }
+                    />
+                  </View>
+                </View>
+              </Modal>
+              <ImageViewerModal
+                visible={imageViewerOpen}
+                images={messageImages.map((uri) => ({ uri }))}
+                onRequestClose={() => setImageViewerOpen(false)}
+              />
             </>
           )}
         </KeyboardAvoidingView>
@@ -1781,14 +2355,13 @@ const styles = StyleSheet.create({
   },
   composerWrapper: {
     flexDirection: "row",
-    alignItems: "center",
-    height: 52,
+    alignItems: "flex-end",
     marginHorizontal: 12,
-    // marginBottom: 8,
     gap: 6,
     borderWidth: 1,
-    borderRadius: 999,
+    borderRadius: 20,
     paddingHorizontal: 8,
+    paddingVertical: 8,
   },
   attachBtn: {
     width: 28,
@@ -1800,9 +2373,20 @@ const styles = StyleSheet.create({
   composerInput: {
     flex: 1,
     paddingHorizontal: 6,
+    paddingTop: 8,
+    paddingBottom: 8,
     margin: 0,
     fontSize: 16,
     letterSpacing: -0.2,
+  },
+  composerMetaRow: {
+    paddingHorizontal: 16,
+    paddingTop: 4,
+    paddingBottom: 8,
+    alignItems: "flex-end",
+  },
+  composerMetaText: {
+    fontSize: 11,
   },
   chatImageAttachment: {
     width: 220,
@@ -1820,6 +2404,80 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     gap: 0,
+  },
+  fileAttachmentBody: {
+    flex: 1,
+    minWidth: 0,
+    marginLeft: 8,
+  },
+  fileAttachmentTitle: {
+    flex: 1,
+    minWidth: 0,
+  },
+  fileAttachmentMeta: {
+    marginTop: 2,
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.55)",
+    justifyContent: "center",
+    paddingHorizontal: 18,
+  },
+  previewCard: {
+    borderRadius: 20,
+    borderWidth: 1,
+    overflow: "hidden",
+    padding: 16,
+    gap: 14,
+  },
+  previewHeader: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  previewTitle: {
+    flex: 1,
+    fontSize: 18,
+    fontWeight: "700",
+  },
+  previewImage: {
+    width: "100%",
+    height: 280,
+    borderRadius: 16,
+  },
+  previewVideoWrap: {
+    width: "100%",
+    height: 280,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  previewVideo: {
+    width: "100%",
+    height: "100%",
+  },
+  previewFileWrap: {
+    width: "100%",
+    height: 140,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  previewMetaBlock: {
+    gap: 4,
+  },
+  previewFileName: {
+    fontWeight: "600",
+  },
+  previewActions: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  previewActionBtn: {
+    flex: 1,
+  },
+  previewSingleAction: {
+    minHeight: 48,
   },
   attachOverlay: {
     position: "absolute",

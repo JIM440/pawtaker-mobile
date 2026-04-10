@@ -276,7 +276,10 @@ export default function EditProfileScreen() {
     } catch (err) {
       const details = errorMessageFromUnknown(
         err,
-        t("common.error", "Something went wrong"),
+        t(
+          "pets.delete.failedDetails",
+          "We couldn't delete this pet right now.",
+        ),
         t("errors.networkError", "Network error. Check your connection."),
       );
       const friendly = t(
@@ -381,7 +384,10 @@ export default function EditProfileScreen() {
     } catch (err) {
       const details = errorMessageFromUnknown(
         err,
-        t("common.error", "Something went wrong"),
+        t(
+          "profile.edit.availabilitySaveFailedDetails",
+          "We couldn't update availability right now.",
+        ),
         t("errors.networkError", "Network error. Check your connection."),
       );
       const friendly = t(
@@ -402,7 +408,10 @@ export default function EditProfileScreen() {
     if (!user?.id) {
       showToast({
         variant: "error",
-        message: t("common.error", "Something went wrong"),
+        message: t(
+          "profile.edit.sessionRequired",
+          "You need to be signed in before saving profile changes.",
+        ),
         durationMs: 3200,
       });
       return;
@@ -480,7 +489,10 @@ export default function EditProfileScreen() {
     } catch (err) {
       const details = errorMessageFromUnknown(
         err,
-        t("common.error", "Something went wrong"),
+        t(
+          "profile.edit.saveFailedDetails",
+          "We couldn't save your profile changes right now.",
+        ),
         t("errors.networkError", "Network error. Check your connection."),
       );
       const friendly = t(

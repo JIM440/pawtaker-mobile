@@ -1,4 +1,5 @@
 import {
+  formatCompactTime,
   formatRequestDateRange,
   formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
@@ -10,7 +11,13 @@ import { resolveDisplayName } from "@/src/lib/user/displayName";
 import type { ChatMessageRow } from "./hooks/useMessages";
 
 export type BubbleSide = "left" | "right";
-export type UiMessageType = "text" | "image" | "file" | "request" | "date";
+export type UiMessageType =
+  | "text"
+  | "image"
+  | "video"
+  | "file"
+  | "request"
+  | "date";
 
 export type UiMessage = {
   id: string;
@@ -24,6 +31,9 @@ export type UiMessage = {
   /** When `type === "file"` — link + label from metadata. */
   fileUrl?: string;
   fileName?: string;
+  fileMimeType?: string;
+  fileSizeBytes?: number | null;
+  videoUrl?: string;
   timeLabel: string;
   requestData?: {
     /** Pet card (owner seeking) vs taker availability (application). */
@@ -144,10 +154,7 @@ function parseAvailabilityJsonSummary(raw: Json | null | undefined): {
 
 function formatTime(iso?: string) {
   if (!iso) return "";
-  return new Date(iso).toLocaleTimeString([], {
-    hour: "numeric",
-    minute: "2-digit",
-  });
+  return formatCompactTime(new Date(iso));
 }
 
 export type ThreadTakerBundle = {
@@ -232,6 +239,41 @@ export function mapThreadMessagesToUi(ctx: ThreadMessageUiContext): UiMessage[] 
           typeof meta.file_name === "string" && meta.file_name.trim()
             ? meta.file_name
             : "Attachment",
+        fileMimeType:
+          typeof meta.mime_type === "string" && meta.mime_type.trim()
+            ? meta.mime_type
+            : undefined,
+        fileSizeBytes:
+          typeof meta.size_bytes === "number" && Number.isFinite(meta.size_bytes)
+            ? meta.size_bytes
+            : typeof meta.size_bytes === "string" && meta.size_bytes.trim()
+              ? Number(meta.size_bytes)
+              : null,
+        timeLabel: formatTime(m.created_at),
+      };
+    }
+
+    if (meta?.kind === "video" && contentTrim.startsWith("http")) {
+      return {
+        id: m.id,
+        senderId: m.sender_id,
+        side,
+        type: "video" as const,
+        videoUrl: contentTrim,
+        fileName:
+          typeof meta.file_name === "string" && meta.file_name.trim()
+            ? meta.file_name
+            : "Video",
+        fileMimeType:
+          typeof meta.mime_type === "string" && meta.mime_type.trim()
+            ? meta.mime_type
+            : undefined,
+        fileSizeBytes:
+          typeof meta.size_bytes === "number" && Number.isFinite(meta.size_bytes)
+            ? meta.size_bytes
+            : typeof meta.size_bytes === "string" && meta.size_bytes.trim()
+              ? Number(meta.size_bytes)
+              : null,
         timeLabel: formatTime(m.created_at),
       };
     }

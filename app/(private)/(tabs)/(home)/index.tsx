@@ -3,6 +3,10 @@ import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { filterOutBlockedUsers, getBlockDirection } from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
@@ -73,55 +77,6 @@ function parseDistanceKm(s: string): number {
 
 function clampKm(n: number): number {
   return Math.max(DISTANCE_MIN_KM, Math.min(DISTANCE_MAX_KM, Math.round(n)));
-}
-
-function formatRequestDateRange(
-  startDateRaw?: string | null,
-  endDateRaw?: string | null,
-): string {
-  if (!startDateRaw) return "";
-  const start = new Date(startDateRaw);
-  const end = endDateRaw ? new Date(endDateRaw) : null;
-  if (Number.isNaN(start.getTime())) return "";
-  if (end && Number.isNaN(end.getTime())) return "";
-
-  const monthShort = (d: Date) =>
-    d.toLocaleDateString(undefined, { month: "short" });
-  const day = (d: Date) => d.getDate();
-
-  if (!end) return `${monthShort(start)} ${day(start)}`;
-  const sameMonth =
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth();
-
-  return sameMonth
-    ? `${monthShort(start)} ${day(start)}-${day(end)}`
-    : `${monthShort(start)} ${day(start)}-${monthShort(end)} ${day(end)}`;
-}
-
-function formatRequestTimeRange(
-  startTimeRaw?: string | null,
-  endTimeRaw?: string | null,
-): string {
-  const toLabel = (raw?: string | null) => {
-    if (!raw || typeof raw !== "string") return "";
-    const hhmm = raw.slice(0, 5);
-    const [hRaw, mRaw] = hhmm.split(":");
-    const hour = Number(hRaw);
-    const minute = Number(mRaw);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
-    const isPm = hour >= 12;
-    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-    const minutePart = minute === 0 ? "" : `:${String(minute).padStart(2, "0")}`;
-    return `${hour12}${minutePart}${isPm ? "pm" : "am"}`;
-  };
-
-  const start = toLabel(startTimeRaw);
-  const end = toLabel(endTimeRaw);
-  if (!start && !end) return "";
-  if (!end) return start;
-  if (!start) return end;
-  return `${start}-${end}`;
 }
 
 /** `taker_profiles.availability_json` — matches DB trigger shape (`available` boolean). */
@@ -522,17 +477,7 @@ export default function HomeScreen() {
             .join(" · ");
           continue;
         }
-        const d1 = r.start_date ? new Date(r.start_date as string) : null;
-        const d2 = r.end_date ? new Date(r.end_date as string) : null;
-        const datePart =
-          d1 && d2
-            ? `${d1.toLocaleDateString(undefined, { month: "short", day: "numeric" })}-${d2.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-            : d1
-              ? d1.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })
-              : "";
+        const datePart = formatRequestDateRange(r.start_date, r.end_date);
         const careKey = normalizeCareTypeForPoints(r.care_type);
         const carePart = t(`feed.careTypes.${careKey}` as any);
         next[pid] = [datePart, carePart].filter(Boolean).join(" · ");
@@ -650,7 +595,10 @@ export default function HomeScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t(
+            "feed.likeFailed",
+            "We couldn't update this pet like right now.",
+          ),
         ),
         durationMs: 3200,
       });
@@ -860,10 +808,10 @@ export default function HomeScreen() {
 
       const petName = selectedSeekingPet.name ?? t("pets.add.name", "Pet");
       const breed = selectedSeekingPet.breed ?? "";
-      const dateRange =
-        openReq.start_date && openReq.end_date
-          ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(openReq.end_date).toLocaleDateString()}`
-          : "";
+      const dateRange = formatRequestDateRange(
+        openReq.start_date,
+        openReq.end_date,
+      );
       const price =
         openReq.start_date && openReq.end_date
           ? formatCarePointsPts(
@@ -889,7 +837,7 @@ export default function HomeScreen() {
 
       setSendRequestOpen(false);
       router.push({
-        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        pathname: "/(private)/chat/[threadId]" as any,
         params: {
           threadId,
           mode: "seeking",
@@ -1234,7 +1182,10 @@ export default function HomeScreen() {
                 <FeedRequestsSkeleton count={3} />
               ) : requestsError ? (
                 <DataState
-                  title={t("common.error", "Something went wrong")}
+                  title={t(
+                    "feed.requestsLoadFailedTitle",
+                    "We couldn't load nearby pet requests.",
+                  )}
                   message={requestsError}
                   actionLabel={t("common.retry", "Retry")}
                   onAction={() => {
@@ -1341,6 +1292,7 @@ export default function HomeScreen() {
               description={item.description}
               tags={item.tags ?? []}
               caretaker={item.caretaker}
+              showFavorite={item.caretaker.id !== user?.id}
               isFavorite={Boolean(item.petId && favorites.has(item.petId))}
               onFavorite={() =>
                 void toggleFavorite(item.petId, item.id ?? null)
@@ -1361,7 +1313,7 @@ export default function HomeScreen() {
                   return;
                 }
                 router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id: item.caretaker.id },
                 });
               }}
@@ -1374,7 +1326,10 @@ export default function HomeScreen() {
               <FeedTakersSkeleton count={4} />
             ) : takersError ? (
               <DataState
-                title={t("common.error", "Something went wrong")}
+                title={t(
+                  "feed.takersLoadFailedTitle",
+                  "We couldn't load nearby caregivers.",
+                )}
                 message={takersError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
@@ -1440,7 +1395,7 @@ export default function HomeScreen() {
                         taker.id === user?.id
                           ? router.push("/(private)/(tabs)/profile" as any)
                           : router.push({
-                              pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
                               params: { id: taker.id },
                             })
                       }
@@ -1487,7 +1442,7 @@ export default function HomeScreen() {
             return;
           }
           router.push({
-            pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
             params: { id: openMenuTaker.id },
           });
         }}

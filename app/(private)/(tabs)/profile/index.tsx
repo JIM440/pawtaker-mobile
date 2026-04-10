@@ -14,6 +14,7 @@ import {
   errorMessageFromUnknown,
   isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
+import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
@@ -161,7 +162,9 @@ export default function ProfileScreen() {
       if (petIds.length > 0) {
         const { data: openReqs, error: openReqErr } = await supabase
           .from("care_requests")
-          .select("pet_id,start_date,end_date,start_time,end_time,created_at")
+          .select(
+            "pet_id,start_date,end_date,start_time,end_time,created_at,status,taker_id",
+          )
           .eq("owner_id", user.id)
           .eq("status", "open")
           .in("pet_id", petIds)
@@ -174,6 +177,7 @@ export default function ProfileScreen() {
         for (const req of openReqs ?? []) {
           const pid = req?.pet_id as string | undefined;
           if (!pid) continue;
+          if (!isRequestSeekingActive(req)) continue;
           if (!openRequestsByPetId[pid]) openRequestsByPetId[pid] = req;
         }
       }
@@ -181,19 +185,14 @@ export default function ProfileScreen() {
       const petsWithSeeking = basePets.map((p: any) => {
         const pid = p?.id as string | undefined;
         const req = pid ? openRequestsByPetId[pid] : undefined;
+        const isSeeking = isRequestSeekingActive(req);
 
-        const todayRaw = new Date();
-        const today = `${todayRaw.getFullYear()}-${String(todayRaw.getMonth() + 1).padStart(2, "0")}-${String(todayRaw.getDate()).padStart(2, "0")}`;
-        const isExpired = req?.end_date && String(req.end_date) < today;
-
-        const seekingDateRange = !isExpired ? formatRequestDateRange(
-          req?.start_date,
-          req?.end_date,
-        ) : undefined;
-        const seekingTime = !isExpired ? formatRequestTimeRange(
-          req?.start_time,
-          req?.end_time,
-        ) : undefined;
+        const seekingDateRange = isSeeking
+          ? formatRequestDateRange(req?.start_date, req?.end_date)
+          : undefined;
+        const seekingTime = isSeeking
+          ? formatRequestTimeRange(req?.start_time, req?.end_time)
+          : undefined;
 
         return {
           ...p,

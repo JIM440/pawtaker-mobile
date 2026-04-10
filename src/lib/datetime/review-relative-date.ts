@@ -32,11 +32,14 @@ export function formatReviewRelativeDate(
     return `${weeks}w`;
   }
 
-  const date = new Date(iso);
-  const now = new Date();
-  return date.toLocaleDateString(undefined, {
-    month: "short",
-    day: "numeric",
-    ...(date.getFullYear() !== now.getFullYear() ? { year: "numeric" } : {}),
-  });
+  const monthMs = 30 * dayMs;
+  const yearMs = 365 * dayMs;
+
+  if (diffMs < yearMs) {
+    const months = Math.max(1, Math.floor(diffMs / monthMs));
+    return `${months}mo`;
+  }
+
+  const years = Math.max(1, Math.floor(diffMs / yearMs));
+  return `${years}y`;
 }

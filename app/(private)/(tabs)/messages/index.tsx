@@ -214,7 +214,7 @@ export default function MessagesScreen() {
                     timestamp={chat.timestamp}
                     unreadCount={chat.unreadCount}
                     onPress={() =>
-                      router.push(`/(private)/(tabs)/messages/${chat.threadId}`)
+                      router.push(`/(private)/chat/${chat.threadId}`)
                     }
                   />
                 ))

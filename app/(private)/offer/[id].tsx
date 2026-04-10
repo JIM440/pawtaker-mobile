@@ -7,6 +7,7 @@ import {
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
+import { hasAvailabilityProfile } from "@/src/lib/taker/availability-profile";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
@@ -15,15 +16,16 @@ import {
   normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { CareTypeSelector, type CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
+import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { Input } from "@/src/shared/components/ui/Input";
 import { OfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
+import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
@@ -66,7 +68,12 @@ export default function SendOfferScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "offer.loadFailed",
+          "We couldn't load this request right now. Please try again.",
+        ),
+      );
       return;
     }
 
@@ -123,7 +130,14 @@ export default function SendOfferScreen() {
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "offer.loadFailed",
+              "We couldn't load this request right now. Please try again.",
+            ),
+      );
     } finally {
       setLoading(false);
     }
@@ -188,6 +202,18 @@ export default function SendOfferScreen() {
         });
         return;
       }
+      const hasProfile = await hasAvailabilityProfile(user.id);
+      if (!hasProfile) {
+        showToast({
+          variant: "info",
+          message: t(
+            "offer.availabilityProfileRequired",
+            "Add your availability profile before applying to pet requests.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
       setShowConfirm(true);
     })();
   };
@@ -198,6 +224,15 @@ export default function SendOfferScreen() {
     void (async () => {
       setSending(true);
       try {
+        const hasProfile = await hasAvailabilityProfile(user.id);
+        if (!hasProfile) {
+          throw new Error(
+            t(
+              "offer.availabilityProfileRequired",
+              "Add your availability profile before applying to pet requests.",
+            ),
+          );
+        }
         const ownerId = reqRow.owner_id as string;
         const blocked = await hasUserBlockRelation(user.id, ownerId);
         if (blocked) {
@@ -243,7 +278,7 @@ export default function SendOfferScreen() {
           durationMs: 2400,
         });
         router.replace({
-          pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+          pathname: "/(private)/chat/[threadId]" as any,
           params: {
             threadId,
             mode: "applying",
@@ -253,7 +288,13 @@ export default function SendOfferScreen() {
       } catch (err) {
         showToast({
           variant: "error",
-          message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+          message: errorMessageFromUnknown(
+            err,
+            t(
+              "offer.sendFailed",
+              "We couldn't send your offer right now. Please try again.",
+            ),
+          ),
           durationMs: 3200,
         });
       } finally {

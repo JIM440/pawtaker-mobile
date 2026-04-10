@@ -47,7 +47,12 @@ export default function PostCareReviewScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "myCare.review.loadFailed",
+          "We couldn't load this review form right now.",
+        ),
+      );
       return;
     }
 
@@ -138,7 +143,14 @@ export default function PostCareReviewScreen() {
         setContextPetName(null);
       }
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "myCare.review.loadFailed",
+              "We couldn't load this review form right now.",
+            ),
+      );
     } finally {
       setLoading(false);
     }
@@ -193,7 +205,12 @@ export default function PostCareReviewScreen() {
     if (!user?.id || !contractId || !reviewee?.id) {
       showToast({
         variant: "error",
-        message: error ?? t("common.error", "Something went wrong"),
+        message:
+          error ??
+          t(
+            "myCare.review.submitUnavailable",
+            "We couldn't submit this review because the contract details are unavailable.",
+          ),
         durationMs: 3200,
       });
       return;
@@ -215,13 +232,19 @@ export default function PostCareReviewScreen() {
           durationMs: 2600,
         });
         router.replace({
-          pathname: "/(private)/(tabs)/profile/users/[id]" as any,
+        pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
           params: { id: reviewee.id, initialTab: "reviews" },
         });
       } catch (err) {
         showToast({
           variant: "error",
-          message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+          message:
+            err instanceof Error
+              ? err.message
+              : t(
+                  "myCare.review.submitFailed",
+                  "We couldn't submit your review right now.",
+                ),
           durationMs: 3200,
         });
       } finally {

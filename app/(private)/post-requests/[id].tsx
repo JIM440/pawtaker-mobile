@@ -12,6 +12,7 @@ import {
     RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { hasAvailabilityProfile } from "@/src/lib/taker/availability-profile";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
@@ -118,7 +119,12 @@ export default function RequestDetailScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "requestDetails.loadFailed",
+          "We couldn't load this pet request right now. Please try again.",
+        ),
+      );
       return;
     }
 
@@ -206,7 +212,10 @@ export default function RequestDetailScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : t("common.error", "Something went wrong"),
+          : t(
+              "requestDetails.loadFailed",
+              "We couldn't load this pet request right now. Please try again.",
+            ),
       );
     } finally {
       setLoading(false);
@@ -409,7 +418,10 @@ export default function RequestDetailScreen() {
           variant: "error",
           message: errorMessageFromUnknown(
             err,
-            t("common.error", "Something went wrong"),
+            t(
+              "requestDetails.likeFailed",
+              "We couldn't update this pet like right now.",
+            ),
           ),
           durationMs: 3200,
         });
@@ -425,7 +437,10 @@ export default function RequestDetailScreen() {
       if (!user?.id || !id || !reqRow?.owner_id) {
         showToast({
           variant: "error",
-          message: t("common.error", "Something went wrong"),
+          message: t(
+            "requestDetails.applyStartFailed",
+            "We couldn't start your application for this request.",
+          ),
           durationMs: 4200,
         });
         return;
@@ -447,6 +462,18 @@ export default function RequestDetailScreen() {
           message: t(
             "requestDetails.requestExpired",
             "This request has ended and is no longer accepting applications.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
+      const hasProfile = await hasAvailabilityProfile(user.id);
+      if (!hasProfile) {
+        showToast({
+          variant: "info",
+          message: t(
+            "offer.availabilityProfileRequired",
+            "Add your availability profile before applying to pet requests.",
           ),
           durationMs: 4200,
         });
@@ -500,6 +527,15 @@ export default function RequestDetailScreen() {
       return;
     }
     if (!user?.id || !id || !reqRow?.owner_id) return;
+    const hasProfile = await hasAvailabilityProfile(user.id);
+    if (!hasProfile) {
+      throw new Error(
+        t(
+          "offer.availabilityProfileRequired",
+          "Add your availability profile before applying to pet requests.",
+        ),
+      );
+    }
     const ownerId = reqRow.owner_id as string;
     const blockDirection = await getBlockDirection(user.id, ownerId);
     if (blockDirection !== "none") {
@@ -551,7 +587,7 @@ export default function RequestDetailScreen() {
 
     setApplyConfirmOpen(false);
     router.push({
-      pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+      pathname: "/(private)/chat/[threadId]" as any,
       params: {
         threadId,
         mode: "applying",
@@ -609,7 +645,10 @@ export default function RequestDetailScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t(
+            "requestDetails.deleteFailed",
+            "We couldn't delete this request right now.",
+          ),
         ),
         durationMs: 3200,
       });
@@ -627,7 +666,10 @@ export default function RequestDetailScreen() {
         setError(
           err instanceof Error
             ? err.message
-            : t("common.error", "Something went wrong"),
+            : t(
+                "requestDetails.applyFailed",
+                "We couldn't apply to this request right now.",
+              ),
         );
       } finally {
         setApplying(false);
@@ -733,7 +775,7 @@ export default function RequestDetailScreen() {
           request.owner.id === user?.id
             ? router.push("/(private)/(tabs)/profile" as any)
             : router.push({
-                pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
                 params: { id: request.owner.id },
               })
         }

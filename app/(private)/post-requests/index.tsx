@@ -18,6 +18,7 @@ import {
   computeCarePoints,
 } from "@/src/lib/points/carePoints";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -55,6 +56,12 @@ function startOfDayMs(d: Date) {
   const x = new Date(d);
   x.setHours(0, 0, 0, 0);
   return x.getTime();
+}
+
+function startOfToday() {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  return today;
 }
 
 export default function LaunchRequestWizardScreen() {
@@ -112,6 +119,13 @@ export default function LaunchRequestWizardScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const showToast = useToastStore((s) => s.showToast);
   const progress = (step + 1) / TOTAL_STEPS;
+  const minimumRequestDate = useMemo(() => startOfToday(), []);
+  const minimumEndDate = useMemo(() => {
+    const min = new Date(startDate);
+    min.setHours(0, 0, 0, 0);
+    min.setDate(min.getDate() + 1);
+    return min;
+  }, [startDate]);
 
   const loadPets = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
@@ -142,7 +156,7 @@ export default function LaunchRequestWizardScreen() {
       if (petIds.length > 0) {
         const { data: openReqs, error: openReqErr } = await supabase
           .from("care_requests")
-          .select("pet_id,start_date,end_date,created_at")
+          .select("pet_id,start_date,end_date,created_at,status,taker_id")
           .eq("owner_id", user.id)
           .eq("status", "open")
           .in("pet_id", petIds)
@@ -152,11 +166,12 @@ export default function LaunchRequestWizardScreen() {
         if (openReqErr && !isMissingBackendResourceError(openReqErr))
           throw openReqErr;
 
-        // Show "Seeking" badge if there exists at least one open request for the pet.
+        // Show "Seeking" only while the request is still open, active, and unassigned.
         for (const req of openReqs ?? []) {
           const pid = req?.pet_id as string | undefined;
           if (!pid) continue;
           if (nextPetSeekingById[pid]) continue;
+          if (!isRequestSeekingActive(req)) continue;
 
           const seekingDateRange = formatRequestDateRange(
             req?.start_date,
@@ -363,9 +378,7 @@ export default function LaunchRequestWizardScreen() {
 
   const toggleCareType = (key: string) => {
     setErrors((e) => ({ ...e, careTypes: undefined }));
-    setCareTypes((prev) =>
-      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
-    );
+    setCareTypes([key]);
   };
 
   return (
@@ -411,6 +424,7 @@ export default function LaunchRequestWizardScreen() {
             careTypes={careTypes}
             onToggle={toggleCareType}
             errorMessage={errors.careTypes}
+            titleKey="post.request.careStepTitle"
           />
         )}
 
@@ -477,6 +491,7 @@ export default function LaunchRequestWizardScreen() {
                       mode="date"
                       label={t("post.request.startDate")}
                       value={startDate}
+                      minimumDate={minimumRequestDate}
                       onChange={(d) => {
                         setStartDate(d);
                         setErrors((e) => ({
@@ -502,6 +517,7 @@ export default function LaunchRequestWizardScreen() {
                       mode="date"
                       label={t("post.request.endDate")}
                       value={endDate}
+                      minimumDate={minimumEndDate}
                       onChange={(d) => {
                         setEndDate(d);
                         setErrors((e) => ({
@@ -521,6 +537,7 @@ export default function LaunchRequestWizardScreen() {
                   mode="date"
                   label={t("post.request.date")}
                   value={startDate}
+                  minimumDate={minimumRequestDate}
                   onChange={(d) => {
                     setStartDate(d);
                     setErrors((e) => ({ ...e, timeRange: undefined }));
@@ -643,6 +660,7 @@ export default function LaunchRequestWizardScreen() {
                         mode="date"
                         label={t("post.request.startDate")}
                         value={startDate}
+                        minimumDate={minimumRequestDate}
                         onChange={(d) => {
                           setStartDate(d);
                           setErrors((e) => ({
@@ -668,6 +686,7 @@ export default function LaunchRequestWizardScreen() {
                         mode="date"
                         label={t("post.request.endDate")}
                         value={endDate}
+                        minimumDate={minimumEndDate}
                         onChange={(d) => {
                           setEndDate(d);
                           setErrors((e) => ({
@@ -686,6 +705,7 @@ export default function LaunchRequestWizardScreen() {
                     mode="date"
                     label={t("post.request.startDate")}
                     value={startDate}
+                    minimumDate={minimumRequestDate}
                     onChange={(d) => {
                       setStartDate(d);
                       setErrors((e) => ({

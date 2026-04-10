@@ -30,7 +30,7 @@ export function useOrCreateThread() {
       return { ok: false, message: msg };
     }
     const blockDirection = await getBlockDirection(userId, otherUserId);
-    if (blockDirection !== "none") {
+    if (blockDirection === "they_blocked") {
       const msg =
         getBlockMessageForDirection(blockDirection) ??
         "You can't message this user right now.";
@@ -48,7 +48,7 @@ export function useOrCreateThread() {
         requestId: requestId ?? null,
       });
       setLoading(false);
-      router.push(`/(private)/(tabs)/messages/${threadId}` as any);
+      router.push(`/(private)/chat/${threadId}` as any);
       return { ok: true };
     } catch (createError: any) {
       setLoading(false);

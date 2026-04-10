@@ -7,8 +7,14 @@ import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { PublicProfileActionsMenu } from "@/src/features/profile/components/public-profile/PublicProfileActionsMenu";
 import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
-import { getBlockDirection } from "@/src/lib/blocks/user-blocks";
+import {
+  blockUser,
+  getBlockDirection,
+  type BlockDirection,
+  unblockUser,
+} from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import { formatRequestDateRange } from "@/src/lib/datetime/request-date-time-format";
 import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import {
   isResourceNotFound,
@@ -75,9 +81,11 @@ export default function PublicProfileScreen() {
   const [activeTab, setActiveTab] = useState<ProfileTab>(validInitialTab);
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [sendRequestBusy, setSendRequestBusy] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
+  const [blockStatus, setBlockStatus] = useState<BlockDirection>("none");
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
   const [userPets, setUserPets] = useState<any[]>([]);
   const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(
@@ -203,6 +211,29 @@ export default function PublicProfileScreen() {
     void loadPublicProfile();
   }, [profileId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBlockStatus = async () => {
+      if (!user?.id || !profileId || isOwnProfile) {
+        if (!cancelled) setBlockStatus("none");
+        return;
+      }
+
+      try {
+        const next = await getBlockDirection(user.id, profileId);
+        if (!cancelled) setBlockStatus(next);
+      } catch {
+        if (!cancelled) setBlockStatus("none");
+      }
+    };
+
+    void loadBlockStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, profileId, user?.id]);
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -255,10 +286,7 @@ export default function PublicProfileScreen() {
       });
       const subtitleByPet: Record<string, string> = {};
       Object.entries(reqByPet).forEach(([pid, r]: [string, any]) => {
-        subtitleByPet[pid] =
-          r.start_date && r.end_date
-            ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
-            : "";
+        subtitleByPet[pid] = formatRequestDateRange(r.start_date, r.end_date);
       });
       setOpenReqByPetId(reqByPet);
       setPetSendSubtitleById(subtitleByPet);
@@ -352,10 +380,10 @@ export default function PublicProfileScreen() {
         .update({ last_message_at: new Date().toISOString() })
         .eq("id", threadId);
 
-      const dateRange =
-        openReq.start_date && openReq.end_date
-          ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(openReq.end_date).toLocaleDateString()}`
-          : "";
+      const dateRange = formatRequestDateRange(
+        openReq.start_date,
+        openReq.end_date,
+      );
       const price =
         openReq.start_date && openReq.end_date
           ? formatCarePointsPts(
@@ -367,7 +395,7 @@ export default function PublicProfileScreen() {
 
       setSendRequestOpen(false);
       router.push({
-        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        pathname: "/(private)/chat/[threadId]" as any,
         params: {
           threadId,
           mode: "seeking",
@@ -398,26 +426,46 @@ export default function PublicProfileScreen() {
     if (!user?.id || !profileId || blockBusy) return;
     setBlockBusy(true);
     try {
-      const { error } = await supabase
-        .from("user_blocks")
-        .upsert(
-          { blocker_id: user.id, blocked_id: profileId },
-          { onConflict: "blocker_id,blocked_id" },
-        );
-      if (error) throw error;
-
+      await blockUser(user.id, profileId);
       setShowBlockConfirm(false);
       setBlockReason("");
+      setBlockStatus("i_blocked");
       showToast({
         message: t("messages.blockedToast", "User blocked."),
       });
-      router.replace("/(private)/(tabs)/(home)" as any);
     } catch (err) {
       showToast({
         message:
           err instanceof Error
             ? err.message
-            : t("common.error", "Something went wrong"),
+            : t(
+                "messages.blockFailed",
+                "We couldn't update this block right now.",
+              ),
+      });
+    } finally {
+      setBlockBusy(false);
+    }
+  };
+
+  const handleUnblock = async () => {
+    if (!user?.id || !profileId || blockBusy) return;
+    setBlockBusy(true);
+    try {
+      await unblockUser(user.id, profileId);
+      setShowUnblockConfirm(false);
+      setBlockStatus("none");
+      showToast({
+        variant: "success",
+        message: t("messages.unblocked", "User unblocked."),
+      });
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : t("common.error", "Could not unblock this user right now."),
       });
     } finally {
       setBlockBusy(false);
@@ -636,7 +684,7 @@ export default function PublicProfileScreen() {
                 })}
                 onReviewerPress={(reviewerId) => {
                   router.push({
-                    pathname: "/(private)/(tabs)/profile/users/[id]",
+                    pathname: "/(private)/(tabs)/(home)/users/[id]",
                     params: { id: reviewerId },
                   });
                 }}
@@ -649,8 +697,19 @@ export default function PublicProfileScreen() {
 
       <PublicProfileActionsMenu
         visible={optionsVisible}
-        canSendRequest={!sendRequestBusy && Boolean(profileId) && !isOwnProfile}
-        canOpenChat={!chatOpening && Boolean(profileId) && !isOwnProfile}
+        canSendRequest={
+          !sendRequestBusy &&
+          Boolean(profileId) &&
+          !isOwnProfile &&
+          blockStatus === "none"
+        }
+        canOpenChat={
+          !chatOpening &&
+          Boolean(profileId) &&
+          !isOwnProfile &&
+          blockStatus !== "they_blocked"
+        }
+        isBlockedByMe={blockStatus === "i_blocked"}
         colors={colors}
         t={(key, fallback) => t(key, fallback as string)}
         styles={styles}
@@ -671,8 +730,12 @@ export default function PublicProfileScreen() {
             }
           })();
         }}
-        onBlock={() => {
+        onToggleBlock={() => {
           setOptionsVisible(false);
+          if (blockStatus === "i_blocked") {
+            setShowUnblockConfirm(true);
+            return;
+          }
           setShowBlockConfirm(true);
         }}
       />
@@ -736,6 +799,28 @@ export default function PublicProfileScreen() {
           if (blockBusy) return;
           setShowBlockConfirm(false);
           setBlockReason("");
+        }}
+      />
+      <FeedbackModal
+        visible={showUnblockConfirm}
+        title={t("messages.unblock", "Unblock")}
+        description={t(
+          "messages.unblockConfirmDescription",
+          "You’ll be able to message this user again after unblocking them.",
+        )}
+        primaryLabel={t("messages.unblock", "Unblock")}
+        secondaryLabel={t("common.cancel")}
+        primaryLoading={blockBusy}
+        onPrimary={() => {
+          void handleUnblock();
+        }}
+        onSecondary={() => {
+          if (blockBusy) return;
+          setShowUnblockConfirm(false);
+        }}
+        onRequestClose={() => {
+          if (blockBusy) return;
+          setShowUnblockConfirm(false);
         }}
       />
       <ImageViewerModal

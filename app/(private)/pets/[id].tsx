@@ -16,10 +16,12 @@ import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import {
   computeCarePoints,
   normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
+import { hasAvailabilityProfile } from "@/src/lib/taker/availability-profile";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -127,7 +129,10 @@ export default function PetDetailScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : t("common.error", "Something went wrong"),
+          : t(
+              "pet.detail.loadFailed",
+              "We couldn't load this pet right now. Please try again.",
+            ),
       );
     } finally {
       setLoading(false);
@@ -190,6 +195,10 @@ export default function PetDetailScreen() {
     () =>
       formatRequestTimeRange(openRequest?.start_time, openRequest?.end_time),
     [openRequest?.end_time, openRequest?.start_time],
+  );
+  const isSeeking = useMemo(
+    () => isRequestSeekingActive(openRequest),
+    [openRequest],
   );
 
   const isOwner = Boolean(
@@ -260,7 +269,7 @@ export default function PetDetailScreen() {
         durationMs: 3000,
       });
       router.push({
-        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        pathname: "/(private)/chat/[threadId]" as any,
         params: {
           threadId: existing.id,
           mode: "applying",
@@ -296,7 +305,10 @@ export default function PetDetailScreen() {
       if (!user?.id || !openRequest?.id || !owner?.id) {
         showToast({
           variant: "error",
-          message: t("common.error", "Something went wrong"),
+          message: t(
+            "requestDetails.applyStartFailed",
+            "We couldn't start your application for this request.",
+          ),
           durationMs: 4200,
         });
         return;
@@ -318,6 +330,18 @@ export default function PetDetailScreen() {
           message: t(
             "requestDetails.requestExpired",
             "This request has ended and is no longer accepting applications.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
+      const hasProfile = await hasAvailabilityProfile(user.id);
+      if (!hasProfile) {
+        showToast({
+          variant: "info",
+          message: t(
+            "offer.availabilityProfileRequired",
+            "Add your availability profile before applying to pet requests.",
           ),
           durationMs: 4200,
         });
@@ -378,6 +402,15 @@ export default function PetDetailScreen() {
       return;
     }
     if (!user?.id || !openRequest?.id || !owner?.id) return;
+    const hasProfile = await hasAvailabilityProfile(user.id);
+    if (!hasProfile) {
+      throw new Error(
+        t(
+          "offer.availabilityProfileRequired",
+          "Add your availability profile before applying to pet requests.",
+        ),
+      );
+    }
     const requestId = openRequest.id as string;
     const ownerId = owner.id as string;
     const blocked = await hasUserBlockRelation(user.id, ownerId);
@@ -424,7 +457,7 @@ export default function PetDetailScreen() {
 
     setApplyConfirmOpen(false);
     router.push({
-      pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+      pathname: "/(private)/chat/[threadId]" as any,
       params: {
         threadId,
         mode: "applying",
@@ -458,7 +491,10 @@ export default function PetDetailScreen() {
           variant: "error",
           message: errorMessageFromUnknown(
             err,
-            t("common.error", "Something went wrong"),
+            t(
+              "requestDetails.applyFailed",
+              "We couldn't apply to this request right now.",
+            ),
           ),
           durationMs: 3200,
         });
@@ -522,9 +558,9 @@ export default function PetDetailScreen() {
           petName: pet.name ?? t("pets.add.name", "Pet"),
           breed: pet.breed || t("pets.add.breed", "Breed"),
           petType: pet.species || t("pets.add.kind", "Pet"),
-          dateRange: openRequest ? seekingDateRange : "",
-          time: openRequest ? seekingTime : "",
-          careType: openRequest ? careTypeLabel : "",
+          dateRange: isSeeking ? seekingDateRange : "",
+          time: isSeeking ? seekingTime : "",
+          careType: isSeeking ? careTypeLabel : "",
           location,
           distance: "",
           description:
@@ -555,7 +591,7 @@ export default function PetDetailScreen() {
             return;
           }
           router.push({
-            pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
             params: { id: owner.id },
           });
         }}

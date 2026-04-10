@@ -108,7 +108,7 @@ export function navigateForNotificationPayload(
       const takerId = typeof d.taker_id === "string" ? d.taker_id : null;
       if (takerId) {
         router.push({
-          pathname: "/(private)/(tabs)/profile/users/[id]",
+          pathname: "/(private)/(tabs)/(home)/users/[id]",
           params: { id: takerId },
         });
       } else {
@@ -199,7 +199,7 @@ export function navigateForNotificationPayload(
     case "chat": {
       const threadId = d.threadId;
       if (typeof threadId === "string" && threadId) {
-        router.push(`/(private)/(tabs)/messages/${threadId}` as any);
+        router.push(`/(private)/chat/${threadId}` as any);
       } else {
         router.push("/(private)/(tabs)/messages");
       }

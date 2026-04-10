@@ -2,8 +2,7 @@ import { stackPerfScreenOptions } from "@/src/constants/navigation";
 import { Stack } from "expo-router";
 import { Platform } from "react-native";
 
-/** Home tab stack: feed, notifications, and search live together (no separate tab). */
-export default function HomeStackLayout() {
+export default function ChatLayout() {
   return (
     <Stack
       screenOptions={{
@@ -14,10 +13,7 @@ export default function HomeStackLayout() {
           : {}),
       }}
     >
-      <Stack.Screen name="index" />
-      <Stack.Screen name="notifications" />
-      <Stack.Screen name="search" />
-      <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
+      <Stack.Screen name="[threadId]" options={{ headerShown: false }} />
     </Stack>
   );
 }

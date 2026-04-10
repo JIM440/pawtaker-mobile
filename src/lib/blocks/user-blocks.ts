@@ -54,6 +54,34 @@ export async function getBlockDirection(
   return row.blocker_id === currentUserId ? "i_blocked" : "they_blocked";
 }
 
+export async function blockUser(
+  currentUserId: string,
+  otherUserId: string,
+): Promise<void> {
+  const { error } = await supabase.from("user_blocks").upsert(
+    {
+      blocker_id: currentUserId,
+      blocked_id: otherUserId,
+    },
+    { onConflict: "blocker_id,blocked_id" },
+  );
+
+  if (error) throw error;
+}
+
+export async function unblockUser(
+  currentUserId: string,
+  otherUserId: string,
+): Promise<void> {
+  const { error } = await supabase
+    .from("user_blocks")
+    .delete()
+    .eq("blocker_id", currentUserId)
+    .eq("blocked_id", otherUserId);
+
+  if (error) throw error;
+}
+
 export async function filterOutBlockedUsers(
   currentUserId: string,
   candidateUserIds: string[],

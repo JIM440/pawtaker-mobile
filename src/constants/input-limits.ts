@@ -5,5 +5,5 @@ export const INPUT_LIMITS = {
   location: 80,
   zipCode: 12,
   bio: 280,
+  message: 1000,
 } as const;
-

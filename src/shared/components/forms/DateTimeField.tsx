@@ -1,3 +1,7 @@
+import {
+  formatCompactDate,
+  formatCompactTime,
+} from "@/src/lib/datetime/request-date-time-format";
 import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppText } from "@/src/shared/components/ui/AppText";
@@ -16,6 +20,8 @@ type Props = {
   error?: string;
   /** When `error` is set, still show styling but hide the caption (e.g. sibling field shows the message). */
   showErrorText?: boolean;
+  minimumDate?: Date;
+  maximumDate?: Date;
 };
 
 export function DateTimeField({
@@ -26,6 +32,8 @@ export function DateTimeField({
   placeholder,
   error,
   showErrorText = true,
+  minimumDate,
+  maximumDate,
 }: Props) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -36,17 +44,7 @@ export function DateTimeField({
 
   const formatValue = () => {
     if (!value) return "";
-    if (mode === "date") {
-      return value.toLocaleDateString(undefined, {
-        month: "short",
-        day: "numeric",
-        year: "numeric",
-      });
-    }
-    return value.toLocaleTimeString(undefined, {
-      hour: "numeric",
-      minute: "2-digit",
-    });
+    return mode === "date" ? formatCompactDate(value, "always") : formatCompactTime(value);
   };
 
   const display = formatValue();
@@ -122,6 +120,8 @@ export function DateTimeField({
         mode={mode as DatePickerProps["mode"]}
         theme={isDark ? "dark" : "light"}
         date={value ?? new Date()}
+        minimumDate={minimumDate}
+        maximumDate={maximumDate}
         onConfirm={(d) => {
           setOpen(false);
           onChange(d);

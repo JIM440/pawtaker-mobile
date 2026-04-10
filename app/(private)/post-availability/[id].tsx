@@ -12,6 +12,7 @@ import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -84,7 +85,12 @@ export default function ViewOfferScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "myCare.contract.offerDetailsLoadFailed",
+          "We couldn't load this offer.",
+        ),
+      );
       return;
     }
 
@@ -255,7 +261,10 @@ export default function ViewOfferScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : t("common.error", "Something went wrong"),
+          : t(
+              "myCare.contract.offerDetailsLoadFailed",
+              "We couldn't load this offer.",
+            ),
       );
     } finally {
       setLoading(false);
@@ -458,6 +467,7 @@ export default function ViewOfferScreen() {
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <BackHeader title="" onBack={() => router.back()} />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -488,8 +498,12 @@ export default function ViewOfferScreen() {
   if (error || !reqRow) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <BackHeader title="" onBack={() => router.back()} />
         <DataState
-          title={t("common.error", "Something went wrong")}
+          title={t(
+            "myCare.contract.offerDetailsLoadFailed",
+            "We couldn't load this offer.",
+          )}
           message={error ?? undefined}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
@@ -597,7 +611,7 @@ export default function ViewOfferScreen() {
           onPress={() => {
             if (!takerId) return;
             router.push({
-              pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
               params: { id: takerId },
             });
           }}
@@ -848,7 +862,10 @@ export default function ViewOfferScreen() {
                 message:
                   err instanceof Error
                     ? err.message
-                    : t("common.error", "Something went wrong"),
+                    : t(
+                        "myCare.contract.terminationRequestFailed",
+                        "We couldn't send the termination request right now.",
+                      ),
                 durationMs: 3200,
               });
             } finally {
@@ -907,7 +924,10 @@ export default function ViewOfferScreen() {
                 message:
                   err instanceof Error
                     ? err.message
-                    : t("common.error", "Something went wrong"),
+                    : t(
+                        "myCare.contract.reactivateFailed",
+                        "We couldn't reactivate this agreement right now.",
+                      ),
                 durationMs: 3200,
               });
             } finally {
@@ -966,7 +986,10 @@ export default function ViewOfferScreen() {
                 message:
                   err instanceof Error
                     ? err.message
-                    : t("common.error", "Something went wrong"),
+                    : t(
+                        "myCare.contract.acceptTerminationFailed",
+                        "We couldn't complete the termination right now.",
+                      ),
                 durationMs: 3200,
               });
             } finally {
@@ -1044,7 +1067,10 @@ export default function ViewOfferScreen() {
                 message:
                   err instanceof Error
                     ? err.message
-                    : t("common.error", "Something went wrong"),
+                    : t(
+                        "messages.reportFailed",
+                        "We couldn't submit this report right now.",
+                      ),
                 durationMs: 3200,
               });
             } finally {
@@ -1117,7 +1143,21 @@ export default function ViewOfferScreen() {
             setAcceptingOffer(true);
             try {
               if (!requestId || !ownerId || !takerId) {
-                throw new Error(t("common.error", "Something went wrong"));
+                throw new Error(
+                  t(
+                    "myCare.contract.acceptOfferMissingData",
+                    "We couldn't confirm this offer because some request details are missing.",
+                  ),
+                );
+              }
+
+              if (!takerProfile?.user_id) {
+                throw new Error(
+                  t(
+                    "offer.takerAvailabilityMissing",
+                    "This caregiver needs to complete an availability profile before you can accept their offer.",
+                  ),
+                );
               }
 
               const acceptance = await acceptCareRequest({
@@ -1142,7 +1182,12 @@ export default function ViewOfferScreen() {
               }
 
               if (!acceptance.contractId) {
-                throw new Error(t("common.error", "Something went wrong"));
+                throw new Error(
+                  t(
+                    "myCare.contract.acceptOfferFailed",
+                    "We couldn't create the care contract for this offer.",
+                  ),
+                );
               }
 
               await createInAppNotification({
@@ -1169,10 +1214,13 @@ export default function ViewOfferScreen() {
             } catch (err) {
               showToast({
                 variant: "error",
-                message:
-                  err instanceof Error
-                    ? err.message
-                    : t("common.error", "Something went wrong"),
+                message: errorMessageFromUnknown(
+                  err,
+                  t(
+                    "myCare.contract.acceptOfferFailed",
+                    "We couldn't create the care contract for this offer.",
+                  ),
+                ),
                 durationMs: 3200,
               });
             } finally {

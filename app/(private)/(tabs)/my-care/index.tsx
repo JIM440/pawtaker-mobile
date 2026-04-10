@@ -3,12 +3,14 @@ import { EmptyState } from "@/src/features/my-care/components/EmptyState";
 import { MyCareInCareMenu } from "@/src/features/my-care/components/MyCareInCareMenu";
 import { MyCareStatsSection } from "@/src/features/my-care/components/MyCareStatsSection";
 import {
+  formatCompactDate,
   formatRequestDateRange,
   formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
+import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -164,7 +166,10 @@ export default function MyCareScreen() {
         setAvailable(previous);
         const details = errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t(
+            "myCare.availabilityUpdateFailed",
+            "We couldn't update your availability right now.",
+          ),
         );
         showToast({
           variant: "error",
@@ -309,12 +314,12 @@ export default function MyCareScreen() {
         petName: pet?.name ?? "Pet",
         careType: req?.care_type ?? "care",
         dayLabel: req?.start_date
-          ? new Date(req.start_date).toLocaleDateString()
+          ? formatCompactDate(req.start_date)
           : "",
         caregiverName: resolveDisplayName(peerUser) || "Caregiver",
         caregiverAvatar: peerUser?.avatar_url ?? "",
         endsIn: req?.end_date
-          ? new Date(req.end_date).toLocaleDateString()
+          ? formatCompactDate(req.end_date)
           : "",
       });
       setActiveCareLoaded(true);
@@ -429,7 +434,7 @@ export default function MyCareScreen() {
           paws: 0,
           pet: pet?.name ?? "Pet",
           careType: req?.care_type ?? "care",
-          date: c.created_at ? new Date(c.created_at).toLocaleDateString() : "",
+          date: c.created_at ? formatCompactDate(c.created_at) : "",
         };
       });
 
@@ -545,7 +550,7 @@ export default function MyCareScreen() {
           paws: 0,
           pet: pet?.name ?? "Pet",
           careType: req?.care_type ?? "care",
-          date: c.created_at ? new Date(c.created_at).toLocaleDateString() : "",
+          date: c.created_at ? formatCompactDate(c.created_at) : "",
         };
       });
 
@@ -646,7 +651,10 @@ export default function MyCareScreen() {
           end_date: string;
           start_time?: string;
           end_time?: string;
+          status?: string;
+          taker_id?: string | null;
         };
+        if (!isRequestSeekingActive(row)) continue;
         if (row.pet_id && !openReqByPetId[row.pet_id])
           openReqByPetId[row.pet_id] = row;
       }
@@ -655,6 +663,7 @@ export default function MyCareScreen() {
         const pet = petsById[like.pet_id] as any;
         const parsed = parsePetNotes(pet?.notes);
         const req = openReqByPetId[like.pet_id];
+        const isSeeking = isRequestSeekingActive(req);
         return {
           petId: like.pet_id,
           requestId: req?.id ?? null,
@@ -667,12 +676,13 @@ export default function MyCareScreen() {
           ageRange: pet?.age_range ?? parsed.ageRange ?? undefined,
           energyLevel: pet?.energy_level ?? parsed.energyLevel ?? undefined,
           tags: [],
-          seekingDateRange: formatRequestDateRange(
-            req?.start_date,
-            req?.end_date,
-          ),
-          seekingTime: formatRequestTimeRange(req?.start_time, req?.end_time),
-          isSeeking: Boolean(req),
+          seekingDateRange: isSeeking
+            ? formatRequestDateRange(req?.start_date, req?.end_date)
+            : undefined,
+          seekingTime: isSeeking
+            ? formatRequestTimeRange(req?.start_time, req?.end_time)
+            : undefined,
+          isSeeking,
         };
       });
 
@@ -713,7 +723,10 @@ export default function MyCareScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t(
+            "myCare.removeLikeFailed",
+            "We couldn't remove this pet from your liked list.",
+          ),
         ),
         durationMs: 3200,
       });
@@ -786,7 +799,7 @@ export default function MyCareScreen() {
   const onPressCarePerson = (row: CareRow) => {
     if (!row.personId) return;
     router.push({
-      pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
       params: { id: row.personId },
     });
   };

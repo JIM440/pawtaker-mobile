@@ -60,6 +60,7 @@ export default function PrivateLayout() {
         }}
       >
         <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        <Stack.Screen name="chat" options={{ headerShown: false }} />
         <Stack.Screen name="post-requests" options={{ headerShown: false }} />
         <Stack.Screen
           name="post-availability"
@@ -67,9 +68,7 @@ export default function PrivateLayout() {
         />
         <Stack.Screen name="offer" options={{ headerShown: false }} />
         <Stack.Screen name="kyc/index" options={{ headerShown: false }} />
-        <Stack.Screen name="pets/add" options={{ title: "Add Pet" }} />
-        <Stack.Screen name="pets/[id]" options={{ title: "Pet Profile" }} />
-        <Stack.Screen name="pets/[id]/edit" options={{ title: "Edit Pet" }} />
+        <Stack.Screen name="pets" options={{ headerShown: false }} />
       </Stack>
     </SafeAreaView>
   );

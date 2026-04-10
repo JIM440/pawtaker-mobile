@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
 import { navigateForNotificationPayloadAsync } from "@/src/features/notifications/notificationNavigation";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -89,18 +90,6 @@ export default function NotificationsScreen() {
   } | null>(null);
 
   const menuButtonRefs = useRef<Record<string, View | null>>({});
-
-  const relativeTime = (isoDate: string) => {
-    const now = Date.now();
-    const diffMs = Math.max(0, now - new Date(isoDate).getTime());
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "now";
-    if (mins < 60) return `${mins}m`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
-  };
 
   const loadNotifications = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
@@ -280,7 +269,7 @@ export default function NotificationsScreen() {
           id: row.id,
           title: row.title,
           body: row.body,
-          time: relativeTime(row.created_at),
+          time: formatReviewRelativeDate(row.created_at),
           unread: !row.read,
           type: row.type,
           data: rawData,
@@ -290,7 +279,13 @@ export default function NotificationsScreen() {
       setItems(mapped);
     } catch (err) {
       setLoadError(
-        errorMessageFromUnknown(err, t("common.error", "Something went wrong")),
+        errorMessageFromUnknown(
+          err,
+          t(
+            "notifications.loadFailed",
+            "We couldn't load your notifications right now.",
+          ),
+        ),
       );
     } finally {
       setLoading(false);
@@ -376,7 +371,10 @@ export default function NotificationsScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t(
+            "notifications.markReadFailed",
+            "We couldn't update this notification right now.",
+          ),
         ),
         durationMs: 3200,
       });

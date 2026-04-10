@@ -16,21 +16,14 @@ export type PetCardBaseProps = {
   ageRange?: string | null;
   energyLevel?: string | null;
   tags?: string[];
-
   seekingDateRange?: string;
   seekingTime?: string;
-
   onPress?: () => void;
   onMenuPress?: () => void;
   menuButtonRef?: (ref: View | null) => void;
-  /** When false, the ⋯ control is hidden (e.g. viewing someone else’s pets). */
   showMenu?: boolean;
 };
 
-/**
- * Shared visual “row” used by both profile pets and my-care liked pets.
- * It intentionally does not render the Apply/Remove overlay; that’s handled by wrappers.
- */
 export function PetCardBase({
   imageSource,
   petName,
@@ -50,9 +43,8 @@ export function PetCardBase({
 }: PetCardBaseProps) {
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const showSeeking = seekingDateRange != null;
+  const showSeeking = Boolean(seekingDateRange);
 
-  // Pills for yard type, age range, and energy level
   const pills = [
     typeof yardType === "string" && yardType.trim().length > 0
       ? yardType.trim()
@@ -63,9 +55,8 @@ export function PetCardBase({
     typeof energyLevel === "string" && energyLevel.trim().length > 0
       ? energyLevel.trim()
       : null,
-  ].filter((v): v is string => !!v);
+  ].filter((value): value is string => Boolean(value));
 
-  // Use ellipses for menu, not custom dots
   const menuDots = <MoreHorizontal size={20} color={colors.onSurfaceVariant} />;
 
   return (
@@ -89,10 +80,10 @@ export function PetCardBase({
         <View style={styles.body}>
           <View style={styles.titleRow}>
             <View style={styles.nameRow}>
-              <AppText variant="title" style={styles.petName}>
+              <AppText variant="title" style={styles.petName} numberOfLines={1}>
                 {petName}
               </AppText>
-              {showSeeking && (
+              {showSeeking ? (
                 <View
                   style={[
                     styles.seekingMarker,
@@ -107,7 +98,7 @@ export function PetCardBase({
                     Seeking
                   </AppText>
                 </View>
-              )}
+              ) : null}
             </View>
           </View>
 
@@ -116,6 +107,7 @@ export function PetCardBase({
               variant="caption"
               color={colors.onSurface}
               style={styles.breed}
+              numberOfLines={1}
             >
               {breed}
             </AppText>
@@ -124,38 +116,39 @@ export function PetCardBase({
               color={colors.onSurface}
               style={styles.breedDot}
             >
-              {" "}
-              ·{" "}
+              ·
             </AppText>
             <AppText
               variant="caption"
               color={colors.onSurface}
               style={styles.breed}
+              numberOfLines={1}
             >
               {petType}
             </AppText>
           </View>
 
-          {showSeeking && seekingDateRange && (
+          {showSeeking ? (
             <View style={styles.dateRow}>
-              <Calendar size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" style={styles.metaText}>
-                {seekingDateRange}
-              </AppText>
+              <View style={styles.metaItem}>
+                <Calendar size={16} color={colors.onSurfaceVariant} />
+                <AppText variant="caption" style={styles.metaText}>
+                  {seekingDateRange}
+                </AppText>
+              </View>
               {seekingTime ? (
-                <>
+                <View style={styles.metaItem}>
                   <AppText variant="caption" color={colors.onSurfaceVariant}>
-                    {" "}
-                    •{" "}
+                    ·
                   </AppText>
                   <Clock size={16} color={colors.onSurfaceVariant} />
                   <AppText variant="caption" style={styles.metaText}>
                     {seekingTime}
                   </AppText>
-                </>
+                </View>
               ) : null}
             </View>
-          )}
+          ) : null}
 
           <AppText
             variant="caption"
@@ -173,15 +166,14 @@ export function PetCardBase({
                   key={pill}
                   style={[
                     styles.pill,
-                    {
-                      backgroundColor: colors.surfaceContainerHigh,
-                    },
+                    { backgroundColor: colors.surfaceContainerHigh },
                   ]}
                 >
                   <AppText
                     variant="caption"
                     color={colors.onSecondaryContainer}
                     style={styles.pillText}
+                    numberOfLines={1}
                   >
                     {pill}
                   </AppText>
@@ -190,7 +182,7 @@ export function PetCardBase({
             </View>
           ) : null}
 
-          {tags.length > 0 && (
+          {tags.length > 0 ? (
             <View style={styles.tags}>
               {tags.map((tag, index) => (
                 <View
@@ -209,13 +201,14 @@ export function PetCardBase({
                     variant="body"
                     color={colors.onSecondaryContainer}
                     style={styles.tagText}
+                    numberOfLines={1}
                   >
                     {tag}
                   </AppText>
                 </View>
               ))}
             </View>
-          )}
+          ) : null}
         </View>
       </TouchableOpacity>
 
@@ -257,6 +250,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 12,
+    flexShrink: 0,
   },
   body: {
     flex: 1,
@@ -276,6 +270,7 @@ const styles = StyleSheet.create({
     minWidth: 0,
   },
   petName: {
+    flexShrink: 1,
     fontSize: 16,
     lineHeight: 24,
     fontWeight: "600",
@@ -285,6 +280,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 4,
     paddingVertical: 0,
     borderRadius: 12,
+    flexShrink: 0,
   },
   seekingMarkerText: {
     fontSize: 10,
@@ -299,42 +295,48 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     marginTop: 1,
   },
-  menuEllipsis: {
-    fontSize: 18,
-    lineHeight: 20,
-    fontWeight: "900",
-    letterSpacing: 1.5,
-    includeFontPadding: false,
-    textAlign: "center",
-    marginTop: -2,
-  },
   breedRow: {
     flexDirection: "row",
     alignItems: "center",
+    minWidth: 0,
+    gap: 4,
   },
   breed: {
     fontSize: 11,
     lineHeight: 13,
     fontWeight: "500",
+    flexShrink: 1,
   },
   breedDot: {
     fontSize: 11,
     lineHeight: 13,
     fontWeight: "500",
+    flexShrink: 0,
   },
   dateRow: {
     flexDirection: "row",
     alignItems: "center",
+    flexWrap: "wrap",
+    columnGap: 8,
+    rowGap: 4,
+  },
+  metaItem: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
+    flexShrink: 1,
+    minWidth: 0,
   },
   metaText: {
     fontSize: 12,
     lineHeight: 16,
+    flexShrink: 1,
   },
   pillsRow: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 4,
+    minWidth: 0,
   },
   pill: {
     paddingVertical: 2,
@@ -343,8 +345,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
     minHeight: 24,
-    marginRight: 0,
-    marginBottom: 0,
+    maxWidth: "100%",
   },
   pillText: {
     fontSize: 11,
@@ -360,12 +361,13 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   tag: {
-    paddingHorizontal: 6,
-    paddingVertical: 2,
+    paddingHorizontal: 8,
+    paddingVertical: 6,
     borderRadius: 999,
+    maxWidth: "100%",
   },
   tagText: {
-    fontSize: 11,
-    lineHeight: 13,
+    fontSize: 12,
+    lineHeight: 16,
   },
 });

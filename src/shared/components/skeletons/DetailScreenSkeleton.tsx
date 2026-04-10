@@ -303,7 +303,7 @@ type ChatThreadScreenSkeletonProps = {
   onPressBack?: () => void;
 };
 
-/** Chat thread: header + bubbles + composer (matches `messages/[threadId]`). */
+/** Chat thread: header + bubbles + composer (matches `chat/[threadId]`). */
 export function ChatThreadScreenSkeleton({
   onPressBack,
 }: ChatThreadScreenSkeletonProps) {

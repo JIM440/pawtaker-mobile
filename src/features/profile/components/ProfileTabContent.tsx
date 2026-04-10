@@ -201,7 +201,7 @@ export function ProfileTabContent(props: Props) {
               items={reviewsUiItems}
               onReviewerPress={(id) =>
                 router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                  pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id },
                 })
               }

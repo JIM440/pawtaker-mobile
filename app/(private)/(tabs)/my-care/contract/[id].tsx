@@ -2,6 +2,10 @@ import { Colors } from "@/src/constants/colors";
 import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
 import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
 import {
+  formatRequestDateRange,
+  formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
+import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
@@ -91,7 +95,12 @@ export default function ContractDetailScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "myCare.contract.loadFailed",
+          "We couldn't load this contract right now.",
+        ),
+      );
       return;
     }
 
@@ -161,7 +170,12 @@ export default function ContractDetailScreen() {
         contract.owner_id !== user.id &&
         contract.taker_id !== user.id
       ) {
-        setError(t("common.error", "Something went wrong"));
+        setError(
+          t(
+            "myCare.contract.accessDenied",
+            "You don't have access to this contract.",
+          ),
+        );
         setContractRow(null);
         setRequestRow(null);
         setPetRow(null);
@@ -176,7 +190,12 @@ export default function ContractDetailScreen() {
         req.taker_id &&
         req.taker_id !== user.id
       ) {
-        setError(t("common.error", "Something went wrong"));
+        setError(
+          t(
+            "myCare.contract.accessDenied",
+            "You don't have access to this contract.",
+          ),
+        );
         setContractRow(null);
         setRequestRow(null);
         setPetRow(null);
@@ -284,7 +303,10 @@ export default function ContractDetailScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : t("common.error", "Something went wrong"),
+          : t(
+              "myCare.contract.loadFailed",
+              "We couldn't load this contract right now.",
+            ),
       );
     } finally {
       setLoading(false);
@@ -307,12 +329,9 @@ export default function ContractDetailScreen() {
 
   const petName = petRow?.name ?? petNameParam ?? "";
   const breed = petRow?.breed ?? breedParam ?? "";
-  const dateRange =
-    requestRow?.start_date && requestRow?.end_date
-      ? `${new Date(requestRow.start_date).toLocaleDateString()} - ${new Date(
-        requestRow.end_date,
-      ).toLocaleDateString()}`
-      : (dateParam ?? "");
+  const dateRange = requestRow?.start_date
+    ? formatRequestDateRange(requestRow.start_date, requestRow.end_date)
+    : (dateParam ?? "");
   const time = timeParam && timeParam.trim() ? timeParam : careTypeLabel;
   const price =
     requestRow?.start_date && requestRow?.end_date
@@ -340,12 +359,10 @@ export default function ContractDetailScreen() {
       : t("post.request.noDescription", "No description yet.");
   const formattedDateRange = useMemo(() => {
     if (!requestRow?.start_date) return dateRange || null;
-    const start = new Date(requestRow.start_date);
-    const end = new Date(requestRow.end_date ?? requestRow.start_date);
-    const startStr = start.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    const endStr = end.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-    if (requestRow.start_date === requestRow.end_date) return startStr;
-    return `${startStr} - ${endStr}`;
+    return formatRequestDateRange(
+      requestRow.start_date,
+      requestRow.end_date ?? requestRow.start_date,
+    );
   }, [requestRow, dateRange]);
 
   const isExpired = requestRow?.end_date && new Date(requestRow.end_date) < new Date();
@@ -353,7 +370,7 @@ export default function ContractDetailScreen() {
 
   const formattedTime =
     requestRow?.start_time && requestRow?.end_time
-      ? `${requestRow.start_time.slice(0, 5)} - ${requestRow.end_time.slice(0, 5)}`
+      ? formatRequestTimeRange(requestRow.start_time, requestRow.end_time)
       : (time || null);
   const ownerLocation = ownerRow?.city?.trim() || t("profile.noLocation");
   const takerLocation = takerRow?.city?.trim() || t("profile.noLocation");
@@ -490,7 +507,10 @@ export default function ContractDetailScreen() {
           message:
             err instanceof Error
               ? `Error: ${err.message}`
-              : t("common.error", "Something went wrong"),
+              : t(
+                  "myCare.contract.terminationRequestFailed",
+                  "We couldn't send the termination request right now.",
+                ),
           durationMs: 5000,
         });
       } finally {
@@ -529,7 +549,10 @@ export default function ContractDetailScreen() {
           message:
             err instanceof Error
               ? err.message
-              : t("common.error", "Something went wrong"),
+              : t(
+                  "myCare.contract.reactivateFailed",
+                  "We couldn't reactivate this agreement right now.",
+                ),
           durationMs: 3200,
         });
       } finally {
@@ -565,7 +588,10 @@ export default function ContractDetailScreen() {
           message:
             err instanceof Error
               ? `Error: ${err.message}`
-              : t("common.error", "Something went wrong"),
+              : t(
+                  "myCare.contract.acceptTerminationFailed",
+                  "We couldn't complete the termination right now.",
+                ),
           durationMs: 5000,
         });
       } finally {
@@ -613,7 +639,10 @@ export default function ContractDetailScreen() {
           message:
             err instanceof Error
               ? err.message
-              : t("common.error", "Something went wrong"),
+              : t(
+                  "messages.reportFailed",
+                  "We couldn't submit this report right now.",
+                ),
           durationMs: 3200,
         });
       } finally {
@@ -756,7 +785,7 @@ export default function ContractDetailScreen() {
                 return;
               }
               router.push({
-                pathname: "/(private)/(tabs)/profile/users/[id]" as any,
+                pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
                 params: { id: ownerRow.id },
               });
             }}
@@ -829,7 +858,7 @@ export default function ContractDetailScreen() {
                     return;
                   }
                   router.push({
-                    pathname: "/(private)/(tabs)/profile/users/[id]" as any,
+                pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
                     params: { id: takerRow.id },
                   });
                 }}
