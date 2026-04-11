@@ -1,57 +1,56 @@
 import { ChatTypography } from "@/src/constants/chatTypography";
 import { Colors } from "@/src/constants/colors";
+import { INPUT_LIMITS } from "@/src/constants/input-limits";
+import { ThreadBlockConfirmModal } from "@/src/features/messages/components/ThreadBlockConfirmModal";
+import { ThreadForwardModal } from "@/src/features/messages/components/ThreadForwardModal";
+import { ThreadMenus } from "@/src/features/messages/components/ThreadMenus";
+import { ThreadScreenHeader } from "@/src/features/messages/components/ThreadScreenHeader";
+import { ThreadSelectionHeader } from "@/src/features/messages/components/ThreadSelectionHeader";
 import { useMessages } from "@/src/features/messages/hooks/useMessages";
 import { useSendMessage } from "@/src/features/messages/hooks/useSendMessage";
+import { useThreads } from "@/src/features/messages/hooks/useThreads";
 import {
   mapThreadMessagesToUi,
   type UiMessage,
 } from "@/src/features/messages/threadMessageUi";
-import { ThreadForwardModal } from "@/src/features/messages/components/ThreadForwardModal";
-import { ThreadScreenHeader } from "@/src/features/messages/components/ThreadScreenHeader";
-import { ThreadSelectionHeader } from "@/src/features/messages/components/ThreadSelectionHeader";
-import { ThreadBlockConfirmModal } from "@/src/features/messages/components/ThreadBlockConfirmModal";
-import { ThreadMenus } from "@/src/features/messages/components/ThreadMenus";
-import { useThreads } from "@/src/features/messages/hooks/useThreads";
+import {
+  blockUser,
+  getBlockDirection,
+  unblockUser,
+  type BlockDirection,
+} from "@/src/lib/blocks/user-blocks";
 import {
   CLOUDINARY_GALLERY_UPLOAD_PRESET,
   uploadRawToCloudinary,
   uploadToCloudinary,
 } from "@/src/lib/cloudinary/upload";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
-import {
-  blockUser,
-  getBlockDirection,
-  type BlockDirection,
-  unblockUser,
-} from "@/src/lib/blocks/user-blocks";
-import { INPUT_LIMITS } from "@/src/constants/input-limits";
-import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import type { Json } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
-import { ChatThreadScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { ProfilePetCard } from "@/src/shared/components/cards/ProfilePetCard";
+import { ChatThreadScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import {
   DataState,
   ErrorState,
   ResourceMissingState,
 } from "@/src/shared/components/ui";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
-import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import * as ImagePicker from "expo-image-picker";
-import { useVideoPlayer, VideoView } from "expo-video";
 import { useLocalSearchParams, useRouter } from "expo-router";
+import { useVideoPlayer, VideoView } from "expo-video";
 import {
   ArrowLeft,
   CircleAlert,
@@ -633,29 +632,26 @@ function MessageBubble({
 }
 
 export default function ThreadScreen() {
-  const {
-    threadId: threadIdParam,
-    mode,
-    petName,
-    breed,
-    date,
-    time,
-    price,
-    offerId,
-  } = useLocalSearchParams<{
-    threadId: string | string[];
-    mode?: string;
-    petName?: string;
-    breed?: string;
-    date?: string;
-    time?: string;
-    price?: string;
-    offerId?: string;
-  }>();
-  const threadId =
-    typeof threadIdParam === "string"
-      ? threadIdParam
-      : (threadIdParam?.[0] ?? "");
+const {
+  threadId = "",
+  mode,
+  petName,
+  breed,
+  date,
+  time,
+  price,
+  offerId,
+} = useLocalSearchParams<{
+  threadId?: string;
+  mode?: string;
+  petName?: string;
+  breed?: string;
+  date?: string;
+  time?: string;
+  price?: string;
+  offerId?: string;
+}>();
+  // ... rest of your code
 
   const router = useRouter();
   const { t } = useTranslation();
@@ -713,7 +709,6 @@ export default function ThreadScreen() {
   const { sendMessage: postMessage, sending } = useSendMessage();
   const scrollRef = useRef<ScrollView>(null);
   const insets = useSafeAreaInsets();
-  const tabBarHeight = useBottomTabBarHeight();
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [attachMenuVisible, setAttachMenuVisible] = useState(false);
   const [uploadingAttachment, setUploadingAttachment] = useState(false);
@@ -1449,7 +1444,6 @@ export default function ThreadScreen() {
                 colors={colors}
                 styles={styles}
                 insetsBottom={insets.bottom}
-                tabBarHeight={tabBarHeight}
                 t={(key, fallback) => t(key, fallback as string)}
                 onCloseActions={() => setActionsOpen(false)}
                 onViewProfile={() => {

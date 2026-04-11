@@ -9,7 +9,6 @@ type Props = {
   colors: Record<string, string>;
   styles: any;
   insetsBottom: number;
-  tabBarHeight: number;
   t: (key: string, fallback?: string) => string;
   onCloseActions: () => void;
   onViewProfile: () => void;
@@ -28,7 +27,6 @@ export function ThreadMenus({
   colors,
   styles,
   insetsBottom,
-  tabBarHeight,
   t,
   onCloseActions,
   onViewProfile,
@@ -99,7 +97,7 @@ export function ThreadMenus({
           style={[
             styles.attachOverlay,
             {
-              paddingBottom: tabBarHeight + 52 + Math.max(insetsBottom, 8) + 20,
+              paddingBottom: 52 + Math.max(insetsBottom, 8) + 20,
             },
           ]}
           onPress={onCloseAttach}

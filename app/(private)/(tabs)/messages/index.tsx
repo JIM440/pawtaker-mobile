@@ -19,9 +19,9 @@ import {
   IllustratedEmptyStateIllustrations,
 } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -214,7 +214,10 @@ export default function MessagesScreen() {
                     timestamp={chat.timestamp}
                     unreadCount={chat.unreadCount}
                     onPress={() =>
-                      router.push(`/(private)/chat/${chat.threadId}`)
+                      router.push({
+  pathname: '/(private)/chat/[threadId]',   // ← include the [bracket] in pathname
+  params: { threadId: chat.threadId }
+})
                     }
                   />
                 ))
