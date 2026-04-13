@@ -279,13 +279,7 @@ export default function NotificationsScreen() {
       setItems(mapped);
     } catch (err) {
       setLoadError(
-        errorMessageFromUnknown(
-          err,
-          t(
-            "notifications.loadFailed",
-            "We couldn't load your notifications right now.",
-          ),
-        ),
+        errorMessageFromUnknown(err, t("notifications.loadFailed")),
       );
     } finally {
       setLoading(false);
@@ -371,10 +365,7 @@ export default function NotificationsScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "notifications.markReadFailed",
-            "We couldn't update this notification right now.",
-          ),
+          t("notifications.markReadFailed"),
         ),
         durationMs: 3200,
       });

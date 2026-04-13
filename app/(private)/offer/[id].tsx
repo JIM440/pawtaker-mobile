@@ -290,10 +290,7 @@ export default function SendOfferScreen() {
           variant: "error",
           message: errorMessageFromUnknown(
             err,
-            t(
-              "offer.sendFailed",
-              "We couldn't send your offer right now. Please try again.",
-            ),
+            t("errors.loadOfferSendFailed"),
           ),
           durationMs: 3200,
         });

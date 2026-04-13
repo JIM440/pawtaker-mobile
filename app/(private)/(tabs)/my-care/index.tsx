@@ -9,10 +9,10 @@ import {
   formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
 import { completeExpiredContractsForUser } from "@/src/lib/contracts/complete-expired-contracts";
+import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
-import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -30,10 +30,7 @@ import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppSwitch } from "@/src/shared/components/ui/AppSwitch";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
-import {
-  MoreHorizontal,
-  Sun,
-} from "lucide-react-native";
+import { MoreHorizontal, Sun } from "lucide-react-native";
 import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -161,17 +158,14 @@ export default function MyCareScreen() {
           variant: "success",
           message: value
             ? `${t("myCare.nowAvailableSnackbar")} ${t("myCare.availableHighlight")}`
-            : t("profile.edit.availabilityToast", "Availability updated."),
+            : t("profile.edit.availabilityToast"),
           durationMs: 2800,
         });
       } catch (err) {
         setAvailable(previous);
         const details = errorMessageFromUnknown(
           err,
-          t(
-            "myCare.availabilityUpdateFailed",
-            "We couldn't update your availability right now.",
-          ),
+          t("errors.updateAvailabilityToggleFailed"),
         );
         showToast({
           variant: "error",
@@ -259,7 +253,8 @@ export default function MyCareScreen() {
         .from("contracts")
         .select("*")
         .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
-        .eq("status", "active");
+        .in("status", ["draft", "signed", "active"])
+        .order("created_at", { ascending: false });
 
       if (contractsError && !isMissingBackendResourceError(contractsError))
         throw contractsError;
@@ -313,12 +308,19 @@ export default function MyCareScreen() {
         contractId: activeContract.id,
         requestId: activeContract.request_id,
         peerId,
-        petName: pet?.name ?? "Pet",
-        careType: req?.care_type ?? "care",
+        petName: pet?.name ?? t("pets.add.kind"),
+        careType: req?.care_type
+          ? String(
+              t(`feed.careTypes.${req.care_type}`, {
+                defaultValue: String(req.care_type),
+              }),
+            )
+          : "",
         dayLabel: req?.start_date
           ? formatCompactDate(req.start_date)
           : "",
-        caregiverName: resolveDisplayName(peerUser) || "Caregiver",
+        caregiverName:
+          resolveDisplayName(peerUser) || t("myCare.defaultCaregiverName"),
         caregiverAvatar: peerUser?.avatar_url ?? "",
         endsIn: req?.end_date
           ? formatCompactDate(req.end_date)
@@ -334,12 +336,12 @@ export default function MyCareScreen() {
         return;
       }
       setActiveCareError(
-        errorMessageFromUnknown(err, "Failed to load active care."),
+        errorMessageFromUnknown(err, t("errors.loadActiveCare")),
       );
     } finally {
       setActiveCareLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const loadCareGivenTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
@@ -431,12 +433,18 @@ export default function MyCareScreen() {
           contractId: c.id,
           petId: req?.pet_id ?? undefined,
           ownerId: c.owner_id ?? undefined,
-          ownerName: resolveDisplayName(peer) || "Pet owner",
+          ownerName: resolveDisplayName(peer) || t("pet.detail.petOwner"),
           ownerAvatar: peer?.avatar_url ?? "",
           handshakes: 0,
           paws: 0,
-          pet: pet?.name ?? "Pet",
-          careType: req?.care_type ?? "care",
+          pet: pet?.name ?? t("pets.add.kind"),
+          careType: req?.care_type
+            ? String(
+                t(`feed.careTypes.${req.care_type}`, {
+                  defaultValue: String(req.care_type),
+                }),
+              )
+            : "",
           date: c.created_at ? formatCompactDate(c.created_at) : "",
         };
       });
@@ -452,11 +460,11 @@ export default function MyCareScreen() {
         setStats((s) => ({ ...s, careGiven: 0 }));
         return;
       }
-      setGivenError(errorMessageFromUnknown(err, "Failed to load care given."));
+      setGivenError(errorMessageFromUnknown(err, t("errors.loadCareGiven")));
     } finally {
       setGivenLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const loadCareReceivedTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
@@ -548,12 +556,18 @@ export default function MyCareScreen() {
           contractId: c.id,
           petId: req?.pet_id ?? undefined,
           personId: c.taker_id ?? undefined,
-          personName: resolveDisplayName(peer) || "Taker",
+          personName: resolveDisplayName(peer) || t("myCare.table.taker"),
           personAvatar: peer?.avatar_url ?? "",
           handshakes: 0,
           paws: 0,
-          pet: pet?.name ?? "Pet",
-          careType: req?.care_type ?? "care",
+          pet: pet?.name ?? t("pets.add.kind"),
+          careType: req?.care_type
+            ? String(
+                t(`feed.careTypes.${req.care_type}`, {
+                  defaultValue: String(req.care_type),
+                }),
+              )
+            : "",
           date: c.created_at ? formatCompactDate(c.created_at) : "",
         };
       });
@@ -570,12 +584,12 @@ export default function MyCareScreen() {
         return;
       }
       setReceivedError(
-        errorMessageFromUnknown(err, "Failed to load care received."),
+        errorMessageFromUnknown(err, t("errors.loadCareReceived")),
       );
     } finally {
       setReceivedLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const loadLikedTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
@@ -672,10 +686,13 @@ export default function MyCareScreen() {
           petId: like.pet_id,
           requestId: req?.id ?? null,
           imageSource: pet ? (petGalleryUrls(pet ?? {})[0] ?? "") : "",
-          petName: pet?.name ?? "Pet",
-          breed: pet?.breed ?? "Unknown breed",
-          petType: pet?.species ?? "Pet",
-          bio: parsed.bio || pet?.notes || "No details yet.",
+          petName: pet?.name ?? t("pets.add.kind"),
+          breed: pet?.breed ?? t("pet.detail.unknownBreed"),
+          petType: pet?.species ?? t("pets.add.kind"),
+          bio:
+            parsed.bio ||
+            pet?.notes ||
+            t("pet.detail.noDetailsShort"),
           yardType: pet?.yard_type ?? parsed.yardType ?? undefined,
           ageRange: pet?.age_range ?? parsed.ageRange ?? undefined,
           energyLevel: pet?.energy_level ?? parsed.energyLevel ?? undefined,
@@ -699,11 +716,11 @@ export default function MyCareScreen() {
         setLikedError(null);
         return;
       }
-      setLikedError(errorMessageFromUnknown(err, "Failed to load liked pets."));
+      setLikedError(errorMessageFromUnknown(err, t("errors.loadLikedPets")));
     } finally {
       setLikedLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const removePetLike = async (petId: string) => {
     if (!user?.id || !petId) return;
@@ -719,7 +736,7 @@ export default function MyCareScreen() {
       );
       showToast({
         variant: "success",
-        message: t("myCare.removedFromLiked", "Removed from liked pets."),
+        message: t("myCare.removedFromLiked"),
         durationMs: 2200,
       });
     } catch (err) {
@@ -727,10 +744,7 @@ export default function MyCareScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "myCare.removeLikeFailed",
-            "We couldn't remove this pet from your liked list.",
-          ),
+          t("errors.removeLikeFailed"),
         ),
         durationMs: 3200,
       });
@@ -762,28 +776,43 @@ export default function MyCareScreen() {
 
   useEffect(() => {
     if (!user?.id) return;
-    if (!givenLoaded && !givenLoading && !givenError) {
-      void loadCareGivenTab();
-    }
-    if (!receivedLoaded && !receivedLoading && !receivedError) {
-      void loadCareReceivedTab();
-    }
-    if (!likedLoaded && !likedLoading && !likedError) {
-      void loadLikedTab();
-    }
+    if (activeTab !== "given") return;
+    if (givenLoaded || givenLoading || givenError) return;
+    void loadCareGivenTab();
   }, [
+    activeTab,
     user?.id,
     givenLoaded,
     givenLoading,
     givenError,
+    loadCareGivenTab,
+  ]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (activeTab !== "received") return;
+    if (receivedLoaded || receivedLoading || receivedError) return;
+    void loadCareReceivedTab();
+  }, [
+    activeTab,
+    user?.id,
     receivedLoaded,
     receivedLoading,
     receivedError,
+    loadCareReceivedTab,
+  ]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    if (activeTab !== "liked") return;
+    if (likedLoaded || likedLoading || likedError) return;
+    void loadLikedTab();
+  }, [
+    activeTab,
+    user?.id,
     likedLoaded,
     likedLoading,
     likedError,
-    loadCareGivenTab,
-    loadCareReceivedTab,
     loadLikedTab,
   ]);
 
@@ -835,7 +864,10 @@ export default function MyCareScreen() {
   const onPressCarePet = (row: CareRow) => {
     const agreementId = row.contractId ?? row.id;
     if (!agreementId) return;
-    router.push(`/(private)/(tabs)/my-care/contract/${agreementId}` as any);
+    router.push({
+      pathname: "/(private)/(tabs)/my-care/contract/[id]" as const,
+      params: { id: agreementId },
+    });
   };
 
   const onGoToInCareChat = async () => {
@@ -853,7 +885,10 @@ export default function MyCareScreen() {
     setMenuVisible(false);
     const agreementId = activeCare?.contractId as string | undefined;
     if (!agreementId) return;
-    router.push(`/(private)/(tabs)/my-care/contract/${agreementId}` as any);
+    router.push({
+      pathname: "/(private)/(tabs)/my-care/contract/[id]" as const,
+      params: { id: agreementId },
+    });
   };
 
   return (
@@ -958,7 +993,7 @@ export default function MyCareScreen() {
           visible={menuVisible}
           colors={colors}
           styles={styles}
-          t={(key, fallback) => t(key, fallback as string)}
+          t={t as any}
           onClose={() => setMenuVisible(false)}
           onGoToChat={() => void onGoToInCareChat()}
           onViewAgreement={onViewInCareAgreement}
@@ -987,7 +1022,7 @@ export default function MyCareScreen() {
             {givenError ? (
               <ErrorState
                 error={givenError}
-                actionLabel={t("common.retry", "Retry")}
+                actionLabel={t("common.retry")}
                 onAction={() => {
                   setGivenError(null);
                   setGivenLoaded(false);
@@ -1011,7 +1046,7 @@ export default function MyCareScreen() {
             {receivedError ? (
               <ErrorState
                 error={receivedError}
-                actionLabel={t("common.retry", "Retry")}
+                actionLabel={t("common.retry")}
                 onAction={() => {
                   setReceivedError(null);
                   setReceivedLoaded(false);
@@ -1037,7 +1072,7 @@ export default function MyCareScreen() {
             ) : likedError ? (
               <ErrorState
                 error={likedError}
-                actionLabel={t("common.retry", "Retry")}
+                actionLabel={t("common.retry")}
                 onAction={() => {
                   setLikedError(null);
                   setLikedLoaded(false);

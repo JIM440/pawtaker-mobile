@@ -38,13 +38,19 @@ import {
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
+const ALLOWED_PROFILE_TABS: ProfileTab[] = [
+  "pets",
+  "availability",
+  "bio",
+  "reviews",
+];
+
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const { user, profile, fetchProfile } = useAuthStore();
   const colors = Colors[resolvedTheme];
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
   const [deletePetLoading, setDeletePetLoading] = useState(false);
@@ -56,6 +62,13 @@ export default function ProfileScreen() {
     refreshAvailability?: string;
     refreshReviews?: string;
   }>();
+
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() => {
+    const raw = params.tab;
+    return ALLOWED_PROFILE_TABS.includes(raw as ProfileTab)
+      ? (raw as ProfileTab)
+      : "pets";
+  });
 
   const [pets, setPets] = useState<any[]>([]);
   const [petsLoading, setPetsLoading] = useState(false);
@@ -115,13 +128,9 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     const requestedTabRaw = params.tab;
-    const allowedTabs: ProfileTab[] = [
-      "pets",
-      "availability",
-      "bio",
-      "reviews",
-    ];
-    const requestedTab = allowedTabs.includes(requestedTabRaw as ProfileTab)
+    const requestedTab = ALLOWED_PROFILE_TABS.includes(
+      requestedTabRaw as ProfileTab,
+    )
       ? (requestedTabRaw as ProfileTab)
       : undefined;
     if (requestedTab) setActiveTab(requestedTab);
@@ -206,11 +215,11 @@ export default function ProfileScreen() {
       setPets(petsWithSeeking);
       setPetsLoaded(true);
     } catch (err) {
-      setPetsError(errorMessageFromUnknown(err, "Failed to load pets."));
+      setPetsError(errorMessageFromUnknown(err, t("errors.loadPets")));
     } finally {
       setPetsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const confirmDeletePet = async () => {
     if (!user?.id || !deletePetId) return;
@@ -225,7 +234,7 @@ export default function ProfileScreen() {
 
       showToast({
         variant: "success",
-        message: t("pets.delete.success", "Pet deleted."),
+        message: t("pets.delete.success"),
         durationMs: 2400,
       });
       setDeletePetId(null);
@@ -236,10 +245,7 @@ export default function ProfileScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "pets.delete.failed",
-            "Couldn't delete this pet. Please try again.",
-          ),
+          t("errors.deletePetFailed"),
         ),
         durationMs: 3200,
       });
@@ -274,12 +280,12 @@ export default function ProfileScreen() {
       setAvailabilityLoaded(true);
     } catch (err) {
       setAvailabilityError(
-        errorMessageFromUnknown(err, "Failed to load availability."),
+        errorMessageFromUnknown(err, t("errors.loadAvailability")),
       );
     } finally {
       setAvailabilityLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   const loadHeaderStats = useCallback(async () => {
     if (!user?.id) return;
@@ -354,11 +360,11 @@ export default function ProfileScreen() {
       setReviewersById(reviewerMap);
       setReviewsLoaded(true);
     } catch (err) {
-      setReviewsError(errorMessageFromUnknown(err, "Failed to load reviews."));
+      setReviewsError(errorMessageFromUnknown(err, t("errors.loadReviews")));
     } finally {
       setReviewsLoading(false);
     }
-  }, [user?.id]);
+  }, [user?.id, t]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -367,15 +373,25 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (!user?.id) return;
+    if (activeTab !== "pets") return;
     if (petsLoaded || petsLoading || petsError) return;
     void loadPetsTab();
-  }, [loadPetsTab, petsError, petsLoaded, petsLoading, user?.id]);
+  }, [
+    activeTab,
+    loadPetsTab,
+    petsError,
+    petsLoaded,
+    petsLoading,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (!user?.id) return;
+    if (activeTab !== "availability") return;
     if (availabilityLoaded || availabilityLoading || availabilityError) return;
     void loadAvailabilityTab();
   }, [
+    activeTab,
     loadAvailabilityTab,
     user?.id,
     availabilityLoaded,
@@ -385,9 +401,17 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     if (!user?.id) return;
+    if (activeTab !== "reviews") return;
     if (reviewsLoaded || reviewsLoading || reviewsError) return;
     void loadReviewsTab();
-  }, [loadReviewsTab, reviewsError, reviewsLoaded, reviewsLoading, user?.id]);
+  }, [
+    activeTab,
+    loadReviewsTab,
+    reviewsError,
+    reviewsLoaded,
+    reviewsLoading,
+    user?.id,
+  ]);
 
   const refreshScreenData = useCallback(async () => {
     if (!user?.id) return;
@@ -426,8 +450,8 @@ export default function ProfileScreen() {
   };
 
   const profileData = useMemo(() => {
-    const loadingName = t("common.loading", "Loading...");
-    const defaultName = t("profile.defaultName", "Pawtaker User");
+    const loadingName = t("common.loading");
+    const defaultName = t("profile.defaultName");
     const name = profileHeaderLoading
       ? loadingName
       : profile?.full_name?.trim() || defaultName;
@@ -439,7 +463,7 @@ export default function ProfileScreen() {
         ? loadingName
         : profile?.city?.trim()
           ? profile.city.trim()
-          : t("profile.noLocation", "No location"),
+          : t("profile.noLocation"),
       points: profile?.points_balance ?? 0,
       handshakes: completedContractsCount,
       paws: headerReviewStats.count,
@@ -464,16 +488,17 @@ export default function ProfileScreen() {
         return {
           id: item.id,
           reviewerId: item.reviewer_id,
-          name: resolveDisplayName(reviewer) || "Anonymous",
+          name:
+            resolveDisplayName(reviewer) || t("profile.anonymousReviewer"),
           avatar: reviewer?.avatar_url || null,
           rating: item.rating ?? 0,
           handshakes: reviewer?.care_given_count ?? 0,
           paws: reviewer?.care_received_count ?? 0,
           date: formatReviewRelativeDate(item.created_at),
-          review: item.comment || "No review comment.",
+          review: item.comment || t("profile.emptyReviewComment"),
         };
       }),
-    [reviewersById, reviews],
+    [reviewersById, reviews, t],
   );
 
   return (
@@ -485,7 +510,7 @@ export default function ProfileScreen() {
           style={styles.title}
           color={colors.onSurface}
         >
-          {t("profile.title", "Profile")}
+          {t("profile.title")}
         </AppText>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -497,7 +522,7 @@ export default function ProfileScreen() {
               color={colors.onSurface}
               style={styles.editLink}
             >
-              {t("settings.editProfile", "Edit Profile")}
+              {t("settings.editProfile")}
             </AppText>
           </TouchableOpacity>
           <TouchableOpacity
@@ -544,16 +569,16 @@ export default function ProfileScreen() {
 
             <TabBar<ProfileTab>
               tabs={[
-                { key: "pets", label: t("profile.edit.petsTab", "Your Pets") },
+                { key: "pets", label: t("profile.edit.petsTab") },
                 {
                   key: "availability",
-                  label: t("profile.edit.availabilityTab", "Availability"),
+                  label: t("profile.edit.availabilityTab"),
                 },
                 {
                   key: "bio",
-                  label: t("auth.signup.profile.bio", "Short Bio"),
+                  label: t("auth.signup.profile.bio"),
                 },
-                { key: "reviews", label: t("profile.reviews", "Reviews") },
+                { key: "reviews", label: t("profile.reviews") },
               ]}
               activeKey={activeTab}
               onChange={setActiveTab}
@@ -564,7 +589,7 @@ export default function ProfileScreen() {
 
         <ProfileTabContent
           activeTab={activeTab}
-          t={(key, fallback) => t(key, fallback as string)}
+          t={t as any}
           petsLoading={petsLoading}
           petsError={petsError}
           setPetsError={setPetsError}
@@ -603,15 +628,12 @@ export default function ProfileScreen() {
 
       <FeedbackModal
         visible={deletePetId !== null}
-        title={t("common.deleteConfirmTitle", "Delete pet?")}
-        description={t(
-          "common.deleteConfirmMessage",
-          "This will permanently delete the pet from your account.",
-        )}
-        primaryLabel={t("common.delete", "Delete")}
+        title={t("common.deleteConfirmTitle")}
+        description={t("common.deleteConfirmMessage")}
+        primaryLabel={t("common.delete")}
         onPrimary={() => void confirmDeletePet()}
         primaryLoading={deletePetLoading}
-        secondaryLabel={t("common.cancel", "Cancel")}
+        secondaryLabel={t("common.cancel")}
         onSecondary={() => !deletePetLoading && setDeletePetId(null)}
         onRequestClose={() => !deletePetLoading && setDeletePetId(null)}
         destructive

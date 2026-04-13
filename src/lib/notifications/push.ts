@@ -130,12 +130,28 @@ export async function registerForPushNotificationsAsync(): Promise<
     console.log("[push] existing permission status =", existing);
     let finalStatus = existing;
     if (existing !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       finalStatus = status;
       console.log("[push] after request, permission status =", finalStatus);
     }
     if (finalStatus !== "granted") {
       console.log("[push] STOPPED: permission not granted, status =", finalStatus);
+      if (finalStatus === "denied") {
+        console.warn(
+          "[push] Notifications are blocked for this app. Enable them in system Settings → Notifications → PawTaker, then reopen the app.",
+        );
+      }
+      if (finalStatus === "undetermined") {
+        console.warn(
+          "[push] Permission still undetermined. Use a dev/production build with expo-notifications linked (Expo Go has limited push support).",
+        );
+      }
       return null;
     }
 

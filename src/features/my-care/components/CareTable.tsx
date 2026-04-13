@@ -2,6 +2,7 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { Handshake, PawPrint } from "lucide-react-native";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { Pressable, StyleSheet, View } from "react-native";
 
 export interface CareRow {
@@ -35,6 +36,7 @@ export function CareTable({
   onPressPerson,
   onPressPet,
 }: CareTableProps) {
+  const { t } = useTranslation();
   return (
     <View style={styles.tableContainer}>
       <View style={[styles.tableSubHeader]}>
@@ -50,21 +52,21 @@ export function CareTable({
           color={colors.onSurfaceVariant}
           style={styles.colPet}
         >
-          Pet
+          {t("myCare.table.pet")}
         </AppText>
         <AppText
           variant="caption"
           color={colors.onSurfaceVariant}
           style={styles.colType}
         >
-          Care type
+          {t("myCare.table.careType")}
         </AppText>
         <AppText
           variant="caption"
           color={colors.onSurfaceVariant}
           style={styles.colDate}
         >
-          Date
+          {t("myCare.table.date")}
         </AppText>
       </View>
       {rows.map((row) => (
@@ -137,17 +139,21 @@ export function CareTable({
           </AppText>
         </View>
       ))}
-      {footerText && (
-        <View className="py-8 items-center">
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={{ textAlign: "center" }}
-          >
-            {footerText}
-          </AppText>
+      {footerText ? (
+        <View className="py-8 items-center px-4">
+          {typeof footerText === "string" ? (
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={{ textAlign: "center" }}
+            >
+              {footerText}
+            </AppText>
+          ) : (
+            footerText
+          )}
         </View>
-      )}
+      ) : null}
     </View>
   );
 }

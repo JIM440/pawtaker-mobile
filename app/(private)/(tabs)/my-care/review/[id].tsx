@@ -2,6 +2,7 @@ import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { Button } from "@/src/shared/components/ui/Button";
@@ -47,12 +48,7 @@ export default function PostCareReviewScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(
-        t(
-          "myCare.review.loadFailed",
-          "We couldn't load this review form right now.",
-        ),
-      );
+      setError(t("myCare.review.loadFormFailed"));
       return;
     }
 
@@ -90,7 +86,7 @@ export default function PostCareReviewScreen() {
         setReviewee(null);
         setRevieweeReviews([]);
         setContextPetName(null);
-        setError(t("myCare.review.noContract", "No completed contract found to review yet."));
+        setError(t("myCare.review.noContract"));
         return;
       }
 
@@ -146,10 +142,7 @@ export default function PostCareReviewScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : t(
-              "myCare.review.loadFailed",
-              "We couldn't load this review form right now.",
-            ),
+          : t("myCare.review.loadFormFailed"),
       );
     } finally {
       setLoading(false);
@@ -166,12 +159,12 @@ export default function PostCareReviewScreen() {
     () =>
       contextPetName
         ? t("myCare.review.careForPet", { petName: contextPetName })
-        : t("myCare.review.peerTask", "Care complete"),
+        : t("myCare.review.peerTask"),
     [contextPetName, t],
   );
 
   const header = useMemo(() => {
-    const name = resolveDisplayName(reviewee) || t("common.user", "User");
+    const name = resolveDisplayName(reviewee) || t("common.user");
     const location = reviewee?.city?.trim() || t("profile.noLocation");
     const points = reviewee?.points_balance ?? 0;
     const handshakes = reviewee?.care_given_count ?? 0;
@@ -189,7 +182,7 @@ export default function PostCareReviewScreen() {
     if (rating < 1) {
       showToast({
         variant: "error",
-        message: t("myCare.review.ratingRequired", "Please select a rating before submitting."),
+        message: t("myCare.review.ratingRequired"),
         durationMs: 2800,
       });
       return;
@@ -197,7 +190,7 @@ export default function PostCareReviewScreen() {
     if (!trimmedComment) {
       showToast({
         variant: "error",
-        message: t("myCare.review.commentRequired", "Please enter a review message."),
+        message: t("myCare.review.commentRequired"),
         durationMs: 2800,
       });
       return;
@@ -207,10 +200,7 @@ export default function PostCareReviewScreen() {
         variant: "error",
         message:
           error ??
-          t(
-            "myCare.review.submitUnavailable",
-            "We couldn't submit this review because the contract details are unavailable.",
-          ),
+          t("myCare.review.submitContractUnavailable"),
         durationMs: 3200,
       });
       return;
@@ -228,7 +218,7 @@ export default function PostCareReviewScreen() {
         if (insertError) throw insertError;
         showToast({
           variant: "success",
-          message: t("myCare.review.submitted", "Thanks! Your review was posted."),
+          message: t("myCare.review.submitted"),
           durationMs: 2600,
         });
         router.replace({
@@ -238,13 +228,10 @@ export default function PostCareReviewScreen() {
       } catch (err) {
         showToast({
           variant: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : t(
-                  "myCare.review.submitFailed",
-                  "We couldn't submit your review right now.",
-                ),
+          message: errorMessageFromUnknown(
+            err,
+            t("myCare.review.submitFailed"),
+          ),
           durationMs: 3200,
         });
       } finally {
@@ -267,8 +254,8 @@ export default function PostCareReviewScreen() {
       <PageContainer>
         <BackHeader title="" onBack={() => router.back()} />
         <ErrorState
-          error={error ?? t("myCare.review.noContract", "No completed contract found to review yet.")}
-          actionLabel={t("common.retry", "Retry")}
+          error={error ?? t("myCare.review.noContract")}
+          actionLabel={t("common.retry")}
           onAction={() => {
             void load();
           }}
@@ -326,10 +313,10 @@ export default function PostCareReviewScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={t("common.submit", "Submit")}
+          label={t("common.submit")}
           onPress={onSubmit}
           fullWidth
-          disabled={rating < 1 || submitting}
+          disabled={submitting}
           loading={submitting}
         />
       </View>

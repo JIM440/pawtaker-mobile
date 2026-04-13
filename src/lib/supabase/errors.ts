@@ -1,3 +1,5 @@
+import i18n from "@/src/lib/i18n";
+
 /**
  * True when the failure is almost certainly a missing table/relation (stub DB / migration not applied).
  * Must NOT match RLS messages like `permission denied for relation "users"` — those contain "relation"
@@ -21,11 +23,23 @@ export function isMissingBackendResourceError(error: unknown): boolean {
   return false;
 }
 
+/** Missing column in DB schema cache / migration not applied yet. */
+export function isMissingColumnError(error: unknown): boolean {
+  if (!error || typeof error !== "object") return false;
+  const maybe = error as { code?: string; message?: string };
+  const message = (maybe.message || "").toLowerCase();
+  return (
+    maybe.code === "42703" ||
+    (message.includes("could not find the") && message.includes("column")) ||
+    (message.includes("column") && message.includes("does not exist"))
+  );
+}
+
 /** Readable message for Supabase PostgREST errors, Error, or unknown thrown values */
 export function errorMessageFromUnknown(
   err: unknown,
   fallback: string,
-  networkFallback = "Network error. Check your connection.",
+  networkFallback?: string,
 ): string {
   const raw = (() => {
     if (err == null || err === undefined) return "";
@@ -39,14 +53,20 @@ export function errorMessageFromUnknown(
 
   if (!raw) return fallback;
 
+  const pgCode =
+    err && typeof err === "object" && "code" in err
+      ? String((err as { code?: unknown }).code ?? "")
+      : "";
   const lower = raw.toLowerCase();
+  const netMsg =
+    networkFallback ?? i18n.t("errors.networkError");
   const isNetwork =
     lower.includes("network") ||
     lower.includes("timed out") ||
     lower.includes("timeout") ||
     lower.includes("failed to fetch") ||
     lower.includes("connection");
-  if (isNetwork) return networkFallback;
+  if (isNetwork) return netMsg;
 
   if (
     lower.includes("permission denied") ||
@@ -54,29 +74,57 @@ export function errorMessageFromUnknown(
     lower.includes("insufficient") ||
     lower.includes("rls")
   ) {
-    return "You don’t have permission to do that.";
+    return i18n.t("errors.permissionDenied");
   }
   if (lower.includes("jwt") || lower.includes("unauthorized")) {
-    return "Your session expired. Please sign in again.";
+    return i18n.t("errors.sessionExpired");
   }
   if (lower.includes("duplicate key") || lower.includes("already exists")) {
-    return "This already exists. Try updating it instead.";
+    return i18n.t("errors.duplicateExists");
   }
-  // RLS errors contain "violates" — handle before generic constraint/syntax bucket.
   if (lower.includes("row-level security")) {
-    return "You don’t have permission to do that.";
+    return i18n.t("errors.permissionDenied");
   }
-  if (lower.includes("invalid input syntax") || lower.includes("violates check constraint")) {
-    return "Some information is invalid. Please review your inputs and try again.";
+  if (lower.includes("violates check constraint")) {
+    const m = raw.match(/constraint\s+"([^"]+)"/i);
+    const name = m?.[1];
+    if (name?.includes("status")) {
+      return i18n.t("errors.checkConstraintCareRequestStatus");
+    }
+    if (
+      lower.includes("point_transactions") ||
+      (name?.toLowerCase().includes("point_transaction") &&
+        name?.toLowerCase().includes("type"))
+    ) {
+      return i18n.t("errors.checkConstraintPointTransactions");
+    }
+    return i18n.t("errors.invalidInput");
+  }
+  if (lower.includes("invalid input syntax")) {
+    return i18n.t("errors.invalidInput");
   }
   if (lower.includes("violates foreign key")) {
-    return "Something was deleted or is no longer available. Refresh and try again.";
+    return i18n.t("errors.foreignKeyOrMissing");
   }
   if (lower.includes("violates")) {
-    return "Some information is invalid. Please review your inputs and try again.";
+    return i18n.t("errors.invalidInput");
+  }
+  if (pgCode === "23514") {
+    if (lower.includes("point_transactions")) {
+      return i18n.t("errors.checkConstraintPointTransactions");
+    }
+  }
+  if (pgCode === "42703" || lower.includes("has no field")) {
+    return i18n.t("errors.missingColumn42703");
   }
   if (lower.includes("42p01") || lower.includes("does not exist")) {
-    return "This feature is temporarily unavailable. Please try again later.";
+    return i18n.t("errors.featureTemporarilyUnavailable");
+  }
+  if (
+    lower.includes("could not find function") ||
+    (lower.includes("function") && lower.includes("does not exist"))
+  ) {
+    return i18n.t("errors.serverMissingFunction");
   }
 
   return raw.length > 120 ? `${raw.slice(0, 117)}...` : raw;

@@ -276,16 +276,9 @@ export default function EditProfileScreen() {
     } catch (err) {
       const details = errorMessageFromUnknown(
         err,
-        t(
-          "pets.delete.failedDetails",
-          "We couldn't delete this pet right now.",
-        ),
-        t("errors.networkError", "Network error. Check your connection."),
+        t("pets.delete.failedDetails"),
       );
-      const friendly = t(
-        "pets.delete.failed",
-        "Couldn't delete this pet. Please try again.",
-      );
+      const friendly = t("pets.delete.failed");
       showToast({
         variant: "error",
         message: details === friendly ? friendly : `${friendly} ${details}`,
@@ -384,16 +377,9 @@ export default function EditProfileScreen() {
     } catch (err) {
       const details = errorMessageFromUnknown(
         err,
-        t(
-          "profile.edit.availabilitySaveFailedDetails",
-          "We couldn't update availability right now.",
-        ),
-        t("errors.networkError", "Network error. Check your connection."),
+        t("profile.edit.availabilitySaveFailedDetails"),
       );
-      const friendly = t(
-        "profile.edit.availabilitySaveFailed",
-        "Couldn't update availability. Please try again.",
-      );
+      const friendly = t("profile.edit.availabilitySaveFailed");
       showToast({
         variant: "error",
         message: details === friendly ? friendly : `${friendly} ${details}`,
@@ -489,16 +475,9 @@ export default function EditProfileScreen() {
     } catch (err) {
       const details = errorMessageFromUnknown(
         err,
-        t(
-          "profile.edit.saveFailedDetails",
-          "We couldn't save your profile changes right now.",
-        ),
-        t("errors.networkError", "Network error. Check your connection."),
+        t("profile.edit.saveFailedDetails"),
       );
-      const friendly = t(
-        "profile.edit.saveFailed",
-        "Couldn't save your profile changes. Please try again.",
-      );
+      const friendly = t("profile.edit.saveFailed");
       showToast({
         variant: "error",
         message: details === friendly ? friendly : `${friendly} ${details}`,

@@ -1,4 +1,5 @@
 import { supabase } from "@/src/lib/supabase/client";
+import { isMissingColumnError } from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 
 type ActiveContractRow = Pick<
@@ -78,10 +79,21 @@ export async function completeExpiredContractsForUser(userId: string): Promise<{
     new Set(expiredContracts.map((contract) => contract.request_id).filter(Boolean)),
   );
 
-  const { error: completeContractsError } = await supabase
+  let { error: completeContractsError } = await supabase
     .from("contracts")
-    .update({ status: "completed" })
+    .update({
+      status: "completed",
+      terminate_requested_by: null,
+      terminate_requested_at: null,
+    })
     .in("id", completedContractIds);
+  if (completeContractsError && isMissingColumnError(completeContractsError)) {
+    const fallback = await supabase
+      .from("contracts")
+      .update({ status: "completed" })
+      .in("id", completedContractIds);
+    completeContractsError = fallback.error;
+  }
 
   if (completeContractsError) throw completeContractsError;
 

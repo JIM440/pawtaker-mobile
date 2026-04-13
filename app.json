@@ -13,6 +13,7 @@
       "bundleIdentifier": "com.pawtaker.app"
     },
     "android": {
+      "permissions": ["POST_NOTIFICATIONS"],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#8C4A60",

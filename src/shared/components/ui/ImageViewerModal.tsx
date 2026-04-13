@@ -118,7 +118,7 @@ export function ImageViewerModal({
                 paddingRight: 56,
               }}
             >
-              <AppText variant="title" color="#FFFFFF">
+              <AppText variant="title" color={colors.onBackground}>
                 {title}
               </AppText>
             </View>
@@ -133,7 +133,7 @@ export function ImageViewerModal({
             >
               {children}
             </View>
-          ) : image?.uri ? (
+          ) : image !== undefined ? (
             <ScrollView
               style={{ flex: 1 }}
               contentContainerStyle={{
@@ -148,7 +148,11 @@ export function ImageViewerModal({
               centerContent
             >
               <Image
-                source={{ uri: image.uri }}
+                source={
+                  typeof image === "number"
+                    ? image
+                    : { uri: image.uri }
+                }
                 style={{ width: frameWidth, height: frameHeight }}
                 resizeMode="contain"
               />

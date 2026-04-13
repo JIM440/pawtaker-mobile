@@ -462,6 +462,19 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      accept_care_request: {
+        Args: {
+          p_request_id: string;
+          p_owner_id: string;
+          p_taker_id: string;
+        };
+        Returns: {
+          contract_id: string | null;
+          accepted: boolean;
+          accepted_taker_id: string | null;
+          request_status: string | null;
+        }[];
+      };
       delete_my_account: {
         Args: Record<string, never>;
         Returns: undefined;

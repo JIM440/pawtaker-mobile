@@ -38,6 +38,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     Ellipsis,
+    Pencil,
     Trash2
 } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -98,6 +99,9 @@ export default function RequestDetailScreen() {
   const [owner, setOwner] = useState<any | null>(null);
   const [viewer, setViewer] = useState<any | null>(null);
   const [ownerReviews, setOwnerReviews] = useState<any[]>([]);
+  const [assignedTaker, setAssignedTaker] = useState<any | null>(null);
+  const [availabilityReady, setAvailabilityReady] = useState(false);
+  const [hasAvailability, setHasAvailability] = useState(false);
   const [applying, setApplying] = useState(false);
   const [applyConfirmOpen, setApplyConfirmOpen] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
@@ -109,6 +113,7 @@ export default function RequestDetailScreen() {
   } | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [hasContract, setHasContract] = useState(false);
   const menuBtnRef = useRef<View>(null);
 
   const load = useCallback(async () => {
@@ -143,6 +148,7 @@ export default function RequestDetailScreen() {
         setPet(null);
         setOwner(null);
         setOwnerReviews([]);
+        setHasContract(false);
         setError(RESOURCE_NOT_FOUND);
         return;
       }
@@ -152,6 +158,9 @@ export default function RequestDetailScreen() {
         { data: ownerRow, error: ownerError },
         { data: meRow, error: meError },
         { data: reviews, error: reviewsError },
+        { data: takerRow, error: takerError },
+        { data: takerReviews, error: takerReviewsError },
+        { data: existingContract, error: contractError },
       ] = await Promise.all([
         supabase
           .from("pets")
@@ -174,11 +183,32 @@ export default function RequestDetailScreen() {
           .from("reviews")
           .select("rating")
           .eq("reviewee_id", request.owner_id),
+        request.taker_id
+          ? supabase
+              .from("users")
+              .select("id,full_name,avatar_url,care_given_count,care_received_count")
+              .eq("id", request.taker_id)
+              .maybeSingle()
+          : Promise.resolve({ data: null, error: null }),
+        request.taker_id
+          ? supabase
+              .from("reviews")
+              .select("rating")
+              .eq("reviewee_id", request.taker_id)
+          : Promise.resolve({ data: [], error: null }),
+        supabase
+          .from("contracts")
+          .select("id")
+          .eq("request_id", request.id)
+          .maybeSingle(),
       ]);
       if (petError) throw petError;
       if (ownerError) throw ownerError;
       if (meError) throw meError;
       if (reviewsError) throw reviewsError;
+      if (takerError) throw takerError;
+      if (takerReviewsError) throw takerReviewsError;
+      if (contractError) throw contractError;
 
       if (!petRow || !ownerRow) {
         setReqRow(null);
@@ -186,6 +216,7 @@ export default function RequestDetailScreen() {
         setOwner(null);
         setViewer(null);
         setOwnerReviews([]);
+        setHasContract(false);
         setError(RESOURCE_NOT_FOUND);
         return;
       }
@@ -195,6 +226,20 @@ export default function RequestDetailScreen() {
       setOwner(ownerRow);
       setViewer(meRow ?? null);
       setOwnerReviews(reviews ?? []);
+      const takerRating =
+        (takerReviews ?? []).length > 0
+          ? (takerReviews ?? []).reduce((sum, r: any) => sum + (r.rating ?? 0), 0) /
+            (takerReviews ?? []).length
+          : 0;
+      setAssignedTaker(
+        takerRow
+          ? {
+              ...takerRow,
+              rating_avg: takerRating,
+            }
+          : null,
+      );
+      setHasContract(Boolean(existingContract));
 
       const petForLike = petRow as TablesRow<"pets">;
       if (petForLike.id && user.id && petForLike.owner_id !== user.id) {
@@ -209,6 +254,7 @@ export default function RequestDetailScreen() {
         setIsFavorite(false);
       }
     } catch (err) {
+      setHasContract(false);
       setError(
         err instanceof Error
           ? err.message
@@ -221,6 +267,27 @@ export default function RequestDetailScreen() {
       setLoading(false);
     }
   }, [id, t, user?.id]);
+
+  useEffect(() => {
+    let cancelled = false;
+    const loadAvailability = async () => {
+      if (!user?.id) return;
+      try {
+        const ready = await hasAvailabilityProfile(user.id);
+        if (!cancelled) {
+          setHasAvailability(ready);
+        }
+      } finally {
+        if (!cancelled) {
+          setAvailabilityReady(true);
+        }
+      }
+    };
+    void loadAvailability();
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   useFocusEffect(
     useCallback(() => {
@@ -373,21 +440,48 @@ export default function RequestDetailScreen() {
   const requestStatus = typeof reqRow?.status === "string" ? reqRow.status : null;
   const selectedTakerId =
     typeof reqRow?.taker_id === "string" ? reqRow.taker_id : null;
+  const canEditRequest =
+    isOwner &&
+    requestStatus === "open" &&
+    !selectedTakerId &&
+    !hasContract;
   const requestAcceptedByAnother =
     !isOwner &&
     requestStatus === "accepted" &&
     Boolean(selectedTakerId) &&
     selectedTakerId !== user?.id;
+  const requestAssignedToCurrentUser =
+    !isOwner &&
+    requestStatus === "accepted" &&
+    Boolean(selectedTakerId) &&
+    selectedTakerId === user?.id;
+  const applyBlockedByAvailability =
+    !isOwner && availabilityReady && !hasAvailability;
   const requestTopNotice = requestAcceptedByAnother
     ? t(
         "requestDetails.requestAcceptedByAnother",
         "Another caregiver has already accepted this request.",
       )
+    : requestAssignedToCurrentUser
+      ? t(
+          "requestDetails.requestAssignedToYou",
+          "A caregiver has already been assigned for this request.",
+        )
+      : isExpired && !isOwner
+        ? t(
+            "requestDetails.requestExpired",
+            "This request has ended and is no longer accepting applications.",
+          )
     : !isOwner && requestStatus && requestStatus !== "open"
       ? t(
           "requestDetails.requestClosedForApplications",
           "This request is no longer accepting applications.",
         )
+      : applyBlockedByAvailability
+        ? t(
+            "offer.availabilityProfileRequired",
+            "Add your availability profile before applying to pet requests.",
+          )
       : null;
 
   const togglePetLike = () => {
@@ -418,10 +512,7 @@ export default function RequestDetailScreen() {
           variant: "error",
           message: errorMessageFromUnknown(
             err,
-            t(
-              "requestDetails.likeFailed",
-              "We couldn't update this pet like right now.",
-            ),
+            t("requestDetails.updatePetLikeFailed"),
           ),
           durationMs: 3200,
         });
@@ -437,10 +528,7 @@ export default function RequestDetailScreen() {
       if (!user?.id || !id || !reqRow?.owner_id) {
         showToast({
           variant: "error",
-          message: t(
-            "requestDetails.applyStartFailed",
-            "We couldn't start your application for this request.",
-          ),
+          message: t("requestDetails.startApplicationFailed"),
           durationMs: 4200,
         });
         return;
@@ -467,8 +555,7 @@ export default function RequestDetailScreen() {
         });
         return;
       }
-      const hasProfile = await hasAvailabilityProfile(user.id);
-      if (!hasProfile) {
+      if (!hasAvailability) {
         showToast({
           variant: "info",
           message: t(
@@ -527,8 +614,7 @@ export default function RequestDetailScreen() {
       return;
     }
     if (!user?.id || !id || !reqRow?.owner_id) return;
-    const hasProfile = await hasAvailabilityProfile(user.id);
-    if (!hasProfile) {
+    if (!hasAvailability) {
       throw new Error(
         t(
           "offer.availabilityProfileRequired",
@@ -556,7 +642,7 @@ export default function RequestDetailScreen() {
       requestId: id,
     });
 
-    if (!threadId) throw new Error("Could not create chat thread.");
+    if (!threadId) throw new Error(t("errors.chatThreadCreateFailed"));
 
     const formulaPoints =
       reqRow.start_date && reqRow.end_date
@@ -645,10 +731,7 @@ export default function RequestDetailScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "requestDetails.deleteFailed",
-            "We couldn't delete this request right now.",
-          ),
+          t("requestDetails.deleteRequestFailed"),
         ),
         durationMs: 3200,
       });
@@ -781,12 +864,30 @@ export default function RequestDetailScreen() {
         }
         topNotice={requestTopNotice}
         apply={{
-          visible: !isOwner && requestStatus === "open",
+          visible:
+            !isOwner &&
+            requestStatus === "open" &&
+            !isExpired &&
+            !requestAcceptedByAnother &&
+            !requestAssignedToCurrentUser,
           label: t("requestDetails.applyNow"),
           onPress: openApplyConfirm,
           loading: applying,
-          disabled: applying,
+          disabled: applying || !availabilityReady || !hasAvailability,
         }}
+        assignedTaker={
+          requestStatus === "accepted" && assignedTaker
+            ? {
+                name:
+                  resolveDisplayName(assignedTaker) ||
+                  t("messages.takerApplicant", "Taker"),
+                avatar: assignedTaker.avatar_url ?? null,
+                rating: assignedTaker.rating_avg ?? 0,
+                handshakes: assignedTaker.care_given_count ?? 0,
+                paws: assignedTaker.care_received_count ?? 0,
+              }
+            : null
+        }
       />
 
       <ApplyConfirmModal
@@ -821,6 +922,47 @@ export default function RequestDetailScreen() {
                 },
               ]}
             >
+              <TouchableOpacity
+                style={styles.menuItem}
+                onPress={() => {
+                  setMenuOpen(false);
+                  if (!canEditRequest) {
+                    showToast({
+                      variant: "info",
+                      message: t(
+                        "requestDetails.editRequestLocked",
+                        "You can edit only when no caregiver is assigned and no contract exists.",
+                      ),
+                      durationMs: 3600,
+                    });
+                    return;
+                  }
+                  router.push({
+                    pathname: "/(private)/post-requests",
+                    params: {
+                      petId: String(reqRow?.pet_id ?? ""),
+                      editRequestId: String(id ?? ""),
+                    },
+                  } as any);
+                }}
+              >
+                <Pencil
+                  size={16}
+                  color={canEditRequest ? colors.onSurface : colors.outline}
+                />
+                <AppText
+                  variant="body"
+                  color={canEditRequest ? colors.onSurface : colors.outline}
+                >
+                  {t("post.request.preview.edit", "Edit")}
+                </AppText>
+              </TouchableOpacity>
+              <View
+                style={[
+                  styles.menuDivider,
+                  { backgroundColor: colors.outlineVariant },
+                ]}
+              />
               <TouchableOpacity
                 style={styles.menuItem}
                 onPress={() => {
@@ -1061,5 +1203,9 @@ const styles = StyleSheet.create({
     gap: 10,
     paddingHorizontal: 16,
     paddingVertical: 14,
+  },
+  menuDivider: {
+    height: StyleSheet.hairlineWidth,
+    marginHorizontal: 12,
   },
 });

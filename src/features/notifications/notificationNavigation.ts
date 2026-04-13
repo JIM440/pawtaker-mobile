@@ -8,32 +8,63 @@ export type NotificationNavPayload = {
   data: Record<string, unknown> | null | undefined;
 };
 
-async function navigateProposalOfferDetails(
+/**
+ * Proposal / offer deep-links: owner → accept-offer screen when open; participants
+ * with a contract → contract; otherwise → application request details.
+ */
+export async function navigateProposalOfferDetails(
   router: Router,
   requestId: string,
-  offerPath: "post-requests" | "post-availability",
+  currentUserId?: string | null,
 ): Promise<void> {
+  const uid = currentUserId?.trim() ?? null;
+
   try {
     const eligibility = await getRequestEligibility(requestId);
-    if (!eligibility.eligible && eligibility.contractId) {
-      router.push({
-        pathname: "/(private)/(tabs)/my-care/contract/[id]",
-        params: { id: eligibility.contractId },
-      });
+    const { data: reqRow } = await supabase
+      .from("care_requests")
+      .select("owner_id,taker_id,status")
+      .eq("id", requestId)
+      .maybeSingle();
+
+    const ownerId =
+      typeof reqRow?.owner_id === "string" ? reqRow.owner_id : "";
+    const takerId =
+      typeof reqRow?.taker_id === "string" ? reqRow.taker_id : "";
+
+    if (!eligibility.eligible && eligibility.contractId && uid) {
+      if (uid === ownerId || uid === takerId) {
+        router.push({
+          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          params: { id: eligibility.contractId },
+        });
+        return;
+      }
+    }
+
+    // Pet owner: review / accept application (owner-only screen).
+    if (
+      uid &&
+      ownerId &&
+      uid === ownerId &&
+      eligibility.reason !== "request_expired" &&
+      reqRow?.status === "open" &&
+      !eligibility.contractId
+    ) {
+      router.push(
+        `/(private)/post-availability/${requestId}` as Parameters<
+          typeof router.push
+        >[0],
+      );
       return;
     }
   } catch {
-    /* fall through to offer screen */
+    /* fall through */
   }
-  if (offerPath === "post-availability") {
-    router.push(`/(private)/post-availability/${requestId}` as Parameters<
-      typeof router.push
-    >[0]);
-  } else {
-    router.push(`/(private)/post-requests/${requestId}` as Parameters<
-      typeof router.push
-    >[0]);
-  }
+
+  router.push(`/(private)/post-requests/${requestId}` as Parameters<
+    typeof router.push
+  >[0]);
 }
 
 /**
@@ -49,29 +80,12 @@ export async function navigateForNotificationPayloadAsync(
   if (payload.type === "chat" && d.messageType === "proposal") {
     const requestId =
       typeof d.requestId === "string" ? d.requestId.trim() : "";
-    let offerPath: "post-requests" | "post-availability" | null =
-      d.offer_detail_path === "post-availability" ||
-      d.offer_detail_path === "post-requests"
-        ? d.offer_detail_path
-        : null;
-
-    if (requestId && !offerPath && options?.currentUserId) {
-      const { data: req } = await supabase
-        .from("care_requests")
-        .select("owner_id")
-        .eq("id", requestId)
-        .maybeSingle();
-      const ownerId = req?.owner_id as string | undefined;
-      if (ownerId) {
-        offerPath =
-          ownerId === options.currentUserId
-            ? "post-availability"
-            : "post-requests";
-      }
-    }
-
-    if (requestId && offerPath) {
-      await navigateProposalOfferDetails(router, requestId, offerPath);
+    if (requestId) {
+      await navigateProposalOfferDetails(
+        router,
+        requestId,
+        options?.currentUserId ?? null,
+      );
       return;
     }
   }

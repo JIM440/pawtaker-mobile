@@ -220,7 +220,7 @@ export function ContractDetailScreenSkeleton() {
   );
 }
 
-/** Leave review: profile block + stars + comment (matches `my-care/review/[id]`). */
+/** Leave review: centered `ProfileHeader` + stars + comment (matches `my-care/review/[id]`). */
 export function ReviewDetailScreenSkeleton() {
   return (
     <ScrollView
@@ -228,20 +228,35 @@ export function ReviewDetailScreenSkeleton() {
       contentContainerStyle={styles.formScrollContent}
       showsVerticalScrollIndicator={false}
     >
-      <View style={styles.reviewProfileCard}>
-        <View style={styles.reviewProfileHeader}>
-          <Skeleton height={72} width={72} borderRadius={36} />
-          <View style={styles.reviewProfileText}>
-            <Skeleton height={22} width="68%" borderRadius={8} />
-            <Skeleton height={14} width="52%" borderRadius={6} style={{ marginTop: 8 }} />
-            <Skeleton height={14} width="44%" borderRadius={6} style={{ marginTop: 8 }} />
-          </View>
+      <View style={styles.reviewHeaderSk}>
+        <Skeleton height={80} width={80} borderRadius={40} />
+        <Skeleton
+          height={22}
+          width={72}
+          borderRadius={4}
+          style={{ marginTop: 8 }}
+        />
+        <Skeleton
+          height={28}
+          width="56%"
+          borderRadius={8}
+          style={{ marginTop: 4 }}
+        />
+        <View style={styles.reviewLocationRowSk}>
+          <Skeleton height={20} width={20} borderRadius={10} />
+          <Skeleton height={14} width="40%" borderRadius={6} />
         </View>
-        <View style={styles.reviewProfileStats}>
+        <View style={styles.reviewStatsRowSk}>
           <Skeleton height={28} width={84} borderRadius={999} />
           <Skeleton height={28} width={92} borderRadius={999} />
           <Skeleton height={28} width={68} borderRadius={999} />
         </View>
+        <Skeleton
+          height={28}
+          width="70%"
+          borderRadius={99}
+          style={{ marginTop: 4 }}
+        />
       </View>
       <View style={styles.reviewStarsWrap}>
         {[0, 1, 2, 3, 4].map((i) => (
@@ -250,7 +265,6 @@ export function ReviewDetailScreenSkeleton() {
       </View>
       <Skeleton height={16} width={84} borderRadius={6} />
       <Skeleton height={120} width="100%" borderRadius={12} />
-      <Skeleton height={48} width="100%" borderRadius={999} />
     </ScrollView>
   );
 }
@@ -504,26 +518,24 @@ const styles = StyleSheet.create({
     flexWrap: "wrap",
     gap: 12,
   },
-  reviewHeaderBlock: {
+  reviewHeaderSk: {
     alignItems: "center",
-    paddingBottom: 8,
+    alignSelf: "stretch",
+    marginBottom: 0,
   },
-  reviewProfileCard: {
-    gap: 14,
-  },
-  reviewProfileHeader: {
+  reviewLocationRowSk: {
     flexDirection: "row",
     alignItems: "center",
-    gap: 12,
+    gap: 4,
+    marginTop: 8,
+    marginBottom: 8,
   },
-  reviewProfileText: {
-    flex: 1,
-    minWidth: 0,
-  },
-  reviewProfileStats: {
+  reviewStatsRowSk: {
     flexDirection: "row",
     flexWrap: "wrap",
-    gap: 8,
+    justifyContent: "center",
+    gap: 16,
+    marginBottom: 8,
   },
   reviewStarsWrap: {
     alignItems: "center",

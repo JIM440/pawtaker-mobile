@@ -56,7 +56,11 @@
       "none": "None",
       "noOpenRequest": "This pet doesn’t have an open care request right now.",
       "petOwner": "Pet owner",
-      "helpWithPet": "Help with this pet"
+      "helpWithPet": "Help with this pet",
+      "unknownBreed": "Unknown breed",
+      "noDetailsShort": "No details yet.",
+      "unnamedPet": "Unnamed pet",
+      "noBioShort": "No pet bio yet."
     }
   },
   "notFound": {
@@ -286,7 +290,6 @@
     },
     "resultsLabel": "Results",
     "distanceKmRange": "{{min}}km–{{max}}km",
-    "takerAvailable": "Available",
     "careTypes": {
       "daytime": "Daytime",
       "playwalk": "Play / walk",
@@ -317,6 +320,16 @@
     "nowAvailableSnackbar": "You are now tagged",
     "availableHighlight": "available",
     "pointsCount": "{{count}} points",
+    "defaultCaregiverName": "Caregiver",
+    "table": {
+      "pet": "Pet",
+      "careType": "Care type",
+      "date": "Date",
+      "taker": "Taker"
+    },
+    "receivedFooterLine1": "Give more care to earn more points.",
+    "receivedFooterLine2Prefix": "Points may be convertible to cash. ",
+    "receivedFooterLink": "Find out how",
     "contract": {
       "title": "Contract",
       "sign": "Sign contract",
@@ -326,15 +339,21 @@
       "agreementActive": "Agreement is active.",
       "acceptHint": "Accept the offer to unlock the agreement actions.",
       "acceptOffer": "Accept Offer",
-      "acceptConfirmTitle": "Are you sure you want to accept this offer?",
-      "acceptConfirmDescription": "Yes, I'm going to accept.",
+      "acceptConfirmTitle": "Accept this offer?",
+      "acceptConfirmDescription": "You will match with this caregiver for this request and start the agreement flow. You can review the contract next.\n\nEnding rules (simple):\n- Before the start date: if the owner ends the contract, the caregiver gets 0 points.\n- After the start date:\n  - If the owner ends the contract: the caregiver gets full points immediately.\n  - If the caregiver ends the contract: the caregiver gets 0 points.\n- Receiving care does not reduce the owner's points.",
       "acceptDisclaimer": "By tapping Accept Offer, you approve that anyone in the community can contact you in our chat system.",
       "rateAndReview": "Rate & Review",
       "terminate": "Terminate Agreement",
       "terminateConfirm": "Terminate",
       "terminatedToast": "Agreement ended.",
       "terminateConfirmTitle": "Terminate agreement?",
-      "terminateConfirmDescription": "The other party will need to confirm before the agreement is fully ended.",
+      "terminateConfirmLead": "This ends the contract immediately.",
+      "terminateRulesTitle": "How points are handled",
+      "terminateRuleBeforeStart": "Before start date: if the owner ends the contract, the caregiver gets 0 points.",
+      "terminateRuleAfterStartTitle": "After start date",
+      "terminateRuleAfterStartOwner": "Owner ends contract: caregiver gets full points immediately.",
+      "terminateRuleAfterStartTaker": "Caregiver ends contract: caregiver gets 0 points.",
+      "terminateConfirmDescription": "This ends the contract immediately.\n\nEnding rules (simple):\n- Before the start date: if the owner ends the contract, the caregiver gets 0 points.\n- After the start date:\n  - If the owner ends the contract: the caregiver gets full points immediately.\n  - If the caregiver ends the contract: the caregiver gets 0 points.\n- Receiving care does not reduce the owner's points.",
       "terminationPendingLabel": "Termination requested",
       "terminationPendingHint": "Waiting for the other party to confirm.",
       "terminationPendingRequesterTitle": "You've initiated termination.",
@@ -361,7 +380,12 @@
       "pointsLabel": "Points",
       "offeredCareTypes": "Care offered",
       "careGivenCount": "{{count}} care sessions",
-      "takerAlreadyCaring": "This taker is currently active on another care agreement."
+      "takerAlreadyCaring": "This taker is currently active on another care agreement.",
+      "loadFailed": "We couldn't load this contract right now.",
+      "accessDenied": "You don't have access to this contract.",
+      "terminationRequestFailed": "We couldn't end this agreement right now.",
+      "reportSubmitFailed": "We couldn't submit this report right now.",
+      "blockUpdateFailed": "We couldn't update this block right now."
     },
     "checkin": {
       "title": "Check-in",
@@ -382,9 +406,13 @@
       "peerTask": "Care complete",
       "careForPet": "Care for {{petName}}",
       "successTitle": "Thank you!",
-      "successSubtitle": "Your review was submitted and helps others choose great caregivers."
-    }
-    ,
+      "successSubtitle": "Your review was submitted and helps others choose great caregivers.",
+      "loadFormFailed": "We couldn't load this review form right now.",
+      "submitContractUnavailable": "We couldn't submit this review because the contract details are unavailable.",
+      "submitFailed": "We couldn't submit your review right now.",
+      "ratingRequired": "Please select a rating before submitting.",
+      "commentRequired": "Please enter a review message."
+    },
     "availabilityUpdateFailed": "Couldn't update availability. Please try again.",
     "availabilityProfileRequired": "Add your availability profile first to enable this switch.",
     "emptyState": {
@@ -398,7 +426,8 @@
     "loadingReceived": "Loading care received...",
     "loadingLiked": "Loading liked pets...",
     "likedEmptyTitle": "Nothing to show yet",
-    "likedEmptyMessage": "When you like care requests, they will appear here."
+    "likedEmptyMessage": "When you like care requests, they will appear here.",
+    "removedFromLiked": "Removed from liked pets."
   },
   "offer": {
     "title": "Send offer",
@@ -414,7 +443,8 @@
     "wrongRecipient": "You can’t send an offer on your own request.",
     "send": "Send offer",
     "confirmTitle": "Send offer?",
-    "confirmDescription": "This will send your care proposal to the pet owner."
+    "confirmDescription": "This will send your care proposal to the pet owner.",
+    "takerAvailabilityMissing": "This caregiver needs to complete an availability profile before you can accept their offer."
   },
   "post": {
     "title": "Post",
@@ -465,6 +495,10 @@
       "previewTitle": "Preview of your request",
       "previewHint": "Tap chips or fields to adjust before launching.",
       "previewDisclaimer": "By tapping Launch, you approve that anyone in the community can apply or contact you in our chat system.",
+      "editTitle": "Edit your request",
+      "editHint": "Update the fields below, then save your changes.",
+      "editDisclaimer": "By tapping Save, your request details will be updated.",
+      "editLocked": "Locked in edit mode",
       "specialNeedsPlaceholder": "Anything we should know?",
       "preview": {
         "careTypes": "Care",
@@ -487,10 +521,13 @@
       "addAPet": "+ Add a pet",
       "launchFailed": "Couldn't create the pet request right now. Please try again.",
       "launchSuccess": "Your care request is live.",
+      "editSuccess": "Your care request was updated.",
+      "alreadySeeking": "This pet is already seeking care.",
       "selectPetTitle": "Select pet",
       "loadingPetsTitle": "Loading pets…",
       "loadingPetsMessage": "Fetching your pets.",
       "petsLoadFailedTitle": "Couldn’t load pets",
+      "editLoadFailed": "We couldn't load this request for editing.",
       "selectTime": "Select time",
       "launch": "Launch"
     },
@@ -576,11 +613,14 @@
     "viewProfile": "View profile",
     "muteNotifications": "Mute notifications",
     "block": "Block",
+    "blockReasonLabel": "Reason (optional)",
     "blockConfirmTitle": "Block this user?",
     "blockConfirmDescription": "If you block this user, you and this user won't be able to message each other. You can unblock later in Settings.",
     "blockedToast": "User blocked.",
     "unblocked": "User unblocked.",
+    "unblockFailed": "Could not unblock this user right now.",
     "unblock": "Unblock",
+    "unblockConfirmDescription": "You'll be able to message this user again after unblocking them.",
     "youBlockedBanner": "You have blocked this user. Unblock them to message them.",
     "blockedByOtherBanner": "This user has blocked you, so they can't message you and you can't message them.",
     "blockedBySelfSend": "You blocked this user, so you can't message them.",
@@ -612,6 +652,8 @@
     "fileUploadFailed": "Could not send file.",
     "galleryPermissionRequired": "Allow photo library access to attach images.",
     "cameraPermissionRequired": "Allow camera access to take a photo.",
+    "documentTypesRestricted": "Only PDF and Word documents can be sent here.",
+    "documentTooLarge": "Documents must be 10MB or smaller before you can send them.",
     "documentPickerRebuildRequired": "To attach documents, rebuild the app so the native module is included (e.g. npx expo run:android or expo run:ios), then try again.",
     "lastMessagePhoto": "Photo",
     "attachSheetTitle": "Attach",
@@ -622,7 +664,16 @@
     "reportReasonRequired": "Please enter a reason.",
     "reportConfirmDescription": "Are you sure? Please provide a reason.",
     "reportSubmitted": "Report submitted.",
-    "adviceMeet": "You are advised to meet users before confirming care agreements."
+    "reportFailed": "We couldn't submit this report right now.",
+    "adviceMeet": "You are advised to meet users before confirming care agreements.",
+    "sendMessageFailed": "We couldn't send your message right now. Please try again.",
+    "sendImageFailed": "We couldn't send that image right now.",
+    "sendVideoFailed": "We couldn't send that video right now.",
+    "sendDocumentFailed": "We couldn't send that document right now.",
+    "documentPickerFailed": "We couldn't open the document picker right now.",
+    "openDocumentExternallyFailed": "We couldn't open this document in another app.",
+    "openDocumentDeviceFailed": "We couldn't open this document on your device.",
+    "blockUpdateFailed": "We couldn't update this block right now."
   },
   "requestDetails": {
     "title": "Request details",
@@ -642,13 +693,19 @@
     "applyConfirmBody": "A message with your availability details will be sent to this pet’s owner",
     "requestClosedForApplications": "This request is no longer accepting applications.",
     "requestAcceptedByAnother": "Another caregiver has already accepted this request.",
+    "requestAssignedToYou": "A caregiver has already been assigned for this request.",
     "cannotApplyOwnRequest": "You cannot apply to your own request.",
     "requestExpired": "This request has ended and is no longer accepting applications.",
     "deleteRequest": "Delete Request",
     "deleteRequestConfirmTitle": "Delete this request?",
     "deleteRequestConfirmMessage": "This will permanently remove the care request. This action cannot be undone.",
     "deleteRequestContractExists": "A contract already exists for this request and it cannot be deleted.",
-    "deleteRequestSuccess": "Request deleted."
+    "deleteRequestSuccess": "Request deleted.",
+    "applyFailed": "We couldn't apply to this request right now.",
+    "editRequestLocked": "You can edit only when no caregiver is assigned and no contract exists.",
+    "deleteRequestFailed": "We couldn't delete this request right now.",
+    "updatePetLikeFailed": "We couldn't update this pet like right now.",
+    "startApplicationFailed": "We couldn't start your application for this request."
   },
   "filters": {
     "title": "Filters",
@@ -720,6 +777,10 @@
     "deactivateAccount": "Deactivate account",
     "deleteAccount": "Delete Account",
     "contactUs": "Contact us",
+    "contactUnavailable": "Contact link is not configured for this app build yet.",
+    "aboutUs": "About us",
+    "aboutUsTitle": "About us",
+    "aboutUsCopyright": "© {{year}} {{appName}}. All rights reserved.",
     "termsAndPolicies": "Terms and policies",
     "preferencesSection": "Preferences",
     "logoutTitle": "Sign out?",
@@ -748,6 +809,8 @@
     },
     "reviewsCount": "{{count}} reviews",
     "reviews": "Reviews",
+    "anonymousReviewer": "Anonymous",
+    "emptyReviewComment": "No review comment.",
     "availability": {
       "emptyTitle": "No availability yet",
       "emptyMessage": "Create your availability from Edit Profile to show it here.",
@@ -788,7 +851,10 @@
       "availabilitySaveFailed": "Couldn't update availability. Please try again.",
       "saved": "Profile updated successfully.",
       "toast": "Profile updated.",
-      "saveFailed": "Couldn't save your profile changes. Please try again."
+      "saveFailed": "Couldn't save your profile changes. Please try again.",
+      "saveFailedDetails": "We couldn't save your profile changes right now.",
+      "availabilitySaveFailedDetails": "We couldn't update availability right now.",
+      "sessionRequired": "You need to be signed in before saving profile changes."
     },
     "emergencyContacts": {
       "title": "Emergency Contacts",
@@ -813,6 +879,8 @@
     "emptyTitle": "Oops! No notifications yet",
     "emptySubtitle": "All your notifications will appear here",
     "deleteOne": "Delete this notification",
+    "loadFailed": "We couldn't load your notifications right now.",
+    "markReadFailed": "We couldn't update this notification right now.",
     "mock": {
       "careEndingTitle": "Care ending soon",
       "careEndingBody": "Care for Polo with Bob Majors ends at 6PM",
@@ -875,11 +943,11 @@
       "loadFailed": "Couldn't load pet details. Please try again.",
       "addPhotos": "+ Add pet photos",
       "takeNewPhotos": "or take new photos"
-    }
-    ,
+    },
     "delete": {
       "success": "Pet deleted.",
-      "failed": "Couldn't delete this pet. Please try again."
+      "failed": "Couldn't delete this pet. Please try again.",
+      "failedDetails": "We couldn't delete this pet right now."
     }
   },
   "errors": {
@@ -888,7 +956,43 @@
     "passwordTooShort": "Password must be at least 8 characters",
     "passwordsDoNotMatch": "Passwords do not match",
     "networkError": "Network error. Check your connection.",
-    "unknownError": "An unexpected error occurred"
+    "unknownError": "An unexpected error occurred",
+    "permissionDenied": "You don't have permission to do that.",
+    "sessionExpired": "Your session expired. Please sign in again.",
+    "duplicateExists": "This already exists. Try updating it instead.",
+    "checkConstraintCareRequestStatus": "This offer could not be saved because the database still restricts request status. Ask your admin to run the latest migrations (care_requests status must allow 'accepted'), then try again.",
+    "checkConstraintPointTransactions": "The database points ledger needs an update. Ask your admin to apply the latest migrations (point_transactions type check), then try again.",
+    "invalidInput": "Some information is invalid. Please review your inputs and try again.",
+    "foreignKeyOrMissing": "Something was deleted or is no longer available. Refresh and try again.",
+    "missingColumn42703": "The database is missing a required update. Ask your admin to apply the latest migrations (including contracts termination columns), then try again.",
+    "featureTemporarilyUnavailable": "This feature is temporarily unavailable. Please try again later.",
+    "serverMissingFunction": "The server is missing a required update. Ask your admin to apply the latest database migrations, then try again.",
+    "tryAgainShort": "Please try again.",
+    "unableToLoadData": "Unable to load data",
+    "loadActiveCare": "Failed to load active care.",
+    "loadCareGiven": "Failed to load care given.",
+    "loadCareReceived": "Failed to load care received.",
+    "loadLikedPets": "Failed to load liked pets.",
+    "loadRequests": "Failed to load requests.",
+    "loadTakers": "Failed to load takers.",
+    "loadYourPets": "Failed to load your pets.",
+    "loadPets": "Failed to load pets.",
+    "loadAvailability": "Failed to load availability.",
+    "loadReviews": "Failed to load reviews.",
+    "loadOffer": "Failed to load offer.",
+    "loadOfferSendFailed": "We couldn't send your offer right now. Please try again.",
+    "loadRequestDetail": "We couldn't load this request right now. Please try again.",
+    "loadPetRequestDetail": "We couldn't load this pet request right now. Please try again.",
+    "loadPetRequestEdit": "We couldn't load this request for editing.",
+    "petsLoadFailedSummary": "Couldn't load pets.",
+    "removeLikeFailed": "We couldn't remove this pet from your liked list.",
+    "updateAvailabilityToggleFailed": "We couldn't update your availability right now.",
+    "updateBlockFailed": "We couldn't update this block right now.",
+    "loadOfferDetail": "We couldn't load this offer.",
+    "confirmOfferMissingRequest": "We couldn't confirm this offer because some request details are missing.",
+    "createContractFailed": "We couldn't create the care contract for this offer.",
+    "deletePetFailed": "Couldn't delete this pet. Please try again.",
+    "sendRequestFailed": "Couldn't send the request right now. Please try again.",
+    "chatThreadCreateFailed": "Could not create chat thread."
   }
 }
-

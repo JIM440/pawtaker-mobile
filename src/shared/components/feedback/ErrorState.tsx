@@ -1,14 +1,7 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { IllustratedEmptyState, IllustratedEmptyStateIllustrations } from "./IllustratedEmptyState";
-
-function friendlyErrorMessage(error: unknown): string {
-  return errorMessageFromUnknown(
-    error,
-    "Please try again.",
-    "Check your internet connection.",
-  );
-}
 
 type Props = {
   error: unknown;
@@ -22,17 +15,25 @@ type Props = {
 
 export function ErrorState({
   error,
-  title = "Unable to load data",
+  title,
   actionLabel,
   onAction,
   secondaryLabel,
   onSecondary,
   mode = "full",
 }: Props) {
+  const { t } = useTranslation();
+  const message = errorMessageFromUnknown(
+    error,
+    t("errors.tryAgainShort"),
+    t("errors.networkError"),
+  );
+  const resolvedTitle = title ?? t("errors.unableToLoadData");
+
   return (
     <IllustratedEmptyState
-      title={title}
-      message={friendlyErrorMessage(error)}
+      title={resolvedTitle}
+      message={message}
       illustration={IllustratedEmptyStateIllustrations.errorTryAgain}
       actionLabel={actionLabel}
       onAction={onAction}
@@ -42,4 +43,3 @@ export function ErrorState({
     />
   );
 }
-

@@ -59,7 +59,11 @@
       "none": "Aucun",
       "noOpenRequest": "Cet animal n'a pas de demande de garde ouverte pour le moment.",
       "petOwner": "PropriÃƒÂ©taire",
-      "helpWithPet": "Aider cet animal"
+      "helpWithPet": "Aider cet animal",
+      "unknownBreed": "Race inconnue",
+      "noDetailsShort": "Pas encore de détails.",
+      "unnamedPet": "Animal sans nom",
+      "noBioShort": "Pas encore de biographie pour cet animal."
     }
   },
   "notFound": {
@@ -316,6 +320,16 @@
     "nowAvailableSnackbar": "Vous ÃƒÂªtes maintenant marquÃƒÂ©Ã‚Â·e",
     "availableHighlight": "disponible",
     "pointsCount": "{{count}} pts",
+    "defaultCaregiverName": "Gardien",
+    "table": {
+      "pet": "Animal",
+      "careType": "Type de garde",
+      "date": "Date",
+      "taker": "Gardien"
+    },
+    "receivedFooterLine1": "Donnez plus de soins pour gagner plus de points.",
+    "receivedFooterLine2Prefix": "Les points peuvent être convertis en espèces. ",
+    "receivedFooterLink": "En savoir plus",
     "contract": {
       "title": "Contrat",
       "sign": "Signer le contrat",
@@ -325,15 +339,21 @@
       "agreementActive": "L'accord est actif.",
       "acceptHint": "Acceptez l'offre pour dÃƒÂ©bloquer les actions de l'accord.",
       "acceptOffer": "Accepter l'offre",
-      "acceptConfirmTitle": "Voulez-vous vraiment accepter cette offre ?",
-      "acceptConfirmDescription": "Oui, je vais accepter.",
+      "acceptConfirmTitle": "Accepter cette offre ?",
+      "acceptConfirmDescription": "Vous serez mis en relation avec ce gardien pour cette demande et vous pourrez poursuivre avec le contrat.\n\nRègles de fin (simple) :\n- Avant la date de début : si le propriétaire met fin au contrat, le gardien reçoit 0 point.\n- Après la date de début :\n  - Si le propriétaire met fin au contrat : le gardien reçoit tous les points immédiatement.\n  - Si le gardien met fin au contrat : le gardien reçoit 0 point.\n- Recevoir des soins ne retire pas de points au propriétaire.",
       "acceptDisclaimer": "En appuyant sur Accepter l'offre, vous acceptez que toute personne de la communautÃƒÂ© puisse vous contacter dans notre systÃƒÂ¨me de chat.",
       "rateAndReview": "Noter et ÃƒÂ©valuer",
       "terminate": "RÃƒÂ©silier l'accord",
       "terminateConfirm": "RÃƒÂ©silier",
       "terminatedToast": "Accord terminÃƒÂ©.",
       "terminateConfirmTitle": "RÃƒÂ©silier l'accord ?",
-      "terminateConfirmDescription": "L'autre partie devra confirmer avant que l'accord soit dÃƒÂ©finitivement terminÃƒÂ©.",
+      "terminateConfirmLead": "Cela met fin au contrat immÃƒÂ©diatement.",
+      "terminateRulesTitle": "Comment les points sont gÃƒÂ©rÃƒÂ©s",
+      "terminateRuleBeforeStart": "Avant la date de début : si le propriétaire résilie, le gardien reçoit 0 point.",
+      "terminateRuleAfterStartTitle": "Après la date de début",
+      "terminateRuleAfterStartOwner": "Le propriétaire résilie : le gardien reçoit tous les points immédiatement.",
+      "terminateRuleAfterStartTaker": "Le gardien résilie : le gardien reçoit 0 point.",
+      "terminateConfirmDescription": "Cela met fin au contrat immédiatement.\n\nRègles de fin (simple) :\n- Avant la date de début : si le propriétaire met fin au contrat, le gardien reçoit 0 point.\n- Après la date de début :\n  - Si le propriétaire met fin au contrat : le gardien reçoit tous les points immédiatement.\n  - Si le gardien met fin au contrat : le gardien reçoit 0 point.\n- Recevoir des soins ne retire pas de points au propriétaire.",
       "terminationPendingLabel": "RÃƒÂ©siliation demandÃƒÂ©e",
       "terminationPendingHint": "En attente de confirmation de l'autre partie.",
       "reactivate": "RÃƒÂ©activer l'accord",
@@ -347,7 +367,8 @@
       "terminationPendingRequesterTitle": "Vous avez lancÃ© la rÃ©siliation.",
       "terminationPendingRequesterBody": "L'autre partie doit aussi confirmer avant que cet accord soit dÃ©finitivement rÃ©siliÃ©.",
       "terminationPendingRecipientTitle": "Une rÃ©siliation a Ã©tÃ© demandÃ©e.",
-      "terminationPendingRecipientBody": "Confirmez la rÃ©siliation pour mettre fin dÃ©finitivement Ã  cet accord.",      "acceptedNotificationBody": "Votre accord de garde a ÃƒÂ©tÃƒÂ© acceptÃƒÂ©.",
+      "terminationPendingRecipientBody": "Confirmez la rÃ©siliation pour mettre fin dÃ©finitivement Ã  cet accord.",
+      "acceptedNotificationBody": "Votre accord de garde a ÃƒÂ©tÃƒÂ© acceptÃƒÂ©.",
       "terminatedNotificationBody": "Un accord de garde a ÃƒÂ©tÃƒÂ© interrompu.",
       "terminationRequestedNotificationBody": "{{name}} a demandÃƒÂ© ÃƒÂ  mettre fin ÃƒÂ  l'accord de garde.",
       "terminationReactivatedNotificationBody": "{{name}} a annulÃƒÂ© la demande de rÃƒÂ©siliation.",
@@ -359,7 +380,12 @@
       "pointsLabel": "Points",
       "offeredCareTypes": "Type de garde proposÃƒÂ©",
       "careGivenCount": "{{count}} gardes effectuÃƒÂ©es",
-      "takerAlreadyCaring": "Ce gardien est actuellement actif sur un autre accord de garde."
+      "takerAlreadyCaring": "Ce gardien est actuellement actif sur un autre accord de garde.",
+      "loadFailed": "Impossible de charger ce contrat pour le moment.",
+      "accessDenied": "Vous n'avez pas accès à ce contrat.",
+      "terminationRequestFailed": "Impossible de mettre fin à cet accord pour le moment.",
+      "reportSubmitFailed": "Impossible d'envoyer ce signalement pour le moment.",
+      "blockUpdateFailed": "Impossible de mettre à jour ce blocage pour le moment."
     },
     "checkin": {
       "title": "Enregistrement",
@@ -380,7 +406,12 @@
       "peerTask": "Garde terminÃƒÂ©e",
       "careForPet": "Garde de {{petName}}",
       "successTitle": "Merci !",
-      "successSubtitle": "Votre avis a ÃƒÂ©tÃƒÂ© envoyÃƒÂ© et aide les autres ÃƒÂ  choisir des gardiens de confiance."
+      "successSubtitle": "Votre avis a ÃƒÂ©tÃƒÂ© envoyÃƒÂ© et aide les autres ÃƒÂ  choisir des gardiens de confiance.",
+      "loadFormFailed": "Impossible de charger ce formulaire d'avis pour le moment.",
+      "submitContractUnavailable": "Impossible d'envoyer votre avis car les détails du contrat sont indisponibles.",
+      "submitFailed": "Impossible d'envoyer votre avis pour le moment.",
+      "ratingRequired": "Veuillez sélectionner une note avant d'envoyer.",
+      "commentRequired": "Veuillez saisir un message d'avis."
     },
     "availabilityUpdateFailed": "Impossible de mettre ÃƒÂ  jour la disponibilitÃƒÂ©. Veuillez rÃƒÂ©essayer.",
     "availabilityProfileRequired": "Ajoutez d'abord votre profil de disponibilitÃƒÂ© pour activer ce bouton.",
@@ -395,7 +426,8 @@
     "loadingReceived": "Chargement des soins reÃƒÂ§us...",
     "loadingLiked": "Chargement des animaux aimÃƒÂ©s...",
     "likedEmptyTitle": "Rien ÃƒÂ  afficher pour le moment",
-    "likedEmptyMessage": "Lorsque vous aimez une demande, elle apparaÃƒÂ®tra ici."
+    "likedEmptyMessage": "Lorsque vous aimez une demande, elle apparaÃƒÂ®tra ici.",
+    "removedFromLiked": "Retiré des favoris."
   },
   "offer": {
     "title": "Envoyer une offre",
@@ -411,7 +443,8 @@
     "wrongRecipient": "Vous ne pouvez pas envoyer dÃ¢â‚¬â„¢offre sur votre propre demande.",
     "send": "Envoyer lÃ¢â‚¬â„¢offre",
     "confirmTitle": "Envoyer lÃ¢â‚¬â„¢offre ?",
-    "confirmDescription": "Cela enverra votre proposition de garde au propriÃƒÂ©taire de lÃ¢â‚¬â„¢animal."
+    "confirmDescription": "Cela enverra votre proposition de garde au propriÃƒÂ©taire de lÃ¢â‚¬â„¢animal.",
+    "takerAvailabilityMissing": "Ce gardien doit compléter un profil de disponibilité avant que vous puissiez accepter son offre."
   },
   "post": {
     "title": "Publier",
@@ -462,6 +495,10 @@
       "previewTitle": "AperÃƒÂ§u de votre demande",
       "previewHint": "Touchez les puces ou les champs pour ajuster avant de lancer.",
       "previewDisclaimer": "En appuyant sur Lancer, vous acceptez que la communautÃƒÂ© puisse postuler ou vous contacter via le chat.",
+      "editTitle": "Modifier votre demande",
+      "editHint": "Mettez ÃƒÂ  jour les champs ci-dessous, puis enregistrez vos modifications.",
+      "editDisclaimer": "En appuyant sur Enregistrer, les dÃƒÂ©tails de votre demande seront mis ÃƒÂ  jour.",
+      "editLocked": "VerrouillÃƒÂ© en mode modification",
       "specialNeedsPlaceholder": "Quelque chose ÃƒÂ  savoir ?",
       "preview": {
         "careTypes": "Soins",
@@ -484,10 +521,13 @@
       "addAPet": "+ Ajouter un animal",
       "launchFailed": "Impossible de crÃƒÂ©er la demande pour le moment. Veuillez rÃƒÂ©essayer.",
       "launchSuccess": "Votre demande de garde est en ligne.",
+      "editSuccess": "Votre demande de garde a été mise à jour.",
+      "alreadySeeking": "Cet animal est dÃƒÂ©jÃƒÂ  en recherche de garde.",
       "selectPetTitle": "Choisir un animal",
       "loadingPetsTitle": "Chargement des animauxÃ¢â‚¬Â¦",
       "loadingPetsMessage": "RÃƒÂ©cupÃƒÂ©ration de vos animaux.",
       "petsLoadFailedTitle": "Impossible de charger les animaux",
+      "editLoadFailed": "Impossible de charger cette demande pour la modification.",
       "selectTime": "SÃƒÂ©lectionner l'heure",
       "launch": "Lancer"
     },
@@ -573,11 +613,14 @@
     "viewProfile": "Voir le profil",
     "muteNotifications": "DÃƒÂ©sactiver les notifications",
     "block": "Bloquer",
+    "blockReasonLabel": "Motif (facultatif)",
     "blockConfirmTitle": "Bloquer cet utilisateur ?",
     "blockConfirmDescription": "Si vous bloquez cet utilisateur, vous ne pourrez plus vous envoyer de messages. Vous pourrez le dÃƒÂ©bloquer plus tard dans ParamÃƒÂ¨tres.",
     "blockedToast": "Utilisateur bloquÃƒÂ©.",
     "unblocked": "Utilisateur dÃƒÂ©bloquÃƒÂ©.",
+    "unblockFailed": "Impossible de débloquer cet utilisateur pour le moment.",
     "unblock": "DÃƒÂ©bloquer",
+    "unblockConfirmDescription": "Vous pourrez à nouveau écrire à cet utilisateur après l'avoir débloqué.",
     "youBlockedBanner": "Vous avez bloquÃƒÂ© cet utilisateur. DÃƒÂ©bloquez-le pour pouvoir lui ÃƒÂ©crire.",
     "blockedByOtherBanner": "Cet utilisateur vous a bloquÃƒÂ©, donc il ne peut pas vous ÃƒÂ©crire et vous ne pouvez pas lui ÃƒÂ©crire.",
     "blockedBySelfSend": "Vous avez bloquÃƒÂ© cet utilisateur, donc vous ne pouvez pas lui ÃƒÂ©crire.",
@@ -609,6 +652,8 @@
     "fileUploadFailed": "Impossible dÃ¢â‚¬â„¢envoyer le fichier.",
     "galleryPermissionRequired": "Autorisez lÃ¢â‚¬â„¢accÃƒÂ¨s ÃƒÂ  la photothÃƒÂ¨que pour joindre des images.",
     "cameraPermissionRequired": "Autorisez lÃ¢â‚¬â„¢accÃƒÂ¨s ÃƒÂ  la camÃƒÂ©ra pour prendre une photo.",
+    "documentTypesRestricted": "Seuls les documents PDF et Word peuvent ÃƒÂªtre envoyÃƒÂ©s ici.",
+    "documentTooLarge": "Les documents doivent faire 10 Mo maximum avant l'envoi.",
     "documentPickerRebuildRequired": "Pour joindre des documents, reconstruisez lÃ¢â‚¬â„¢application (ex. npx expo run:android ou expo run:ios), puis rÃƒÂ©essayez.",
     "lastMessagePhoto": "Photo",
     "attachSheetTitle": "Joindre",
@@ -619,7 +664,16 @@
     "reportReasonRequired": "Veuillez saisir un motif.",
     "reportConfirmDescription": "ÃƒÅ tes-vous sÃƒÂ»r ? Veuillez indiquer un motif.",
     "reportSubmitted": "Signalement envoyé.",
-    "adviceMeet": "Nous vous conseillons de rencontrer les utilisateurs avant de confirmer un accord de garde."
+    "reportFailed": "Impossible d'envoyer ce signalement pour le moment.",
+    "adviceMeet": "Nous vous conseillons de rencontrer les utilisateurs avant de confirmer un accord de garde.",
+    "sendMessageFailed": "Impossible d'envoyer votre message pour le moment. Veuillez réessayer.",
+    "sendImageFailed": "Impossible d'envoyer cette image pour le moment.",
+    "sendVideoFailed": "Impossible d'envoyer cette vidéo pour le moment.",
+    "sendDocumentFailed": "Impossible d'envoyer ce document pour le moment.",
+    "documentPickerFailed": "Impossible d'ouvrir le sélecteur de documents pour le moment.",
+    "openDocumentExternallyFailed": "Impossible d'ouvrir ce document dans une autre application.",
+    "openDocumentDeviceFailed": "Impossible d'ouvrir ce document sur cet appareil.",
+    "blockUpdateFailed": "Impossible de mettre à jour ce blocage pour le moment."
   },
   "requestDetails": {
     "title": "DÃƒÂ©tails de la demande",
@@ -639,13 +693,19 @@
     "applyConfirmBody": "Un message avec vos disponibilitÃƒÂ©s sera envoyÃƒÂ© au propriÃƒÂ©taire de cet animal",
     "requestClosedForApplications": "Cette demande n'accepte plus de candidatures.",
     "requestAcceptedByAnother": "Un autre pet-sitter a déjà été retenu pour cette demande.",
+    "requestAssignedToYou": "Un pet-sitter a dÃƒÂ©jÃƒÂ  ÃƒÂ©tÃƒÂ© assignÃƒÂ© ÃƒÂ  cette demande.",
     "cannotApplyOwnRequest": "Vous ne pouvez pas postuler ÃƒÂ  votre propre demande.",
     "requestExpired": "Cette demande est terminÃƒÂ©e et n'accepte plus de candidatures.",
     "deleteRequest": "Supprimer la demande",
     "deleteRequestConfirmTitle": "Supprimer cette demande ?",
     "deleteRequestConfirmMessage": "Cette demande de garde sera dÃƒÂ©finitivement supprimÃƒÂ©e. Cette action est irrÃƒÂ©versible.",
     "deleteRequestContractExists": "Un contrat existe dÃƒÂ©jÃƒÂ  pour cette demande. Impossible de la supprimer.",
-    "deleteRequestSuccess": "Demande supprimÃƒÂ©e."
+    "deleteRequestSuccess": "Demande supprimÃƒÂ©e.",
+    "applyFailed": "Impossible de postuler à cette demande pour le moment.",
+    "editRequestLocked": "Vous ne pouvez modifier que lorsqu'aucun gardien n'est assigné et qu'il n'existe aucun contrat.",
+    "deleteRequestFailed": "Impossible de supprimer cette demande pour le moment.",
+    "updatePetLikeFailed": "Impossible de mettre à jour ce favori pour le moment.",
+    "startApplicationFailed": "Impossible de démarrer votre candidature pour cette demande."
   },
   "filters": {
     "title": "Filtres",
@@ -717,6 +777,10 @@
     "deactivateAccount": "DÃƒÂ©sactiver le compte",
     "deleteAccount": "Supprimer le compte",
     "contactUs": "Nous contacter",
+    "contactUnavailable": "Le lien de contact n'est pas encore configuré pour cette version de l'application.",
+    "aboutUs": "À propos",
+    "aboutUsTitle": "À propos",
+    "aboutUsCopyright": "© {{year}} {{appName}}. Tous droits réservés.",
     "termsAndPolicies": "Mentions et politiques",
     "preferencesSection": "PrÃƒÂ©fÃƒÂ©rences",
     "logoutTitle": "Se dÃƒÂ©connecter ?",
@@ -745,6 +809,8 @@
     },
     "reviewsCount": "{{count}} avis",
     "reviews": "Avis",
+    "anonymousReviewer": "Anonyme",
+    "emptyReviewComment": "Pas de commentaire.",
     "availability": {
       "emptyTitle": "Pas encore de disponibilitÃƒÂ©",
       "emptyMessage": "Ajoutez votre disponibilitÃƒÂ© depuis Modifier le profil pour lÃ¢â‚¬â„¢afficher ici.",
@@ -785,7 +851,10 @@
       "availabilitySaveFailed": "Impossible de mettre ÃƒÂ  jour la disponibilitÃƒÂ©. Veuillez rÃƒÂ©essayer.",
       "saved": "Profil mis ÃƒÂ  jour avec succÃƒÂ¨s.",
       "toast": "Profil mis ÃƒÂ  jour.",
-      "saveFailed": "Impossible dÃ¢â‚¬â„¢enregistrer vos modifications de profil. Veuillez rÃƒÂ©essayer."
+      "saveFailed": "Impossible dÃ¢â‚¬â„¢enregistrer vos modifications de profil. Veuillez rÃƒÂ©essayer.",
+      "saveFailedDetails": "Impossible d'enregistrer vos modifications de profil pour le moment.",
+      "availabilitySaveFailedDetails": "Impossible de mettre à jour la disponibilité pour le moment.",
+      "sessionRequired": "Vous devez être connecté pour enregistrer les modifications du profil."
     },
     "emergencyContacts": {
       "title": "Contacts d'urgence",
@@ -803,6 +872,8 @@
   },
   "notifications": {
     "title": "Notifications",
+    "loadFailed": "Impossible de charger vos notifications pour le moment.",
+    "markReadFailed": "Impossible de mettre à jour cette notification pour le moment.",
     "kycResubmit": "Soumettre ÃƒÂ  nouveau",
     "searchPlaceholder": "Rechercher dans les notifications",
     "noNotifications": "Aucune notification",
@@ -875,16 +946,53 @@
     },
     "delete": {
       "success": "Animal supprimÃƒÂ©.",
-      "failed": "Impossible de supprimer cet animal. Veuillez rÃƒÂ©essayer."
+      "failed": "Impossible de supprimer cet animal. Veuillez rÃƒÂ©essayer.",
+      "failedDetails": "Impossible de supprimer cet animal pour le moment."
     }
   },
   "errors": {
     "required": "Ce champ est obligatoire",
     "invalidEmail": "Adresse e-mail invalide",
-    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractÃƒÂ¨res",
+    "passwordTooShort": "Le mot de passe doit contenir au moins 8 caractères",
     "passwordsDoNotMatch": "Les mots de passe ne correspondent pas",
-    "networkError": "Erreur rÃƒÂ©seau. VÃƒÂ©rifiez votre connexion.",
-    "unknownError": "Une erreur inattendue s'est produite"
+    "networkError": "Erreur réseau. Vérifiez votre connexion.",
+    "unknownError": "Une erreur inattendue s'est produite",
+    "permissionDenied": "Vous n'avez pas la permission d'effectuer cette action.",
+    "sessionExpired": "Votre session a expiré. Veuillez vous reconnecter.",
+    "duplicateExists": "Ceci existe déjà. Essayez de le mettre à jour.",
+    "checkConstraintCareRequestStatus": "Cette offre n'a pas pu être enregistrée car la base restreint encore le statut des demandes. Demandez à l'administrateur d'appliquer les dernières migrations (le statut des demandes doit autoriser « accepté »), puis réessayez.",
+    "checkConstraintPointTransactions": "Le registre des points doit être mis à jour. Demandez à l'administrateur d'appliquer les dernières migrations (contrainte de type sur point_transactions), puis réessayez.",
+    "invalidInput": "Certaines informations sont invalides. Vérifiez vos saisies et réessayez.",
+    "foreignKeyOrMissing": "Un élément a été supprimé ou n'est plus disponible. Actualisez et réessayez.",
+    "missingColumn42703": "La base de données manque une mise à jour requise. Demandez à l'administrateur d'appliquer les dernières migrations (colonnes de résiliation des contrats), puis réessayez.",
+    "featureTemporarilyUnavailable": "Cette fonctionnalité est temporairement indisponible. Réessayez plus tard.",
+    "serverMissingFunction": "Le serveur manque une mise à jour requise. Demandez à l'administrateur d'appliquer les dernières migrations de base de données, puis réessayez.",
+    "tryAgainShort": "Veuillez réessayer.",
+    "unableToLoadData": "Impossible de charger les données",
+    "loadActiveCare": "Échec du chargement des soins actifs.",
+    "loadCareGiven": "Échec du chargement des soins donnés.",
+    "loadCareReceived": "Échec du chargement des soins reçus.",
+    "loadLikedPets": "Échec du chargement des animaux favoris.",
+    "loadRequests": "Échec du chargement des demandes.",
+    "loadTakers": "Échec du chargement des gardiens.",
+    "loadYourPets": "Échec du chargement de vos animaux.",
+    "loadPets": "Échec du chargement des animaux.",
+    "loadAvailability": "Échec du chargement de la disponibilité.",
+    "loadReviews": "Échec du chargement des avis.",
+    "loadOffer": "Échec du chargement de l'offre.",
+    "loadOfferSendFailed": "Impossible d'envoyer votre offre pour le moment. Veuillez réessayer.",
+    "loadRequestDetail": "Impossible de charger cette demande pour le moment. Veuillez réessayer.",
+    "loadPetRequestDetail": "Impossible de charger cette demande pour animal pour le moment. Veuillez réessayer.",
+    "loadPetRequestEdit": "Impossible de charger cette demande pour modification.",
+    "petsLoadFailedSummary": "Impossible de charger les animaux.",
+    "removeLikeFailed": "Impossible de retirer cet animal de vos favoris.",
+    "updateAvailabilityToggleFailed": "Impossible de mettre à jour votre disponibilité pour le moment.",
+    "updateBlockFailed": "Impossible de mettre à jour ce blocage pour le moment.",
+    "loadOfferDetail": "Impossible de charger cette offre.",
+    "confirmOfferMissingRequest": "Impossible de confirmer cette offre car certains détails de la demande sont manquants.",
+    "createContractFailed": "Impossible de créer le contrat de garde pour cette offre.",
+    "deletePetFailed": "Impossible de supprimer cet animal. Veuillez réessayer.",
+    "sendRequestFailed": "Impossible d'envoyer la demande pour le moment. Veuillez réessayer.",
+    "chatThreadCreateFailed": "Impossible de créer le fil de discussion."
   }
 }
-

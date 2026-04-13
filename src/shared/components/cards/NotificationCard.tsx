@@ -221,6 +221,8 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                   variant="body"
                   style={styles.itemTitle}
                   color={colors.onSurfaceVariant}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
                   {title}
                 </AppText>
@@ -254,6 +256,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                 </AppText>
               </Pressable>
               <TouchableOpacity
+                style={styles.menuButton}
                 ref={ref as ForwardedRef<View>}
                 hitSlop={8}
                 onPress={() => onPressMenu?.(id)}
@@ -305,6 +308,7 @@ const styles = StyleSheet.create({
     flex: 1,
     marginRight: 8,
     minWidth: 0,
+    maxWidth: "76%",
   },
   itemAvatar: {
     width: 40,
@@ -331,6 +335,14 @@ const styles = StyleSheet.create({
   },
   itemTime: {
     fontSize: 11,
+    flexShrink: 0,
+    width: 46,
+    textAlign: "right",
+  },
+  menuButton: {
+    width: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionRow: {
     marginTop: 8,

@@ -10,37 +10,38 @@ import { useMessages } from "@/src/features/messages/hooks/useMessages";
 import { useSendMessage } from "@/src/features/messages/hooks/useSendMessage";
 import { useThreads } from "@/src/features/messages/hooks/useThreads";
 import {
-  mapThreadMessagesToUi,
-  type UiMessage,
+    mapThreadMessagesToUi,
+    type UiMessage,
 } from "@/src/features/messages/threadMessageUi";
 import {
-  blockUser,
-  getBlockDirection,
-  unblockUser,
-  type BlockDirection,
+    blockUser,
+    getBlockDirection,
+    unblockUser,
+    type BlockDirection,
 } from "@/src/lib/blocks/user-blocks";
 import {
-  CLOUDINARY_GALLERY_UPLOAD_PRESET,
-  uploadRawToCloudinary,
-  uploadToCloudinary,
+    CLOUDINARY_GALLERY_UPLOAD_PRESET,
+    uploadRawToCloudinary,
+    uploadToCloudinary,
 } from "@/src/lib/cloudinary/upload";
-import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import { navigateProposalOfferDetails } from "@/src/features/notifications/notificationNavigation";
 import {
-  isResourceNotFound,
-  RESOURCE_NOT_FOUND,
+    isResourceNotFound,
+    RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { Json } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { ProfilePetCard } from "@/src/shared/components/cards/ProfilePetCard";
 import { ChatThreadScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import {
-  DataState,
-  ErrorState,
-  ResourceMissingState,
+    DataState,
+    ErrorState,
+    ResourceMissingState,
 } from "@/src/shared/components/ui";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
@@ -50,37 +51,37 @@ import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
-import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
+import * as WebBrowser from "expo-web-browser";
 import {
-  ArrowLeft,
-  CircleAlert,
-  ExternalLink,
-  FileText,
-  Handshake,
-  MapPin,
-  PawPrint,
-  PlayCircle,
-  SendHorizonal,
-  Star,
-  Upload,
-  X,
+    ArrowLeft,
+    CircleAlert,
+    ExternalLink,
+    FileText,
+    Handshake,
+    MapPin,
+    PawPrint,
+    PlayCircle,
+    SendHorizonal,
+    Star,
+    Upload,
+    X,
 } from "lucide-react-native";
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  ActivityIndicator,
-  Keyboard,
-  KeyboardAvoidingView,
-  Modal,
-  Platform,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  View,
+    ActivityIndicator,
+    Keyboard,
+    KeyboardAvoidingView,
+    Modal,
+    Platform,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
@@ -93,12 +94,11 @@ const COMPOSER_MIN_HEIGHT = 44;
 const COMPOSER_MAX_HEIGHT = 44 + (MESSAGE_MAX_LINES - 1) * 18.7;
 const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 10 * 1024 * 1024;
+const MAX_DOCUMENT_SIZE_BYTES = 10 * 1024 * 1024;
 const ALLOWED_DOCUMENT_TYPES = [
   "application/pdf",
   "application/msword",
   "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-  "application/vnd.ms-powerpoint",
-  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
 ] as const;
 
 type AttachmentKind = "image" | "video" | "file";
@@ -137,12 +137,14 @@ function isAllowedDocument(params: {
   return (
     ALLOWED_DOCUMENT_TYPES.includes(
       lowerMime as (typeof ALLOWED_DOCUMENT_TYPES)[number],
-    ) ||
-    /\.(pdf|doc|docx|ppt|pptx)$/i.test(lowerName || lowerUri)
+    ) || /\.(pdf|doc|docx)$/i.test(lowerName || lowerUri)
   );
 }
 
-function canPreviewDocumentInApp(mimeType?: string | null, name?: string | null) {
+function canPreviewDocumentInApp(
+  mimeType?: string | null,
+  name?: string | null,
+) {
   const lowerMime = mimeType?.toLowerCase() ?? "";
   const lowerName = name?.toLowerCase() ?? "";
   return lowerMime === "application/pdf" || /\.pdf$/i.test(lowerName);
@@ -187,6 +189,7 @@ function MessageBubble({
   onOpenImage,
   onOpenVideo,
   onOpenFile,
+  currentUserId,
 }: {
   message: UiMessage;
   colors: any;
@@ -195,6 +198,7 @@ function MessageBubble({
   onOpenImage?: (uri: string) => void;
   onOpenVideo?: (message: UiMessage) => void;
   onOpenFile?: (message: UiMessage) => void;
+  currentUserId?: string | null;
 }) {
   const { t } = useTranslation();
   const router = useRouter();
@@ -308,9 +312,7 @@ function MessageBubble({
             {secondaryLabel ? (
               <AppText
                 variant="caption"
-                color={
-                  isRight ? colors.onPrimary : colors.onSurfaceVariant
-                }
+                color={isRight ? colors.onPrimary : colors.onSurfaceVariant}
                 numberOfLines={2}
               >
                 {secondaryLabel}
@@ -391,7 +393,7 @@ function MessageBubble({
             <AppText
               variant="caption"
               color={isRight ? colors.onPrimary : colors.onSurfaceVariant}
-                numberOfLines={2}
+              numberOfLines={2}
             >
               {secondaryLabel || t("messages.videoLabel", "Video")}
             </AppText>
@@ -416,13 +418,44 @@ function MessageBubble({
     if (!rd) return null;
     const context = rd.context === "seeking" ? "seeking" : "applying";
     const offerId = typeof rd.offerId === "string" ? rd.offerId.trim() : "";
-    const openOfferRoute = () =>
-      router.push(`/(private)/offer/${offerId}` as any);
-    const openRequestRoute = () =>
-      router.push(`/(private)/post-requests/${offerId}` as any);
     const ctaLabel = t("messages.viewOfferDetails");
     const isTakerCard = rd.visual === "taker";
-    const isOutgoingApplicationCard = isTakerCard && isRight;
+    // Force all right-side request/proposal cards to use the primary visual treatment.
+    // This matches the expected "my message card" styling from design.
+    const isPrimaryApplyingCard = isRight;
+    const figmaCardBackground = isPrimaryApplyingCard
+      ? colors.primary
+      : colors.surfaceContainerHighest;
+    const figmaCardBorder = isPrimaryApplyingCard
+      ? colors.primary
+      : colors.outlineVariant;
+    const figmaTopPillBackground = isPrimaryApplyingCard
+      ? colors.tertiary
+      : colors.tertiaryContainer;
+    const figmaTopPillText = isPrimaryApplyingCard
+      ? colors.inversePrimary
+      : colors.onTertiaryContainer;
+    const figmaDescriptionBackground = isPrimaryApplyingCard
+      ? colors.inversePrimary
+      : colors.surfaceContainer;
+    const figmaDescriptionText = isPrimaryApplyingCard
+      ? colors.onSurface
+      : colors.onSurfaceVariant;
+    const figmaNestedCardBackground = isPrimaryApplyingCard
+      ? colors.primaryContainer
+      : colors.surfaceContainerLowest;
+    const figmaPrimaryTextColor = isPrimaryApplyingCard
+      ? colors.onSurface
+      : colors.onSurface;
+    const figmaSubtleTextColor = isPrimaryApplyingCard
+      ? colors.onSurface
+      : colors.onSurfaceVariant;
+    const figmaChipBackground = isPrimaryApplyingCard
+      ? colors.surfaceContainerLowest
+      : colors.surfaceContainer;
+    const figmaChipText = isPrimaryApplyingCard
+      ? colors.onSurface
+      : colors.onSurfaceVariant;
     const takerPetTypesLine = joinCompactList(
       (rd.takerPetTypesLine ?? "").split("•"),
     );
@@ -441,14 +474,10 @@ function MessageBubble({
           style={[
             styles.requestCard,
             {
-              backgroundColor: isOutgoingApplicationCard
-                ? colors.primary
-                : colors.surfaceContainerHighest,
-              borderColor: isOutgoingApplicationCard
-                ? colors.primary
-                : colors.outlineVariant,
+              backgroundColor: figmaCardBackground,
+              borderColor: figmaCardBorder,
             },
-            isOutgoingApplicationCard && {
+            isPrimaryApplyingCard && {
               padding: 8,
               borderRadius: 20,
               gap: 8,
@@ -459,12 +488,12 @@ function MessageBubble({
           <View
             style={[
               styles.requestTopPill,
-              { backgroundColor: colors.tertiaryContainer },
+              { backgroundColor: figmaTopPillBackground },
             ]}
           >
             <AppText
               variant="caption"
-              color={colors.onTertiaryContainer}
+              color={figmaTopPillText}
               style={styles.requestTopPillText}
               numberOfLines={1}
             >
@@ -480,21 +509,13 @@ function MessageBubble({
               style={[
                 styles.requestDescriptionBox,
                 {
-                  backgroundColor: isOutgoingApplicationCard
-                    ? colors.inversePrimary
-                    : colors.surfaceContainerHighest,
+                  backgroundColor: figmaDescriptionBackground,
                 },
               ]}
             >
               <AppText
                 variant="body"
-                color={
-                  isOutgoingApplicationCard
-                    ? colors.onSurfaceVariant
-                    : isTakerCard
-                      ? colors.onPrimary
-                      : colors.onSurfaceVariant
-                }
+                color={figmaDescriptionText}
                 style={styles.requestDescriptionText}
                 numberOfLines={2}
               >
@@ -510,15 +531,15 @@ function MessageBubble({
               onPress={() => {
                 if (!rd.takerProfileUserId) return;
                 router.push({
-                    pathname: "/(private)/(tabs)/(home)/users/[id]",
+                  pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id: rd.takerProfileUserId },
                 } as any);
               }}
               style={[
                 styles.threadTakerNestedCard,
                 {
-                  backgroundColor: colors.primaryContainer,
-                  borderColor: colors.primaryContainer,
+                  backgroundColor: figmaNestedCardBackground,
+                  borderColor: figmaNestedCardBackground,
                 },
               ]}
             >
@@ -535,11 +556,7 @@ function MessageBubble({
                     <AppText
                       variant="title"
                       numberOfLines={1}
-                      color={
-                        isOutgoingApplicationCard
-                          ? colors.onSurface
-                          : colors.onPrimaryContainer
-                      }
+                      color={figmaPrimaryTextColor}
                       style={styles.takerName}
                     >
                       {rd.takerName?.trim()
@@ -551,14 +568,7 @@ function MessageBubble({
                   {/* Compact meta: rating • handshakes • paws */}
                   <View style={styles.takerCompactMetaRow}>
                     <View style={styles.takerRatingItem}>
-                      <AppText
-                        variant="caption"
-                        color={
-                          isOutgoingApplicationCard
-                            ? colors.onSurfaceVariant
-                            : colors.onPrimaryContainer
-                        }
-                      >
+                      <AppText variant="caption" color={figmaSubtleTextColor}>
                         {(rd.takerRating ?? 0).toFixed(1)}
                       </AppText>
                       <Star
@@ -570,22 +580,22 @@ function MessageBubble({
                     <View
                       style={[
                         styles.takerCompactMetaItem,
-                        { backgroundColor: colors.surfaceContainerLowest },
+                        { backgroundColor: figmaChipBackground },
                       ]}
                     >
-                      <Handshake size={12} color={colors.onSurfaceVariant} />
-                      <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      <Handshake size={12} color={figmaChipText} />
+                      <AppText variant="caption" color={figmaChipText}>
                         {rd.takerHandshakes ?? 0}
                       </AppText>
                     </View>
                     <View
                       style={[
                         styles.takerCompactMetaItem,
-                        { backgroundColor: colors.surfaceContainerLowest },
+                        { backgroundColor: figmaChipBackground },
                       ]}
                     >
-                      <PawPrint size={12} color={colors.onSurfaceVariant} />
-                      <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      <PawPrint size={12} color={figmaChipText} />
+                      <AppText variant="caption" color={figmaChipText}>
                         {rd.takerPaws ?? 0}
                       </AppText>
                     </View>
@@ -595,11 +605,7 @@ function MessageBubble({
                   {takerPetTypesLine ? (
                     <AppText
                       variant="caption"
-                      color={
-                        isOutgoingApplicationCard
-                          ? colors.onSurface
-                          : colors.onPrimaryContainer
-                      }
+                      color={figmaPrimaryTextColor}
                       numberOfLines={1}
                       style={styles.takerInlineMeta}
                     >
@@ -608,17 +614,13 @@ function MessageBubble({
                   ) : null}
                   {rd.takerCity ? (
                     <View style={styles.takerLocationRow}>
-                      <MapPin size={16} color={colors.onPrimaryContainer} />
-                  <AppText
-                    variant="caption"
-                    color={
-                      isOutgoingApplicationCard
-                        ? colors.onSurface
-                        : colors.onPrimaryContainer
-                    }
-                    numberOfLines={1}
-                    style={styles.takerLocationText}
-                  >
+                      <MapPin size={16} color={figmaPrimaryTextColor} />
+                      <AppText
+                        variant="caption"
+                        color={figmaPrimaryTextColor}
+                        numberOfLines={1}
+                        style={styles.takerLocationText}
+                      >
                         {rd.takerCity}
                       </AppText>
                     </View>
@@ -629,15 +631,49 @@ function MessageBubble({
               {/* Tags row: species • care types • location — all small pills */}
               <View style={styles.takerTagsRow}>
                 {rd.takerPetTypesLine ? (
-                  <View style={[styles.takerTagPill, { backgroundColor: colors.surfaceContainer }]}>
-                    <AppText variant="caption" color={colors.onSurface} numberOfLines={1}>
+                  <View
+                    style={[
+                      styles.takerTagPill,
+                      {
+                        backgroundColor: isPrimaryApplyingCard
+                          ? colors.primaryContainer
+                          : colors.surfaceContainer,
+                      },
+                    ]}
+                  >
+                    <AppText
+                      variant="caption"
+                      color={
+                        isPrimaryApplyingCard
+                          ? colors.onSurface
+                          : colors.onSurface
+                      }
+                      numberOfLines={1}
+                    >
                       {rd.takerPetTypesLine}
                     </AppText>
                   </View>
                 ) : null}
                 {rd.takerCareTypeKeys && rd.takerCareTypeKeys.length > 0 ? (
-                  <View style={[styles.takerTagPill, { backgroundColor: colors.surfaceContainer }]}>
-                    <AppText variant="caption" color={colors.onSecondaryContainer} numberOfLines={1}>
+                  <View
+                    style={[
+                      styles.takerTagPill,
+                      {
+                        backgroundColor: isPrimaryApplyingCard
+                          ? colors.primaryContainer
+                          : colors.surfaceContainer,
+                      },
+                    ]}
+                  >
+                    <AppText
+                      variant="caption"
+                      color={
+                        isPrimaryApplyingCard
+                          ? colors.onSurface
+                          : colors.onSecondaryContainer
+                      }
+                      numberOfLines={1}
+                    >
                       {rd.takerCareTypeKeys
                         .map((key) => t(`feed.careTypes.${key}`, key))
                         .join(" • ")}
@@ -645,9 +681,33 @@ function MessageBubble({
                   </View>
                 ) : null}
                 {rd.takerCity ? (
-                  <View style={[styles.takerTagPill, { backgroundColor: colors.surfaceContainer }]}>
-                    <MapPin size={12} color={colors.onSurfaceVariant} />
-                    <AppText variant="caption" color={colors.onSurfaceVariant} numberOfLines={1}>
+                  <View
+                    style={[
+                      styles.takerTagPill,
+                      {
+                        backgroundColor: isPrimaryApplyingCard
+                          ? colors.primaryContainer
+                          : colors.surfaceContainer,
+                      },
+                    ]}
+                  >
+                    <MapPin
+                      size={12}
+                      color={
+                        isPrimaryApplyingCard
+                          ? colors.onSurface
+                          : colors.onSurfaceVariant
+                      }
+                    />
+                    <AppText
+                      variant="caption"
+                      color={
+                        isPrimaryApplyingCard
+                          ? colors.onSurface
+                          : colors.onSurfaceVariant
+                      }
+                      numberOfLines={1}
+                    >
                       {rd.takerCity}
                     </AppText>
                   </View>
@@ -673,34 +733,17 @@ function MessageBubble({
 
           <Button
             label={ctaLabel}
-            variant={isOutgoingApplicationCard ? "inverse" : "outline"}
-            color={isOutgoingApplicationCard ? colors.primary : undefined}
+            variant="outline"
+            color={isPrimaryApplyingCard ? colors.onPrimary : undefined}
             style={styles.requestCta}
             disabled={!offerId}
             onPress={() => {
-              void (async () => {
-                if (!offerId) return;
-                try {
-                  const eligibility = await getRequestEligibility(offerId);
-                  if (!eligibility.eligible && eligibility.contractId) {
-                    router.push(
-                      `/(private)/(tabs)/my-care/contract/${eligibility.contractId}` as any,
-                    );
-                    return;
-                  }
-                } catch {
-                  // Fall back to previous route behavior if eligibility lookup fails.
-                }
-                if (context === "applying") {
-                  openOfferRoute();
-                  return;
-                }
-                if (isRight) {
-                  openRequestRoute();
-                  return;
-                }
-                openOfferRoute();
-              })();
+              if (!offerId) return;
+              void navigateProposalOfferDetails(
+                router,
+                offerId,
+                currentUserId ?? null,
+              );
             }}
           />
         </View>
@@ -754,25 +797,25 @@ function MessageBubble({
 }
 
 export default function ThreadScreen() {
-const {
-  threadId = "",
-  mode,
-  petName,
-  breed,
-  date,
-  time,
-  price,
-  offerId,
-} = useLocalSearchParams<{
-  threadId?: string;
-  mode?: string;
-  petName?: string;
-  breed?: string;
-  date?: string;
-  time?: string;
-  price?: string;
-  offerId?: string;
-}>();
+  const {
+    threadId = "",
+    mode,
+    petName,
+    breed,
+    date,
+    time,
+    price,
+    offerId,
+  } = useLocalSearchParams<{
+    threadId?: string;
+    mode?: string;
+    petName?: string;
+    breed?: string;
+    date?: string;
+    time?: string;
+    price?: string;
+    offerId?: string;
+  }>();
   // ... rest of your code
 
   const router = useRouter();
@@ -856,9 +899,12 @@ const {
       player.loop = false;
     },
   );
-  const messageVideoPlayer = useVideoPlayer(openVideo?.uri ?? null, (player) => {
-    player.loop = false;
-  });
+  const messageVideoPlayer = useVideoPlayer(
+    openVideo?.uri ?? null,
+    (player) => {
+      player.loop = false;
+    },
+  );
 
   useEffect(() => {
     const showEvt =
@@ -1046,28 +1092,25 @@ const {
         if (ownerIdThread && peerId && user.id) {
           takerParticipantResolved =
             peerId === ownerIdThread ? user.id : peerId;
-          const [
-            { data: tp },
-            { data: tu },
-            { data: revRows },
-          ] = await Promise.all([
-            supabase
-              .from("taker_profiles")
-              .select("*")
-              .eq("user_id", takerParticipantResolved)
-              .maybeSingle(),
-            supabase
-              .from("users")
-              .select(
-                "id,full_name,avatar_url,city,care_given_count,care_received_count,bio",
-              )
-              .eq("id", takerParticipantResolved)
-              .maybeSingle(),
-            supabase
-              .from("reviews")
-              .select("rating")
-              .eq("reviewee_id", takerParticipantResolved),
-          ]);
+          const [{ data: tp }, { data: tu }, { data: revRows }] =
+            await Promise.all([
+              supabase
+                .from("taker_profiles")
+                .select("*")
+                .eq("user_id", takerParticipantResolved)
+                .maybeSingle(),
+              supabase
+                .from("users")
+                .select(
+                  "id,full_name,avatar_url,city,care_given_count,care_received_count,bio",
+                )
+                .eq("id", takerParticipantResolved)
+                .maybeSingle(),
+              supabase
+                .from("reviews")
+                .select("rating")
+                .eq("reviewee_id", takerParticipantResolved),
+            ]);
           if (!cancelled) {
             takerProf = tp ?? null;
             takerUsr = tu ?? null;
@@ -1139,15 +1182,15 @@ const {
       setShowUnblockConfirm(false);
       showToast({
         variant: "success",
-        message: t("messages.unblocked", "User unblocked."),
+        message: t("messages.unblocked"),
       });
     } catch (err) {
       showToast({
         variant: "error",
-        message:
-          err instanceof Error
-            ? err.message
-            : t("common.error", "Could not unblock this user right now."),
+        message: errorMessageFromUnknown(
+          err,
+          t("messages.unblockFailed"),
+        ),
       });
     } finally {
       setBusy(false);
@@ -1157,15 +1200,9 @@ const {
   const [busy, setBusy] = useState(false);
   const blockBannerMessage =
     blockStatus === "i_blocked"
-      ? t(
-          "messages.youBlockedBanner",
-          "You have blocked this user. Unblock them to message them.",
-        )
+      ? t("messages.youBlockedBanner")
       : blockStatus === "they_blocked"
-        ? t(
-            "messages.blockedByOtherBanner",
-            "This user has blocked you, so they can't message you and you can't message them.",
-          )
+        ? t("messages.blockedByOtherBanner")
         : null;
 
   const sendMessage = async () => {
@@ -1173,9 +1210,16 @@ const {
     if (blockStatus !== "none") {
       showToast({
         variant: "error",
-        message: blockStatus === "i_blocked"
-          ? t("messages.blockedBySelfSend", "You blocked this user. Unblock them to send messages.")
-          : t("messages.blockedByOtherSend", "You can't message this user because they have blocked you."),
+        message:
+          blockStatus === "i_blocked"
+            ? t(
+                "messages.blockedBySelfSend",
+                "You blocked this user. Unblock them to send messages.",
+              )
+            : t(
+                "messages.blockedByOtherSend",
+                "You can't message this user because they have blocked you.",
+              ),
         durationMs: 3200,
       });
       return;
@@ -1191,10 +1235,7 @@ const {
         variant: "error",
         message:
           result.message ||
-          t(
-            "messages.sendFailed",
-            "We couldn't send your message right now. Please try again.",
-          ),
+          t("messages.sendMessageFailed"),
       });
     }
   };
@@ -1258,6 +1299,21 @@ const {
       });
       return;
     }
+    if (
+      attachment.kind === "file" &&
+      attachment.sizeBytes &&
+      attachment.sizeBytes > MAX_DOCUMENT_SIZE_BYTES
+    ) {
+      showToast({
+        variant: "error",
+        message: t(
+          "messages.documentTooLarge",
+          "Documents must be 10MB or smaller before you can send them.",
+        ),
+        durationMs: 3600,
+      });
+      return;
+    }
 
     setPendingAttachment(attachment);
   };
@@ -1285,10 +1341,7 @@ const {
             variant: "error",
             message:
               result.message ||
-              t(
-                "messages.imageSendFailed",
-                "We couldn't send that image right now.",
-              ),
+              t("messages.sendImageFailed"),
           });
           return;
         }
@@ -1312,11 +1365,8 @@ const {
               result.message ||
               t(
                 pendingAttachment.kind === "video"
-                  ? "messages.videoSendFailed"
-                  : "messages.fileSendFailed",
-                pendingAttachment.kind === "video"
-                  ? "We couldn't send that video right now."
-                  : "We couldn't send that document right now.",
+                  ? "messages.sendVideoFailed"
+                  : "messages.sendDocumentFailed",
               ),
           });
           return;
@@ -1333,15 +1383,10 @@ const {
             ? e.message
             : t(
                 pendingAttachment.kind === "video"
-                  ? "messages.videoSendFailed"
+                  ? "messages.sendVideoFailed"
                   : pendingAttachment.kind === "image"
-                    ? "messages.imageSendFailed"
-                    : "messages.fileSendFailed",
-                pendingAttachment.kind === "video"
-                  ? "We couldn't send that video right now."
-                  : pendingAttachment.kind === "image"
-                    ? "We couldn't send that image right now."
-                    : "We couldn't send that document right now.",
+                    ? "messages.sendImageFailed"
+                    : "messages.sendDocumentFailed",
               ),
       });
     } finally {
@@ -1449,7 +1494,7 @@ const {
           variant: "error",
           message: t(
             "messages.documentTypesRestricted",
-            "Only PDF, Word, and PowerPoint documents can be sent here.",
+            "Only PDF and Word documents can be sent here.",
           ),
           durationMs: 3200,
         });
@@ -1474,10 +1519,7 @@ const {
               "messages.documentPickerRebuildRequired",
               "Document attachments need a new native build. Run npx expo run:android (or iOS), then open the app again.",
             )
-          : t(
-              "messages.filePickFailed",
-              "We couldn't open the document picker right now.",
-            ),
+          : t("messages.documentPickerFailed"),
       });
     }
   };
@@ -1522,7 +1564,10 @@ const {
               <View
                 style={[
                   styles.header,
-                  { borderBottomColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLow },
+                  {
+                    borderBottomColor: colors.outlineVariant,
+                    backgroundColor: colors.surfaceContainerLow,
+                  },
                 ]}
               >
                 <TouchableOpacity
@@ -1559,7 +1604,10 @@ const {
               <View
                 style={[
                   styles.header,
-                  { borderBottomColor: colors.outlineVariant, backgroundColor: colors.surfaceContainerLow },
+                  {
+                    borderBottomColor: colors.outlineVariant,
+                    backgroundColor: colors.surfaceContainerLow,
+                  },
                 ]}
               >
                 <TouchableOpacity
@@ -1615,7 +1663,7 @@ const {
                 onViewProfile={() => {
                   setActionsOpen(false);
                   router.push({
-                pathname: "/(private)/(tabs)/(home)/users/[id]",
+                    pathname: "/(private)/(tabs)/(home)/users/[id]",
                     params: { id: threadHeader.userId },
                   });
                 }}
@@ -1623,10 +1671,14 @@ const {
                   setActionsOpen(false);
                   setShowBlockConfirm(true);
                 }}
-                onUnblock={blockStatus === "i_blocked" ? () => {
-                  setActionsOpen(false);
-                  setShowUnblockConfirm(true);
-                } : undefined}
+                onUnblock={
+                  blockStatus === "i_blocked"
+                    ? () => {
+                        setActionsOpen(false);
+                        setShowUnblockConfirm(true);
+                      }
+                    : undefined
+                }
                 onCloseAttach={() => setAttachMenuVisible(false)}
                 onOpenPhotoLibrary={() => {
                   void openPhotoLibrary();
@@ -1653,17 +1705,14 @@ const {
                       setShowBlockConfirm(false);
                       setBlockStatus("i_blocked");
                       showToast({
-                        message: t("messages.blockedToast", "User blocked."),
+                        message: t("messages.blockedToast"),
                       });
                     } catch (err) {
                       showToast({
-                        message:
-                          err instanceof Error
-                            ? err.message
-                            : t(
-                                "messages.blockFailed",
-                                "We couldn't update this block right now.",
-                              ),
+                        message: errorMessageFromUnknown(
+                          err,
+                          t("messages.blockUpdateFailed"),
+                        ),
                       });
                     } finally {
                       setBlockBusy(false);
@@ -1675,12 +1724,9 @@ const {
 
               <FeedbackModal
                 visible={showUnblockConfirm}
-                title={t("messages.unblock", "Unblock")}
-                description={t(
-                  "messages.unblockConfirmDescription",
-                  "You’ll be able to message this user again after unblocking them.",
-                )}
-                primaryLabel={t("messages.unblock", "Unblock")}
+                title={t("messages.unblock")}
+                description={t("messages.unblockConfirmDescription")}
+                primaryLabel={t("messages.unblock")}
                 secondaryLabel={t("common.cancel")}
                 primaryLoading={busy}
                 onPrimary={() => {
@@ -1785,9 +1831,7 @@ const {
                         ? "transparent"
                         : colors.errorContainer,
                     borderColor:
-                      blockStatus === "none"
-                        ? "transparent"
-                        : colors.error,
+                      blockStatus === "none" ? "transparent" : colors.error,
                     borderWidth: blockStatus === "none" ? 0 : 1,
                   },
                 ]}
@@ -1868,6 +1912,7 @@ const {
                             message={msg}
                             colors={colors}
                             selected={isSelected}
+                            currentUserId={user?.id ?? null}
                             onOpenImage={(uri) => {
                               setMessageImages([uri]);
                               setImageViewerOpen(true);
@@ -2150,7 +2195,10 @@ const {
                     <Button
                       label={
                         openFile?.externalOnly
-                          ? t("messages.openDocumentExternal", "Open externally")
+                          ? t(
+                              "messages.openDocumentExternal",
+                              "Open externally",
+                            )
                           : t("messages.openDocument", "Open document")
                       }
                       onPress={() => {
@@ -2158,27 +2206,18 @@ const {
                         if (openFile.externalOnly) {
                           void openExternalDocument(
                             openFile.url,
-                            t(
-                              "messages.documentExternalOpenFailed",
-                              "We couldn't open this document in another app.",
-                            ),
+                            t("messages.openDocumentExternallyFailed"),
                           );
                           return;
                         }
                         void openDocumentPreview(
                           openFile.url,
-                          t(
-                            "messages.documentOpenFailed",
-                            "We couldn't open this document on your device.",
-                          ),
+                          t("messages.openDocumentDeviceFailed"),
                         );
                       }}
                       style={styles.previewSingleAction}
                       leftIcon={
-                        <ExternalLink
-                          size={16}
-                          color={colors.onPrimary}
-                        />
+                        <ExternalLink size={16} color={colors.onPrimary} />
                       }
                     />
                   </View>
@@ -2531,6 +2570,7 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
+    alignSelf: "center",
   },
   composerInput: {
     flex: 1,

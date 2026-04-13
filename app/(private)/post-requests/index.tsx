@@ -66,7 +66,7 @@ function startOfToday() {
 
 export default function LaunchRequestWizardScreen() {
   const router = useRouter();
-  const params = useLocalSearchParams<{ petId?: string }>();
+  const params = useLocalSearchParams<{ petId?: string; editRequestId?: string }>();
   const { checkLocation } = useLocationGate();
 
   useEffect(() => {
@@ -117,6 +117,7 @@ export default function LaunchRequestWizardScreen() {
     dateRange?: string;
   }>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [editPrefillLoading, setEditPrefillLoading] = useState(false);
   const showToast = useToastStore((s) => s.showToast);
   const progress = (step + 1) / TOTAL_STEPS;
   const minimumRequestDate = useMemo(() => startOfToday(), []);
@@ -126,6 +127,15 @@ export default function LaunchRequestWizardScreen() {
     min.setDate(min.getDate() + 1);
     return min;
   }, [startDate]);
+  const editRequestId =
+    typeof params.editRequestId === "string" ? params.editRequestId : undefined;
+  const isEditMode = Boolean(editRequestId);
+
+  useEffect(() => {
+    if (isEditMode) {
+      setStep(TOTAL_STEPS - 1);
+    }
+  }, [isEditMode]);
 
   const loadPets = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
@@ -186,7 +196,7 @@ export default function LaunchRequestWizardScreen() {
       setPetSeekingDateRangeById(nextPetSeekingById);
     } catch (err) {
       setPetsError(
-        errorMessageFromUnknown(err, t("post.request.petsLoadFailedTitle")),
+        errorMessageFromUnknown(err, t("errors.petsLoadFailedSummary")),
       );
     } finally {
       setPetsLoading(false);
@@ -209,6 +219,99 @@ export default function LaunchRequestWizardScreen() {
     }
   }, [params.petId]);
 
+  useEffect(() => {
+    if (!isEditMode || !editRequestId || !user?.id) return;
+    let cancelled = false;
+
+    const prefillForEdit = async () => {
+      setEditPrefillLoading(true);
+      try {
+        const { data: requestRow, error: requestError } = await supabase
+          .from("care_requests")
+          .select(
+            "id,owner_id,pet_id,taker_id,status,care_type,start_date,end_date,start_time,end_time",
+          )
+          .eq("id", editRequestId)
+          .eq("owner_id", user.id)
+          .maybeSingle();
+
+        if (requestError) throw requestError;
+        if (!requestRow) {
+          showToast({
+            variant: "error",
+            message: t("post.request.editLoadFailed"),
+            durationMs: 3200,
+          });
+          router.back();
+          return;
+        }
+
+        const { data: existingContract, error: contractErr } = await supabase
+          .from("contracts")
+          .select("id")
+          .eq("request_id", requestRow.id)
+          .maybeSingle();
+        if (contractErr && !isMissingBackendResourceError(contractErr)) {
+          throw contractErr;
+        }
+
+        const locked =
+          requestRow.status !== "open" ||
+          Boolean(requestRow.taker_id) ||
+          Boolean(existingContract);
+        if (locked) {
+          showToast({
+            variant: "info",
+            message: t("requestDetails.editRequestLocked"),
+            durationMs: 3600,
+          });
+          router.back();
+          return;
+        }
+
+        if (cancelled) return;
+        setSelectedPet(requestRow.pet_id);
+        setCareTypes([String(requestRow.care_type ?? "daytime")]);
+        setMultiDay(requestRow.start_date !== requestRow.end_date);
+
+        const nextStartDate = requestRow.start_date
+          ? new Date(`${requestRow.start_date}T00:00:00`)
+          : new Date();
+        const nextEndDate = requestRow.end_date
+          ? new Date(`${requestRow.end_date}T00:00:00`)
+          : nextStartDate;
+        const nextStartTime = requestRow.start_time
+          ? new Date(`2000-01-01T${requestRow.start_time}`)
+          : new Date("2000-01-01T08:00:00");
+        const nextEndTime = requestRow.end_time
+          ? new Date(`2000-01-01T${requestRow.end_time}`)
+          : new Date("2000-01-01T17:00:00");
+
+        setStartDate(nextStartDate);
+        setEndDate(nextEndDate);
+        setTimeStart(nextStartTime);
+        setTimeEnd(nextEndTime);
+      } catch (err) {
+        showToast({
+          variant: "error",
+          message: errorMessageFromUnknown(
+            err,
+            t("post.request.editLoadFailed"),
+          ),
+          durationMs: 3400,
+        });
+        router.back();
+      } finally {
+        if (!cancelled) setEditPrefillLoading(false);
+      }
+    };
+
+    void prefillForEdit();
+    return () => {
+      cancelled = true;
+    };
+  }, [editRequestId, isEditMode, router, showToast, t, user?.id]);
+
   const selectedPetData = useMemo(
     () => pets.find((p) => p.id === selectedPet) ?? null,
     [pets, selectedPet],
@@ -223,6 +326,10 @@ export default function LaunchRequestWizardScreen() {
   }, [pets]);
 
   const goBack = () => {
+    if (isEditMode) {
+      router.back();
+      return;
+    }
     if (step > 0) setStep((s) => s - 1);
     else router.back();
   };
@@ -285,10 +392,7 @@ export default function LaunchRequestWizardScreen() {
     if (!user?.id || !selectedPet) {
       showToast({
         variant: "error",
-        message: t(
-          "post.request.launchFailed",
-          "Couldn't create the pet request right now. Please try again.",
-        ),
+        message: t("post.request.launchFailed"),
         durationMs: 3200,
       });
       return;
@@ -303,6 +407,32 @@ export default function LaunchRequestWizardScreen() {
     }
     setIsSubmitting(true);
     try {
+      const { data: existingRows, error: existingError } = await supabase
+        .from("care_requests")
+        .select("id,end_date,end_time,status,taker_id")
+        .eq("owner_id", user.id)
+        .eq("pet_id", selectedPet)
+        .eq("status", "open")
+        .order("created_at", { ascending: false })
+        .limit(5);
+      if (existingError) throw existingError;
+      const hasActiveSeeking = (existingRows ?? [])
+        .filter((row) => row.id !== editRequestId)
+        .some((row) =>
+        isRequestSeekingActive(row as any),
+      );
+      if (hasActiveSeeking) {
+        showToast({
+          variant: "info",
+          message: t(
+            "post.request.alreadySeeking",
+            "This pet is already seeking care.",
+          ),
+          durationMs: 3200,
+        });
+        return;
+      }
+
       const startDay = new Date(startDate);
       const endDay = new Date(multiDay ? endDate : startDate);
 
@@ -327,25 +457,64 @@ export default function LaunchRequestWizardScreen() {
       );
       const careTypeDb = careTypeForCareRequestDb(primaryCare);
 
-      const { error } = await supabase.from("care_requests").insert({
-        owner_id: user.id,
-        pet_id: selectedPet,
-        taker_id: null,
-        care_type: careTypeDb,
-        status: "open",
-        start_date: startDateStr,
-        end_date: endDateStr,
-        start_time: startTimeStr,
-        end_time: endTimeStr,
-        points_offered: pointsOffered,
-      });
+      let error: any = null;
+      if (isEditMode && editRequestId) {
+        const { data: existingContract, error: contractErr } = await supabase
+          .from("contracts")
+          .select("id")
+          .eq("request_id", editRequestId)
+          .maybeSingle();
+        if (contractErr && !isMissingBackendResourceError(contractErr)) {
+          throw contractErr;
+        }
+        if (existingContract) {
+          showToast({
+            variant: "info",
+            message: t("requestDetails.editRequestLocked"),
+            durationMs: 3600,
+          });
+          return;
+        }
+
+        const result = await supabase
+          .from("care_requests")
+          .update({
+            pet_id: selectedPet,
+            care_type: careTypeDb,
+            start_date: startDateStr,
+            end_date: endDateStr,
+            start_time: startTimeStr,
+            end_time: endTimeStr,
+            points_offered: pointsOffered,
+          })
+          .eq("id", editRequestId)
+          .eq("owner_id", user.id)
+          .eq("status", "open")
+          .is("taker_id", null);
+        error = result.error;
+      } else {
+        const result = await supabase.from("care_requests").insert({
+          owner_id: user.id,
+          pet_id: selectedPet,
+          taker_id: null,
+          care_type: careTypeDb,
+          status: "open",
+          start_date: startDateStr,
+          end_date: endDateStr,
+          start_time: startTimeStr,
+          end_time: endTimeStr,
+          points_offered: pointsOffered,
+        });
+        error = result.error;
+      }
 
       if (error) throw error;
       showToast({
         variant: "success",
         message: t(
-          "post.request.launchSuccess",
-          "Your care request is live.",
+          isEditMode
+            ? "post.request.editSuccess"
+            : "post.request.launchSuccess",
         ),
         durationMs: 2800,
       });
@@ -355,10 +524,7 @@ export default function LaunchRequestWizardScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "post.request.launchFailed",
-            "Couldn't create the pet request right now. Please try again.",
-          ),
+          t("post.request.launchFailed"),
         ),
         durationMs: 3400,
       });
@@ -388,6 +554,7 @@ export default function LaunchRequestWizardScreen() {
         className="pl-0 pr-0"
         style={{ padding: 0, paddingTop: 0, justifyContent: "space-between" }}
         rightSlot={
+          isEditMode ? null :
           <View
             style={[
               styles.progressTrack,
@@ -585,17 +752,24 @@ export default function LaunchRequestWizardScreen() {
         {step === 3 && (
           <View style={styles.stepContainer}>
             <AppText variant="title" style={styles.stepTitle}>
-              {t("post.request.previewTitle", "Preview of your request")}
+              {isEditMode
+                ? t("post.request.editTitle", "Edit your request")
+                : t("post.request.previewTitle", "Preview of your request")}
             </AppText>
             <AppText
               variant="body"
               color={colors.onSurfaceVariant}
               style={styles.previewSubtitle}
             >
-              {t(
-                "post.request.previewHint",
-                "Tap chips or fields to adjust before launching.",
-              )}
+              {isEditMode
+                ? t(
+                    "post.request.editHint",
+                    "Update the fields below, then save your changes.",
+                  )
+                : t(
+                    "post.request.previewHint",
+                    "Tap chips or fields to adjust before launching.",
+                  )}
             </AppText>
 
             <RequestPreviewCard>
@@ -638,12 +812,17 @@ export default function LaunchRequestWizardScreen() {
                     {selectedPetData?.name || "—"}
                   </AppText>
                   <TouchableOpacity
-                    onPress={() => setStep(1)}
+                    onPress={() => {
+                      if (isEditMode) return;
+                      setStep(1);
+                    }}
                     hitSlop={8}
                     style={styles.previewEditBtn}
                   >
                     <AppText variant="caption" color={colors.primary}>
-                      {t("post.request.preview.edit")}
+                      {isEditMode
+                        ? t("post.request.editLocked", "Locked in edit mode")
+                        : t("post.request.preview.edit")}
                     </AppText>
                   </TouchableOpacity>
                 </View>
@@ -759,10 +938,15 @@ export default function LaunchRequestWizardScreen() {
               color={colors.onSurfaceVariant}
               style={styles.disclaimer}
             >
-              {t(
-                "post.request.previewDisclaimer",
-                "By tapping Launch, you approve that anyone in the community can apply or contact you in our chat system.",
-              )}
+              {isEditMode
+                ? t(
+                    "post.request.editDisclaimer",
+                    "By tapping Save, your request details will be updated.",
+                  )
+                : t(
+                    "post.request.previewDisclaimer",
+                    "By tapping Launch, you approve that anyone in the community can apply or contact you in our chat system.",
+                  )}
             </AppText>
           </View>
         )}
@@ -770,11 +954,17 @@ export default function LaunchRequestWizardScreen() {
 
       <View style={styles.footer}>
         <Button
-          label={step === TOTAL_STEPS - 1 ? t("post.request.launch") : t("common.next")}
+          label={
+            step === TOTAL_STEPS - 1
+              ? isEditMode
+                ? t("common.save", "Save")
+                : t("post.request.launch")
+              : t("common.next")
+          }
           onPress={goNext}
           fullWidth
-          loading={isSubmitting}
-          disabled={isSubmitting}
+          loading={isSubmitting || editPrefillLoading}
+          disabled={isSubmitting || editPrefillLoading}
         />
       </View>
 

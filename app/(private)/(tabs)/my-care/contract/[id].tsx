@@ -19,6 +19,10 @@ import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import {
+  errorMessageFromUnknown,
+  isMissingColumnError,
+} from "@/src/lib/supabase/errors";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { TakerCard } from "@/src/shared/components/cards";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
@@ -96,12 +100,7 @@ export default function ContractDetailScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(
-        t(
-          "myCare.contract.loadFailed",
-          "We couldn't load this contract right now.",
-        ),
-      );
+      setError(t("myCare.contract.loadFailed"));
       return;
     }
 
@@ -171,12 +170,7 @@ export default function ContractDetailScreen() {
         contract.owner_id !== user.id &&
         contract.taker_id !== user.id
       ) {
-        setError(
-          t(
-            "myCare.contract.accessDenied",
-            "You don't have access to this contract.",
-          ),
-        );
+        setError(t("myCare.contract.accessDenied"));
         setContractRow(null);
         setRequestRow(null);
         setPetRow(null);
@@ -191,12 +185,7 @@ export default function ContractDetailScreen() {
         req.taker_id &&
         req.taker_id !== user.id
       ) {
-        setError(
-          t(
-            "myCare.contract.accessDenied",
-            "You don't have access to this contract.",
-          ),
-        );
+        setError(t("myCare.contract.accessDenied"));
         setContractRow(null);
         setRequestRow(null);
         setPetRow(null);
@@ -304,10 +293,7 @@ export default function ContractDetailScreen() {
       setError(
         err instanceof Error
           ? err.message
-          : t(
-              "myCare.contract.loadFailed",
-              "We couldn't load this contract right now.",
-            ),
+          : t("myCare.contract.loadFailed"),
       );
     } finally {
       setLoading(false);
@@ -387,7 +373,9 @@ export default function ContractDetailScreen() {
   const resolvedContractId = contractRow?.id as string | undefined;
   const contractStatus = contractRow?.status as string | undefined;
   const agreementLive =
-    contractStatus === "signed" || contractStatus === "active";
+    contractStatus === "draft" ||
+    contractStatus === "signed" ||
+    contractStatus === "active";
   const agreementEnded = contractStatus === "completed";
 
   /** Deep-link param lets the UI unlock immediately after accepting an offer (before sign rows sync). */
@@ -396,8 +384,6 @@ export default function ContractDetailScreen() {
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showTerminateConfirm, setShowTerminateConfirm] = useState(false);
-  const [showReactivateConfirm, setShowReactivateConfirm] = useState(false);
-  const [showAcceptTerminationConfirm, setShowAcceptTerminationConfirm] = useState(false);
   const [showReportConfirm, setShowReportConfirm] = useState(false);
   const [reportReason, setReportReason] = useState("");
   const [blockReason, setBlockReason] = useState("");
@@ -417,36 +403,7 @@ export default function ContractDetailScreen() {
     }
   };
 
-  // Derived termination state
-  const terminationRequestedBy = contractRow?.terminate_requested_by as string | null | undefined;
-  const iTerminationRequester = terminationRequestedBy === user?.id;
-  const isTerminationPending = !!terminationRequestedBy && !agreementEnded;
-  const canAcceptTermination = isTerminationPending && !iTerminationRequester;
-  const terminationBannerTitle = iTerminationRequester
-    ? t(
-      "myCare.contract.terminationPendingRequesterTitle",
-      "You've initiated termination.",
-    )
-    : t(
-      "myCare.contract.terminationPendingRecipientTitle",
-      "Termination was requested.",
-    );
-  const terminationBannerBody = iTerminationRequester
-    ? t(
-      "myCare.contract.terminationPendingRequesterBody",
-      "The other party must also confirm before this agreement is fully terminated.",
-    )
-    : t(
-      "myCare.contract.terminationPendingRecipientBody",
-      "Confirm termination to fully end this agreement.",
-    );
-
-  const footerActionVisible = useMemo(() => {
-    return (
-      (acceptedUI && isTerminationPending && iTerminationRequester) ||
-      (acceptedUI && canAcceptTermination)
-    );
-  }, [acceptedUI, isTerminationPending, iTerminationRequester, canAcceptTermination]);
+  const canTerminate = acceptedUI && !agreementEnded;
 
   const otherPartyId = useMemo(() => {
     if (!user?.id) return null;
@@ -489,132 +446,68 @@ export default function ContractDetailScreen() {
     };
   }, [resolvedContractId]);
 
-  /** Step 1 â€” current user requests termination. */
-  const requestTerminate = () => {
-    void (async () => {
-      if (!resolvedContractId || !user?.id) return;
-      setBusy(true);
-      try {
-        const { error } = await supabase
-          .from("contracts")
-          .update({
-            terminate_requested_by: user.id,
-            terminate_requested_at: new Date().toISOString(),
-          })
-          .eq("id", resolvedContractId);
-        if (error) throw error;
-        setContractRow((c: any) =>
-          c
-            ? {
-              ...c,
-              terminate_requested_by: user.id,
-              terminate_requested_at: new Date().toISOString(),
-            }
-            : c,
-        );
-        showToast({
-          variant: "info",
-          message: t("myCare.contract.terminationRequestedToast"),
-          durationMs: 3000,
-        });
-      } catch (err) {
-        console.error("[ContractDetail] Terminate Error:", err);
-        showToast({
-          variant: "error",
-          message:
-            err instanceof Error
-              ? `Error: ${err.message}`
-              : t(
-                  "myCare.contract.terminationRequestFailed",
-                  "We couldn't send the termination request right now.",
-                ),
-          durationMs: 5000,
-        });
-      } finally {
-        setBusy(false);
-      }
-    })();
-  };
-
-  /** Step 1b â€” requester cancels their own pending request (reactivate). */
-  const reactivateAgreement = () => {
-    void (async () => {
-      if (!resolvedContractId || !user?.id) return;
-      setBusy(true);
-      try {
-        const { error } = await supabase
-          .from("contracts")
-          .update({
-            terminate_requested_by: null,
-            terminate_requested_at: null,
-          })
-          .eq("id", resolvedContractId);
-        if (error) throw error;
-        setContractRow((c: any) =>
-          c
-            ? { ...c, terminate_requested_by: null, terminate_requested_at: null }
-            : c,
-        );
-        showToast({
-          variant: "success",
-          message: t("myCare.contract.terminationReactivatedToast"),
-          durationMs: 3000,
-        });
-      } catch (err) {
-        showToast({
-          variant: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : t(
-                  "myCare.contract.reactivateFailed",
-                  "We couldn't reactivate this agreement right now.",
-                ),
-          durationMs: 3200,
-        });
-      } finally {
-        setBusy(false);
-      }
-    })();
-  };
-
-  /** Step 2 â€” other party confirms termination â†’ status = completed. */
-  const acceptTermination = () => {
-    void (async () => {
-      if (!resolvedContractId || !user?.id) return;
-      setBusy(true);
-      try {
-        const { error } = await supabase
+  /** One-tap termination: completes the agreement immediately (modal stays open with loading until done). */
+  const terminateAgreement = async () => {
+    if (!resolvedContractId || !user?.id) return;
+    setBusy(true);
+    try {
+      const nowIso = new Date().toISOString();
+      let { error } = await supabase
+        .from("contracts")
+        .update({
+          status: "completed",
+          terminate_requested_by: user.id,
+          terminate_requested_at: nowIso,
+        })
+        .eq("id", resolvedContractId);
+      if (error && isMissingColumnError(error)) {
+        const fallback = await supabase
           .from("contracts")
           .update({ status: "completed" })
           .eq("id", resolvedContractId);
-        if (error) throw error;
-        setContractRow((c: any) => (c ? { ...c, status: "completed" } : c));
-        if (user?.id) {
-          void useAuthStore.getState().fetchProfile(user.id);
-        }
-        showToast({
-          variant: "info",
-          message: t("myCare.contract.terminatedToast"),
-          durationMs: 3000,
-        });
-      } catch (err) {
-        console.error("[ContractDetail] Accept Termination Error:", err);
-        showToast({
-          variant: "error",
-          message:
-            err instanceof Error
-              ? `Error: ${err.message}`
-              : t(
-                  "myCare.contract.acceptTerminationFailed",
-                  "We couldn't complete the termination right now.",
-                ),
-          durationMs: 5000,
-        });
-      } finally {
-        setBusy(false);
+        error = fallback.error;
       }
-    })();
+      if (error) throw error;
+
+      if (contractRow?.request_id) {
+        await supabase
+          .from("care_requests")
+          .update({ status: "completed" })
+          .eq("id", contractRow.request_id);
+      }
+
+      setContractRow((c: any) =>
+        c
+          ? {
+              ...c,
+              status: "completed",
+              terminate_requested_by: user.id,
+              terminate_requested_at: nowIso,
+            }
+          : c,
+      );
+      if (user?.id) {
+        void useAuthStore.getState().fetchProfile(user.id);
+      }
+      showToast({
+        variant: "info",
+        message: t("myCare.contract.terminatedToast"),
+        durationMs: 3000,
+      });
+      setShowTerminateConfirm(false);
+    } catch (err) {
+      console.error("[ContractDetail] Terminate Error:", err);
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("myCare.contract.terminationRequestFailed"),
+        ),
+        durationMs: 5000,
+      });
+    } finally {
+      setBusy(false);
+    }
   };
 
   const submitReport = () => {
@@ -653,13 +546,7 @@ export default function ContractDetailScreen() {
       } catch (err) {
         showToast({
           variant: "error",
-          message:
-            err instanceof Error
-              ? err.message
-              : t(
-                  "messages.reportFailed",
-                  "We couldn't submit this report right now.",
-                ),
+          message: errorMessageFromUnknown(err, t("messages.reportFailed")),
           durationMs: 3200,
         });
       } finally {
@@ -727,7 +614,7 @@ export default function ContractDetailScreen() {
         title={t("myCare.contract.title")}
         onBack={() => router.back()}
         rightSlot={
-          acceptedUI && !agreementEnded ? (
+          acceptedUI || agreementEnded ? (
             <TouchableOpacity
               ref={headerMenuBtnRef}
               onPress={handleHeaderMenuPress}
@@ -747,7 +634,7 @@ export default function ContractDetailScreen() {
         style={styles.scroll}
         contentContainerStyle={[
           styles.scrollContent,
-          !footerActionVisible && { paddingBottom: 24 }
+          !canTerminate && { paddingBottom: 24 },
         ]}
         showsVerticalScrollIndicator={false}
       >
@@ -936,102 +823,57 @@ export default function ContractDetailScreen() {
             </AppText>
           </View>
 
-          {isTerminationPending && !agreementEnded ? (
-            <View
-              style={[
-                styles.terminationBanner,
-                {
-                  backgroundColor: colors.tertiaryContainer,
-                  borderColor: colors.tertiaryContainer,
-                },
-              ]}
-            >
-              <View style={styles.terminationBannerIconWrap}>
-                <AlertCircle size={18} color={colors.error} />
-              </View>
-              <View style={styles.terminationBannerCopy}>
-                <AppText variant="caption" color={colors.error} style={{ fontWeight: "600" }}>
-                  {terminationBannerTitle}
-                </AppText>
-                <AppText variant="caption" color={colors.error}>
-                  {terminationBannerBody}
-                </AppText>
-              </View>
-            </View>
-          ) : null}
         </View>
       </ScrollView>
-
-      {footerActionVisible ? (
-        <View style={styles.footer}>
-          {acceptedUI && isTerminationPending && iTerminationRequester ? (
-            <Button
-              label={t("myCare.contract.reactivate")}
-              variant="outline"
-              onPress={() => setShowReactivateConfirm(true)}
-              fullWidth
-              disabled={busy}
-              loading={busy}
-            />
-          ) : null}
-          {acceptedUI && canAcceptTermination ? (
-            <Button
-              label={t("myCare.contract.acceptTermination")}
-              variant="danger"
-              onPress={() => setShowAcceptTerminationConfirm(true)}
-              fullWidth
-              disabled={busy}
-              loading={busy}
-            />
-          ) : null}
-        </View>
-      ) : null}
 
       <FeedbackModal
         visible={showTerminateConfirm}
         title={t("myCare.contract.terminateConfirmTitle")}
-        description={t("myCare.contract.terminateConfirmDescription")}
+        description={t(
+          "myCare.contract.terminateConfirmLead",
+          "This ends the contract immediately.",
+        )}
+        body={
+          <View style={styles.terminateRulesBody}>
+            <AppText variant="label" style={styles.terminateRulesHeading}>
+              {t("myCare.contract.terminateRulesTitle", "How points are handled")}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {t(
+                "myCare.contract.terminateRuleBeforeStart",
+                "Before start date: if owner ends the contract, taker gets 0 points.",
+              )}
+            </AppText>
+            <AppText variant="caption" style={styles.terminateRulesSubheading}>
+              {t("myCare.contract.terminateRuleAfterStartTitle", "After start date")}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {t(
+                "myCare.contract.terminateRuleAfterStartOwner",
+                "Owner ends contract: taker gets full points immediately.",
+              )}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {t(
+                "myCare.contract.terminateRuleAfterStartTaker",
+                "Taker ends contract: taker gets 0 points (owner keeps/gets points back).",
+              )}
+            </AppText>
+          </View>
+        }
         primaryLabel={t("myCare.contract.terminateConfirm", "Terminate")}
         secondaryLabel={t("common.cancel")}
         destructive
         primaryLoading={busy}
-        onPrimary={() => {
+        onPrimary={() => void terminateAgreement()}
+        onSecondary={() => {
+          if (busy) return;
           setShowTerminateConfirm(false);
-          requestTerminate();
         }}
-        onSecondary={() => setShowTerminateConfirm(false)}
-        onRequestClose={() => setShowTerminateConfirm(false)}
-      />
-
-      <FeedbackModal
-        visible={showReactivateConfirm}
-        title={t("myCare.contract.reactivateConfirmTitle")}
-        description={t("myCare.contract.reactivateConfirmDescription")}
-        primaryLabel={t("myCare.contract.reactivate")}
-        secondaryLabel={t("common.cancel")}
-        primaryLoading={busy}
-        onPrimary={() => {
-          setShowReactivateConfirm(false);
-          reactivateAgreement();
+        onRequestClose={() => {
+          if (busy) return;
+          setShowTerminateConfirm(false);
         }}
-        onSecondary={() => setShowReactivateConfirm(false)}
-        onRequestClose={() => setShowReactivateConfirm(false)}
-      />
-
-      <FeedbackModal
-        visible={showAcceptTerminationConfirm}
-        title={t("myCare.contract.acceptTerminationConfirmTitle")}
-        description={t("myCare.contract.acceptTerminationConfirmDescription")}
-        primaryLabel={t("myCare.contract.acceptTermination")}
-        secondaryLabel={t("common.cancel")}
-        destructive
-        primaryLoading={busy}
-        onPrimary={() => {
-          setShowAcceptTerminationConfirm(false);
-          acceptTermination();
-        }}
-        onSecondary={() => setShowAcceptTerminationConfirm(false)}
-        onRequestClose={() => setShowAcceptTerminationConfirm(false)}
       />
 
       <FeedbackModal
@@ -1040,7 +882,7 @@ export default function ContractDetailScreen() {
         description={t("messages.blockConfirmDescription")}
         body={
           <Input
-            label={t("messages.blockReasonLabel", "Reason (optional)")}
+            label={t("messages.blockReasonLabel")}
             placeholder={t(
               "messages.blockReasonPlaceholder",
               "Tell us why you are blocking this user",
@@ -1074,13 +916,10 @@ export default function ContractDetailScreen() {
             } catch (err) {
               showToast({
                 variant: "error",
-                message:
-                  err instanceof Error
-                    ? err.message
-                    : t(
-                        "messages.blockFailed",
-                        "We couldn't update this block right now.",
-                      ),
+                message: errorMessageFromUnknown(
+                  err,
+                  t("messages.blockUpdateFailed"),
+                ),
                 durationMs: 3200,
               });
             } finally {
@@ -1145,24 +984,10 @@ export default function ContractDetailScreen() {
         onClose={() => setActionsOpen(false)}
         onPrimaryAction={() => {
           setActionsOpen(false);
-          if (isTerminationPending) {
-            if (iTerminationRequester) {
-              setShowReactivateConfirm(true);
-            } else {
-              setShowAcceptTerminationConfirm(true);
-            }
-            return;
-          }
           setShowTerminateConfirm(true);
         }}
-        primaryActionLabel={
-          isTerminationPending
-            ? iTerminationRequester
-              ? t("myCare.contract.reactivate")
-              : t("myCare.contract.acceptTermination")
-            : t("myCare.contract.terminate")
-        }
-        primaryActionDisabled={agreementEnded || busy}
+        primaryActionLabel={t("myCare.contract.terminate")}
+        primaryActionDisabled={!canTerminate || busy}
         onReport={() => {
           setActionsOpen(false);
           setShowReportConfirm(true);
@@ -1323,18 +1148,14 @@ const styles = StyleSheet.create({
     padding: 8,
     borderRadius: 20,
   },
-  terminationBanner: {
-    flexDirection: "row",
-    padding: 12,
-    borderRadius: 12,
-    borderWidth: 1,
-    gap: 12,
+  terminateRulesBody: {
+    gap: 6,
   },
-  terminationBannerIconWrap: {
-    paddingTop: 2,
+  terminateRulesHeading: {
+    fontWeight: "700",
   },
-  terminationBannerCopy: {
-    flex: 1,
-    gap: 2,
+  terminateRulesSubheading: {
+    fontWeight: "600",
+    marginTop: 2,
   },
 });

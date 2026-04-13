@@ -29,6 +29,7 @@ import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -49,6 +50,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { MoreHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   RefreshControl,
   ScrollView,
@@ -261,6 +263,25 @@ export default function PublicProfileScreen() {
     };
   }, [isOwnProfile, profileId, user?.id]);
 
+  useFocusEffect(
+    React.useCallback(() => {
+      let cancelled = false;
+      const refreshBlockStatus = async () => {
+        if (!user?.id || !profileId || isOwnProfile) return;
+        try {
+          const next = await getBlockDirection(user.id, profileId);
+          if (!cancelled) setBlockStatus(next);
+        } catch {
+          // no-op
+        }
+      };
+      void refreshBlockStatus();
+      return () => {
+        cancelled = true;
+      };
+    }, [isOwnProfile, profileId, user?.id]),
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -320,13 +341,10 @@ export default function PublicProfileScreen() {
       setSelectedSeekingPet(firstEligible);
     } catch (err) {
       showToast({
-        message:
-          err instanceof Error
-            ? err.message
-            : t(
-                "home.sendRequest.sendFailed",
-                "Couldn't send the request right now. Please try again.",
-              ),
+        message: errorMessageFromUnknown(
+          err,
+          t("errors.sendRequestFailed"),
+        ),
       });
     } finally {
       setSendRequestLoading(false);
@@ -353,9 +371,6 @@ export default function PublicProfileScreen() {
           blockDirection === "i_blocked"
             ? "messages.blockedBySelfSend"
             : "messages.blockedByOtherSend",
-          blockDirection === "i_blocked"
-            ? "You blocked this user, so you can't message them."
-            : "This user blocked you, so you can't message them.",
         ),
       });
       return;
@@ -365,10 +380,7 @@ export default function PublicProfileScreen() {
     const eligibility = await getRequestEligibility(openReq.id);
     if (!eligibility.eligible) {
       showToast({
-        message: t(
-          "requestDetails.requestClosedForApplications",
-          "This request is no longer accepting applications.",
-        ),
+        message: t("requestDetails.requestClosedForApplications"),
       });
       return;
     }
@@ -380,12 +392,12 @@ export default function PublicProfileScreen() {
         userB: profileId,
         requestId: openReq.id,
       });
-      if (!threadId) throw new Error("Could not create chat thread.");
+      if (!threadId) throw new Error(t("errors.chatThreadCreateFailed"));
 
       const { error: msgError } = await supabase.from("messages").insert({
         thread_id: threadId,
         sender_id: user.id,
-        content: t("common.sendRequest", "Send request"),
+        content: t("common.sendRequest"),
         type: "proposal",
         metadata: { requestId: openReq.id },
       });
@@ -415,7 +427,7 @@ export default function PublicProfileScreen() {
         params: {
           threadId,
           mode: "seeking",
-          petName: selectedSeekingPet.name ?? t("pets.add.name", "Pet"),
+          petName: selectedSeekingPet.name ?? t("pets.add.name"),
           breed: selectedSeekingPet.breed ?? "",
           date: dateRange,
           time: "",
@@ -425,13 +437,10 @@ export default function PublicProfileScreen() {
       });
     } catch (err) {
       showToast({
-        message:
-          err instanceof Error
-            ? err.message
-            : t(
-                "home.sendRequest.sendFailed",
-                "Couldn't send the request right now. Please try again.",
-              ),
+        message: errorMessageFromUnknown(
+          err,
+          t("errors.sendRequestFailed"),
+        ),
       });
     } finally {
       setSendRequestBusy(false);
@@ -447,17 +456,14 @@ export default function PublicProfileScreen() {
       setBlockReason("");
       setBlockStatus("i_blocked");
       showToast({
-        message: t("messages.blockedToast", "User blocked."),
+        message: t("messages.blockedToast"),
       });
     } catch (err) {
       showToast({
-        message:
-          err instanceof Error
-            ? err.message
-            : t(
-                "messages.blockFailed",
-                "We couldn't update this block right now.",
-              ),
+        message: errorMessageFromUnknown(
+          err,
+          t("messages.blockUpdateFailed"),
+        ),
       });
     } finally {
       setBlockBusy(false);
@@ -473,15 +479,15 @@ export default function PublicProfileScreen() {
       setBlockStatus("none");
       showToast({
         variant: "success",
-        message: t("messages.unblocked", "User unblocked."),
+        message: t("messages.unblocked"),
       });
     } catch (err) {
       showToast({
         variant: "error",
-        message:
-          err instanceof Error
-            ? err.message
-            : t("common.error", "Could not unblock this user right now."),
+        message: errorMessageFromUnknown(
+          err,
+          t("messages.unblockFailed"),
+        ),
       });
     } finally {
       setBlockBusy(false);
@@ -493,7 +499,7 @@ export default function PublicProfileScreen() {
       avatarUri: publicProfile?.avatar_url || null,
       name: resolveDisplayName(publicProfile) || "User",
       location:
-        publicProfile?.city?.trim() || t("profile.noLocation", "No location"),
+        publicProfile?.city?.trim() || t("profile.noLocation"),
       points: publicProfile?.points_balance ?? 0,
       handshakes: 0,
       paws: publicReviews.length,
@@ -556,7 +562,7 @@ export default function PublicProfileScreen() {
         ) : loadError ? (
           <ErrorState
             error={loadError}
-            actionLabel={t("common.retry", "Retry")}
+            actionLabel={t("common.retry")}
             onAction={() => {
               void loadPublicProfile();
             }}
@@ -581,16 +587,16 @@ export default function PublicProfileScreen() {
             {/* Tabs */}
             <TabBar<ProfileTab>
               tabs={[
-                { key: "pets", label: t("profile.pets.tab", "Pets") },
+                { key: "pets", label: t("profile.pets.tab") },
                 {
                   key: "availability",
-                  label: t("profile.edit.availabilityTab", "Availability"),
+                  label: t("profile.edit.availabilityTab"),
                 },
                 {
                   key: "bio",
-                  label: t("auth.signup.profile.bio", "Short Bio"),
+                  label: t("auth.signup.profile.bio"),
                 },
-                { key: "reviews", label: t("profile.reviews", "Reviews") },
+                { key: "reviews", label: t("profile.reviews") },
               ]}
               activeKey={activeTab}
               onChange={setActiveTab}
@@ -792,7 +798,7 @@ export default function PublicProfileScreen() {
         description={t("profile.blockConfirmDescription")}
         body={
           <Input
-            label={t("messages.blockReasonLabel", "Reason (optional)")}
+            label={t("messages.blockReasonLabel")}
             placeholder={t(
               "messages.blockReasonPlaceholder",
               "Tell us why you are blocking this user",
@@ -825,12 +831,12 @@ export default function PublicProfileScreen() {
       />
       <FeedbackModal
         visible={showUnblockConfirm}
-        title={t("messages.unblock", "Unblock")}
+        title={t("messages.unblock")}
         description={t(
           "messages.unblockConfirmDescription",
           "You’ll be able to message this user again after unblocking them.",
         )}
-        primaryLabel={t("messages.unblock", "Unblock")}
+        primaryLabel={t("messages.unblock")}
         secondaryLabel={t("common.cancel")}
         primaryLoading={blockBusy}
         onPrimary={() => {

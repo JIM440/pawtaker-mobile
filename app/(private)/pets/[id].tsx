@@ -491,10 +491,7 @@ export default function PetDetailScreen() {
           variant: "error",
           message: errorMessageFromUnknown(
             err,
-            t(
-              "requestDetails.applyFailed",
-              "We couldn't apply to this request right now.",
-            ),
+            t("requestDetails.applyFailed"),
           ),
           durationMs: 3200,
         });

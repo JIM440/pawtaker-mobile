@@ -1,51 +1,52 @@
 import { Colors } from "@/src/constants/colors";
-import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
-import { filterOutBlockedUsers, getBlockDirection } from "@/src/lib/blocks/user-blocks";
+import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
+import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
+import {
+    filterOutBlockedUsers,
+    getBlockDirection,
+} from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
-  formatRequestDateRange,
-  formatRequestTimeRange,
+    formatRequestDateRange,
+    formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
-import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
+import { useLocationGate } from "@/src/lib/location/useLocationGate";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
+import { useUnreadNotificationCount } from "@/src/lib/notifications/useUnreadNotificationCount";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import {
-  formatCarePointsPts,
-  normalizeCareTypeForPoints,
+    formatCarePointsPts,
+    normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
-import { useLocationGate } from "@/src/lib/location/useLocationGate";
-import { useUnreadNotificationCount } from "@/src/lib/notifications/useUnreadNotificationCount";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import {
-  errorMessageFromUnknown,
-  isMissingBackendResourceError,
+    errorMessageFromUnknown,
+    isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
 import { PageContainer } from "@/src/shared/components/layout";
-import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
 import {
-  FeedRequestsSkeleton,
-  FeedTakersSkeleton,
+    FeedRequestsSkeleton,
+    FeedTakersSkeleton,
 } from "@/src/shared/components/skeletons/FeedSkeleton";
 import {
-  DataState,
-  IllustratedEmptyState,
-  IllustratedEmptyStateIllustrations,
+    DataState,
+    IllustratedEmptyState,
+    IllustratedEmptyStateIllustrations,
 } from "@/src/shared/components/ui";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Button } from "@/src/shared/components/ui/Button";
 import {
-  CARE_TYPE_KEYS,
-  type CareTypeKey,
+    CARE_TYPE_KEYS,
+    type CareTypeKey,
 } from "@/src/shared/components/ui/CareTypeSelector";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
@@ -54,16 +55,12 @@ import { Bell, Search, SlidersHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 /** Inclusive km range for feed filter (0 = no minimum). */
@@ -83,6 +80,25 @@ function clampKm(n: number): number {
 function isTakerAvailableFromJson(availabilityJson: unknown): boolean {
   if (!availabilityJson || typeof availabilityJson !== "object") return false;
   return (availabilityJson as Record<string, unknown>)["available"] === true;
+}
+
+function isRequestStillSeekable(
+  request: Pick<any, "end_date" | "end_time"> | null | undefined,
+  now: Date,
+) {
+  const endDate =
+    typeof request?.end_date === "string" ? request.end_date.trim() : "";
+  if (!endDate) return false;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (endDate > today) return true;
+  if (endDate < today) return false;
+  const endTime =
+    typeof request?.end_time === "string"
+      ? request.end_time.trim().slice(0, 5)
+      : "";
+  if (!endTime) return true;
+  const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return endTime >= nowTime;
 }
 
 type FilterTab = "all" | "requests" | "takers";
@@ -146,6 +162,7 @@ export default function HomeScreen() {
   const [petSendSubtitleById, setPetSendSubtitleById] = useState<
     Record<string, string>
   >({});
+  const [sendRequestPetsReady, setSendRequestPetsReady] = useState(false);
 
   const loadRequestsTab = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
@@ -188,7 +205,10 @@ export default function HomeScreen() {
             .from("contracts")
             .select("request_id")
             .in("request_id", visibleRequestIds);
-          if (contractsError && !isMissingBackendResourceError(contractsError)) {
+          if (
+            contractsError &&
+            !isMissingBackendResourceError(contractsError)
+          ) {
             throw contractsError;
           }
           const contractedRequestIds = new Set(
@@ -295,7 +315,7 @@ export default function HomeScreen() {
       setRequestsLoaded(true);
     } catch (err) {
       setRequestsError(
-        errorMessageFromUnknown(err, "Failed to load requests."),
+        errorMessageFromUnknown(err, t("errors.loadRequests")),
       );
     } finally {
       setRequestsLoading(false);
@@ -370,7 +390,7 @@ export default function HomeScreen() {
       );
       setTakersLoaded(true);
     } catch (err) {
-      setTakersError(errorMessageFromUnknown(err, "Failed to load takers."));
+      setTakersError(errorMessageFromUnknown(err, t("errors.loadTakers")));
     } finally {
       setTakersLoading(false);
     }
@@ -392,7 +412,7 @@ export default function HomeScreen() {
       setUserPetsLoaded(true);
     } catch (err) {
       setUserPetsError(
-        errorMessageFromUnknown(err, "Failed to load your pets."),
+        errorMessageFromUnknown(err, t("errors.loadYourPets")),
       );
     } finally {
       setUserPetsLoading(false);
@@ -442,6 +462,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!sendRequestOpen || !user?.id) {
       setPetSendSubtitleById({});
+      setSendRequestPetsReady(false);
       return;
     }
     const ids = (userPets as { id?: string }[])
@@ -449,13 +470,14 @@ export default function HomeScreen() {
       .filter(Boolean) as string[];
     if (!ids.length) {
       setPetSendSubtitleById({});
+      setSendRequestPetsReady(true);
       return;
     }
     let cancelled = false;
     void (async () => {
       const { data, error } = await supabase
         .from("care_requests")
-        .select("pet_id,start_date,end_date,care_type,created_at")
+        .select("pet_id,start_date,end_date,end_time,care_type,created_at")
         .eq("owner_id", user.id)
         .eq("status", "open")
         .in("pet_id", ids)
@@ -463,7 +485,9 @@ export default function HomeScreen() {
         .order("created_at", { ascending: false });
       if (cancelled || error) return;
       const bestByPet: Record<string, any> = {};
+      const now = new Date();
       for (const row of data ?? []) {
+        if (!isRequestStillSeekable(row, now)) continue;
         const pid = row.pet_id as string;
         if (!bestByPet[pid]) bestByPet[pid] = row;
       }
@@ -471,24 +495,21 @@ export default function HomeScreen() {
       for (const p of userPets as any[]) {
         const pid = p.id as string;
         const r = bestByPet[pid];
-        if (!r) {
-          next[pid] = [p.species || "Pet", p.breed || "—"]
-            .filter(Boolean)
-            .join(" · ");
-          continue;
-        }
+        if (!r) continue;
         const datePart = formatRequestDateRange(r.start_date, r.end_date);
         const careKey = normalizeCareTypeForPoints(r.care_type);
         const carePart = t(`feed.careTypes.${careKey}` as any);
         next[pid] = [datePart, carePart].filter(Boolean).join(" · ");
       }
-      if (!cancelled) setPetSendSubtitleById(next);
+      if (!cancelled) {
+        setPetSendSubtitleById(next);
+        setSendRequestPetsReady(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [sendRequestOpen, user?.id, userPets, t]);
-
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -595,10 +616,7 @@ export default function HomeScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "feed.likeFailed",
-            "We couldn't update this pet like right now.",
-          ),
+          t("requestDetails.updatePetLikeFailed"),
         ),
         durationMs: 3200,
       });
@@ -700,7 +718,14 @@ export default function HomeScreen() {
         item.location.toLowerCase().includes(q)
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, hasLocation, requests]);
+  }, [
+    filter,
+    searchQuery,
+    careTypeFilter,
+    distanceRange,
+    hasLocation,
+    requests,
+  ]);
 
   const filteredTakers = useMemo(() => {
     return takers.filter((taker) => {
@@ -759,7 +784,9 @@ export default function HomeScreen() {
 
       const { data: openReqRows, error: openReqErr } = await supabase
         .from("care_requests")
-        .select("id,pet_id,owner_id,start_date,end_date,points_offered,care_type")
+        .select(
+          "id,pet_id,owner_id,start_date,end_date,points_offered,care_type",
+        )
         .eq("owner_id", user.id)
         .eq("pet_id", petId)
         .eq("status", "open")
@@ -854,10 +881,7 @@ export default function HomeScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "home.sendRequest.sendFailed",
-            "Couldn't send the request right now. Please try again.",
-          ),
+          t("errors.sendRequestFailed"),
         ),
         durationMs: 3400,
       });
@@ -871,13 +895,13 @@ export default function HomeScreen() {
       <AppText variant="headline" style={{ fontSize: 22, letterSpacing: -0.1 }}>
         {t("app.name")}
       </AppText>
-        <TouchableOpacity
-          className="relative pr-3"
-          hitSlop={12}
-          onPress={() => {
-            router.push("/(private)/(tabs)/(home)/notifications");
-          }}
-        >
+      <TouchableOpacity
+        className="relative pr-3"
+        hitSlop={12}
+        onPress={() => {
+          router.push("/(private)/(tabs)/(home)/notifications");
+        }}
+      >
         <Bell size={24} color={colors.onSurface} />
         {notificationsUnreadCount > 0 ? (
           <View
@@ -904,7 +928,7 @@ export default function HomeScreen() {
       <FlatList
         data={showRequests ? filteredRequests : []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 56, gap: 8, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: 80, gap: 8, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -1033,102 +1057,102 @@ export default function HomeScreen() {
 
                   {hasLocation ? (
                     <>
-                  <AppText
-                    variant="label"
-                    color={colors.onSurfaceVariant}
-                    style={styles.filterSectionLabel}
-                  >
-                    {t("filters.distanceRange")}
-                  </AppText>
-
-                  <View style={styles.distanceInputsRow}>
-                    <View
-                      style={[
-                        styles.distanceCard,
-                        {
-                          backgroundColor: colors.surfaceContainerHighest,
-                          borderColor: colors.outlineVariant,
-                        },
-                      ]}
-                    >
                       <AppText
-                        variant="caption"
+                        variant="label"
                         color={colors.onSurfaceVariant}
-                        style={styles.distanceCardLabel}
+                        style={styles.filterSectionLabel}
                       >
-                        {t("filters.minKm")}
+                        {t("filters.distanceRange")}
                       </AppText>
-                      <TextInput
-                        value={String(filterDraft.minKm)}
-                        onChangeText={setDraftMinKmFromText}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        placeholder="0"
-                        placeholderTextColor={colors.onSurfaceVariant}
-                        style={[
-                          styles.distanceCardInput,
-                          {
-                            color: colors.onSurface,
-                          },
-                        ]}
+
+                      <View style={styles.distanceInputsRow}>
+                        <View
+                          style={[
+                            styles.distanceCard,
+                            {
+                              backgroundColor: colors.surfaceContainerHighest,
+                              borderColor: colors.outlineVariant,
+                            },
+                          ]}
+                        >
+                          <AppText
+                            variant="caption"
+                            color={colors.onSurfaceVariant}
+                            style={styles.distanceCardLabel}
+                          >
+                            {t("filters.minKm")}
+                          </AppText>
+                          <TextInput
+                            value={String(filterDraft.minKm)}
+                            onChangeText={setDraftMinKmFromText}
+                            keyboardType="number-pad"
+                            maxLength={2}
+                            placeholder="0"
+                            placeholderTextColor={colors.onSurfaceVariant}
+                            style={[
+                              styles.distanceCardInput,
+                              {
+                                color: colors.onSurface,
+                              },
+                            ]}
+                          />
+                        </View>
+
+                        <View style={styles.distanceDash}>
+                          <AppText
+                            variant="title"
+                            color={colors.onSurfaceVariant}
+                            style={styles.distanceDashText}
+                          >
+                            -
+                          </AppText>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.distanceCard,
+                            {
+                              backgroundColor: colors.surfaceContainerHighest,
+                              borderColor: colors.outlineVariant,
+                            },
+                          ]}
+                        >
+                          <AppText
+                            variant="caption"
+                            color={colors.onSurfaceVariant}
+                            style={styles.distanceCardLabel}
+                          >
+                            {t("filters.maxKm")}
+                          </AppText>
+                          <TextInput
+                            value={String(filterDraft.maxKm)}
+                            onChangeText={setDraftMaxKmFromText}
+                            keyboardType="number-pad"
+                            maxLength={2}
+                            placeholder="50"
+                            placeholderTextColor={colors.onSurfaceVariant}
+                            style={[
+                              styles.distanceCardInput,
+                              {
+                                color: colors.onSurface,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+
+                      <RangeSlider
+                        min={DISTANCE_MIN_KM}
+                        max={DISTANCE_MAX_KM}
+                        values={[filterDraft.minKm, filterDraft.maxKm]}
+                        onValuesChange={([minv, maxv]: [number, number]) =>
+                          setFilterDraft((d) => ({
+                            ...d,
+                            minKm: minv,
+                            maxKm: maxv,
+                          }))
+                        }
                       />
-                    </View>
-
-                    <View style={styles.distanceDash}>
-                      <AppText
-                        variant="title"
-                        color={colors.onSurfaceVariant}
-                        style={styles.distanceDashText}
-                      >
-                        -
-                      </AppText>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.distanceCard,
-                        {
-                          backgroundColor: colors.surfaceContainerHighest,
-                          borderColor: colors.outlineVariant,
-                        },
-                      ]}
-                    >
-                      <AppText
-                        variant="caption"
-                        color={colors.onSurfaceVariant}
-                        style={styles.distanceCardLabel}
-                      >
-                        {t("filters.maxKm")}
-                      </AppText>
-                      <TextInput
-                        value={String(filterDraft.maxKm)}
-                        onChangeText={setDraftMaxKmFromText}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        placeholder="50"
-                        placeholderTextColor={colors.onSurfaceVariant}
-                        style={[
-                          styles.distanceCardInput,
-                          {
-                            color: colors.onSurface,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  <RangeSlider
-                    min={DISTANCE_MIN_KM}
-                    max={DISTANCE_MAX_KM}
-                    values={[filterDraft.minKm, filterDraft.maxKm]}
-                    onValuesChange={([minv, maxv]: [number, number]) =>
-                      setFilterDraft((d) => ({
-                        ...d,
-                        minKm: minv,
-                        maxKm: maxv,
-                      }))
-                    }
-                  />
                     </>
                   ) : (
                     <TouchableOpacity
@@ -1312,7 +1336,7 @@ export default function HomeScreen() {
                   return;
                 }
                 router.push({
-                pathname: "/(private)/(tabs)/(home)/users/[id]",
+                  pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id: item.caretaker.id },
                 });
               }}
@@ -1394,7 +1418,7 @@ export default function HomeScreen() {
                         taker.id === user?.id
                           ? router.push("/(private)/(tabs)/profile" as any)
                           : router.push({
-                pathname: "/(private)/(tabs)/(home)/users/[id]",
+                              pathname: "/(private)/(tabs)/(home)/users/[id]",
                               params: { id: taker.id },
                             })
                       }
@@ -1441,7 +1465,7 @@ export default function HomeScreen() {
             return;
           }
           router.push({
-                pathname: "/(private)/(tabs)/(home)/users/[id]",
+            pathname: "/(private)/(tabs)/(home)/users/[id]",
             params: { id: openMenuTaker.id },
           });
         }}
@@ -1450,6 +1474,7 @@ export default function HomeScreen() {
           setTakerForSendRequest(openMenuTaker);
           setOpenMenuTaker(null);
           setSelectedSeekingPet(null);
+          setSendRequestPetsReady(false);
           setSendRequestOpen(true);
         }}
       />
@@ -1459,7 +1484,7 @@ export default function HomeScreen() {
         colors={colors}
         styles={styles}
         userPets={userPets}
-        loading={userPetsLoading}
+        loading={userPetsLoading || !sendRequestPetsReady}
         selectedSeekingPet={selectedSeekingPet}
         petSendSubtitleById={petSendSubtitleById}
         sendingToName={takerForSendRequest?.name?.trim() || ""}

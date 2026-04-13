@@ -324,7 +324,12 @@ export function mapThreadMessagesToUi(ctx: ThreadMessageUiContext): UiMessage[] 
       const img = pet ? (petGalleryUrls(pet)[0] ?? "") : "";
       const displayPetName = paramPetName ?? pet?.name ?? "Pet";
 
-      if (bubbleContext === "applying" && m.type === "proposal") {
+      // Applicant's own proposal: show pet card. Owner viewing applicant: show taker card.
+      if (
+        bubbleContext === "applying" &&
+        m.type === "proposal" &&
+        m.sender_id !== userId
+      ) {
         const av = parseAvailabilityJsonSummary(
           takerBundle?.profile?.availability_json ?? null,
         );
