@@ -14,6 +14,7 @@ type CareTypeFirstStepProps = {
   errorMessage?: string;
   /** i18n title — default matches request & availability design */
   titleKey?: string;
+  titleText?: string;
 };
 
 /**
@@ -25,6 +26,7 @@ export function CareTypeFirstStep({
   onToggle,
   errorMessage,
   titleKey = "post.availability.careStepTitle",
+  titleText,
 }: CareTypeFirstStepProps) {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -34,7 +36,7 @@ export function CareTypeFirstStep({
   return (
     <View style={styles.stepContainer}>
       <AppText variant="title" style={styles.stepTitle}>
-        {t(titleKey)}
+        {titleText ?? t(titleKey)}
       </AppText>
       <View
         style={[

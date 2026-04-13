@@ -1,5 +1,9 @@
 import { Colors } from "@/src/constants/colors";
 import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
+import {
+  blockUser,
+  getBlockDirection,
+} from "@/src/lib/blocks/user-blocks";
 import { acceptCareRequest } from "@/src/lib/contracts/accept-care-request";
 import {
   isResourceNotFound,
@@ -1110,20 +1114,45 @@ export default function ViewOfferScreen() {
         primaryLabel={t("messages.block")}
         secondaryLabel={t("common.cancel")}
         destructive
+        primaryLoading={busyAction}
         onPrimary={() => {
-          setShowBlockConfirm(false);
-          setBlockReason("");
-          showToast({
-            variant: "info",
-            message: t("messages.blockedToast", "User blocked."),
-            durationMs: 3000,
-          });
+          void (async () => {
+            if (!user?.id || !takerId || busyAction) return;
+
+            setBusyAction(true);
+            try {
+              await blockUser(user.id, takerId);
+              setShowBlockConfirm(false);
+              setBlockReason("");
+              showToast({
+                variant: "info",
+                message: t("messages.blockedToast", "User blocked."),
+                durationMs: 3000,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: errorMessageFromUnknown(
+                  err,
+                  t(
+                    "messages.blockFailed",
+                    "We couldn't update this block right now.",
+                  ),
+                ),
+                durationMs: 3200,
+              });
+            } finally {
+              setBusyAction(false);
+            }
+          })();
         }}
         onSecondary={() => {
+          if (busyAction) return;
           setShowBlockConfirm(false);
           setBlockReason("");
         }}
         onRequestClose={() => {
+          if (busyAction) return;
           setShowBlockConfirm(false);
           setBlockReason("");
         }}
@@ -1147,6 +1176,20 @@ export default function ViewOfferScreen() {
                   t(
                     "myCare.contract.acceptOfferMissingData",
                     "We couldn't confirm this offer because some request details are missing.",
+                  ),
+                );
+              }
+
+              const blockDirection = await getBlockDirection(ownerId, takerId);
+              if (blockDirection !== "none") {
+                throw new Error(
+                  t(
+                    blockDirection === "i_blocked"
+                      ? "messages.blockedBySelfSend"
+                      : "messages.blockedByOtherSend",
+                    blockDirection === "i_blocked"
+                      ? "You blocked this user, so you can't message them."
+                      : "This user blocked you, so you can't message them.",
                   ),
                 );
               }

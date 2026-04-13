@@ -125,7 +125,7 @@ export default function HomeScreen() {
   const [userPetsError, setUserPetsError] = useState<string | null>(null);
   const [userPetsLoaded, setUserPetsLoaded] = useState(false);
 
-  const { count: notificationsUnreadCount, markAllRead: markNotificationsRead } = useUnreadNotificationCount();
+  const { count: notificationsUnreadCount } = useUnreadNotificationCount();
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -871,14 +871,13 @@ export default function HomeScreen() {
       <AppText variant="headline" style={{ fontSize: 22, letterSpacing: -0.1 }}>
         {t("app.name")}
       </AppText>
-      <TouchableOpacity
-        className="relative pr-3"
-        hitSlop={12}
-        onPress={() => {
-          void markNotificationsRead();
-          router.push("/(private)/(tabs)/(home)/notifications");
-        }}
-      >
+        <TouchableOpacity
+          className="relative pr-3"
+          hitSlop={12}
+          onPress={() => {
+            router.push("/(private)/(tabs)/(home)/notifications");
+          }}
+        >
         <Bell size={24} color={colors.onSurface} />
         {notificationsUnreadCount > 0 ? (
           <View
@@ -905,7 +904,7 @@ export default function HomeScreen() {
       <FlatList
         data={showRequests ? filteredRequests : []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 24, gap: 8, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: 56, gap: 8, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -1460,6 +1459,7 @@ export default function HomeScreen() {
         colors={colors}
         styles={styles}
         userPets={userPets}
+        loading={userPetsLoading}
         selectedSeekingPet={selectedSeekingPet}
         petSendSubtitleById={petSendSubtitleById}
         sendingToName={takerForSendRequest?.name?.trim() || ""}
@@ -1476,6 +1476,10 @@ export default function HomeScreen() {
             pathname: "/(private)/post-requests",
             params: userPets?.[0]?.id ? { petId: userPets[0].id } : undefined,
           } as any);
+        }}
+        onAddPet={() => {
+          setSendRequestOpen(false);
+          router.push("/(private)/pets/add" as any);
         }}
       />
     </PageContainer>

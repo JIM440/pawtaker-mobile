@@ -6,6 +6,7 @@ import {
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
+import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import React from "react";
 import { Modal, ScrollView, TouchableOpacity, TouchableWithoutFeedback, View } from "react-native";
 
@@ -17,12 +18,14 @@ type Props = {
   selectedSeekingPet: any | null;
   petSendSubtitleById: Record<string, string>;
   sendingToName: string;
+  loading?: boolean;
   sendRequestBusy: boolean;
   t: (key: string, options?: any, fallback?: string) => string;
   onClose: () => void;
   onSelectPet: (pet: any) => void;
   onSend: () => void;
   onAddRequest?: () => void;
+  onAddPet?: () => void;
 };
 
 export function SendRequestToUserModal({
@@ -33,16 +36,16 @@ export function SendRequestToUserModal({
   selectedSeekingPet,
   petSendSubtitleById,
   sendingToName,
+  loading = false,
   sendRequestBusy,
   t,
   onClose,
   onSelectPet,
   onSend,
   onAddRequest,
+  onAddPet: _onAddPet,
 }: Props) {
-  const requestablePets = userPets.filter((pet: any) =>
-    Boolean(petSendSubtitleById[pet.id]),
-  );
+  const requestablePets = userPets.filter((pet: any) => Boolean(petSendSubtitleById[pet.id]));
 
   return (
     <Modal transparent visible={visible} animationType="fade" onRequestClose={onClose}>
@@ -66,16 +69,31 @@ export function SendRequestToUserModal({
                 showsVerticalScrollIndicator={false}
                 contentContainerStyle={styles.sendRequestListContent}
               >
-                {requestablePets.length === 0 ? (
+                {loading ? (
+                  Array.from({ length: 4 }).map((_, index) => (
+                    <View key={`skeleton-${index}`} style={styles.sendRequestPetRow}>
+                      <Skeleton width={18} height={18} borderRadius={999} />
+                      <Skeleton width={32} height={32} borderRadius={999} />
+                      <View style={{ flex: 1, minWidth: 0, gap: 6 }}>
+                        <Skeleton height={14} width="48%" borderRadius={4} />
+                        <Skeleton height={12} width="78%" borderRadius={4} />
+                      </View>
+                    </View>
+                  ))
+                ) : requestablePets.length === 0 ? (
                   <IllustratedEmptyState
-                    title={t(
-                      "home.sendRequest.noOpenRequestTitle",
-                      "No open request yet",
-                    )}
-                    message={t(
-                      "home.sendRequest.noOpenRequestMessage",
-                      "Create a care request for one of your pets before sending.",
-                    )}
+                    title={
+                      t(
+                        "post.request.emptyPetsTitle",
+                        "No pets found",
+                      )
+                    }
+                    message={
+                      t(
+                        "home.sendRequest.noEligiblePetsMessage",
+                        "You don’t have any pets with an active seeking request right now.",
+                      )
+                    }
                     illustration={IllustratedEmptyStateIllustrations.noPet}
                     actionLabel={t("home.sendRequest.addRequest", "Add request")}
                     onAction={onAddRequest}
@@ -169,7 +187,7 @@ export function SendRequestToUserModal({
                   variant="outline"
                   fullWidth={false}
                   onPress={onClose}
-                  disabled={sendRequestBusy}
+                  disabled={sendRequestBusy || loading}
                   style={styles.sendRequestActionBtn}
                 />
                 <Button
@@ -177,7 +195,7 @@ export function SendRequestToUserModal({
                   variant="primary"
                   fullWidth={false}
                   onPress={onSend}
-                  disabled={!selectedSeekingPet || sendRequestBusy}
+                  disabled={!selectedSeekingPet || sendRequestBusy || loading}
                   loading={sendRequestBusy}
                   style={styles.sendRequestActionBtn}
                 />

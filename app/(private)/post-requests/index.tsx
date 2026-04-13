@@ -424,7 +424,10 @@ export default function LaunchRequestWizardScreen() {
             careTypes={careTypes}
             onToggle={toggleCareType}
             errorMessage={errors.careTypes}
-            titleKey="post.request.careStepTitle"
+            titleText={t(
+              "post.request.careStepTitle",
+              "What type of care do you need?",
+            )}
           />
         )}
 

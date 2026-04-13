@@ -1,6 +1,8 @@
 import { Colors } from "@/src/constants/colors";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfileTabContent } from "@/src/features/profile/components/ProfileTabContent";
+import { useFocusEffect } from "@react-navigation/native";
+import { completeExpiredContractsForUser } from "@/src/lib/contracts/complete-expired-contracts";
 import {
   formatRequestDateRange,
   formatRequestTimeRange,
@@ -24,7 +26,7 @@ import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router, useLocalSearchParams } from "expo-router";
 import { Settings } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshControl,
@@ -142,7 +144,7 @@ export default function ProfileScreen() {
     refreshAvailabilityFlag,
     refreshReviewsFlag,
   ]);
-  const loadPetsTab = async (opts?: { refresh?: boolean }) => {
+  const loadPetsTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setPetsLoading(true);
     setPetsError(null);
@@ -208,7 +210,7 @@ export default function ProfileScreen() {
     } finally {
       setPetsLoading(false);
     }
-  };
+  }, [user?.id]);
 
   const confirmDeletePet = async () => {
     if (!user?.id || !deletePetId) return;
@@ -246,7 +248,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadAvailabilityTab = async (opts?: { refresh?: boolean }) => {
+  const loadAvailabilityTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setAvailabilityLoading(true);
     setAvailabilityError(null);
@@ -277,9 +279,9 @@ export default function ProfileScreen() {
     } finally {
       setAvailabilityLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadHeaderStats = async () => {
+  const loadHeaderStats = useCallback(async () => {
     if (!user?.id) return;
     try {
       const [
@@ -306,9 +308,9 @@ export default function ProfileScreen() {
     } catch {
       /* non-blocking for header */
     }
-  };
+  }, [user?.id]);
 
-  const loadReviewsTab = async (opts?: { refresh?: boolean }) => {
+  const loadReviewsTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setReviewsLoading(true);
     setReviewsError(null);
@@ -356,51 +358,67 @@ export default function ProfileScreen() {
     } finally {
       setReviewsLoading(false);
     }
-  };
+  }, [user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
     void loadHeaderStats();
-  }, [user?.id]);
+  }, [loadHeaderStats, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || activeTab !== "pets") return;
+    if (!user?.id) return;
     if (petsLoaded || petsLoading || petsError) return;
     void loadPetsTab();
-  }, [user?.id, activeTab, petsLoaded, petsLoading, petsError]);
+  }, [loadPetsTab, petsError, petsLoaded, petsLoading, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || activeTab !== "availability") return;
+    if (!user?.id) return;
     if (availabilityLoaded || availabilityLoading || availabilityError) return;
     void loadAvailabilityTab();
   }, [
+    loadAvailabilityTab,
     user?.id,
-    activeTab,
     availabilityLoaded,
     availabilityLoading,
     availabilityError,
   ]);
 
   useEffect(() => {
-    if (!user?.id || activeTab !== "reviews") return;
+    if (!user?.id) return;
     if (reviewsLoaded || reviewsLoading || reviewsError) return;
     void loadReviewsTab();
-  }, [user?.id, activeTab, reviewsLoaded, reviewsLoading, reviewsError]);
+  }, [loadReviewsTab, reviewsError, reviewsLoaded, reviewsLoading, user?.id]);
+
+  const refreshScreenData = useCallback(async () => {
+    if (!user?.id) return;
+
+    await completeExpiredContractsForUser(user.id);
+    await fetchProfile(user.id);
+    await Promise.all([
+      loadHeaderStats(),
+      loadPetsTab({ refresh: true }),
+      loadAvailabilityTab({ refresh: true }),
+      loadReviewsTab({ refresh: true }),
+    ]);
+  }, [
+    fetchProfile,
+    loadAvailabilityTab,
+    loadHeaderStats,
+    loadPetsTab,
+    loadReviewsTab,
+    user?.id,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshScreenData();
+    }, [refreshScreenData]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      if (user?.id) {
-        await fetchProfile(user.id);
-      }
-      await loadHeaderStats();
-      if (activeTab === "availability") {
-        await loadAvailabilityTab({ refresh: true });
-      } else if (activeTab === "reviews") {
-        await loadReviewsTab({ refresh: true });
-      } else if (activeTab === "pets") {
-        await loadPetsTab({ refresh: true });
-      }
+      await refreshScreenData();
       // "bio" tab uses `profile` from the store — refreshed via fetchProfile above.
     } finally {
       setRefreshing(false);

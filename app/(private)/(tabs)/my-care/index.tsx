@@ -2,11 +2,13 @@ import { Colors } from "@/src/constants/colors";
 import { EmptyState } from "@/src/features/my-care/components/EmptyState";
 import { MyCareInCareMenu } from "@/src/features/my-care/components/MyCareInCareMenu";
 import { MyCareStatsSection } from "@/src/features/my-care/components/MyCareStatsSection";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   formatCompactDate,
   formatRequestDateRange,
   formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
+import { completeExpiredContractsForUser } from "@/src/lib/contracts/complete-expired-contracts";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
@@ -32,7 +34,7 @@ import {
   MoreHorizontal,
   Sun,
 } from "lucide-react-native";
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   Modal,
@@ -58,7 +60,7 @@ type TabId = "given" | "received" | "liked";
 export default function MyCareScreen() {
   const { t } = useTranslation();
   const router = useRouter();
-  const { user, profile } = useAuthStore();
+  const { user, profile, fetchProfile } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [refreshing, setRefreshing] = useState(false);
@@ -222,7 +224,7 @@ export default function MyCareScreen() {
     </View>
   );
 
-  const loadMyAvailability = async (opts?: { refresh?: boolean }) => {
+  const loadMyAvailability = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh && !availabilityLoaded) setAvailabilityLoading(true);
     try {
@@ -246,9 +248,9 @@ export default function MyCareScreen() {
     } finally {
       setAvailabilityLoading(false);
     }
-  };
+  }, [availabilityLoaded, user?.id]);
 
-  const loadActiveCareCard = async (opts?: { refresh?: boolean }) => {
+  const loadActiveCareCard = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setActiveCareLoading(true);
     setActiveCareError(null);
@@ -337,9 +339,9 @@ export default function MyCareScreen() {
     } finally {
       setActiveCareLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadCareGivenTab = async (opts?: { refresh?: boolean }) => {
+  const loadCareGivenTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setGivenLoading(true);
     setGivenError(null);
@@ -347,7 +349,8 @@ export default function MyCareScreen() {
       const { data: contracts, error: contractsError } = await supabase
         .from("contracts")
         .select("*")
-        .eq("taker_id", user.id);
+        .eq("taker_id", user.id)
+        .eq("status", "completed");
 
       if (contractsError && !isMissingBackendResourceError(contractsError))
         throw contractsError;
@@ -453,9 +456,9 @@ export default function MyCareScreen() {
     } finally {
       setGivenLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadCareReceivedTab = async (opts?: { refresh?: boolean }) => {
+  const loadCareReceivedTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setReceivedLoading(true);
     setReceivedError(null);
@@ -463,7 +466,8 @@ export default function MyCareScreen() {
       const { data: contracts, error: contractsError } = await supabase
         .from("contracts")
         .select("*")
-        .eq("owner_id", user.id);
+        .eq("owner_id", user.id)
+        .eq("status", "completed");
 
       if (contractsError && !isMissingBackendResourceError(contractsError))
         throw contractsError;
@@ -571,9 +575,9 @@ export default function MyCareScreen() {
     } finally {
       setReceivedLoading(false);
     }
-  };
+  }, [user?.id]);
 
-  const loadLikedTab = async (opts?: { refresh?: boolean }) => {
+  const loadLikedTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setLikedLoading(true);
     setLikedError(null);
@@ -699,7 +703,7 @@ export default function MyCareScreen() {
     } finally {
       setLikedLoading(false);
     }
-  };
+  }, [user?.id]);
 
   const removePetLike = async (petId: string) => {
     if (!user?.id || !petId) return;
@@ -742,34 +746,32 @@ export default function MyCareScreen() {
     if (!availabilityLoaded && !availabilityLoading) {
       void loadMyAvailability();
     }
-  }, [user?.id, availabilityLoaded, availabilityLoading]);
+  }, [
+    availabilityLoaded,
+    availabilityLoading,
+    loadMyAvailability,
+    user?.id,
+  ]);
 
   useEffect(() => {
     if (!user?.id) return;
     if (!activeCareLoaded && !activeCareLoading) {
       void loadActiveCareCard();
     }
-  }, [user?.id, activeCareLoaded, activeCareLoading]);
+  }, [activeCareLoaded, activeCareLoading, loadActiveCareCard, user?.id]);
 
   useEffect(() => {
     if (!user?.id) return;
-
-    if (activeTab === "given" && !givenLoaded && !givenLoading && !givenError) {
+    if (!givenLoaded && !givenLoading && !givenError) {
       void loadCareGivenTab();
     }
-    if (
-      activeTab === "received" &&
-      !receivedLoaded &&
-      !receivedLoading &&
-      !receivedError
-    ) {
+    if (!receivedLoaded && !receivedLoading && !receivedError) {
       void loadCareReceivedTab();
     }
-    if (activeTab === "liked" && !likedLoaded && !likedLoading && !likedError) {
+    if (!likedLoaded && !likedLoading && !likedError) {
       void loadLikedTab();
     }
   }, [
-    activeTab,
     user?.id,
     givenLoaded,
     givenLoading,
@@ -780,17 +782,43 @@ export default function MyCareScreen() {
     likedLoaded,
     likedLoading,
     likedError,
+    loadCareGivenTab,
+    loadCareReceivedTab,
+    loadLikedTab,
   ]);
+
+  const refreshScreenData = useCallback(async () => {
+    if (!user?.id) return;
+
+    await completeExpiredContractsForUser(user.id);
+    await fetchProfile(user.id);
+    await Promise.all([
+      loadMyAvailability({ refresh: true }),
+      loadActiveCareCard({ refresh: true }),
+      loadCareGivenTab({ refresh: true }),
+      loadCareReceivedTab({ refresh: true }),
+      loadLikedTab({ refresh: true }),
+    ]);
+  }, [
+    fetchProfile,
+    loadActiveCareCard,
+    loadCareGivenTab,
+    loadCareReceivedTab,
+    loadLikedTab,
+    loadMyAvailability,
+    user?.id,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshScreenData();
+    }, [refreshScreenData]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      await loadMyAvailability({ refresh: true });
-      await loadActiveCareCard({ refresh: true });
-      if (activeTab === "given") await loadCareGivenTab({ refresh: true });
-      if (activeTab === "received")
-        await loadCareReceivedTab({ refresh: true });
-      if (activeTab === "liked") await loadLikedTab({ refresh: true });
+      await refreshScreenData();
     } finally {
       setRefreshing(false);
     }

@@ -49,6 +49,8 @@ import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
 import {
@@ -71,7 +73,6 @@ import {
   ActivityIndicator,
   Keyboard,
   KeyboardAvoidingView,
-  Linking,
   Modal,
   Platform,
   Pressable,
@@ -90,7 +91,15 @@ function selectedBubbleStyle(_selected: boolean, _colors: any) {
 const MESSAGE_MAX_LINES = 10;
 const COMPOSER_MIN_HEIGHT = 44;
 const COMPOSER_MAX_HEIGHT = 44 + (MESSAGE_MAX_LINES - 1) * 18.7;
+const MAX_IMAGE_SIZE_BYTES = 5 * 1024 * 1024;
 const MAX_VIDEO_SIZE_BYTES = 10 * 1024 * 1024;
+const ALLOWED_DOCUMENT_TYPES = [
+  "application/pdf",
+  "application/msword",
+  "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+  "application/vnd.ms-powerpoint",
+  "application/vnd.openxmlformats-officedocument.presentationml.presentation",
+] as const;
 
 type AttachmentKind = "image" | "video" | "file";
 
@@ -107,6 +116,36 @@ function formatAttachmentSize(bytes?: number | null) {
   if (bytes >= 1024 * 1024) return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
   if (bytes >= 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${bytes} B`;
+}
+
+function joinCompactList(values: (string | null | undefined)[]) {
+  return values
+    .map((value) => (typeof value === "string" ? value.trim() : ""))
+    .filter(Boolean)
+    .join(" • ");
+}
+
+function isAllowedDocument(params: {
+  mimeType?: string | null;
+  name?: string | null;
+  uri?: string | null;
+}) {
+  const lowerMime = params.mimeType?.toLowerCase() ?? "";
+  const lowerName = params.name?.toLowerCase() ?? "";
+  const lowerUri = params.uri?.toLowerCase() ?? "";
+
+  return (
+    ALLOWED_DOCUMENT_TYPES.includes(
+      lowerMime as (typeof ALLOWED_DOCUMENT_TYPES)[number],
+    ) ||
+    /\.(pdf|doc|docx|ppt|pptx)$/i.test(lowerName || lowerUri)
+  );
+}
+
+function canPreviewDocumentInApp(mimeType?: string | null, name?: string | null) {
+  const lowerMime = mimeType?.toLowerCase() ?? "";
+  const lowerName = name?.toLowerCase() ?? "";
+  return lowerMime === "application/pdf" || /\.pdf$/i.test(lowerName);
 }
 
 function getAttachmentKind(params: {
@@ -235,26 +274,34 @@ function MessageBubble({
         <Pressable
           onPress={() => onOpenFile?.(message)}
           style={[
-            styles.fileAttachmentBubble,
+            styles.messageAttachmentCard,
             {
-              backgroundColor: isRight
-                ? colors.primary
-                : colors.surfaceContainerHighest,
+              backgroundColor: isRight ? colors.primary : colors.surface,
               borderColor: colors.outlineVariant,
             },
           ]}
         >
-          <FileText
-            size={18}
-            color={isRight ? colors.onPrimary : colors.onSurface}
-          />
-          <View style={styles.fileAttachmentBody}>
+          <View
+            style={[
+              styles.previewFileWrap,
+              {
+                backgroundColor: isRight
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerHighest,
+              },
+            ]}
+          >
+            <FileText
+              size={32}
+              color={isRight ? colors.onPrimaryContainer : colors.primary}
+            />
+          </View>
+          <View style={styles.previewMetaBlock}>
             <AppText
               variant="body"
               color={isRight ? colors.onPrimary : colors.onSurface}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={styles.fileAttachmentTitle}
+              numberOfLines={2}
+              style={styles.previewFileName}
             >
               {name}
             </AppText>
@@ -264,8 +311,7 @@ function MessageBubble({
                 color={
                   isRight ? colors.onPrimary : colors.onSurfaceVariant
                 }
-                numberOfLines={1}
-                style={styles.fileAttachmentMeta}
+                numberOfLines={2}
               >
                 {secondaryLabel}
               </AppText>
@@ -309,34 +355,43 @@ function MessageBubble({
         <Pressable
           onPress={() => onOpenVideo?.(message)}
           style={[
-            styles.fileAttachmentBubble,
+            styles.messageAttachmentCard,
             {
-              backgroundColor: isRight
-                ? colors.primary
-                : colors.surfaceContainerHighest,
+              backgroundColor: isRight ? colors.primary : colors.surface,
               borderColor: colors.outlineVariant,
             },
           ]}
         >
-          <PlayCircle
-            size={18}
-            color={isRight ? colors.onPrimary : colors.onSurface}
-          />
-          <View style={styles.fileAttachmentBody}>
+          <View
+            style={[
+              styles.messageBubbleVideoWrap,
+              {
+                backgroundColor: isRight
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerHighest,
+              },
+            ]}
+          >
+            <View style={styles.messageBubbleVideoOverlay}>
+              <PlayCircle
+                size={32}
+                color={isRight ? colors.onPrimaryContainer : colors.onSurface}
+              />
+            </View>
+          </View>
+          <View style={styles.previewMetaBlock}>
             <AppText
               variant="body"
               color={isRight ? colors.onPrimary : colors.onSurface}
-              numberOfLines={1}
-              ellipsizeMode="tail"
-              style={styles.fileAttachmentTitle}
+              numberOfLines={2}
+              style={styles.previewFileName}
             >
               {name}
             </AppText>
             <AppText
               variant="caption"
               color={isRight ? colors.onPrimary : colors.onSurfaceVariant}
-              numberOfLines={1}
-              style={styles.fileAttachmentMeta}
+                numberOfLines={2}
             >
               {secondaryLabel || t("messages.videoLabel", "Video")}
             </AppText>
@@ -361,8 +416,16 @@ function MessageBubble({
     if (!rd) return null;
     const context = rd.context === "seeking" ? "seeking" : "applying";
     const offerId = typeof rd.offerId === "string" ? rd.offerId.trim() : "";
+    const openOfferRoute = () =>
+      router.push(`/(private)/offer/${offerId}` as any);
+    const openRequestRoute = () =>
+      router.push(`/(private)/post-requests/${offerId}` as any);
     const ctaLabel = t("messages.viewOfferDetails");
     const isTakerCard = rd.visual === "taker";
+    const isOutgoingApplicationCard = isTakerCard && isRight;
+    const takerPetTypesLine = joinCompactList(
+      (rd.takerPetTypesLine ?? "").split("•"),
+    );
     return (
       <Pressable
         onLongPress={onSelect}
@@ -378,8 +441,17 @@ function MessageBubble({
           style={[
             styles.requestCard,
             {
-              backgroundColor: colors.surfaceContainerHighest,
-              borderColor: colors.outlineVariant,
+              backgroundColor: isOutgoingApplicationCard
+                ? colors.primary
+                : colors.surfaceContainerHighest,
+              borderColor: isOutgoingApplicationCard
+                ? colors.primary
+                : colors.outlineVariant,
+            },
+            isOutgoingApplicationCard && {
+              padding: 8,
+              borderRadius: 20,
+              gap: 8,
             },
           ]}
         >
@@ -403,16 +475,26 @@ function MessageBubble({
           </View>
 
           {/* Short note (pet bio or offer message) — only for pet cards */}
-          {rd.description && !isTakerCard ? (
+          {rd.description ? (
             <View
               style={[
                 styles.requestDescriptionBox,
-                { backgroundColor: colors.surfaceContainerHighest },
+                {
+                  backgroundColor: isOutgoingApplicationCard
+                    ? colors.inversePrimary
+                    : colors.surfaceContainerHighest,
+                },
               ]}
             >
               <AppText
                 variant="body"
-                color={colors.onSurfaceVariant}
+                color={
+                  isOutgoingApplicationCard
+                    ? colors.onSurfaceVariant
+                    : isTakerCard
+                      ? colors.onPrimary
+                      : colors.onSurfaceVariant
+                }
                 style={styles.requestDescriptionText}
                 numberOfLines={2}
               >
@@ -435,8 +517,8 @@ function MessageBubble({
               style={[
                 styles.threadTakerNestedCard,
                 {
-                  backgroundColor: colors.surfaceContainerLowest,
-                  borderColor: colors.outlineVariant,
+                  backgroundColor: colors.primaryContainer,
+                  borderColor: colors.primaryContainer,
                 },
               ]}
             >
@@ -450,61 +532,96 @@ function MessageBubble({
                 <View style={styles.takerOfferHeaderText}>
                   {/* Name + available badge */}
                   <View style={styles.threadTakerTitleRow}>
-                    <AppText variant="title" numberOfLines={1} style={{ flex: 1 }}>
+                    <AppText
+                      variant="title"
+                      numberOfLines={1}
+                      color={
+                        isOutgoingApplicationCard
+                          ? colors.onSurface
+                          : colors.onPrimaryContainer
+                      }
+                      style={styles.takerName}
+                    >
                       {rd.takerName?.trim()
                         ? rd.takerName
                         : t("messages.takerApplicant")}
                     </AppText>
-                    {rd.takerAvailable ? (
-                      <View
-                        style={[
-                          styles.threadTakerAvailablePill,
-                          { backgroundColor: colors.tertiaryContainer },
-                        ]}
-                      >
-                        <AppText
-                          variant="caption"
-                          color={colors.onTertiaryContainer}
-                          numberOfLines={1}
-                        >
-                          {t("myCare.available")}
-                        </AppText>
-                      </View>
-                    ) : null}
                   </View>
 
                   {/* Compact meta: rating • handshakes • paws */}
                   <View style={styles.takerCompactMetaRow}>
-                    <View style={[styles.takerCompactMetaItem, { backgroundColor: colors.surfaceContainer }]}>
-                      <AppText variant="caption" color={colors.onSurface}>
+                    <View style={styles.takerRatingItem}>
+                      <AppText
+                        variant="caption"
+                        color={
+                          isOutgoingApplicationCard
+                            ? colors.onSurfaceVariant
+                            : colors.onPrimaryContainer
+                        }
+                      >
                         {(rd.takerRating ?? 0).toFixed(1)}
                       </AppText>
-                      <Star size={11} color={colors.tertiary} fill={colors.tertiary} />
+                      <Star
+                        size={10}
+                        color={colors.tertiary}
+                        fill={colors.tertiary}
+                      />
                     </View>
-                    <View style={[styles.takerCompactMetaItem, { backgroundColor: colors.surfaceContainer }]}>
-                      <Handshake size={11} color={colors.tertiary} />
-                      <AppText variant="caption" color={colors.tertiary}>
+                    <View
+                      style={[
+                        styles.takerCompactMetaItem,
+                        { backgroundColor: colors.surfaceContainerLowest },
+                      ]}
+                    >
+                      <Handshake size={12} color={colors.onSurfaceVariant} />
+                      <AppText variant="caption" color={colors.onSurfaceVariant}>
                         {rd.takerHandshakes ?? 0}
                       </AppText>
                     </View>
-                    <View style={[styles.takerCompactMetaItem, { backgroundColor: colors.surfaceContainer }]}>
-                      <PawPrint size={11} color={colors.tertiary} />
-                      <AppText variant="caption" color={colors.tertiary}>
+                    <View
+                      style={[
+                        styles.takerCompactMetaItem,
+                        { backgroundColor: colors.surfaceContainerLowest },
+                      ]}
+                    >
+                      <PawPrint size={12} color={colors.onSurfaceVariant} />
+                      <AppText variant="caption" color={colors.onSurfaceVariant}>
                         {rd.takerPaws ?? 0}
                       </AppText>
                     </View>
                   </View>
 
                   {/* Bio */}
-                  {rd.takerBio ? (
+                  {takerPetTypesLine ? (
                     <AppText
                       variant="caption"
-                      color={colors.onSurfaceVariant}
-                      numberOfLines={2}
-                      style={{ marginTop: 4 }}
+                      color={
+                        isOutgoingApplicationCard
+                          ? colors.onSurface
+                          : colors.onPrimaryContainer
+                      }
+                      numberOfLines={1}
+                      style={styles.takerInlineMeta}
                     >
-                      {rd.takerBio}
+                      {takerPetTypesLine}
                     </AppText>
+                  ) : null}
+                  {rd.takerCity ? (
+                    <View style={styles.takerLocationRow}>
+                      <MapPin size={16} color={colors.onPrimaryContainer} />
+                  <AppText
+                    variant="caption"
+                    color={
+                      isOutgoingApplicationCard
+                        ? colors.onSurface
+                        : colors.onPrimaryContainer
+                    }
+                    numberOfLines={1}
+                    style={styles.takerLocationText}
+                  >
+                        {rd.takerCity}
+                      </AppText>
+                    </View>
                   ) : null}
                 </View>
               </View>
@@ -556,7 +673,8 @@ function MessageBubble({
 
           <Button
             label={ctaLabel}
-            variant="outline"
+            variant={isOutgoingApplicationCard ? "inverse" : "outline"}
+            color={isOutgoingApplicationCard ? colors.primary : undefined}
             style={styles.requestCta}
             disabled={!offerId}
             onPress={() => {
@@ -573,11 +691,15 @@ function MessageBubble({
                 } catch {
                   // Fall back to previous route behavior if eligibility lookup fails.
                 }
-                if (context === "seeking") {
-                  router.push(`/(private)/post-requests/${offerId}` as any);
+                if (context === "applying") {
+                  openOfferRoute();
                   return;
                 }
-                router.push(`/(private)/post-availability/${offerId}` as any);
+                if (isRight) {
+                  openRequestRoute();
+                  return;
+                }
+                openOfferRoute();
               })();
             }}
           />
@@ -726,6 +848,7 @@ const {
     name: string;
     mimeType?: string;
     sizeBytes?: number | null;
+    externalOnly?: boolean;
   } | null>(null);
   const pendingVideoPlayer = useVideoPlayer(
     pendingAttachment?.kind === "video" ? pendingAttachment.uri : null,
@@ -1081,13 +1204,22 @@ const {
     process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ||
     "";
 
-  const openExternalUrl = async (url: string, fallbackMessage: string) => {
+  const openDocumentPreview = async (url: string, fallbackMessage: string) => {
+    try {
+      await WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
+        controlsColor: colors.primary,
+        showTitle: true,
+      });
+    } catch {
+      showToast({ message: fallbackMessage, variant: "error" });
+    }
+  };
+
+  const openExternalDocument = async (url: string, fallbackMessage: string) => {
     try {
       const supported = await Linking.canOpenURL(url);
-      if (!supported) {
-        showToast({ message: fallbackMessage, variant: "error" });
-        return;
-      }
+      if (!supported) throw new Error("Unsupported document url");
       await Linking.openURL(url);
     } catch {
       showToast({ message: fallbackMessage, variant: "error" });
@@ -1095,6 +1227,22 @@ const {
   };
 
   const queueAttachmentPreview = (attachment: AttachmentPreview) => {
+    if (
+      attachment.kind === "image" &&
+      attachment.sizeBytes &&
+      attachment.sizeBytes > MAX_IMAGE_SIZE_BYTES
+    ) {
+      showToast({
+        variant: "error",
+        message: t(
+          "messages.imageTooLarge",
+          "Images must be 5MB or smaller before you can send them.",
+        ),
+        durationMs: 3600,
+      });
+      return;
+    }
+
     if (
       attachment.kind === "video" &&
       attachment.sizeBytes &&
@@ -1276,7 +1424,7 @@ const {
       const { getDocumentAsync } = await import("expo-document-picker");
       const picked = await getDocumentAsync({
         copyToCacheDirectory: true,
-        type: "*/*",
+        type: [...ALLOWED_DOCUMENT_TYPES],
       });
       if (picked.canceled || !picked.assets?.[0]) return;
       const asset = picked.assets[0];
@@ -1290,12 +1438,25 @@ const {
         return;
       }
       if (!asset.uri) return;
-      queueAttachmentPreview({
-        kind: getAttachmentKind({
+      if (
+        !isAllowedDocument({
           mimeType: asset.mimeType,
           name: asset.name,
           uri: asset.uri,
-        }),
+        })
+      ) {
+        showToast({
+          variant: "error",
+          message: t(
+            "messages.documentTypesRestricted",
+            "Only PDF, Word, and PowerPoint documents can be sent here.",
+          ),
+          durationMs: 3200,
+        });
+        return;
+      }
+      queueAttachmentPreview({
+        kind: "file",
         uri: asset.uri,
         name: asset.name ?? "Attachment",
         mimeType: asset.mimeType,
@@ -1333,11 +1494,16 @@ const {
   const openMessageFile = (message: UiMessage) => {
     const url = message.fileUrl?.trim();
     if (!url) return;
+    const externalOnly = !canPreviewDocumentInApp(
+      message.fileMimeType,
+      message.fileName,
+    );
     setOpenFile({
       url,
       name: message.fileName?.trim() || t("messages.attachment", "Attachment"),
       mimeType: message.fileMimeType,
       sizeBytes: message.fileSizeBytes,
+      externalOnly,
     });
   };
 
@@ -1813,15 +1979,6 @@ const {
                   />
                 </TouchableOpacity>
               </View>
-              <View style={styles.composerMetaRow}>
-                <AppText
-                  variant="caption"
-                  color={colors.onSurfaceVariant}
-                  style={styles.composerMetaText}
-                >
-                  {`${input.length}/${INPUT_LIMITS.message}`}
-                </AppText>
-              </View>
               <Modal
                 transparent
                 animationType="fade"
@@ -1928,76 +2085,44 @@ const {
                   </View>
                 </View>
               </Modal>
-              <Modal
-                transparent
-                animationType="fade"
+              <ImageViewerModal
                 visible={openVideo != null}
+                images={[]}
+                title={openVideo?.name || t("messages.videoLabel", "Video")}
                 onRequestClose={() => setOpenVideo(null)}
               >
-                <View style={styles.previewOverlay}>
+                <View style={styles.messageViewerBody}>
                   <View
                     style={[
-                      styles.previewCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.outlineVariant,
-                      },
+                      styles.messageViewerMediaFrame,
+                      { backgroundColor: colors.background },
                     ]}
                   >
-                    <View style={styles.previewHeader}>
-                      <AppText variant="title" style={styles.previewTitle}>
-                        {openVideo?.name || t("messages.videoLabel", "Video")}
-                      </AppText>
-                      <TouchableOpacity
-                        hitSlop={8}
-                        onPress={() => setOpenVideo(null)}
-                      >
-                        <X size={18} color={colors.onSurfaceVariant} />
-                      </TouchableOpacity>
-                    </View>
-                    <View
-                      style={[
-                        styles.previewVideoWrap,
-                        { backgroundColor: colors.surfaceContainerHighest },
-                      ]}
-                    >
-                      <VideoView
-                        player={messageVideoPlayer}
-                        style={styles.previewVideo}
-                        nativeControls
-                        contentFit="contain"
-                      />
-                    </View>
+                    <VideoView
+                      player={messageVideoPlayer}
+                      style={styles.messageViewerVideo}
+                      nativeControls
+                      contentFit="contain"
+                    />
                   </View>
                 </View>
-              </Modal>
-              <Modal
-                transparent
-                animationType="fade"
+              </ImageViewerModal>
+              <ImageViewerModal
                 visible={openFile != null}
+                images={[]}
+                title={t("messages.documentLabel", "Document")}
                 onRequestClose={() => setOpenFile(null)}
               >
-                <View style={styles.previewOverlay}>
+                <View style={styles.messageViewerBody}>
                   <View
                     style={[
-                      styles.previewCard,
+                      styles.messageViewerFileCard,
                       {
                         backgroundColor: colors.surface,
                         borderColor: colors.outlineVariant,
                       },
                     ]}
                   >
-                    <View style={styles.previewHeader}>
-                      <AppText variant="title" style={styles.previewTitle}>
-                        {t("messages.documentLabel", "Document")}
-                      </AppText>
-                      <TouchableOpacity
-                        hitSlop={8}
-                        onPress={() => setOpenFile(null)}
-                      >
-                        <X size={18} color={colors.onSurfaceVariant} />
-                      </TouchableOpacity>
-                    </View>
                     <View
                       style={[
                         styles.previewFileWrap,
@@ -2023,10 +2148,24 @@ const {
                       </AppText>
                     </View>
                     <Button
-                      label={t("messages.openDocument", "Open document")}
+                      label={
+                        openFile?.externalOnly
+                          ? t("messages.openDocumentExternal", "Open externally")
+                          : t("messages.openDocument", "Open document")
+                      }
                       onPress={() => {
                         if (!openFile?.url) return;
-                        void openExternalUrl(
+                        if (openFile.externalOnly) {
+                          void openExternalDocument(
+                            openFile.url,
+                            t(
+                              "messages.documentExternalOpenFailed",
+                              "We couldn't open this document in another app.",
+                            ),
+                          );
+                          return;
+                        }
+                        void openDocumentPreview(
                           openFile.url,
                           t(
                             "messages.documentOpenFailed",
@@ -2044,7 +2183,7 @@ const {
                     />
                   </View>
                 </View>
-              </Modal>
+              </ImageViewerModal>
               <ImageViewerModal
                 visible={imageViewerOpen}
                 images={messageImages.map((uri) => ({ uri }))}
@@ -2250,8 +2389,8 @@ const styles = StyleSheet.create({
   threadTakerNestedCard: {
     width: "100%",
     borderRadius: 16,
-    padding: 12,
-    gap: 10,
+    padding: 16,
+    gap: 8,
     borderWidth: 1,
   },
   threadTakerTitleRow: {
@@ -2272,18 +2411,35 @@ const styles = StyleSheet.create({
     gap: 6,
     marginTop: 4,
   },
+  takerRatingItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 2,
+  },
   takerCompactMetaItem: {
     flexDirection: "row",
     alignItems: "center",
     gap: 3,
-    paddingHorizontal: 6,
-    paddingVertical: 3,
+    paddingHorizontal: 4,
+    paddingVertical: 2,
     borderRadius: 999,
   },
+  takerName: {
+    flex: 1,
+    fontSize: 18,
+    lineHeight: 24,
+    letterSpacing: -0.25,
+    fontWeight: "600",
+  },
+  takerInlineMeta: {
+    marginTop: 4,
+    fontSize: 11,
+    lineHeight: 13,
+    letterSpacing: -0.2,
+    fontWeight: "500",
+  },
   takerTagsRow: {
-    flexDirection: "row",
-    flexWrap: "wrap",
-    gap: 6,
+    display: "none",
   },
   takerTagPill: {
     flexDirection: "row",
@@ -2306,7 +2462,19 @@ const styles = StyleSheet.create({
   takerOfferHeaderText: {
     flex: 1,
     minWidth: 0,
+    gap: 4,
+  },
+  takerLocationRow: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 2,
+    marginTop: 2,
+  },
+  takerLocationText: {
+    flex: 1,
+    fontSize: 12,
+    lineHeight: 16,
+    letterSpacing: -0.2,
   },
   takerChipWrap: {
     gap: 6,
@@ -2353,7 +2521,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 12,
     gap: 6,
     borderWidth: 1,
-    borderRadius: 20,
+    borderRadius: 999,
     paddingHorizontal: 8,
     paddingVertical: 8,
   },
@@ -2369,18 +2537,10 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingTop: 8,
     paddingBottom: 8,
+    borderRadius: 999,
     margin: 0,
     fontSize: 16,
     letterSpacing: -0.2,
-  },
-  composerMetaRow: {
-    paddingHorizontal: 16,
-    paddingTop: 4,
-    paddingBottom: 8,
-    alignItems: "flex-end",
-  },
-  composerMetaText: {
-    fontSize: 11,
   },
   chatImageAttachment: {
     width: 220,
@@ -2398,6 +2558,14 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     borderWidth: 1,
     gap: 0,
+  },
+  messageAttachmentCard: {
+    width: 240,
+    maxWidth: "85%",
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 12,
+    gap: 12,
   },
   fileAttachmentBody: {
     flex: 1,
@@ -2446,6 +2614,25 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     overflow: "hidden",
   },
+  messageBubbleVideoWrap: {
+    width: "100%",
+    height: 170,
+    borderRadius: 16,
+    overflow: "hidden",
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  messageBubbleVideo: {
+    width: "100%",
+    height: "100%",
+  },
+  messageBubbleVideoOverlay: {
+    position: "absolute",
+    inset: 0,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "rgba(0,0,0,0.18)",
+  },
   previewVideo: {
     width: "100%",
     height: "100%",
@@ -2459,6 +2646,31 @@ const styles = StyleSheet.create({
   },
   previewMetaBlock: {
     gap: 4,
+  },
+  messageViewerBody: {
+    width: "100%",
+    height: "100%",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  messageViewerMediaFrame: {
+    width: "100%",
+    maxWidth: 720,
+    aspectRatio: 16 / 9,
+    borderRadius: 16,
+    overflow: "hidden",
+  },
+  messageViewerVideo: {
+    width: "100%",
+    height: "100%",
+  },
+  messageViewerFileCard: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 20,
+    borderWidth: 1,
+    padding: 16,
+    gap: 14,
   },
   previewFileName: {
     fontWeight: "600",

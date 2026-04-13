@@ -14,6 +14,7 @@ import {
   unblockUser,
 } from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import { formatLocalYyyyMmDd } from "@/src/lib/datetime/localDate";
 import { formatRequestDateRange } from "@/src/lib/datetime/request-date-time-format";
 import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import {
@@ -58,6 +59,31 @@ import {
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
+function formatCurrentTimeForComparison(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes(),
+  ).padStart(2, "0")}`;
+}
+
+function isRequestStillSeekable(
+  request: Pick<any, "end_date" | "end_time"> | null | undefined,
+  now: Date,
+) {
+  const endDate =
+    typeof request?.end_date === "string" ? request.end_date.trim() : "";
+  if (!endDate) return false;
+
+  const today = formatLocalYyyyMmDd(now);
+  if (endDate > today) return true;
+  if (endDate < today) return false;
+
+  const endTime =
+    typeof request?.end_time === "string" ? request.end_time.trim().slice(0, 5) : "";
+  if (!endTime) return true;
+
+  return endTime >= formatCurrentTimeForComparison(now);
+}
+
 export default function PublicProfileScreen() {
   const { id: profileIdParam, initialTab: initialTabParam } = useLocalSearchParams<{
     id: string | string[];
@@ -84,6 +110,7 @@ export default function PublicProfileScreen() {
   const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [sendRequestBusy, setSendRequestBusy] = useState(false);
+  const [sendRequestLoading, setSendRequestLoading] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockStatus, setBlockStatus] = useState<BlockDirection>("none");
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
@@ -245,8 +272,8 @@ export default function PublicProfileScreen() {
 
   const loadSendRequestPets = async () => {
     if (!sendRequestOpen || !user?.id) return;
+    setSendRequestLoading(true);
     setSelectedSeekingPet(null);
-    setUserPets([]);
     setPetSendSubtitleById({});
     setOpenReqByPetId({});
     try {
@@ -256,52 +283,40 @@ export default function PublicProfileScreen() {
         .eq("owner_id", user.id)
         .order("created_at", { ascending: false });
       if (petsError) throw petsError;
-      if (!pets?.length) {
-        showToast({
-          message: t(
-            "post.request.emptyPetsSubtitle",
-            "You have not added any pets yet",
-          ),
-        });
-        setSendRequestOpen(false);
-        return;
-      }
-      setUserPets(pets);
+      const nextPets = pets ?? [];
+      setUserPets(nextPets);
+      if (nextPets.length === 0) return;
 
       const { data: openReqRows, error: reqError } = await supabase
         .from("care_requests")
-        .select("id,pet_id,care_type,start_date,end_date")
+        .select("id,pet_id,care_type,start_date,end_date,end_time")
         .eq("owner_id", user.id)
         .eq("status", "open")
         .in(
           "pet_id",
-          pets.map((p: any) => p.id),
+          nextPets.map((p: any) => p.id),
         )
         .order("created_at", { ascending: false });
       if (reqError) throw reqError;
 
+      const now = new Date();
       const reqByPet: Record<string, any> = {};
       (openReqRows ?? []).forEach((r: any) => {
+        if (!isRequestStillSeekable(r, now)) return;
         if (!reqByPet[r.pet_id]) reqByPet[r.pet_id] = r;
       });
+
+      const eligiblePets = nextPets.filter((p: any) => Boolean(reqByPet[p.id]));
       const subtitleByPet: Record<string, string> = {};
       Object.entries(reqByPet).forEach(([pid, r]: [string, any]) => {
         subtitleByPet[pid] = formatRequestDateRange(r.start_date, r.end_date);
       });
+
+      setUserPets(eligiblePets);
       setOpenReqByPetId(reqByPet);
       setPetSendSubtitleById(subtitleByPet);
 
-      const firstEligible = pets.find((p: any) => Boolean(reqByPet[p.id]));
-      if (!firstEligible) {
-        showToast({
-          message: t(
-            "home.sendRequest.needsOpenRequest",
-            "Create an open care request for this pet first, then you can message a taker.",
-          ),
-        });
-        setSendRequestOpen(false);
-        return;
-      }
+      const firstEligible = eligiblePets[0] ?? null;
       setSelectedSeekingPet(firstEligible);
     } catch (err) {
       showToast({
@@ -313,7 +328,8 @@ export default function PublicProfileScreen() {
                 "Couldn't send the request right now. Please try again.",
               ),
       });
-      setSendRequestOpen(false);
+    } finally {
+      setSendRequestLoading(false);
     }
   };
 
@@ -716,6 +732,7 @@ export default function PublicProfileScreen() {
         onClose={() => setOptionsVisible(false)}
         onSendRequest={() => {
           setOptionsVisible(false);
+          setSendRequestLoading(true);
           setSendRequestOpen(true);
         }}
         onOpenChat={() => {
@@ -745,6 +762,7 @@ export default function PublicProfileScreen() {
         colors={colors}
         styles={styles}
         userPets={userPets}
+        loading={sendRequestLoading}
         selectedSeekingPet={selectedSeekingPet}
         petSendSubtitleById={petSendSubtitleById}
         sendingToName={derived.name || ""}
@@ -761,6 +779,10 @@ export default function PublicProfileScreen() {
             pathname: "/(private)/post-requests",
             params: userPets?.[0]?.id ? { petId: userPets[0].id } : undefined,
           } as any);
+        }}
+        onAddPet={() => {
+          setSendRequestOpen(false);
+          router.push("/(private)/pets/add" as any);
         }}
       />
 

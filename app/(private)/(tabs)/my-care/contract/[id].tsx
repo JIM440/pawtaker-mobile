@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
 import { PetDetailPill } from "@/src/features/pets/components/PetDetailPill";
+import { blockUser } from "@/src/lib/blocks/user-blocks";
 import {
   formatRequestDateRange,
   formatRequestTimeRange,
@@ -446,6 +447,22 @@ export default function ContractDetailScreen() {
       (acceptedUI && canAcceptTermination)
     );
   }, [acceptedUI, isTerminationPending, iTerminationRequester, canAcceptTermination]);
+
+  const otherPartyId = useMemo(() => {
+    if (!user?.id) return null;
+    const ownerId =
+      (contractRow?.owner_id as string | undefined) ??
+      (requestRow?.owner_id as string | undefined) ??
+      null;
+    const takerId =
+      (contractRow?.taker_id as string | undefined) ??
+      (requestRow?.taker_id as string | undefined) ??
+      null;
+
+    if (ownerId && ownerId !== user.id) return ownerId;
+    if (takerId && takerId !== user.id) return takerId;
+    return null;
+  }, [contractRow?.owner_id, contractRow?.taker_id, requestRow?.owner_id, requestRow?.taker_id, user?.id]);
 
   // Realtime: keep contractRow in sync with DB changes (e.g. other party triggers terminate)
   useEffect(() => {
@@ -1039,20 +1056,45 @@ export default function ContractDetailScreen() {
         primaryLabel={t("messages.block")}
         secondaryLabel={t("common.cancel")}
         destructive
+        primaryLoading={busy}
         onPrimary={() => {
-          setShowBlockConfirm(false);
-          setBlockReason("");
-          showToast({
-            variant: "info",
-            message: t("messages.blockedToast"),
-            durationMs: 3000,
-          });
+          void (async () => {
+            if (!user?.id || !otherPartyId || busy) return;
+
+            setBusy(true);
+            try {
+              await blockUser(user.id, otherPartyId);
+              setShowBlockConfirm(false);
+              setBlockReason("");
+              showToast({
+                variant: "info",
+                message: t("messages.blockedToast"),
+                durationMs: 3000,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message:
+                  err instanceof Error
+                    ? err.message
+                    : t(
+                        "messages.blockFailed",
+                        "We couldn't update this block right now.",
+                      ),
+                durationMs: 3200,
+              });
+            } finally {
+              setBusy(false);
+            }
+          })();
         }}
         onSecondary={() => {
+          if (busy) return;
           setShowBlockConfirm(false);
           setBlockReason("");
         }}
         onRequestClose={() => {
+          if (busy) return;
           setShowBlockConfirm(false);
           setBlockReason("");
         }}

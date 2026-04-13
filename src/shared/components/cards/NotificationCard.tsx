@@ -247,6 +247,8 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                   variant="caption"
                   color={colors.onSurface}
                   style={styles.itemBody}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
                   {body}
                 </AppText>
@@ -302,6 +304,7 @@ const styles = StyleSheet.create({
   bodyTap: {
     flex: 1,
     marginRight: 8,
+    minWidth: 0,
   },
   itemAvatar: {
     width: 40,
@@ -311,6 +314,7 @@ const styles = StyleSheet.create({
   itemContent: {
     flex: 1,
     marginLeft: 12,
+    minWidth: 0,
   },
   row: {
     flexDirection: "row",
@@ -323,8 +327,6 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   itemBody: {
-    flex: 1,
-    marginRight: 8,
     lineHeight: 14,
   },
   itemTime: {
