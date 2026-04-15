@@ -1,5 +1,6 @@
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
@@ -26,7 +27,7 @@ export default function PostCareReviewScreen() {
   }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const showToast = useToastStore((s) => s.showToast);
 
   const [rating, setRating] = useState(0);
@@ -205,6 +206,7 @@ export default function PostCareReviewScreen() {
       });
       return;
     }
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     void (async () => {
       setSubmitting(true);
       try {

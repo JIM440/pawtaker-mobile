@@ -36,6 +36,7 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { PetGridTile } from "@/src/shared/components/ui/PetGridTile";
 import { useLocationGate } from "@/src/lib/location/useLocationGate";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { PawPrint } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
@@ -73,7 +74,7 @@ export default function LaunchRequestWizardScreen() {
     checkLocation();
   }, []);
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { width: windowWidth } = useWindowDimensions();
   const columnWidth = getPetGridColumnWidth(
     windowWidth,
@@ -397,6 +398,7 @@ export default function LaunchRequestWizardScreen() {
       });
       return;
     }
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     if (multiDayDateRangeInvalid()) {
       showToast({
         variant: "error",
@@ -486,6 +488,9 @@ export default function LaunchRequestWizardScreen() {
             start_time: startTimeStr,
             end_time: endTimeStr,
             points_offered: pointsOffered,
+            latitude: profile?.latitude ?? null,
+            longitude: profile?.longitude ?? null,
+            city: profile?.city ?? null,
           })
           .eq("id", editRequestId)
           .eq("owner_id", user.id)
@@ -504,6 +509,9 @@ export default function LaunchRequestWizardScreen() {
           start_time: startTimeStr,
           end_time: endTimeStr,
           points_offered: pointsOffered,
+          latitude: profile?.latitude ?? null,
+          longitude: profile?.longitude ?? null,
+          city: profile?.city ?? null,
         });
         error = result.error;
       }

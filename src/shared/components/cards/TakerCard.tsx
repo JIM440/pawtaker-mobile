@@ -159,7 +159,9 @@ export function TakerCard({
             >
               <MapPin size={16} color={colors.onSurfaceVariant} />
               <AppText variant="caption" numberOfLines={1}>
-                {taker.location} • {taker.distance}
+                {taker.location
+                  ? `${taker.location}${taker.distance ? " • " + taker.distance : ""}`
+                  : taker.distance ?? "__"}
               </AppText>
             </View>
           </View>

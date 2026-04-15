@@ -65,15 +65,33 @@ import {
 
 /** Inclusive km range for feed filter (0 = no minimum). */
 const DISTANCE_MIN_KM = 0;
-const DISTANCE_MAX_KM = 50;
-
-function parseDistanceKm(s: string): number {
-  const n = parseInt(s.replace(/\D/g, ""), 10);
-  return Number.isFinite(n) ? n : 0;
-}
+// Neighboring towns can easily be >50km depending on the region.
+const DISTANCE_MAX_KM = 150;
 
 function clampKm(n: number): number {
   return Math.max(DISTANCE_MIN_KM, Math.min(DISTANCE_MAX_KM, Math.round(n)));
+}
+
+type ReviewStats = { avg: number; count: number };
+
+function computeReviewStats(
+  rows: { reviewee_id: string; rating: number | null }[],
+): Record<string, ReviewStats> {
+  const acc: Record<string, { sum: number; count: number }> = {};
+  for (const r of rows) {
+    const id = r.reviewee_id;
+    if (!id) continue;
+    const rating = typeof r.rating === "number" ? r.rating : null;
+    if (rating == null || !Number.isFinite(rating)) continue;
+    if (!acc[id]) acc[id] = { sum: 0, count: 0 };
+    acc[id].sum += rating;
+    acc[id].count += 1;
+  }
+  const out: Record<string, ReviewStats> = {};
+  for (const [id, v] of Object.entries(acc)) {
+    out[id] = { avg: v.count > 0 ? v.sum / v.count : 0, count: v.count };
+  }
+  return out;
 }
 
 /** `taker_profiles.availability_json` — matches DB trigger shape (`available` boolean). */
@@ -112,6 +130,8 @@ type Taker = {
   tags: CareTypeKey[];
   location: string;
   distance: string;
+  /** Server-computed distance when viewer has coordinates; null if unavailable. */
+  distanceKmNumeric: number | null;
   status: "available" | "unavailable";
   completedTasks?: number;
   petsHandled?: number;
@@ -122,7 +142,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const { user, profile } = useAuthStore();
-  const { checkLocation, hasLocation } = useLocationGate();
+  const { checkLocation, hasCoordinates } = useLocationGate();
   const colors = Colors[resolvedTheme];
   const [refreshing, setRefreshing] = useState(false);
 
@@ -234,7 +254,7 @@ export default function HomeScreen() {
         ownerIds.length
           ? supabase
               .from("users")
-              .select("id,full_name,city,avatar_url")
+              .select("id,full_name,city,zip_code,avatar_url,latitude,longitude,care_given_count,care_received_count")
               .in("id", ownerIds)
           : Promise.resolve({ data: [], error: null }),
         petIds.length
@@ -255,6 +275,77 @@ export default function HomeScreen() {
         (acc: any, p: any) => ({ ...acc, [p.id]: p }),
         {},
       );
+
+      // Enrich owner stats (reviews + pets count) for the caretaker chip.
+      const ownerReviewStatsById: Record<string, ReviewStats> = {};
+      if (ownerIds.length > 0) {
+        const { data: reviewRows, error: reviewErr } = await supabase
+          .from("reviews")
+          .select("reviewee_id,rating")
+          .in("reviewee_id", ownerIds);
+        if (reviewErr && !isMissingBackendResourceError(reviewErr)) throw reviewErr;
+
+        Object.assign(
+          ownerReviewStatsById,
+          computeReviewStats(
+            (reviewRows ?? []) as { reviewee_id: string; rating: number | null }[],
+          ),
+        );
+      }
+
+      const myLat = profile?.latitude ?? null;
+      const myLng = profile?.longitude ?? null;
+      const distanceByRequestId: Record<string, number> = {};
+      const distanceByOwnerId: Record<string, number> = {};
+      if (
+        myLat != null &&
+        myLng != null &&
+        visibleReqData.length > 0
+      ) {
+        const reqIdsForDist = visibleReqData
+          .map((r: any) => r?.id)
+          .filter(Boolean) as string[];
+        if (reqIdsForDist.length > 0) {
+          const { data: distRows, error: distErr } = await supabase.rpc(
+            "distances_for_requests",
+            {
+              user_lat: myLat,
+              user_lng: myLng,
+              request_ids: reqIdsForDist,
+            },
+          );
+          if (!distErr && Array.isArray(distRows)) {
+            for (const row of distRows as {
+              request_id: string;
+              distance_km: number;
+            }[]) {
+              if (row?.request_id != null && row.distance_km != null) {
+                distanceByRequestId[row.request_id] = row.distance_km;
+              }
+            }
+          }
+        }
+        if (ownerIds.length > 0) {
+          const { data: ownerDistRows, error: ownerDistErr } = await supabase.rpc(
+            "distances_for_users",
+            {
+              user_lat: myLat,
+              user_lng: myLng,
+              user_ids: ownerIds,
+            },
+          );
+          if (!ownerDistErr && Array.isArray(ownerDistRows)) {
+            for (const row of ownerDistRows as {
+              user_id: string;
+              distance_km: number;
+            }[]) {
+              if (row?.user_id != null && row.distance_km != null) {
+                distanceByOwnerId[row.user_id] = row.distance_km;
+              }
+            }
+          }
+        }
+      }
 
       setRequests(
         visibleReqData.map((r: any) => {
@@ -282,6 +373,32 @@ export default function HomeScreen() {
           if (petYard) feedTags.push(petYard);
           if (petAge) feedTags.push(petAge);
           if (petEnergy) feedTags.push(petEnergy);
+
+          const distanceKm =
+            distanceByRequestId[r.id] ??
+            (owner?.id ? (distanceByOwnerId[owner.id] ?? null) : null);
+          const snapCity =
+            typeof r.city === "string" ? r.city.trim() : "";
+          const ownerCity =
+            typeof owner?.city === "string" ? owner.city.trim() : "";
+          const ownerZip =
+            typeof owner?.zip_code === "string"
+              ? owner.zip_code.trim()
+              : "";
+          const locationLine =
+            ownerCity ||
+            snapCity ||
+            ownerZip ||
+            t("profile.noLocation", "No location");
+          const viewerCity =
+            typeof profile?.city === "string" ? profile.city.trim() : "";
+          const isSameTown =
+            viewerCity.length > 0 &&
+            ((ownerCity.length > 0 && ownerCity.toLowerCase() === viewerCity.toLowerCase()) ||
+              (snapCity.length > 0 && snapCity.toLowerCase() === viewerCity.toLowerCase()));
+          const distanceLine =
+            distanceKm != null ? `${distanceKm.toFixed(1)} km` : isSameTown ? "0.0 km" : "";
+
           return {
             id: r.id,
             petId: r.pet_id as string,
@@ -292,9 +409,9 @@ export default function HomeScreen() {
             dateRange: formatRequestDateRange(r.start_date, r.end_date),
             time: formatRequestTimeRange(r.start_time, r.end_time),
             careTypeKey: normalizeCareTypeForPoints(r.care_type),
-            location:
-              owner?.city?.trim() || t("profile.noLocation", "No location"),
-            distance: "0km",
+            location: locationLine,
+            distance: distanceLine,
+            distanceKmNumeric: distanceKm,
             description: feedDescription,
             tags: feedTags,
             caretaker: {
@@ -305,9 +422,18 @@ export default function HomeScreen() {
                 owner.avatar_url.trim().length > 0
                   ? owner.avatar_url.trim()
                   : null,
-              rating: 0,
-              reviewsCount: 0,
-              petsCount: 0,
+              rating:
+                owner?.id && ownerReviewStatsById[owner.id]
+                  ? ownerReviewStatsById[owner.id].avg
+                  : 0,
+              reviewsCount:
+                typeof owner?.care_given_count === "number"
+                  ? owner.care_given_count
+                  : 0,
+              petsCount:
+                typeof owner?.care_received_count === "number"
+                  ? owner.care_received_count
+                  : 0,
             },
           };
         }),
@@ -346,7 +472,7 @@ export default function HomeScreen() {
       const { data: usersData, error: usersError } = await supabase
         .from("users")
         .select(
-          "id,full_name,avatar_url,city,kyc_status,care_given_count,care_received_count",
+          "id,full_name,avatar_url,city,zip_code,kyc_status,care_given_count,care_received_count",
         )
         .in("id", userIds)
         .eq("kyc_status", "approved");
@@ -361,6 +487,52 @@ export default function HomeScreen() {
         {} as Record<string, (typeof profileRows)[number]>,
       );
 
+      const approvedIds = (usersData ?? []).map((u: { id: string }) => u.id);
+
+      // Review stats for taker cards.
+      const takerReviewStatsById: Record<string, ReviewStats> = {};
+      if (approvedIds.length > 0) {
+        const { data: reviewRowsT, error: reviewErrT } = await supabase
+          .from("reviews")
+          .select("reviewee_id,rating")
+          .in("reviewee_id", approvedIds);
+        if (reviewErrT && !isMissingBackendResourceError(reviewErrT)) throw reviewErrT;
+        Object.assign(
+          takerReviewStatsById,
+          computeReviewStats(
+            (reviewRowsT ?? []) as { reviewee_id: string; rating: number | null }[],
+          ),
+        );
+      }
+
+      const myLatT = profile?.latitude ?? null;
+      const myLngT = profile?.longitude ?? null;
+      const distanceByUserId: Record<string, number> = {};
+      if (
+        myLatT != null &&
+        myLngT != null &&
+        approvedIds.length > 0
+      ) {
+        const { data: distRowsT, error: distErrT } = await supabase.rpc(
+          "distances_for_users",
+          {
+            user_lat: myLatT,
+            user_lng: myLngT,
+            user_ids: approvedIds,
+          },
+        );
+        if (!distErrT && Array.isArray(distRowsT)) {
+          for (const row of distRowsT as {
+            user_id: string;
+            distance_km: number;
+          }[]) {
+            if (row?.user_id != null && row.distance_km != null) {
+              distanceByUserId[row.user_id] = row.distance_km;
+            }
+          }
+        }
+      }
+
       setTakers(
         (usersData ?? []).map((u: any) => {
           const tp = profileByUserId[u.id];
@@ -371,20 +543,45 @@ export default function HomeScreen() {
               : t("feed.takerSpeciesFallback", "Pets");
           const avatarTrimmed =
             typeof u.avatar_url === "string" ? u.avatar_url.trim() : "";
+          const distanceKmT = distanceByUserId[u.id] ?? null;
+          const uCity = typeof u.city === "string" ? u.city.trim() : "";
+          const uZip =
+            typeof u.zip_code === "string" ? u.zip_code.trim() : "";
+          const locationLineT =
+            uCity ||
+            uZip ||
+            t("profile.noLocation", "No location");
+          const viewerCityT =
+            typeof profile?.city === "string" ? profile.city.trim() : "";
+          const isSameTownT =
+            viewerCityT.length > 0 &&
+            ((uCity.length > 0 && uCity.toLowerCase() === viewerCityT.toLowerCase()) ||
+              (uZip.length > 0 &&
+                typeof profile?.zip_code === "string" &&
+                profile.zip_code.trim().length > 0 &&
+                uZip.toLowerCase() === profile.zip_code.trim().toLowerCase()));
+          const distanceLineT =
+            distanceKmT != null ? `${distanceKmT.toFixed(1)} km` : isSameTownT ? "0.0 km" : "";
           return {
             id: u.id,
             name: resolveDisplayName(u) || "User",
             avatar: avatarTrimmed,
-            rating: 0,
+            rating:
+              takerReviewStatsById[u.id]?.avg != null
+                ? takerReviewStatsById[u.id].avg
+                : 0,
             species: speciesChip,
             tags: ["daytime"] as CareTypeKey[],
-            location: u.city?.trim() || t("profile.noLocation", "No location"),
-            distance: "0km",
+            location: locationLineT,
+            distance: distanceLineT,
+            distanceKmNumeric: distanceKmT,
             status: isTakerAvailableFromJson(tp?.availability_json)
               ? ("available" as const)
               : ("unavailable" as const),
-            completedTasks: u.care_given_count ?? 0,
-            petsHandled: u.care_received_count ?? 0,
+            completedTasks:
+              typeof u.care_given_count === "number" ? u.care_given_count : 0,
+            petsHandled:
+              typeof u.care_received_count === "number" ? u.care_received_count : 0,
           };
         }),
       );
@@ -703,19 +900,32 @@ export default function HomeScreen() {
         !careTypeFilter.includes(item.careTypeKey)
       )
         return false;
-      if (hasLocation) {
-        const distKm = parseDistanceKm(item.distance);
-        if (distKm < distanceRange.min || distKm > distanceRange.max) {
+      if (hasCoordinates) {
+        const distKm = item.distanceKmNumeric ?? null;
+        if (distKm == null) {
+          if (
+            distanceRange.min > DISTANCE_MIN_KM ||
+            distanceRange.max < DISTANCE_MAX_KM
+          ) {
+            return false;
+          }
+        } else if (
+          distKm < distanceRange.min ||
+          distKm > distanceRange.max
+        ) {
           return false;
         }
       }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const distStr =
+        typeof item.distance === "string" ? item.distance.toLowerCase() : "";
       return (
         item.petName.toLowerCase().includes(q) ||
         item.breed.toLowerCase().includes(q) ||
         item.petType.toLowerCase().includes(q) ||
-        item.location.toLowerCase().includes(q)
+        item.location.toLowerCase().includes(q) ||
+        (distStr.length > 0 && distStr.includes(q))
       );
     });
   }, [
@@ -723,7 +933,7 @@ export default function HomeScreen() {
     searchQuery,
     careTypeFilter,
     distanceRange,
-    hasLocation,
+    hasCoordinates,
     requests,
   ]);
 
@@ -735,26 +945,39 @@ export default function HomeScreen() {
         !taker.tags.some((tag) => careTypeFilter.includes(tag))
       )
         return false;
-      if (hasLocation) {
-        const distKm = parseDistanceKm(taker.distance);
-        if (distKm < distanceRange.min || distKm > distanceRange.max) {
+      if (hasCoordinates) {
+        const distKm = taker.distanceKmNumeric ?? null;
+        if (distKm == null) {
+          if (
+            distanceRange.min > DISTANCE_MIN_KM ||
+            distanceRange.max < DISTANCE_MAX_KM
+          ) {
+            return false;
+          }
+        } else if (
+          distKm < distanceRange.min ||
+          distKm > distanceRange.max
+        ) {
           return false;
         }
       }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const distStr =
+        typeof taker.distance === "string" ? taker.distance.toLowerCase() : "";
       return (
         taker.name.toLowerCase().includes(q) ||
         taker.species.toLowerCase().includes(q) ||
-        taker.location.toLowerCase().includes(q)
+        taker.location.toLowerCase().includes(q) ||
+        (distStr.length > 0 && distStr.includes(q))
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, hasLocation, takers]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange, hasCoordinates, takers]);
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
   const hasActiveDistanceFilter =
-    hasLocation &&
+    hasCoordinates &&
     (distanceRange.min > DISTANCE_MIN_KM ||
       distanceRange.max < DISTANCE_MAX_KM);
 
@@ -1055,7 +1278,7 @@ export default function HomeScreen() {
                     </View>
                   </View>
 
-                  {hasLocation ? (
+                  {hasCoordinates ? (
                     <>
                       <AppText
                         variant="label"

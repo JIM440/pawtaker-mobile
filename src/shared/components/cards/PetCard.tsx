@@ -239,23 +239,31 @@ export function PetCard({
           </AppText>
         </View>
 
-        <View style={styles.locationRow}>
-          <MapPin size={16} color={colors.onSurfaceVariant} />
-          <AppText
-            variant="caption"
-            style={styles.locationText}
-            numberOfLines={1}
-          >
-            {location}
-          </AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>
-            {" "}
-            •{" "}
-          </AppText>
-          <AppText variant="caption" style={styles.metaText}>
-            {distance}
-          </AppText>
-        </View>
+        {(location || distance) ? (
+          <View style={styles.locationRow}>
+            <MapPin size={16} color={colors.onSurfaceVariant} />
+            {location ? (
+              <AppText
+                variant="caption"
+                style={styles.locationText}
+                numberOfLines={1}
+              >
+                {location}
+              </AppText>
+            ) : null}
+            {location && distance ? (
+              <AppText variant="caption" color={colors.onSurfaceVariant}>
+                {" "}
+                •{" "}
+              </AppText>
+            ) : null}
+            {distance ? (
+              <AppText variant="caption" style={styles.metaText}>
+                {distance}
+              </AppText>
+            ) : null}
+          </View>
+        ) : null}
 
         {description.trim().length > 0 ? (
           <AppText

@@ -845,7 +845,7 @@
       "keepEditing": "Continuer",
       "discard": "Annuler",
       "galleryPermissionRequired": "L'accÃƒÂ¨s ÃƒÂ  la galerie est requis pour choisir une image.",
-      "locationRequired": "Veuillez saisir votre localisation avant dÃ¢â‚¬â„¢enregistrer.",
+      "locationRequired": "Veuillez saisir votre ville ou votre code postal avant d'enregistrer.",
       "availabilitySaved": "DisponibilitÃƒÂ© mise ÃƒÂ  jour avec succÃƒÂ¨s.",
       "availabilityToast": "DisponibilitÃƒÂ© mise ÃƒÂ  jour.",
       "availabilitySaveFailed": "Impossible de mettre ÃƒÂ  jour la disponibilitÃƒÂ©. Veuillez rÃƒÂ©essayer.",
@@ -854,7 +854,9 @@
       "saveFailed": "Impossible dÃ¢â‚¬â„¢enregistrer vos modifications de profil. Veuillez rÃƒÂ©essayer.",
       "saveFailedDetails": "Impossible d'enregistrer vos modifications de profil pour le moment.",
       "availabilitySaveFailedDetails": "Impossible de mettre à jour la disponibilité pour le moment.",
-      "sessionRequired": "Vous devez être connecté pour enregistrer les modifications du profil."
+      "sessionRequired": "Vous devez être connecté pour enregistrer les modifications du profil.",
+      "locationFromZip": "Localisation définie à partir de votre code postal.",
+      "locationNotFound": "Localisation non reconnue. Les fonctions de distance seront désactivées jusqu'à ce que vous mettiez à jour votre adresse."
     },
     "emergencyContacts": {
       "title": "Contacts d'urgence",
@@ -868,6 +870,11 @@
       "balance": "Solde",
       "earned": "GagnÃƒÂ©s",
       "spent": "DÃƒÂ©pensÃƒÂ©s"
+    }
+  },
+  "location": {
+    "gate": {
+      "required": "Veuillez mettre à jour votre localisation avant de continuer."
     }
   },
   "notifications": {

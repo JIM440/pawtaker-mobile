@@ -94,16 +94,17 @@ export default function EditProfileScreen() {
     const nextUsername = resolveDisplayName(profile) || "";
     const nextBio = profile.bio ?? "";
     const nextLocation = profile.city ?? "";
+    const nextZip = profile?.zip_code?.trim() ?? "";
 
     setAvatarUri(nextAvatar);
     setUsername(nextUsername);
     setBio(nextBio);
     setLocation(nextLocation);
-    setZipCode("");
+    setZipCode(nextZip);
     initialValues.current = {
       username: nextUsername,
       bio: nextBio,
-      zipCode: "",
+      zipCode: nextZip,
       location: nextLocation,
     };
   }, [fetchProfile, profile, user?.id, activeTab]);
@@ -403,10 +404,10 @@ export default function EditProfileScreen() {
       return;
     }
 
-    if (!location.trim()) {
+    if (!location.trim() && !zipCode.trim()) {
       const msg = t(
         "profile.edit.locationRequired",
-        "Please enter your location before saving.",
+        "Please enter your location or zip code before saving.",
       );
       showToast({ variant: "error", message: msg, durationMs: 3200 });
       return;
@@ -427,13 +428,70 @@ export default function EditProfileScreen() {
       let longitude: number | null = profile?.longitude ?? null;
 
       const trimmedLocation = location.trim();
-      if (trimmedLocation && trimmedLocation !== initialValues.current.location) {
-        const coords = await geocodeCity(trimmedLocation);
-        if (coords) {
-          latitude = coords.latitude;
-          longitude = coords.longitude;
-        } else {
-          console.warn('[ProfileEdit] Geocoding failed for:', trimmedLocation);
+      const trimmedZip = zipCode.trim();
+      const locationChanged = trimmedLocation !== initialValues.current.location;
+      const zipChanged = trimmedZip !== initialValues.current.zipCode;
+
+      if (locationChanged || zipChanged) {
+        if (trimmedLocation) {
+          const coords = await geocodeCity(trimmedLocation);
+          if (coords) {
+            latitude = coords.latitude;
+            longitude = coords.longitude;
+          } else if (trimmedZip) {
+            const zipCoords = await geocodeCity(trimmedZip);
+            if (zipCoords) {
+              latitude = zipCoords.latitude;
+              longitude = zipCoords.longitude;
+              showToast({
+                variant: 'info',
+                message: t(
+                  'profile.edit.locationFromZip',
+                  'Location set using your zip code.',
+                ),
+                durationMs: 2800,
+              });
+            } else {
+              latitude = null;
+              longitude = null;
+              showToast({
+                variant: 'error',
+                message: t(
+                  'profile.edit.locationNotFound',
+                  'Location not recognised. Distance features will be disabled until you update your address.',
+                ),
+                durationMs: 3500,
+              });
+            }
+          } else {
+            latitude = null;
+            longitude = null;
+            showToast({
+              variant: 'error',
+              message: t(
+                'profile.edit.locationNotFound',
+                'Location not recognised. Distance features will be disabled until you update your address.',
+              ),
+              durationMs: 3500,
+            });
+          }
+        } else if (trimmedZip) {
+          const zipCoords = await geocodeCity(trimmedZip);
+          if (zipCoords) {
+            latitude = zipCoords.latitude;
+            longitude = zipCoords.longitude;
+          } else {
+            latitude = null;
+            longitude = null;
+            showToast({
+              variant: 'error',
+              message: t(
+                'profile.edit.locationNotFound',
+                'Location not recognised. Distance features will be disabled until you update your address.',
+              ),
+              durationMs: 3500,
+            });
+          }
         }
       }
 
@@ -442,6 +500,7 @@ export default function EditProfileScreen() {
         full_name: trimmedName,
         bio: bio.trim() || null,
         city: trimmedLocation || null,
+        zip_code: trimmedZip || null,
         avatar_url: uploadedAvatarUrl || null,
         latitude,
         longitude,
@@ -460,12 +519,14 @@ export default function EditProfileScreen() {
 
       setProfile(data as unknown as UserProfile);
       const saved = data as TablesRow<"users">;
+      const savedZip = saved.zip_code?.trim() ?? "";
       initialValues.current = {
         username: resolveDisplayName(saved as { full_name?: string | null }) || "",
         bio: saved.bio ?? "",
-        zipCode: "",
+        zipCode: savedZip,
         location: saved.city ?? "",
       };
+      setZipCode(savedZip);
       showToast({
         variant: "success",
         message: t("profile.edit.toast", "Profile updated."),

@@ -79,6 +79,14 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
   ) => {
     const { resolvedTheme } = useThemeStore();
     const colors = Colors[resolvedTheme];
+    const normalizedTitle =
+      type === "paws" || type === "paws_given"
+        ? title.replace(/\bpaws?\b/gi, "points")
+        : title;
+    const normalizedBody =
+      type === "paws" || type === "paws_given"
+        ? body.replace(/\bpaws?\b/gi, "points")
+        : body;
 
     const renderIcon = () => {
       const containerStyle: StyleProp<ViewStyle> = [
@@ -224,7 +232,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                   numberOfLines={1}
                   ellipsizeMode="tail"
                 >
-                  {title}
+                  {normalizedTitle}
                 </AppText>
                 <AppText
                   variant="caption"
@@ -252,7 +260,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                   numberOfLines={2}
                   ellipsizeMode="tail"
                 >
-                  {body}
+                  {normalizedBody}
                 </AppText>
               </Pressable>
               <TouchableOpacity

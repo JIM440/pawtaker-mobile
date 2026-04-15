@@ -845,7 +845,7 @@
       "keepEditing": "Keep Editing",
       "discard": "Discard",
       "galleryPermissionRequired": "Photo library access is required to choose an image.",
-      "locationRequired": "Please enter your location before saving.",
+      "locationRequired": "Please enter your location or zip code before saving.",
       "availabilitySaved": "Availability updated successfully.",
       "availabilityToast": "Availability updated.",
       "availabilitySaveFailed": "Couldn't update availability. Please try again.",
@@ -854,7 +854,9 @@
       "saveFailed": "Couldn't save your profile changes. Please try again.",
       "saveFailedDetails": "We couldn't save your profile changes right now.",
       "availabilitySaveFailedDetails": "We couldn't update availability right now.",
-      "sessionRequired": "You need to be signed in before saving profile changes."
+      "sessionRequired": "You need to be signed in before saving profile changes.",
+      "locationFromZip": "Location set using your zip code.",
+      "locationNotFound": "Location not recognised. Distance features will be disabled until you update your address."
     },
     "emergencyContacts": {
       "title": "Emergency Contacts",
@@ -868,6 +870,11 @@
       "balance": "Balance",
       "earned": "Earned",
       "spent": "Spent"
+    }
+  },
+  "location": {
+    "gate": {
+      "required": "Please update your location before continuing."
     }
   },
   "notifications": {

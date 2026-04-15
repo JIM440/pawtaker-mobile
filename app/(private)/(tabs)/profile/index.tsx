@@ -90,10 +90,8 @@ export default function ProfileScreen() {
   const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const [reviewersById, setReviewersById] = useState<Record<string, any>>({});
-  const [completedContractsCount, setCompletedContractsCount] = useState(0);
-  /** Header badges (handshakes / review avg / count) — loaded once per user, not tied to reviews tab. */
+  /** Header badges (review avg / count) — loaded once per user, not tied to reviews tab. */
   const [headerReviewStats, setHeaderReviewStats] = useState({
-    count: 0,
     avg: 0,
   });
 
@@ -290,26 +288,16 @@ export default function ProfileScreen() {
   const loadHeaderStats = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [
-        { data: contractsRows, error: cErr },
-        { data: ratingRows, error: rErr },
-      ] = await Promise.all([
-        supabase
-          .from("contracts")
-          .select("id")
-          .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
-          .eq("status", "completed"),
-        supabase.from("reviews").select("rating").eq("reviewee_id", user.id),
-      ]);
-      if (!cErr) {
-        setCompletedContractsCount((contractsRows ?? []).length);
-      }
+      const { data: ratingRows, error: rErr } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("reviewee_id", user.id);
       if (!rErr) {
         const rows = (ratingRows ?? []) as { rating: number | null }[];
         const n = rows.length;
         const avg =
           n > 0 ? rows.reduce((s, x) => s + (x.rating ?? 0), 0) / n : 0;
-        setHeaderReviewStats({ count: n, avg });
+        setHeaderReviewStats({ avg });
       }
     } catch {
       /* non-blocking for header */
@@ -465,15 +453,13 @@ export default function ProfileScreen() {
           ? profile.city.trim()
           : t("profile.noLocation"),
       points: profile?.points_balance ?? 0,
-      handshakes: completedContractsCount,
-      paws: headerReviewStats.count,
+      handshakes: profile?.care_given_count ?? 0,
+      paws: profile?.care_received_count ?? 0,
       rating: headerReviewStats.avg,
       currentTask: undefined as string | undefined,
     };
   }, [
-    completedContractsCount,
     headerReviewStats.avg,
-    headerReviewStats.count,
     profile,
     profileHeaderLoading,
     t,

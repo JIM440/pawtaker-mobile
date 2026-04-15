@@ -9,6 +9,7 @@ import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { hasAvailabilityProfile } from "@/src/lib/taker/availability-profile";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import {
@@ -43,7 +44,7 @@ export default function SendOfferScreen() {
   const { id: requestId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -163,6 +164,7 @@ export default function SendOfferScreen() {
 
   const onSend = () => {
     if (blockIfKycNotApproved()) return;
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     if (!user?.id || !requestId || !reqRow?.owner_id) return;
     if (isOwner) return;
     void (async () => {
@@ -219,6 +221,7 @@ export default function SendOfferScreen() {
   };
 
   const doSend = () => {
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     if (!user?.id || !requestId || !reqRow?.owner_id) return;
     const pointsNum = Number(points);
     void (async () => {

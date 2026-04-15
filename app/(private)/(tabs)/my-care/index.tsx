@@ -752,8 +752,17 @@ export default function MyCareScreen() {
   };
 
   useEffect(() => {
-    setStats((s) => ({ ...s, points: profile?.points_balance ?? 0 }));
-  }, [profile?.points_balance]);
+    setStats((s) => ({
+      ...s,
+      points: profile?.points_balance ?? 0,
+      careGiven: profile?.care_given_count ?? 0,
+      careReceived: profile?.care_received_count ?? 0,
+    }));
+  }, [
+    profile?.points_balance,
+    profile?.care_given_count,
+    profile?.care_received_count,
+  ]);
 
   useEffect(() => {
     if (!user?.id) return;
@@ -1218,6 +1227,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
     marginBottom: 24,
+    paddingHorizontal: 16,
   },
   compactStatsPill: {
     flexDirection: "row",
@@ -1230,6 +1240,7 @@ const styles = StyleSheet.create({
   summaryGrid: {
     marginBottom: 24,
     gap: 12,
+    paddingHorizontal: 16,
   },
   primaryStat: {
     padding: 20,

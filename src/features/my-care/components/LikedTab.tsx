@@ -40,7 +40,6 @@ export function LikedTab({ colors, pets, onApply, onRemovePet }: LikedTabProps) 
 const styles = StyleSheet.create({
     likedList: {
         gap: 12,
-        marginHorizontal: -16,
         paddingHorizontal: 16,
     },
 });

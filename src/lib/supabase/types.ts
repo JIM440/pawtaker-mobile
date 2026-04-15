@@ -15,6 +15,8 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           city: string | null;
+          /** Display-only; not used in distance calculations. */
+          zip_code: string | null;
           latitude: number | null;
           longitude: number | null;
           auth_type: string;
@@ -40,6 +42,7 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           city?: string | null;
+          zip_code?: string | null;
           latitude?: number | null;
           longitude?: number | null;
           auth_type?: string;
@@ -136,6 +139,10 @@ export interface Database {
           end_time: string | null;
           /** DB `integer`, default 0 */
           points_offered: number;
+          /** Snapshot of owner location at post time. */
+          latitude: number | null;
+          longitude: number | null;
+          city: string | null;
           created_at: string;
         };
         Insert: {
@@ -150,6 +157,9 @@ export interface Database {
           start_time?: string | null;
           end_time?: string | null;
           points_offered?: number;
+          latitude?: number | null;
+          longitude?: number | null;
+          city?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['care_requests']['Insert']>;
@@ -493,6 +503,22 @@ export interface Database {
           user_lng: number;
           radius_km: number;
           care_type_filter: string | null;
+        };
+        Returns: Json;
+      };
+      distances_for_requests: {
+        Args: {
+          user_lat: number;
+          user_lng: number;
+          request_ids: string[];
+        };
+        Returns: Json;
+      };
+      distances_for_users: {
+        Args: {
+          user_lat: number;
+          user_lng: number;
+          user_ids: string[];
         };
         Returns: Json;
       };

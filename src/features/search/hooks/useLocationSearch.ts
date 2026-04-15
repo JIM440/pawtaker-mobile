@@ -1,6 +1,7 @@
 import { useState, useCallback } from 'react';
 import { supabase } from '@/src/lib/supabase/client';
 import { useAuthStore } from '@/src/lib/store/auth.store';
+import { hasCoordinatesForDistance } from '@/src/shared/utils/locationGate';
 
 export type SearchMode = 'takers' | 'requests';
 
@@ -9,12 +10,13 @@ export interface NearbyTaker {
   full_name: string | null;
   avatar_url: string | null;
   city: string | null;
+  zip_code?: string | null;
   bio: string | null;
   is_verified: boolean;
   experience_years: number;
   accepted_species: string[];
   hourly_points: number;
-  distance_km: number;
+  distance_km: number | null;
 }
 
 export interface NearbyRequest {
@@ -30,7 +32,7 @@ export interface NearbyRequest {
   start_date: string;
   end_date: string;
   points_offered: number;
-  distance_km: number;
+  distance_km: number | null;
 }
 
 export interface SearchFilters {
@@ -45,7 +47,7 @@ export function useLocationSearch() {
   const [requests, setRequests] = useState<NearbyRequest[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const hasLocation = !!(profile?.latitude && profile?.longitude);
+  const hasLocation = hasCoordinatesForDistance(profile);
 
   const searchTakers = useCallback(async (filters: SearchFilters) => {
     if (!profile?.latitude || !profile?.longitude) {
@@ -66,8 +68,9 @@ export function useLocationSearch() {
       setError(rpcError.message);
     } else {
       const rows = (data as unknown) as NearbyTaker[];
-      const results = filters.species
-        ? rows.filter((t) => t.accepted_species.includes(filters.species!))
+      const spec = filters.species;
+      const results = spec
+        ? rows.filter((t) => t.accepted_species.includes(spec))
         : rows;
       setTakers(results);
     }

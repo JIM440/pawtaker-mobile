@@ -21,6 +21,7 @@ import {
     normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -55,26 +56,6 @@ import {
 const H_PADDING = 16;
 const IMAGE_HEIGHT = 216;
 
-function toRad(d: number) {
-  return (d * Math.PI) / 180;
-}
-
-function haversineKm(
-  a: { lat: number; lon: number },
-  b: { lat: number; lon: number },
-) {
-  const R = 6371;
-  const dLat = toRad(b.lat - a.lat);
-  const dLon = toRad(b.lon - a.lon);
-  const lat1 = toRad(a.lat);
-  const lat2 = toRad(b.lat);
-  const h =
-    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
-    Math.sin(dLon / 2) * Math.sin(dLon / 2) * Math.cos(lat1) * Math.cos(lat2);
-  const c = 2 * Math.atan2(Math.sqrt(h), Math.sqrt(1 - h));
-  return R * c;
-}
-
 function localYyyyMmDd(d: Date) {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -86,7 +67,7 @@ export default function RequestDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -114,6 +95,7 @@ export default function RequestDetailScreen() {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [hasContract, setHasContract] = useState(false);
+  const [distanceKmServer, setDistanceKmServer] = useState<number | null>(null);
   const menuBtnRef = useRef<View>(null);
 
   const load = useCallback(async () => {
@@ -372,23 +354,46 @@ export default function RequestDetailScreen() {
 
   const location = owner?.city?.trim() || t("profile.noLocation");
 
-  const distanceLabel = useMemo(() => {
-    const olat = owner?.latitude;
-    const olon = owner?.longitude;
-    const vlat = viewer?.latitude;
-    const vlon = viewer?.longitude;
-    if (
-      typeof olat !== "number" ||
-      typeof olon !== "number" ||
-      typeof vlat !== "number" ||
-      typeof vlon !== "number"
-    ) {
-      return "";
+  useEffect(() => {
+    if (!id || viewer?.latitude == null || viewer?.longitude == null) {
+      setDistanceKmServer(null);
+      return;
     }
-    const km = haversineKm({ lat: vlat, lon: vlon }, { lat: olat, lon: olon });
-    if (!Number.isFinite(km)) return "";
-    return `${km < 10 ? km.toFixed(1) : Math.round(km)}km`;
-  }, [owner?.latitude, owner?.longitude, viewer?.latitude, viewer?.longitude]);
+    const rlat = reqRow?.latitude;
+    const rlng = reqRow?.longitude;
+    if (rlat == null || rlng == null) {
+      setDistanceKmServer(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.rpc("distances_for_requests", {
+        user_lat: viewer.latitude as number,
+        user_lng: viewer.longitude as number,
+        request_ids: [id],
+      });
+      if (cancelled) return;
+      if (error || !Array.isArray(data) || data.length === 0) {
+        setDistanceKmServer(null);
+        return;
+      }
+      const row = data[0] as { distance_km?: number };
+      const km = row?.distance_km;
+      setDistanceKmServer(typeof km === "number" && Number.isFinite(km) ? km : null);
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    id,
+    reqRow?.latitude,
+    reqRow?.longitude,
+    viewer?.latitude,
+    viewer?.longitude,
+  ]);
+
+  const distanceLabel =
+    distanceKmServer != null ? `${distanceKmServer.toFixed(1)} km` : "";
 
   const petBioForCard = parsedPetNotes.bio?.trim() ?? "";
 
@@ -525,6 +530,7 @@ export default function RequestDetailScreen() {
   const openApplyConfirm = () => {
     void (async () => {
       if (blockIfKycNotApproved()) return;
+      if (!enforceLocationGate(profile, router, showToast, t)) return;
       if (!user?.id || !id || !reqRow?.owner_id) {
         showToast({
           variant: "error",
@@ -610,6 +616,10 @@ export default function RequestDetailScreen() {
 
   const runApply = async () => {
     if (blockIfKycNotApproved()) {
+      setApplyConfirmOpen(false);
+      return;
+    }
+    if (!enforceLocationGate(profile, router, showToast, t)) {
       setApplyConfirmOpen(false);
       return;
     }

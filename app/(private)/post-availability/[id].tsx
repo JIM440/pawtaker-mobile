@@ -13,6 +13,7 @@ import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { createInAppNotification } from "@/src/lib/notifications/in-app";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -45,7 +46,7 @@ export default function ViewOfferScreen() {
   }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [loading, setLoading] = useState(true);
@@ -1004,6 +1005,7 @@ export default function ViewOfferScreen() {
         primaryLoading={acceptingOffer}
         onPrimary={() => {
           if (blockIfKycNotApproved()) return;
+          if (!enforceLocationGate(profile, router, showToast, t)) return;
 
           void (async () => {
             setAcceptingOffer(true);

@@ -19,6 +19,7 @@ import { Input } from "@/src/shared/components/ui/Input";
 import { PetKindSelector } from "@/src/shared/components/ui/PetKindSelector";
 import { RadioGroup } from "@/src/shared/components/ui/RadioGroup";
 import { useLocationGate } from "@/src/lib/location/useLocationGate";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -43,7 +44,7 @@ function formatEveryDaysLabel(
 export default function AvailabilityWizardScreen() {
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [step, setStep] = useState(0);
@@ -169,6 +170,7 @@ export default function AvailabilityWizardScreen() {
       });
       return;
     }
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
 
     setIsSubmitting(true);
     try {
