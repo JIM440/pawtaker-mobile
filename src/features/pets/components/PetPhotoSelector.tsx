@@ -2,7 +2,9 @@ import { Colors } from "@/src/constants/colors";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
 import { Camera } from "lucide-react-native";
 import React from "react";
 import { useTranslation } from "react-i18next";
@@ -30,11 +32,28 @@ export function PetPhotoSelector({
     const colors = Colors[resolvedTheme];
 
     const [currentIndex, setCurrentIndex] = React.useState(0);
+    const [permissionModal, setPermissionModal] = React.useState<{
+        visible: boolean;
+        message: string;
+    }>({ visible: false, message: "" });
+
+    const showPermissionModal = (message: string) =>
+        setPermissionModal({ visible: true, message });
+    const hidePermissionModal = () =>
+        setPermissionModal((s) => ({ ...s, visible: false }));
 
     const handlePickImages = async () => {
         const permission =
             await ImagePicker.requestMediaLibraryPermissionsAsync();
-        if (!permission.granted) return;
+        if (!permission.granted) {
+            showPermissionModal(
+                t(
+                    "pets.edit.galleryPermissionDenied",
+                    "Photo library access is required to select pet photos. Please enable it in your device settings.",
+                ),
+            );
+            return;
+        }
 
         const result = await ImagePicker.launchImageLibraryAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -52,7 +71,15 @@ export function PetPhotoSelector({
 
     const handleTakePhoto = async () => {
         const permission = await ImagePicker.requestCameraPermissionsAsync();
-        if (!permission.granted) return;
+        if (!permission.granted) {
+            showPermissionModal(
+                t(
+                    "pets.edit.cameraPermissionDenied",
+                    "Camera access is required to take pet photos. Please enable it in your device settings.",
+                ),
+            );
+            return;
+        }
 
         const result = await ImagePicker.launchCameraAsync({
             mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -183,6 +210,21 @@ export function PetPhotoSelector({
                     {t("pets.edit.takeNewPhotos", "or take new photos")}
                 </AppText>
             </TouchableOpacity>
+
+            {/* Permission denied modal */}
+            <FeedbackModal
+                visible={permissionModal.visible}
+                title={t("common.permissionRequired", "Permission Required")}
+                description={permissionModal.message}
+                primaryLabel={t("common.openSettings", "Open Settings")}
+                onPrimary={() => {
+                    hidePermissionModal();
+                    void Linking.openSettings();
+                }}
+                secondaryLabel={t("common.cancel", "Cancel")}
+                onSecondary={hidePermissionModal}
+                onRequestClose={hidePermissionModal}
+            />
         </View>
     );
 }

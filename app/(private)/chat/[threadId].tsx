@@ -51,13 +51,12 @@ import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
+import * as WebBrowser from "expo-web-browser";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useVideoPlayer, VideoView } from "expo-video";
-import * as WebBrowser from "expo-web-browser";
 import {
     ArrowLeft,
     CircleAlert,
-    ExternalLink,
     FileText,
     Handshake,
     MapPin,
@@ -103,6 +102,14 @@ const ALLOWED_DOCUMENT_TYPES = [
 
 type AttachmentKind = "image" | "video" | "file";
 
+type PendingUpload = {
+  localId: string;
+  kind: AttachmentKind;
+  name: string;
+  mimeType?: string | null;
+  sizeBytes?: number | null;
+};
+
 type AttachmentPreview = {
   kind: AttachmentKind;
   uri: string;
@@ -139,15 +146,6 @@ function isAllowedDocument(params: {
       lowerMime as (typeof ALLOWED_DOCUMENT_TYPES)[number],
     ) || /\.(pdf|doc|docx)$/i.test(lowerName || lowerUri)
   );
-}
-
-function canPreviewDocumentInApp(
-  mimeType?: string | null,
-  name?: string | null,
-) {
-  const lowerMime = mimeType?.toLowerCase() ?? "";
-  const lowerName = name?.toLowerCase() ?? "";
-  return lowerMime === "application/pdf" || /\.pdf$/i.test(lowerName);
 }
 
 function getAttachmentKind(params: {
@@ -796,6 +794,107 @@ function MessageBubble({
   );
 }
 
+function PendingUploadBubble({
+  upload,
+  colors,
+}: {
+  upload: PendingUpload;
+  colors: any;
+}) {
+  const { t } = useTranslation();
+  const sizeLabel = formatAttachmentSize(upload.sizeBytes);
+  const sendingLabel = t("messages.sending", "Sending…");
+
+  if (upload.kind === "image") {
+    return (
+      <View
+        style={[
+          styles.bubbleWrap,
+          styles.bubbleWrapRight,
+          styles.bubbleSelectableWrap,
+        ]}
+      >
+        <View
+          style={[
+            styles.chatImageAttachment,
+            {
+              backgroundColor: colors.surfaceContainerHighest,
+              justifyContent: "center",
+              alignItems: "center",
+              opacity: 0.7,
+            },
+          ]}
+        >
+          <ActivityIndicator size="large" color={colors.primary} />
+        </View>
+        <AppText
+          variant="caption"
+          color={colors.onSurfaceVariant}
+          style={[ChatTypography.bubbleTime, { marginTop: 4, alignSelf: "flex-end" }]}
+        >
+          {sendingLabel}
+        </AppText>
+      </View>
+    );
+  }
+
+  const icon =
+    upload.kind === "video" ? (
+      <PlayCircle size={32} color={colors.onPrimaryContainer} />
+    ) : (
+      <FileText size={32} color={colors.onPrimaryContainer} />
+    );
+
+  return (
+    <View style={[styles.bubbleWrap, styles.bubbleWrapRight]}>
+      <View
+        style={[
+          styles.messageAttachmentCard,
+          {
+            backgroundColor: colors.primary,
+            borderColor: colors.outlineVariant,
+            opacity: 0.75,
+          },
+        ]}
+      >
+        <View
+          style={[
+            styles.previewFileWrap,
+            { backgroundColor: colors.primaryContainer },
+          ]}
+        >
+          {icon}
+        </View>
+        <View style={styles.previewMetaBlock}>
+          <AppText
+            variant="body"
+            color={colors.onPrimary}
+            numberOfLines={2}
+            style={styles.previewFileName}
+          >
+            {upload.name}
+          </AppText>
+          <AppText variant="caption" color={colors.onPrimary}>
+            {sizeLabel ?? sendingLabel}
+          </AppText>
+        </View>
+        <ActivityIndicator
+          size="small"
+          color={colors.onPrimary}
+          style={{ marginRight: 10 }}
+        />
+      </View>
+      <AppText
+        variant="caption"
+        color={colors.onSurfaceVariant}
+        style={[ChatTypography.bubbleTime, { marginTop: 4, alignSelf: "flex-end" }]}
+      >
+        {sendingLabel}
+      </AppText>
+    </View>
+  );
+}
+
 export default function ThreadScreen() {
   const {
     threadId = "",
@@ -876,7 +975,7 @@ export default function ThreadScreen() {
   const insets = useSafeAreaInsets();
   const [keyboardInset, setKeyboardInset] = useState(0);
   const [attachMenuVisible, setAttachMenuVisible] = useState(false);
-  const [uploadingAttachment, setUploadingAttachment] = useState(false);
+  const [pendingUploads, setPendingUploads] = useState<PendingUpload[]>([]);
   const [composerHeight, setComposerHeight] = useState(COMPOSER_MIN_HEIGHT);
   const [messageImages, setMessageImages] = useState<string[]>([]);
   const [imageViewerOpen, setImageViewerOpen] = useState(false);
@@ -885,13 +984,6 @@ export default function ThreadScreen() {
   const [openVideo, setOpenVideo] = useState<{
     uri: string;
     name: string;
-  } | null>(null);
-  const [openFile, setOpenFile] = useState<{
-    url: string;
-    name: string;
-    mimeType?: string;
-    sizeBytes?: number | null;
-    externalOnly?: boolean;
   } | null>(null);
   const pendingVideoPlayer = useVideoPlayer(
     pendingAttachment?.kind === "video" ? pendingAttachment.uri : null,
@@ -1245,28 +1337,6 @@ export default function ThreadScreen() {
     process.env.EXPO_PUBLIC_CLOUDINARY_KYC_PRESET ||
     "";
 
-  const openDocumentPreview = async (url: string, fallbackMessage: string) => {
-    try {
-      await WebBrowser.openBrowserAsync(url, {
-        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FORM_SHEET,
-        controlsColor: colors.primary,
-        showTitle: true,
-      });
-    } catch {
-      showToast({ message: fallbackMessage, variant: "error" });
-    }
-  };
-
-  const openExternalDocument = async (url: string, fallbackMessage: string) => {
-    try {
-      const supported = await Linking.canOpenURL(url);
-      if (!supported) throw new Error("Unsupported document url");
-      await Linking.openURL(url);
-    } catch {
-      showToast({ message: fallbackMessage, variant: "error" });
-    }
-  };
-
   const queueAttachmentPreview = (attachment: AttachmentPreview) => {
     if (
       attachment.kind === "image" &&
@@ -1318,7 +1388,7 @@ export default function ThreadScreen() {
     setPendingAttachment(attachment);
   };
 
-  const sendPendingAttachment = async () => {
+  const sendPendingAttachment = () => {
     if (!pendingAttachment) return;
     if (!threadId || !preset) {
       showToast({
@@ -1328,70 +1398,81 @@ export default function ThreadScreen() {
       return;
     }
 
-    setUploadingAttachment(true);
-    try {
-      if (pendingAttachment.kind === "image") {
-        const { secure_url } = await uploadToCloudinary(
-          pendingAttachment.uri,
-          preset,
-        );
-        const result = await postMessage(threadId, secure_url, "image", null);
-        if (!result.ok) {
-          showToast({
-            variant: "error",
-            message:
-              result.message ||
-              t("messages.sendImageFailed"),
-          });
-          return;
-        }
-      } else {
-        const { secure_url } = await uploadRawToCloudinary(
-          pendingAttachment.uri,
-          pendingAttachment.name,
-          pendingAttachment.mimeType ?? "application/octet-stream",
-          preset,
-        );
-        const result = await postMessage(threadId, secure_url, "text", {
-          kind: pendingAttachment.kind === "video" ? "video" : "file",
-          file_name: pendingAttachment.name,
-          mime_type: pendingAttachment.mimeType ?? null,
-          size_bytes: pendingAttachment.sizeBytes ?? null,
-        } as Json);
-        if (!result.ok) {
-          showToast({
-            variant: "error",
-            message:
-              result.message ||
-              t(
-                pendingAttachment.kind === "video"
-                  ? "messages.sendVideoFailed"
-                  : "messages.sendDocumentFailed",
-              ),
-          });
-          return;
-        }
-      }
+    const snapshot = pendingAttachment;
+    const localId = `pending-${Date.now()}-${Math.random()}`;
 
-      setPendingAttachment(null);
-      void refetchMessages();
-    } catch (e) {
-      showToast({
-        variant: "error",
-        message:
-          e instanceof Error
-            ? e.message
-            : t(
-                pendingAttachment.kind === "video"
-                  ? "messages.sendVideoFailed"
-                  : pendingAttachment.kind === "image"
-                    ? "messages.sendImageFailed"
+    // Close preview modal immediately and show pending bubble in the list
+    setPendingAttachment(null);
+    setPendingUploads((prev) => [
+      ...prev,
+      {
+        localId,
+        kind: snapshot.kind,
+        name: snapshot.name,
+        mimeType: snapshot.mimeType,
+        sizeBytes: snapshot.sizeBytes,
+      },
+    ]);
+
+    const removePending = () =>
+      setPendingUploads((prev) => prev.filter((p) => p.localId !== localId));
+
+    void (async () => {
+      try {
+        if (snapshot.kind === "image") {
+          const { secure_url } = await uploadToCloudinary(snapshot.uri, preset);
+          const result = await postMessage(threadId, secure_url, "image", null);
+          if (!result.ok) {
+            showToast({
+              variant: "error",
+              message: result.message || t("messages.sendImageFailed"),
+            });
+          }
+        } else {
+          const { secure_url } = await uploadRawToCloudinary(
+            snapshot.uri,
+            snapshot.name,
+            snapshot.mimeType ?? "application/octet-stream",
+            preset,
+          );
+          const result = await postMessage(threadId, secure_url, "text", {
+            kind: snapshot.kind === "video" ? "video" : "file",
+            file_name: snapshot.name,
+            mime_type: snapshot.mimeType ?? null,
+            size_bytes: snapshot.sizeBytes ?? null,
+          } as Json);
+          if (!result.ok) {
+            showToast({
+              variant: "error",
+              message:
+                result.message ||
+                t(
+                  snapshot.kind === "video"
+                    ? "messages.sendVideoFailed"
                     : "messages.sendDocumentFailed",
-              ),
-      });
-    } finally {
-      setUploadingAttachment(false);
-    }
+                ),
+            });
+          }
+        }
+        void refetchMessages();
+      } catch (e) {
+        showToast({
+          variant: "error",
+          message:
+            e instanceof Error
+              ? e.message
+              : t(
+                  snapshot.kind === "video"
+                    ? "messages.sendVideoFailed"
+                    : snapshot.kind === "image"
+                      ? "messages.sendImageFailed"
+                      : "messages.sendDocumentFailed",
+                ),
+        });
+      } finally {
+        removePending();
+      }
+    })();
   };
 
   const openPhotoLibrary = async () => {
@@ -1536,16 +1617,19 @@ export default function ThreadScreen() {
   const openMessageFile = (message: UiMessage) => {
     const url = message.fileUrl?.trim();
     if (!url) return;
-    const externalOnly = !canPreviewDocumentInApp(
-      message.fileMimeType,
-      message.fileName,
-    );
-    setOpenFile({
-      url,
-      name: message.fileName?.trim() || t("messages.attachment", "Attachment"),
-      mimeType: message.fileMimeType,
-      sizeBytes: message.fileSizeBytes,
-      externalOnly,
+    // Try the OS default handler first (PDF viewer, Drive app, etc.).
+    // If that fails, fall back to an in-app browser tab.
+    Linking.openURL(url).catch(() => {
+      WebBrowser.openBrowserAsync(url, {
+        presentationStyle: WebBrowser.WebBrowserPresentationStyle.FULL_SCREEN,
+        controlsColor: colors.primary,
+        showTitle: true,
+      }).catch(() => {
+        showToast({
+          variant: "error",
+          message: t("messages.openDocumentFailed", "Could not open document."),
+        });
+      });
     });
   };
 
@@ -1895,7 +1979,7 @@ export default function ThreadScreen() {
                   <View style={{ paddingVertical: 32, alignItems: "center" }}>
                     <ActivityIndicator size="small" color={colors.primary} />
                   </View>
-                ) : uiMessages.length > 0 ? (
+                ) : uiMessages.length > 0 || pendingUploads.length > 0 ? (
                   <>
                     {uiMessages.map((msg) => {
                       const isSelected = selectedIds.has(msg.id);
@@ -1931,6 +2015,13 @@ export default function ThreadScreen() {
                         </View>
                       );
                     })}
+                    {pendingUploads.map((upload) => (
+                      <PendingUploadBubble
+                        key={upload.localId}
+                        upload={upload}
+                        colors={colors}
+                      />
+                    ))}
                   </>
                 ) : (
                   <DataState
@@ -1959,7 +2050,7 @@ export default function ThreadScreen() {
                 <TouchableOpacity
                   style={[styles.attachBtn, { backgroundColor: "transparent" }]}
                   hitSlop={8}
-                  disabled={uploadingAttachment || sending}
+                  disabled={sending}
                   onPress={() => setAttachMenuVisible(true)}
                 >
                   <Upload size={18} color={colors.onSurface} />
@@ -1997,13 +2088,6 @@ export default function ThreadScreen() {
                     ? { cursorColor: colors.primary }
                     : {})}
                 />
-                {uploadingAttachment ? (
-                  <ActivityIndicator
-                    size="small"
-                    color={colors.primary}
-                    style={{ marginRight: 4 }}
-                  />
-                ) : null}
                 <TouchableOpacity
                   style={[
                     styles.sendBtn,
@@ -2016,7 +2100,7 @@ export default function ThreadScreen() {
                   onPress={() => {
                     void sendMessage();
                   }}
-                  disabled={sending || !input.trim() || uploadingAttachment}
+                  disabled={sending || !input.trim()}
                 >
                   <SendHorizonal
                     size={22}
@@ -2028,10 +2112,7 @@ export default function ThreadScreen() {
                 transparent
                 animationType="fade"
                 visible={pendingAttachment != null}
-                onRequestClose={() => {
-                  if (uploadingAttachment) return;
-                  setPendingAttachment(null);
-                }}
+                onRequestClose={() => setPendingAttachment(null)}
               >
                 <View style={styles.previewOverlay}>
                   <View
@@ -2049,7 +2130,6 @@ export default function ThreadScreen() {
                       </AppText>
                       <TouchableOpacity
                         hitSlop={8}
-                        disabled={uploadingAttachment}
                         onPress={() => setPendingAttachment(null)}
                       >
                         <X size={18} color={colors.onSurfaceVariant} />
@@ -2115,16 +2195,11 @@ export default function ThreadScreen() {
                         variant="outline"
                         onPress={() => setPendingAttachment(null)}
                         style={styles.previewActionBtn}
-                        disabled={uploadingAttachment}
                       />
                       <Button
                         label={t("messages.sendAttachment", "Send")}
-                        onPress={() => {
-                          void sendPendingAttachment();
-                        }}
+                        onPress={sendPendingAttachment}
                         style={styles.previewActionBtn}
-                        loading={uploadingAttachment}
-                        disabled={uploadingAttachment}
                       />
                     </View>
                   </View>
@@ -2148,77 +2223,6 @@ export default function ThreadScreen() {
                       style={styles.messageViewerVideo}
                       nativeControls
                       contentFit="contain"
-                    />
-                  </View>
-                </View>
-              </ImageViewerModal>
-              <ImageViewerModal
-                visible={openFile != null}
-                images={[]}
-                title={t("messages.documentLabel", "Document")}
-                onRequestClose={() => setOpenFile(null)}
-              >
-                <View style={styles.messageViewerBody}>
-                  <View
-                    style={[
-                      styles.messageViewerFileCard,
-                      {
-                        backgroundColor: colors.surface,
-                        borderColor: colors.outlineVariant,
-                      },
-                    ]}
-                  >
-                    <View
-                      style={[
-                        styles.previewFileWrap,
-                        { backgroundColor: colors.surfaceContainerHighest },
-                      ]}
-                    >
-                      <FileText size={32} color={colors.primary} />
-                    </View>
-                    <View style={styles.previewMetaBlock}>
-                      <AppText variant="body" style={styles.previewFileName}>
-                        {openFile?.name}
-                      </AppText>
-                      <AppText
-                        variant="caption"
-                        color={colors.onSurfaceVariant}
-                      >
-                        {[
-                          openFile?.mimeType,
-                          formatAttachmentSize(openFile?.sizeBytes),
-                        ]
-                          .filter(Boolean)
-                          .join(" • ")}
-                      </AppText>
-                    </View>
-                    <Button
-                      label={
-                        openFile?.externalOnly
-                          ? t(
-                              "messages.openDocumentExternal",
-                              "Open externally",
-                            )
-                          : t("messages.openDocument", "Open document")
-                      }
-                      onPress={() => {
-                        if (!openFile?.url) return;
-                        if (openFile.externalOnly) {
-                          void openExternalDocument(
-                            openFile.url,
-                            t("messages.openDocumentExternallyFailed"),
-                          );
-                          return;
-                        }
-                        void openDocumentPreview(
-                          openFile.url,
-                          t("messages.openDocumentDeviceFailed"),
-                        );
-                      }}
-                      style={styles.previewSingleAction}
-                      leftIcon={
-                        <ExternalLink size={16} color={colors.onPrimary} />
-                      }
                     />
                   </View>
                 </View>

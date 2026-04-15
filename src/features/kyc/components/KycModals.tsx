@@ -11,6 +11,7 @@ type Props = {
   onGallery: () => void;
   onClosePickSource: () => void;
   onClosePermission: () => void;
+  onOpenSettings: () => void;
 };
 
 export function KycModals({
@@ -22,6 +23,7 @@ export function KycModals({
   onGallery,
   onClosePickSource,
   onClosePermission,
+  onOpenSettings,
 }: Props) {
   return (
     <>
@@ -42,10 +44,15 @@ export function KycModals({
 
       <FeedbackModal
         visible={permissionMessage !== null}
-        title={t("common.notice", "Notice")}
+        title={t("common.permissionRequired", "Permission Required")}
         description={permissionMessage ?? undefined}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={onClosePermission}
+        primaryLabel={t("common.openSettings", "Open Settings")}
+        onPrimary={() => {
+          onClosePermission();
+          onOpenSettings();
+        }}
+        secondaryLabel={t("common.cancel", "Cancel")}
+        onSecondary={onClosePermission}
         onRequestClose={onClosePermission}
       />
     </>

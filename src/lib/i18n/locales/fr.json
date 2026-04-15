@@ -40,7 +40,9 @@
     "camera": "CamÃƒÂ©ra",
     "gallery": "Galerie",
     "deleteConfirmTitle": "Supprimer cet animal ?",
-    "deleteConfirmMessage": "Cela supprimera dÃƒÂ©finitivement lÃ¢â‚¬â„¢animal de votre compte."
+    "deleteConfirmMessage": "Cela supprimera définitivement l'animal de votre compte.",
+    "permissionRequired": "Permission requise",
+    "openSettings": "Ouvrir les paramètres"
   },
   "home": {
     "sendRequest": {
@@ -673,7 +675,9 @@
     "documentPickerFailed": "Impossible d'ouvrir le sélecteur de documents pour le moment.",
     "openDocumentExternallyFailed": "Impossible d'ouvrir ce document dans une autre application.",
     "openDocumentDeviceFailed": "Impossible d'ouvrir ce document sur cet appareil.",
-    "blockUpdateFailed": "Impossible de mettre à jour ce blocage pour le moment."
+    "blockUpdateFailed": "Impossible de mettre à jour ce blocage pour le moment.",
+    "sending": "Envoi en cours…",
+    "openDocumentFailed": "Impossible d'ouvrir le document."
   },
   "requestDetails": {
     "title": "DÃƒÂ©tails de la demande",
@@ -949,7 +953,9 @@
       "petNotFound": "Animal introuvable.",
       "loadFailed": "Impossible de charger les dÃƒÂ©tails de lÃ¢â‚¬â„¢animal. Veuillez rÃƒÂ©essayer.",
       "addPhotos": "+ Ajouter des photos de lÃ¢â‚¬â„¢animal",
-      "takeNewPhotos": "ou prendre de nouvelles photos"
+      "takeNewPhotos": "ou prendre de nouvelles photos",
+      "galleryPermissionDenied": "L'accès à la galerie est requis pour sélectionner des photos d'animaux. Veuillez l'activer dans les paramètres de votre appareil.",
+      "cameraPermissionDenied": "L'accès à la caméra est requis pour prendre des photos d'animaux. Veuillez l'activer dans les paramètres de votre appareil."
     },
     "delete": {
       "success": "Animal supprimÃƒÂ©.",

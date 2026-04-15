@@ -3,6 +3,7 @@ import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfileTabContent } from "@/src/features/profile/components/ProfileTabContent";
 import { useFocusEffect } from "@react-navigation/native";
 import { completeExpiredContractsForUser } from "@/src/lib/contracts/complete-expired-contracts";
+import { countCanonicalCare } from "@/src/lib/contracts/count-canonical-care";
 import {
   formatRequestDateRange,
   formatRequestTimeRange,
@@ -95,6 +96,9 @@ export default function ProfileScreen() {
     avg: 0,
   });
 
+  /** Canonical care counts — from completed contracts where start_date has passed. */
+  const [canonicalCare, setCanonicalCare] = useState({ careGiven: 0, careReceived: 0 });
+
   /** Header (avatar, stats) + tab strip: wait for `users` row fetch; tab bodies keep their own loaders. */
   const [profileHeaderLoading, setProfileHeaderLoading] = useState(true);
 
@@ -114,7 +118,11 @@ export default function ProfileScreen() {
     setProfileHeaderLoading(true);
     void (async () => {
       try {
-        await fetchProfile(user.id);
+        const [, counts] = await Promise.all([
+          fetchProfile(user.id),
+          countCanonicalCare(user.id),
+        ]);
+        if (!cancelled) setCanonicalCare(counts);
       } finally {
         if (!cancelled) setProfileHeaderLoading(false);
       }
@@ -453,18 +461,17 @@ export default function ProfileScreen() {
           ? profile.city.trim()
           : t("profile.noLocation"),
       points: profile?.points_balance ?? 0,
-      handshakes: profile?.care_given_count ?? 0,
-      paws: profile?.care_received_count ?? 0,
+      handshakes: canonicalCare.careGiven,
+      paws: canonicalCare.careReceived,
       rating: headerReviewStats.avg,
       currentTask: undefined as string | undefined,
     };
   }, [
+    canonicalCare,
     headerReviewStats.avg,
     profile,
     profileHeaderLoading,
     t,
-    user?.email,
-    user?.user_metadata,
   ]);
 
   const reviewsUiItems = useMemo(

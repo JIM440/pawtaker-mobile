@@ -37,7 +37,9 @@
     "camera": "Camera",
     "gallery": "Gallery",
     "deleteConfirmTitle": "Delete pet?",
-    "deleteConfirmMessage": "This will permanently delete the pet from your account."
+    "deleteConfirmMessage": "This will permanently delete the pet from your account.",
+    "permissionRequired": "Permission Required",
+    "openSettings": "Open Settings"
   },
   "home": {
     "sendRequest": {
@@ -673,7 +675,9 @@
     "documentPickerFailed": "We couldn't open the document picker right now.",
     "openDocumentExternallyFailed": "We couldn't open this document in another app.",
     "openDocumentDeviceFailed": "We couldn't open this document on your device.",
-    "blockUpdateFailed": "We couldn't update this block right now."
+    "blockUpdateFailed": "We couldn't update this block right now.",
+    "sending": "Sending…",
+    "openDocumentFailed": "Could not open document."
   },
   "requestDetails": {
     "title": "Request details",
@@ -949,7 +953,9 @@
       "petNotFound": "Pet not found.",
       "loadFailed": "Couldn't load pet details. Please try again.",
       "addPhotos": "+ Add pet photos",
-      "takeNewPhotos": "or take new photos"
+      "takeNewPhotos": "or take new photos",
+      "galleryPermissionDenied": "Photo library access is required to select pet photos. Please enable it in your device settings.",
+      "cameraPermissionDenied": "Camera access is required to take pet photos. Please enable it in your device settings."
     },
     "delete": {
       "success": "Pet deleted.",

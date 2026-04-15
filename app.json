@@ -13,11 +13,8 @@
       "bundleIdentifier": "com.pawtaker.com"
     },
     "android": {
-      "permissions": [
-        "POST_NOTIFICATIONS",
-        "CAMERA",
-        "RECORD_AUDIO"
-      ],
+      "permissions": ["POST_NOTIFICATIONS", "CAMERA"],
+      "blockedPermissions": ["RECORD_AUDIO"],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#8C4A60",
@@ -26,6 +23,7 @@
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
       "package": "com.pawtaker.com",
+      "privacyPolicy": "https://pawtaker.ca/privacy",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
@@ -49,6 +47,13 @@
       "expo-secure-store",
       "expo-localization",
       "expo-font",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "PawTaker uses your photo library to select pet photos.",
+          "cameraPermission": "PawTaker uses your camera to take pet photos and verify your identity."
+        }
+      ],
       "expo-document-picker",
       "@react-native-google-signin/google-signin",
       "expo-notifications"

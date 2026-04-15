@@ -416,7 +416,14 @@ export default function MyCareScreen() {
         {},
       );
 
-      const contractsByRequestStart = [...safeContracts].sort((c1, c2) => {
+      const today = new Date().toISOString().split("T")[0];
+      // Only count contracts where care actually started (start_date <= today)
+      const eligibleContracts = safeContracts.filter((c) => {
+        const req = reqById[c.request_id] as { start_date?: string } | undefined;
+        return req?.start_date ? req.start_date <= today : false;
+      });
+
+      const contractsByRequestStart = [...eligibleContracts].sort((c1, c2) => {
         const r1 = reqById[c1.request_id] as { start_date?: string } | undefined;
         const r2 = reqById[c2.request_id] as { start_date?: string } | undefined;
         return String(r2?.start_date ?? "").localeCompare(
@@ -539,7 +546,14 @@ export default function MyCareScreen() {
         {},
       );
 
-      const contractsByRequestStart = [...safeContracts].sort((c1, c2) => {
+      const today2 = new Date().toISOString().split("T")[0];
+      // Only count contracts where care actually started (start_date <= today)
+      const eligibleReceivedContracts = safeContracts.filter((c) => {
+        const req = reqById[c.request_id] as { start_date?: string } | undefined;
+        return req?.start_date ? req.start_date <= today2 : false;
+      });
+
+      const contractsByRequestStart = [...eligibleReceivedContracts].sort((c1, c2) => {
         const r1 = reqById[c1.request_id] as { start_date?: string } | undefined;
         const r2 = reqById[c2.request_id] as { start_date?: string } | undefined;
         return String(r2?.start_date ?? "").localeCompare(
