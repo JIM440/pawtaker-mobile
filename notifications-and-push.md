@@ -2,11 +2,93 @@
 
 This document is the **implementation guide** for notifications in Digital Caretaker: what is shipped, how **in-app** and **push** work together, and how **Supabase Edge Functions** fit in.
 
-**Status — implemented**
+**Status — implemented (PawTaker, Apr 2026 updates applied)**
 
 - **Notification list:** Users (caretaker, landlord, cite head) have a screen that reads rows from `public.notifications` and can open the related issue, user, or cite.
 - **In-app toasts:** New rows for the signed-in user trigger a **Realtime** subscription (`NotificationManager`) that shows a short banner (“View” navigates like the list).
 - **Push notifications:** Device registration saves an Expo push token to `push_tokens`. **Database webhooks** call **Edge Functions** after relevant inserts/updates; functions send pushes via **Expo’s Push API** using the **`EXPO_ACCESS_TOKEN`** secret.
+
+## 0. PawTaker current architecture (latest)
+
+This section reflects the **actual current implementation** in this repo:
+
+- **Client registration hook:** `src/lib/notifications/usePushRegistration.ts`
+  - Runs only in authenticated shell.
+  - Registers on login and again when app returns to foreground.
+  - Handles notification tap routing via `navigateForNotificationPayloadAsync(...)`.
+- **Client push module:** `src/lib/notifications/push.ts`
+  - Configures notification handler once at startup.
+  - Requests permission with `Notifications.requestPermissionsAsync(...)`.
+  - Uses EAS `projectId` from `app.json`/Constants for stable Expo token generation.
+  - Saves one token per **user + platform** in `push_tokens`.
+- **Native availability guard:** `src/lib/notifications/push-native-availability.ts`
+  - Allows push flow on iOS/Android and avoids non-mobile targets.
+- **Server delivery function (HTTP):** `supabase/functions/send-notification-push/index.ts`
+  - Invoked by **Supabase Database Webhook** on `public.notifications` `INSERT`.
+  - Reads recipient tokens from `push_tokens`.
+  - Sends directly to Expo endpoint: `https://exp.host/--/api/v2/push/send`.
+  - Validates ticket-level response (`status: ok|error`) and logs per-ticket failures.
+  - Returns structured response including `attempted`, `sent`, and `all_expo_tickets_failed` when relevant.
+
+### 0.1 Webhook + Edge Function configuration (required)
+
+Supabase Dashboard → Database → Webhooks:
+
+- **Table:** `notifications`
+- **Event:** `INSERT`
+- **Target URL:** `https://<PROJECT_REF>.supabase.co/functions/v1/send-notification-push`
+- **Header:** `Authorization: Bearer <SUPABASE_SERVICE_ROLE_KEY>`
+
+Supabase Edge Function secrets (for `send-notification-push`):
+
+- `EXPO_ACCESS_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+
+Deploy command:
+
+```bash
+supabase functions deploy send-notification-push --no-verify-jwt
+```
+
+### 0.2 Important behavior changes from older docs
+
+- Push flow is now documented as **HTTP webhook -> HTTP Edge Function** (not RPC-triggered).
+- Function now treats **HTTP 200 with ticket errors** as a diagnosable failure case and logs ticket details.
+- Token persistence logic now replaces token per platform (keeps max one row per user/platform).
+
+---
+
+## Permission and policy checklist (Play Console)
+
+If Play Console reports:
+
+> `android.permission.RECORD_AUDIO` requires a privacy policy
+
+you must ensure both are true:
+
+1. **Manifest/permission intent is correct**
+   - If your app does not need microphone access, remove/avoid dependencies that inject `RECORD_AUDIO`.
+   - If needed, keep it and document usage clearly.
+2. **Policy + runtime handling are complete**
+   - Privacy policy URL in Play Console explicitly explains microphone usage.
+   - Runtime permission prompt exists before feature use (for any dangerous permission you keep).
+
+### Current `app.json` permission state (PawTaker)
+
+- Explicit Android permissions: `POST_NOTIFICATIONS`
+- Explicitly blocked: `android.permission.RECORD_AUDIO`
+
+Note: `RECORD_AUDIO` can still be added transitively by native dependencies even if not listed in `app.json`.
+
+### Practical verification steps
+
+1. Build once (`eas build ...`) and inspect merged Android manifest/Play pre-launch report.
+2. Confirm each dangerous permission has:
+   - Feature justification,
+   - Runtime request path,
+   - Privacy policy coverage.
+3. Remove any unused dangerous permission at source (dependency/config/plugin) before submission.
 
 Related docs:
 

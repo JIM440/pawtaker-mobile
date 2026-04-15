@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "212385008404",
-    "project_id": "pawtaker-2eb6d",
-    "storage_bucket": "pawtaker-2eb6d.firebasestorage.app"
+    "project_number": "739474144534",
+    "project_id": "pawtaker-c8103",
+    "storage_bucket": "pawtaker-c8103.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:212385008404:android:e54976887c1c8eeda49001",
+        "mobilesdk_app_id": "1:739474144534:android:a429c7d5b4a785822c6437",
         "android_client_info": {
-          "package_name": "com.pawtaker.app"
+          "package_name": "com.pawtaker.com"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC6iXe5zG7EzBahRAPViT24nik4YAXx3os"
+          "current_key": "AIzaSyARlitfW9AKyytp7SwgB83KjzXFGUFLPqI"
         }
       ],
       "services": {

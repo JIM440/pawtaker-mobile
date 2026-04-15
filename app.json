@@ -10,10 +10,14 @@
     "newArchEnabled": true,
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.pawtaker.app"
+      "bundleIdentifier": "com.pawtaker.com"
     },
     "android": {
-      "permissions": ["POST_NOTIFICATIONS"],
+      "permissions": [
+        "POST_NOTIFICATIONS",
+        "CAMERA",
+        "RECORD_AUDIO"
+      ],
       "softwareKeyboardLayoutMode": "resize",
       "adaptiveIcon": {
         "backgroundColor": "#8C4A60",
@@ -21,7 +25,7 @@
       },
       "edgeToEdgeEnabled": true,
       "predictiveBackGestureEnabled": false,
-      "package": "com.pawtaker.app",
+      "package": "com.pawtaker.com",
       "googleServicesFile": "./google-services.json"
     },
     "web": {
