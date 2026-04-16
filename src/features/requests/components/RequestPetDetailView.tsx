@@ -56,6 +56,13 @@ type Props = {
     loading?: boolean;
     disabled?: boolean;
   };
+  assignedTaker?: {
+    name: string;
+    avatar?: string | null;
+    rating?: number;
+    handshakes?: number;
+    paws?: number;
+  } | null;
 };
 
 export function RequestPetDetailView({
@@ -71,6 +78,7 @@ export function RequestPetDetailView({
   onViewProfile,
   topNotice,
   apply,
+  assignedTaker,
 }: Props) {
   return (
     <View style={styles.screenWrap}>
@@ -108,17 +116,71 @@ export function RequestPetDetailView({
           onNamePress={onPetNamePress}
         />
 
-        {topNotice ? (
-          <AppText
-            variant="caption"
-            color={colors.onSurfaceVariant}
-            style={styles.topNotice}
-          >
-            {topNotice}
-          </AppText>
-        ) : null}
-
         <View style={styles.contentPad}>
+          {assignedTaker ? (
+            <View
+              style={[
+                styles.ownerCard,
+                {
+                  backgroundColor: colors.surfaceContainerHighest,
+                  marginBottom: 12,
+                },
+              ]}
+            >
+              <View style={styles.ownerLeft}>
+                <UserAvatar
+                  uri={assignedTaker.avatar ?? ""}
+                  name={assignedTaker.name}
+                  size={32}
+                  style={styles.ownerAvatar}
+                />
+                <View style={styles.ownerInfo}>
+                  <AppText
+                    variant="body"
+                    color={colors.onSurfaceVariant}
+                    style={styles.ownerName}
+                    numberOfLines={1}
+                  >
+                    {assignedTaker.name}
+                  </AppText>
+                  <View style={styles.ownerStats}>
+                    <View style={styles.ownerStatItem}>
+                      <AppText variant="caption" color={colors.onSurfaceVariant}>
+                        {(assignedTaker.rating ?? 0).toFixed(1)}
+                      </AppText>
+                      <Star
+                        size={12}
+                        color={colors.tertiary}
+                        fill={colors.tertiary}
+                      />
+                    </View>
+                    <View
+                      style={[
+                        styles.ownerStatItem,
+                        { backgroundColor: colors.surfaceContainer },
+                      ]}
+                    >
+                      <Handshake size={12} color={colors.tertiary} />
+                      <AppText variant="caption" color={colors.onSurfaceVariant}>
+                        {assignedTaker.handshakes ?? 0}
+                      </AppText>
+                    </View>
+                    <View
+                      style={[
+                        styles.ownerStatItem,
+                        { backgroundColor: colors.surfaceContainer },
+                      ]}
+                    >
+                      <PawPrint size={12} color={colors.tertiary} />
+                      <AppText variant="caption" color={colors.onSurfaceVariant}>
+                        {assignedTaker.paws ?? 0}
+                      </AppText>
+                    </View>
+                  </View>
+                </View>
+              </View>
+            </View>
+          ) : null}
           <View
             style={[
               styles.ownerCard,
@@ -236,6 +298,16 @@ export function RequestPetDetailView({
           >
             {request.specialNeeds}
           </AppText>
+
+          {topNotice ? (
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={styles.topNotice}
+            >
+              {topNotice}
+            </AppText>
+          ) : null}
         </View>
       </ScrollView>
 

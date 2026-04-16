@@ -31,9 +31,15 @@ export function SearchField({ containerStyle, rightSlot, ...props }: SearchField
     >
       {/* <Search size={SearchFilterStyles.searchIconSize} color={colors.onSurfaceVariant} /> */}
       <TextInput
-        style={{ flex: 1, fontSize: SearchFilterStyles.searchInputFontSize, color: colors.onSurface }}
-        placeholderTextColor={colors.onSurfaceVariant}
         {...props}
+        style={{
+          flex: 1,
+          fontSize: SearchFilterStyles.searchInputFontSize,
+          color: colors.onSurface,
+        }}
+        multiline={false}
+        numberOfLines={1}
+        placeholderTextColor={colors.onSurfaceVariant}
       />
       {rightSlot}
     </View>

@@ -17,6 +17,7 @@ export default function HomeStackLayout() {
       <Stack.Screen name="index" />
       <Stack.Screen name="notifications" />
       <Stack.Screen name="search" />
+      <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
     </Stack>
   );
 }

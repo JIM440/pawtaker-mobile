@@ -130,12 +130,28 @@ export async function registerForPushNotificationsAsync(): Promise<
     console.log("[push] existing permission status =", existing);
     let finalStatus = existing;
     if (existing !== "granted") {
-      const { status } = await Notifications.requestPermissionsAsync();
+      const { status } = await Notifications.requestPermissionsAsync({
+        ios: {
+          allowAlert: true,
+          allowBadge: true,
+          allowSound: true,
+        },
+      });
       finalStatus = status;
       console.log("[push] after request, permission status =", finalStatus);
     }
     if (finalStatus !== "granted") {
       console.log("[push] STOPPED: permission not granted, status =", finalStatus);
+      if (finalStatus === "denied") {
+        console.warn(
+          "[push] Notifications are blocked for this app. Enable them in system Settings → Notifications → PawTaker, then reopen the app.",
+        );
+      }
+      if (finalStatus === "undetermined") {
+        console.warn(
+          "[push] Permission still undetermined. Use a dev/production build with expo-notifications linked (Expo Go has limited push support).",
+        );
+      }
       return null;
     }
 
@@ -159,16 +175,49 @@ export async function savePushToken(
   token: string,
 ): Promise<boolean> {
   try {
-    const { error } = await supabase.from("push_tokens").upsert(
-      {
-        user_id: userId,
-        token,
-        platform: Platform.OS === "ios" ? "ios" : Platform.OS === "android" ? "android" : Platform.OS,
-      },
-      { onConflict: "user_id,token" },
+    const platform =
+      Platform.OS === "ios"
+        ? "ios"
+        : Platform.OS === "android"
+          ? "android"
+          : Platform.OS;
+
+    // Allow up to one token per platform per user (max two rows: iOS + Android).
+    const { data: existingRows, error: existingErr } = await supabase
+      .from("push_tokens")
+      .select("token,platform")
+      .eq("user_id", userId);
+    if (existingErr) {
+      console.warn("[push] savePushToken select existing", existingErr);
+      return false;
+    }
+
+    const alreadyExists = (existingRows ?? []).some(
+      (r: { token: string; platform: string }) =>
+        r.token === token && r.platform === platform,
     );
-    if (error) {
-      console.warn("[push] savePushToken", error);
+    if (alreadyExists) {
+      return true;
+    }
+
+    // Replace token for this platform only; keep other platform token(s).
+    const { error: delErr } = await supabase
+      .from("push_tokens")
+      .delete()
+      .eq("user_id", userId)
+      .eq("platform", platform);
+    if (delErr) {
+      console.warn("[push] savePushToken delete same platform", delErr);
+      return false;
+    }
+
+    const { error: insErr } = await supabase.from("push_tokens").insert({
+      user_id: userId,
+      token,
+      platform,
+    });
+    if (insErr) {
+      console.warn("[push] savePushToken insert", insErr);
       return false;
     }
     return true;
@@ -188,8 +237,12 @@ export async function registerAndSavePushToken(
     return;
   }
   console.log("[push] saving token to Supabase...");
-  await savePushToken(userId, token);
-  console.log("[push] token saved successfully");
+  const ok = await savePushToken(userId, token);
+  if (ok) {
+    console.log("[push] token saved successfully");
+  } else {
+    console.warn("[push] token was NOT saved (see prior logs)");
+  }
 }
 
 /** Remove this device's token row for the user (call before sign-out). */
@@ -205,6 +258,24 @@ export async function removeSavedPushToken(userId: string): Promise<void> {
     if (error) console.warn("[push] removeSavedPushToken", error);
   } catch (e) {
     console.warn("[push] removeSavedPushToken", e);
+  } finally {
+    lastRegisteredToken = null;
+  }
+}
+
+/**
+ * Remove ALL saved push tokens for the user (call before `supabase.auth.signOut`).
+ * This is useful when we can't reliably identify the current device token (e.g. app relaunched).
+ */
+export async function removeAllSavedPushTokens(userId: string): Promise<void> {
+  try {
+    const { error } = await supabase
+      .from("push_tokens")
+      .delete()
+      .eq("user_id", userId);
+    if (error) console.warn("[push] removeAllSavedPushTokens", error);
+  } catch (e) {
+    console.warn("[push] removeAllSavedPushTokens", e);
   } finally {
     lastRegisteredToken = null;
   }

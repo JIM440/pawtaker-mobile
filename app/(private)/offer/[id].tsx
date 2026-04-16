@@ -1,12 +1,15 @@
 import { Colors } from "@/src/constants/colors";
 import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
+import { hasAvailabilityProfile } from "@/src/lib/taker/availability-profile";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import {
@@ -14,15 +17,17 @@ import {
   normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { BackHeader, PageContainer } from "@/src/shared/components/layout";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { CareTypeSelector, type CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
+import { CareTypeSelector } from "@/src/shared/components/ui/CareTypeSelector";
 import { Input } from "@/src/shared/components/ui/Input";
 import { OfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
-import { DataState, ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
+import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { Skeleton } from "@/src/shared/components/ui/Skeleton";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
@@ -39,7 +44,7 @@ export default function SendOfferScreen() {
   const { id: requestId } = useLocalSearchParams<{ id: string }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -54,6 +59,7 @@ export default function SendOfferScreen() {
   const [points, setPoints] = useState("");
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
 
   const load = useCallback(async () => {
     if (!requestId) {
@@ -63,7 +69,12 @@ export default function SendOfferScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "offer.loadFailed",
+          "We couldn't load this request right now. Please try again.",
+        ),
+      );
       return;
     }
 
@@ -120,7 +131,14 @@ export default function SendOfferScreen() {
         ),
       );
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "offer.loadFailed",
+              "We couldn't load this request right now. Please try again.",
+            ),
+      );
     } finally {
       setLoading(false);
     }
@@ -146,29 +164,78 @@ export default function SendOfferScreen() {
 
   const onSend = () => {
     if (blockIfKycNotApproved()) return;
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     if (!user?.id || !requestId || !reqRow?.owner_id) return;
     if (isOwner) return;
-    if (careTypes.length === 0) {
-      showToast({
-        variant: "error",
-        message: t("post.availability.validation.careTypeRequired"),
-        durationMs: 2600,
-      });
-      return;
-    }
-    const pointsNum = Number(points);
-    if (!points.trim() || !Number.isFinite(pointsNum) || pointsNum <= 0) {
-      showToast({
-        variant: "error",
-        message: t("offer.pointsLabel"),
-        durationMs: 2600,
-      });
-      return;
-    }
+    void (async () => {
+      const eligibility = await getRequestEligibility(requestId);
+      if (!eligibility.eligible) {
+        showToast({
+          variant: "info",
+          message:
+            eligibility.selectedTakerId &&
+            eligibility.selectedTakerId !== user.id
+              ? t(
+                  "requestDetails.requestAcceptedByAnother",
+                  "Another caregiver has already accepted this request.",
+                )
+              : t(
+                  "requestDetails.requestClosedForApplications",
+                  "This request is no longer accepting applications.",
+                ),
+          durationMs: 3200,
+        });
+        return;
+      }
+      if (careTypes.length === 0) {
+        showToast({
+          variant: "error",
+          message: t("post.availability.validation.careTypeRequired"),
+          durationMs: 2600,
+        });
+        return;
+      }
+      const pointsNum = Number(points);
+      if (!points.trim() || !Number.isFinite(pointsNum) || pointsNum <= 0) {
+        showToast({
+          variant: "error",
+          message: t("offer.pointsLabel"),
+          durationMs: 2600,
+        });
+        return;
+      }
+      const hasProfile = await hasAvailabilityProfile(user.id);
+      if (!hasProfile) {
+        showToast({
+          variant: "info",
+          message: t(
+            "offer.availabilityProfileRequired",
+            "Add your availability profile before applying to pet requests.",
+          ),
+          durationMs: 4200,
+        });
+        return;
+      }
+      setShowConfirm(true);
+    })();
+  };
 
+  const doSend = () => {
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
+    if (!user?.id || !requestId || !reqRow?.owner_id) return;
+    const pointsNum = Number(points);
     void (async () => {
       setSending(true);
       try {
+        const hasProfile = await hasAvailabilityProfile(user.id);
+        if (!hasProfile) {
+          throw new Error(
+            t(
+              "offer.availabilityProfileRequired",
+              "Add your availability profile before applying to pet requests.",
+            ),
+          );
+        }
         const ownerId = reqRow.owner_id as string;
         const blocked = await hasUserBlockRelation(user.id, ownerId);
         if (blocked) {
@@ -214,7 +281,7 @@ export default function SendOfferScreen() {
           durationMs: 2400,
         });
         router.replace({
-          pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+          pathname: "/(private)/chat/[threadId]" as any,
           params: {
             threadId,
             mode: "applying",
@@ -224,7 +291,10 @@ export default function SendOfferScreen() {
       } catch (err) {
         showToast({
           variant: "error",
-          message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+          message: errorMessageFromUnknown(
+            err,
+            t("errors.loadOfferSendFailed"),
+          ),
           durationMs: 3200,
         });
       } finally {
@@ -349,9 +419,24 @@ export default function SendOfferScreen() {
           onPress={onSend}
           fullWidth
           loading={sending}
-          disabled={sending || isOwner}
+          disabled={sending || isOwner || reqRow?.status !== "open"}
         />
       </View>
+
+      <FeedbackModal
+        visible={showConfirm}
+        title={t("offer.confirmTitle", "Send offer?")}
+        description={t("offer.confirmDescription", "This will send your care proposal to the pet owner.")}
+        primaryLabel={t("offer.send")}
+        secondaryLabel={t("common.cancel")}
+        primaryLoading={sending}
+        onPrimary={() => {
+          setShowConfirm(false);
+          doSend();
+        }}
+        onSecondary={() => setShowConfirm(false)}
+        onRequestClose={() => setShowConfirm(false)}
+      />
     </PageContainer>
   );
 }

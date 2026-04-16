@@ -6,12 +6,13 @@ type Props = {
   visible: boolean;
   canSendRequest: boolean;
   canOpenChat: boolean;
+  isBlockedByMe: boolean;
   colors: Record<string, string>;
   t: (key: string, fallback?: string) => string;
   onClose: () => void;
   onSendRequest: () => void;
   onOpenChat: () => void;
-  onBlock: () => void;
+  onToggleBlock: () => void;
   styles: any;
 };
 
@@ -19,12 +20,13 @@ export function PublicProfileActionsMenu({
   visible,
   canSendRequest,
   canOpenChat,
+  isBlockedByMe,
   colors,
   t,
   onClose,
   onSendRequest,
   onOpenChat,
-  onBlock,
+  onToggleBlock,
   styles,
 }: Props) {
   if (!visible) return null;
@@ -70,9 +72,14 @@ export function PublicProfileActionsMenu({
             {t("myCare.goToChat")}
           </AppText>
         </TouchableOpacity>
-        <TouchableOpacity style={styles.menuItem} onPress={onBlock}>
-          <AppText variant="body" color={colors.error}>
-            {t("profile.blockUser", "Block user")}
+        <TouchableOpacity style={styles.menuItem} onPress={onToggleBlock}>
+          <AppText
+            variant="body"
+            color={isBlockedByMe ? colors.primary : colors.error}
+          >
+            {isBlockedByMe
+              ? t("messages.unblock", "Unblock")
+              : t("profile.blockUser", "Block user")}
           </AppText>
         </TouchableOpacity>
       </View>

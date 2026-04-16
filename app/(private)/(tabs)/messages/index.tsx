@@ -6,6 +6,7 @@ import {
   getLastMessagePreviewKind,
   type LastMessagePreviewKind,
 } from "@/src/features/messages/lastMessagePreview";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
@@ -18,9 +19,9 @@ import {
   IllustratedEmptyStateIllustrations,
 } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
+import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
 import { Search, SlidersHorizontal } from "lucide-react-native";
-import { useFocusEffect } from "@react-navigation/native";
 import React, { useCallback, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
@@ -28,6 +29,7 @@ import {
   ScrollView,
   StyleSheet,
   TouchableOpacity,
+  useWindowDimensions,
   View,
 } from "react-native";
 
@@ -43,20 +45,6 @@ type ChatListItem = {
   unreadCount: number;
 };
 
-function relativeTime(isoDate?: string | null) {
-  if (!isoDate) return "";
-  const now = Date.now();
-  const diffMs = Math.max(0, now - new Date(isoDate).getTime());
-  const mins = Math.floor(diffMs / 60000);
-  if (mins < 1) return "now";
-  if (mins < 60) return `${mins}m`;
-  const hours = Math.floor(mins / 60);
-  if (hours < 24) return `${hours}h`;
-  const days = Math.floor(hours / 24);
-  if (days < 7) return `${days}d`;
-  return new Date(isoDate).toLocaleDateString();
-}
-
 export default function MessagesScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
@@ -64,6 +52,7 @@ export default function MessagesScreen() {
   const colors = Colors[resolvedTheme];
   const router = useRouter();
   const { threads, loading, error: threadsError, refetch } = useThreads();
+  const { height: windowHeight } = useWindowDimensions();
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState("");
   const skipNextFocusRefetch = useRef(true);
@@ -111,7 +100,7 @@ export default function MessagesScreen() {
         previewKind,
         previewSentByYou: Boolean(rawPreview && previewKind !== "text" && isMine),
         searchText,
-        timestamp: relativeTime(item.last_message_at),
+        timestamp: formatReviewRelativeDate(item.last_message_at),
         unreadCount: item.unreadCount,
       };
     });
@@ -136,6 +125,11 @@ export default function MessagesScreen() {
         chat.name.toLowerCase().includes(q) || chat.searchText.includes(q),
     );
   }, [chats, searchQuery]);
+
+  const isChatsEmpty = filteredChats.length === 0;
+  const isSearchNoResults =
+    Boolean(searchQuery.trim()) && threads.length > 0 && isChatsEmpty;
+  const emptyMinHeight = Math.max(360, windowHeight - 260);
 
   return (
     <PageContainer>
@@ -171,9 +165,16 @@ export default function MessagesScreen() {
         <ChatScreenSkeleton rowCount={8} />
       ) : (
         <ScrollView
+          style={styles.scrollFill}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
-          contentContainerStyle={styles.scrollContent}
+          contentContainerStyle={[
+            styles.scrollContent,
+            isChatsEmpty && [
+              styles.scrollContentEmpty,
+              { minHeight: emptyMinHeight },
+            ],
+          ]}
           refreshControl={
             <RefreshControl
               refreshing={refreshing}
@@ -194,7 +195,12 @@ export default function MessagesScreen() {
               mode="full"
             />
           ) : (
-            <View style={styles.list}>
+            <View
+              style={[
+                styles.list,
+                filteredChats.length === 0 && styles.listEmpty,
+              ]}
+            >
               {filteredChats.length > 0 ? (
                 filteredChats.map((chat) => (
                   <ChatRow
@@ -208,15 +214,37 @@ export default function MessagesScreen() {
                     timestamp={chat.timestamp}
                     unreadCount={chat.unreadCount}
                     onPress={() =>
-                      router.push(`/(private)/(tabs)/messages/${chat.threadId}`)
+                      router.push({
+  pathname: '/(private)/chat/[threadId]',   // ← include the [bracket] in pathname
+  params: { threadId: chat.threadId }
+})
                     }
                   />
                 ))
               ) : (
                 <IllustratedEmptyState
-                  title={t("messages.noChatsTitle")}
-                  message={t("messages.noChatsSubtitle")}
-                  illustration={IllustratedEmptyStateIllustrations.noChats}
+                  title={
+                    isSearchNoResults
+                      ? t("messages.noChatsSearchTitle")
+                      : t("messages.noChatsTitle")
+                  }
+                  message={
+                    isSearchNoResults
+                      ? t("messages.noChatsSearchSubtitle")
+                      : t("messages.noChatsSubtitle")
+                  }
+                  messageVariant="caption"
+                  titleColor={colors.primary}
+                  titleStyle={styles.chatsEmptyTitle}
+                  illustration={{
+                    ...IllustratedEmptyStateIllustrations.noChats,
+                    height: 180,
+                    width: 264,
+                    style: [
+                      IllustratedEmptyStateIllustrations.noChats.style,
+                      styles.chatsEmptyIllustration,
+                    ],
+                  }}
                   mode="inline"
                 />
               )}
@@ -229,8 +257,16 @@ export default function MessagesScreen() {
 }
 
 const styles = StyleSheet.create({
+  scrollFill: {
+    flex: 1,
+  },
   scrollContent: {
     flexGrow: 1,
+  },
+  scrollContentEmpty: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 24,
   },
   header: {
     paddingVertical: 8,
@@ -253,5 +289,23 @@ const styles = StyleSheet.create({
   },
   list: {
     paddingBottom: 40,
+  },
+  /** Fills scroll area so the empty state sits centered like the Chats design. */
+  listEmpty: {
+    flexGrow: 1,
+    alignSelf: "stretch",
+    width: "100%",
+    justifyContent: "center",
+    minHeight: 320,
+    paddingBottom: 24,
+  },
+  chatsEmptyTitle: {
+    fontSize: 18,
+    lineHeight: 24,
+    fontWeight: "700",
+    letterSpacing: -0.2,
+  },
+  chatsEmptyIllustration: {
+    marginBottom: 12,
   },
 });

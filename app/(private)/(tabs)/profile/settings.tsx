@@ -1,18 +1,32 @@
 import { Colors } from "@/src/constants/colors";
-import { performSignOut } from "@/src/lib/auth/perform-sign-out";
 import { SettingsMenuOverlay } from "@/src/features/profile/components/settings/SettingsMenuOverlay";
+import { performSignOut } from "@/src/lib/auth/perform-sign-out";
 import i18n from "@/src/lib/i18n";
 import { useLanguageStore } from "@/src/lib/store/language.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
+import { AppText } from "@/src/shared/components/ui/AppText";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { useQueryClient } from "@tanstack/react-query";
 import { router } from "expo-router";
 import { ChevronDown, LogOut, Trash2, UserX } from "lucide-react-native";
 import React, { useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ScrollView, Text, TouchableOpacity, View } from "react-native";
+import {
+    Linking,
+    Modal,
+    Pressable,
+    ScrollView,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View,
+} from "react-native";
+import { LocalSvg } from "react-native-svg/css";
+
+const ABOUT_LOGO_SVG = require("@/assets/icons/logos/svg/coloured_favicon.svg");
 
 export default function SettingsScreen() {
   const { t } = useTranslation();
@@ -22,12 +36,11 @@ export default function SettingsScreen() {
   >(null);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const showToast = useToastStore((s) => s.showToast);
   const { theme, setTheme, resolvedTheme } = useThemeStore();
   const { language, setLanguage } = useLanguageStore();
   const [openMenu, setOpenMenu] = useState<"theme" | "language" | null>(null);
-  const [signOutErrorMessage, setSignOutErrorMessage] = useState<string | null>(
-    null,
-  );
+  const [aboutVisible, setAboutVisible] = useState(false);
   const [menuPosition, setMenuPosition] = useState<{
     x: number;
     y: number;
@@ -49,6 +62,37 @@ export default function SettingsScreen() {
       ? t("settings.languageFrench", "Français")
       : t("settings.languageEnglish", "English");
   const colors = Colors[resolvedTheme];
+  const websiteUrl =
+    process.env.EXPO_PUBLIC_WEBSITE_URL?.trim() || "https://pawtaker.ca";
+
+  const openLegal = (kind: "terms" | "privacy") => {
+    const url =
+      kind === "terms"
+        ? process.env.EXPO_PUBLIC_TERMS_URL
+        : process.env.EXPO_PUBLIC_PRIVACY_URL;
+    if (url) {
+      void Linking.openURL(url);
+    } else {
+      showToast({
+        variant: "info",
+        message: t("auth.legalPagesUnavailable"),
+        durationMs: 3200,
+      });
+    }
+  };
+
+  const openContact = () => {
+    const url = process.env.EXPO_PUBLIC_CONTACT_URL;
+    if (url) {
+      void Linking.openURL(url);
+      return;
+    }
+    showToast({
+      variant: "info",
+      message: t("settings.contactUnavailable"),
+      durationMs: 3200,
+    });
+  };
 
   const handleLogout = async () => {
     try {
@@ -59,9 +103,11 @@ export default function SettingsScreen() {
       router.replace("/welcome");
     } catch (e) {
       console.error("[settings] signOut", e);
-      setSignOutErrorMessage(
-        t("settings.signOutFailed", "Could not sign out. Please try again."),
-      );
+      showToast({
+        variant: "error",
+        message: t("settings.signOutFailed"),
+        durationMs: 3200,
+      });
     } finally {
       setIsSigningOut(false);
     }
@@ -84,9 +130,11 @@ export default function SettingsScreen() {
       router.replace("/welcome");
     } catch (e) {
       console.error("[settings] deleteAccount", e);
-      setSignOutErrorMessage(
-        t("settings.deleteFailed", "Could not delete account. Please try again."),
-      );
+      showToast({
+        variant: "error",
+        message: t("settings.deleteFailed"),
+        durationMs: 3200,
+      });
     } finally {
       setIsDeletingAccount(false);
     }
@@ -94,7 +142,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <BackHeader title="" />
+      <BackHeader title={t("settings.title")} />
       <ScrollView
         style={{ flex: 1 }}
         contentContainerStyle={{
@@ -214,29 +262,41 @@ export default function SettingsScreen() {
         </View>
 
         <TouchableOpacity
-          style={{
-            paddingVertical: 8,
-          }}
+          style={{ paddingVertical: 16 }}
+          onPress={() => router.push("/(private)/(tabs)/profile/edit" as const)}
         >
           <Text style={{ color: colors.onSurface }}>
-            {t("settings.notifications")}
+            {t("settings.editProfile")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={{
-            paddingVertical: 16,
-          }}
+          style={{ paddingVertical: 16 }}
+          onPress={() => openLegal("privacy")}
         >
           <Text style={{ color: colors.onSurface }}>
             {t("settings.privacy")}
           </Text>
         </TouchableOpacity>
         <TouchableOpacity
-          style={{
-            paddingVertical: 16,
-          }}
+          style={{ paddingVertical: 16 }}
+          onPress={() => openLegal("terms")}
         >
-          <Text style={{ color: colors.onSurface }}>{t("settings.help")}</Text>
+          <Text style={{ color: colors.onSurface }}>
+            {t("settings.termsAndPolicies")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity style={{ paddingVertical: 16 }} onPress={openContact}>
+          <Text style={{ color: colors.onSurface }}>
+            {t("settings.contactUs")}
+          </Text>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={{ paddingVertical: 16 }}
+          onPress={() => setAboutVisible(true)}
+        >
+          <Text style={{ color: colors.onSurface }}>
+            {t("settings.aboutUs")}
+          </Text>
         </TouchableOpacity>
         <View
           style={{
@@ -282,49 +342,81 @@ export default function SettingsScreen() {
             </Text>
           </TouchableOpacity>
         </View>
-
-        {/* Footer links */}
-        <View
-          style={{
-            marginTop: 48,
-            paddingHorizontal: 16,
-            flexDirection: "row",
-            justifyContent: "center",
-            columnGap: 24,
-          }}
-        >
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text
-              style={{
-                fontSize: 12,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                color: colors.onSurfaceVariant,
-              }}
-            >
-              {t("settings.contactUs", "Contact us")}
-            </Text>
-          </TouchableOpacity>
-          <TouchableOpacity activeOpacity={0.7}>
-            <Text
-              style={{
-                fontSize: 12,
-                textTransform: "uppercase",
-                letterSpacing: 0.5,
-                color: colors.onSurfaceVariant,
-              }}
-            >
-              {t("settings.termsAndPolicies", "Terms and policies")}
-            </Text>
-          </TouchableOpacity>
-        </View>
       </ScrollView>
+
+      <Modal
+        visible={aboutVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setAboutVisible(false)}
+      >
+        <View style={aboutStyles.root}>
+          <Pressable
+            style={StyleSheet.absoluteFill}
+            onPress={() => setAboutVisible(false)}
+            accessibilityRole="button"
+            accessibilityLabel={t("common.close")}
+          />
+          <View style={aboutStyles.cardWrap} pointerEvents="box-none">
+            <View
+              style={[
+                aboutStyles.card,
+                {
+                  backgroundColor: colors.surfaceContainer,
+                  borderColor: colors.outlineVariant,
+                },
+              ]}
+              onStartShouldSetResponder={() => true}
+            >
+              <View
+                style={{ alignItems: "center", gap: 14, paddingVertical: 4 }}
+              >
+                <LocalSvg asset={ABOUT_LOGO_SVG} width={88} height={88} />
+                <AppText
+                  variant="title"
+                  color={colors.primary}
+                  style={{ textAlign: "center" }}
+                >
+                  {t("app.name")}
+                </AppText>
+                <AppText
+                  variant="caption"
+                  color={colors.onSurfaceVariant}
+                  style={{ textAlign: "center", lineHeight: 18 }}
+                >
+                  {t("settings.aboutUsCopyright", {
+                    year: new Date().getFullYear(),
+                    appName: t("app.name"),
+                  })}
+                </AppText>
+                <TouchableOpacity
+                  onPress={() => void Linking.openURL(websiteUrl)}
+                  hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}
+                  accessibilityRole="link"
+                  accessibilityLabel="pawtaker.ca"
+                >
+                  <AppText
+                    variant="caption"
+                    color={colors.primary}
+                    style={{
+                      textDecorationLine: "underline",
+                      fontWeight: "600",
+                    }}
+                  >
+                    pawtaker.ca
+                  </AppText>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </View>
+        </View>
+      </Modal>
 
       <SettingsMenuOverlay
         openMenu={openMenu}
         menuPosition={menuPosition}
         colors={colors}
-        t={(key, fallback) => t(key, fallback as string)}
+        t={t as any}
         onClose={() => setOpenMenu(null)}
         onTheme={(next) => {
           setTheme(next);
@@ -360,19 +452,19 @@ export default function SettingsScreen() {
         description={
           confirmAction === "logout"
             ? t(
-              "settings.logoutConfirm",
-              "You will need to sign back in to view your messages and manage your profile.",
-            )
+                "settings.logoutConfirm",
+                "You will need to sign back in to view your messages and manage your profile.",
+              )
             : confirmAction === "deactivate"
               ? t(
-                "settings.deactivateConfirm",
-                "Your account will be paused. You will not appear in searches or receive new messages.",
-              )
+                  "settings.deactivateConfirm",
+                  "Your account will be paused. You will not appear in searches or receive new messages.",
+                )
               : confirmAction === "delete"
                 ? t(
-                  "settings.deleteConfirm",
-                  "This will permanently delete your account and all related data. This action cannot be undone.",
-                )
+                    "settings.deleteConfirm",
+                    "This will permanently delete your account and all related data. This action cannot be undone.",
+                  )
                 : ""
         }
         primaryLabel={
@@ -385,8 +477,8 @@ export default function SettingsScreen() {
                 : confirmAction === "delete" && isDeletingAccount
                   ? t("settings.deleting", "Deleting...")
                   : confirmAction === "delete"
-                  ? t("settings.deleteCta", "Delete")
-                  : ""
+                    ? t("settings.deleteCta", "Delete")
+                    : ""
         }
         secondaryLabel={t("common.cancel", "Cancel")}
         destructive={
@@ -411,15 +503,33 @@ export default function SettingsScreen() {
         onSecondary={() => setConfirmAction(null)}
         onRequestClose={() => setConfirmAction(null)}
       />
-
-      <FeedbackModal
-        visible={signOutErrorMessage !== null}
-        title={t("common.error", "Something went wrong")}
-        description={signOutErrorMessage ?? undefined}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setSignOutErrorMessage(null)}
-        onRequestClose={() => setSignOutErrorMessage(null)}
-      />
     </View>
   );
 }
+
+const aboutStyles = StyleSheet.create({
+  root: {
+    flex: 1,
+    backgroundColor: "rgba(0,0,0,0.4)",
+  },
+  cardWrap: {
+    ...StyleSheet.absoluteFillObject,
+    justifyContent: "center",
+    alignItems: "center",
+  },
+  card: {
+    maxWidth: 360,
+    width: "100%",
+    marginHorizontal: 24,
+    borderRadius: 16,
+    paddingHorizontal: 20,
+    paddingTop: 20,
+    paddingBottom: 20,
+    borderWidth: 1,
+    shadowColor: "#000",
+    shadowOpacity: 0.25,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 12 },
+    elevation: 8,
+  },
+});

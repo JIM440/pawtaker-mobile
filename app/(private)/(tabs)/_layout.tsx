@@ -185,7 +185,7 @@ export default function TabsLayout() {
         <Tabs.Screen
           name="messages"
           options={{
-            title: t("messages.title"),
+            title: t("messages.chatsTitle"),
             tabBarBadge:
               messageUnreadCount > 0 ? messageUnreadCount : undefined,
             tabBarBadgeStyle: {
@@ -225,19 +225,7 @@ export default function TabsLayout() {
               <TouchableOpacity
                 style={style}
                 activeOpacity={0.8}
-                onPress={() => {
-                  const currentPath = pathname ?? "";
-                  const isViewingOtherUserProfile =
-                    currentPath.includes("/profile/users/");
-
-                  if (isViewingOtherUserProfile) {
-                    // Reset nested profile stack back to profile index.
-                    router.push("/(private)/(tabs)/profile" as any);
-                    return;
-                  }
-
-                  onPress?.(undefined as any);
-                }}
+                onPress={() => onPress?.(undefined as any)}
               >
                 {children}
               </TouchableOpacity>

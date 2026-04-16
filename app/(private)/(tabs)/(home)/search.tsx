@@ -1,5 +1,6 @@
 import { Colors } from '@/src/constants/colors';
 import { useLocationSearch, type NearbyRequest, type NearbyTaker, type SearchMode } from '@/src/features/search/hooks/useLocationSearch';
+import { useAuthStore } from '@/src/lib/store/auth.store';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { AppText } from '@/src/shared/components/ui/AppText';
@@ -156,6 +157,11 @@ export default function SearchScreen() {
 }
 
 function TakerCard({ taker, colors }: { taker: NearbyTaker; colors: any }) {
+  const viewerCity = useAuthStore((s) => s.profile?.city?.trim() ?? '');
+  const sameTown =
+    viewerCity.length > 0 &&
+    typeof taker.city === 'string' &&
+    taker.city.trim().toLowerCase() === viewerCity.toLowerCase();
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
       <View style={styles.cardRow}>
@@ -180,7 +186,15 @@ function TakerCard({ taker, colors }: { taker: NearbyTaker; colors: any }) {
         </View>
         <View style={[styles.distanceBadge, { backgroundColor: colors.primaryContainer }]}>
           <AppText variant="caption" color={colors.onPrimaryContainer}>
-            {taker.distance_km} km
+            {taker.distance_km != null
+              ? `${Number(taker.distance_km).toFixed(1)} km`
+              : sameTown
+                ? '0.0 km'
+              : taker.city?.trim()
+                ? taker.city.trim()
+                : taker.zip_code?.trim()
+                  ? taker.zip_code.trim()
+                  : '—'}
           </AppText>
         </View>
       </View>
@@ -199,6 +213,11 @@ function TakerCard({ taker, colors }: { taker: NearbyTaker; colors: any }) {
 }
 
 function RequestCard({ request, colors }: { request: NearbyRequest; colors: any }) {
+  const viewerCity = useAuthStore((s) => s.profile?.city?.trim() ?? '');
+  const sameTown =
+    viewerCity.length > 0 &&
+    typeof request.owner_city === 'string' &&
+    request.owner_city.trim().toLowerCase() === viewerCity.toLowerCase();
   return (
     <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.outline }]}>
       <View style={styles.cardRow}>
@@ -226,7 +245,13 @@ function RequestCard({ request, colors }: { request: NearbyRequest; colors: any 
         <View style={styles.cardRight}>
           <View style={[styles.distanceBadge, { backgroundColor: colors.primaryContainer }]}>
             <AppText variant="caption" color={colors.onPrimaryContainer}>
-              {request.distance_km} km
+              {request.distance_km != null
+                ? `${Number(request.distance_km).toFixed(1)} km`
+                : sameTown
+                  ? '0.0 km'
+                : request.owner_city?.trim()
+                  ? request.owner_city.trim()
+                  : '—'}
             </AppText>
           </View>
           <AppText variant="caption" color={colors.primary} style={styles.pointsBadge}>

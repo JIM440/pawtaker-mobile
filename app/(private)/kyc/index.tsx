@@ -12,6 +12,7 @@ import { Button } from "@/src/shared/components/ui/Button";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { Image as ExpoImage } from "expo-image";
 import * as ImagePicker from "expo-image-picker";
+import * as Linking from "expo-linking";
 import { router } from "expo-router";
 import { X } from "lucide-react-native";
 import { useState } from "react";
@@ -675,6 +676,7 @@ export default function KycScreen() {
         }}
         onClosePickSource={() => setPickSourceFor(null)}
         onClosePermission={() => setPermissionMessage(null)}
+        onOpenSettings={() => void Linking.openSettings()}
       />
     </PageContainer>
   );

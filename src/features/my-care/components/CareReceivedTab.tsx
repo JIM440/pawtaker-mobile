@@ -1,5 +1,7 @@
 import { AppText } from '@/src/shared/components/ui/AppText';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
+import { View } from 'react-native';
 import { CareRow, CareTable } from './CareTable';
 import { EmptyState } from './EmptyState';
 import { CareTableSkeleton } from "./CareTableSkeleton";
@@ -19,6 +21,7 @@ export function CareReceivedTab({
     onPressPerson,
     onPressPet,
 }: CareReceivedTabProps) {
+    const { t } = useTranslation();
     if (loading) {
         return <CareTableSkeleton colors={colors} rowCount={5} />;
     }
@@ -27,17 +30,24 @@ export function CareReceivedTab({
     }
 
     const footer = (
-        <>
-            Give more care to earn more points.{"\n"}
-            Points may be convertible to cash. <AppText variant="caption" style={{ textDecorationLine: 'underline' }}>Find out how</AppText>
-        </>
+        <View style={{ alignItems: "center", gap: 6 }}>
+            <AppText variant="caption" color={colors.onSurfaceVariant} style={{ textAlign: "center" }}>
+                {t("myCare.receivedFooterLine1")}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant} style={{ textAlign: "center" }}>
+                {t("myCare.receivedFooterLine2Prefix")}
+                <AppText variant="caption" style={{ textDecorationLine: "underline" }}>
+                    {t("myCare.receivedFooterLink")}
+                </AppText>
+            </AppText>
+        </View>
     );
 
     return (
         <CareTable
             colors={colors}
             rows={rows}
-            headerLabel="Taker"
+            headerLabel={t("myCare.table.taker")}
             footerText={footer}
             onPressPerson={onPressPerson}
             onPressPet={onPressPet}

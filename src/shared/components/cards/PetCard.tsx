@@ -39,6 +39,7 @@ export type PetCardProps = {
   description: string;
   caretaker: PetCardCaretaker;
   tags?: string[];
+  showFavorite?: boolean;
   isFavorite?: boolean;
   onFavorite?: () => void;
   onApply?: () => void;
@@ -64,6 +65,7 @@ export function PetCard({
   description,
   caretaker,
   tags = [],
+  showFavorite = true,
   isFavorite = false,
   onFavorite,
   onApply,
@@ -193,20 +195,22 @@ export function PetCard({
               </AppText>
             </View>
           </View>
-          <TouchableOpacity
-            onPress={onFavorite}
-            style={[
-              styles.favButton,
-              { backgroundColor: colors.surfaceContainer },
-            ]}
-            hitSlop={8}
-          >
-            <Heart
-              size={20}
-              color={isFavorite ? colors.primary : colors.onSurfaceVariant}
-              fill={isFavorite ? colors.primary : "transparent"}
-            />
-          </TouchableOpacity>
+          {showFavorite ? (
+            <TouchableOpacity
+              onPress={onFavorite}
+              style={[
+                styles.favButton,
+                { backgroundColor: colors.surfaceContainer },
+              ]}
+              hitSlop={8}
+            >
+              <Heart
+                size={20}
+                color={isFavorite ? colors.primary : colors.onSurfaceVariant}
+                fill={isFavorite ? colors.primary : "transparent"}
+              />
+            </TouchableOpacity>
+          ) : null}
         </View>
 
         <View style={styles.metaRow}>
@@ -235,28 +239,37 @@ export function PetCard({
           </AppText>
         </View>
 
-        <View style={styles.locationRow}>
-          <MapPin size={16} color={colors.onSurfaceVariant} />
-          <AppText
-            variant="caption"
-            style={styles.locationText}
-            numberOfLines={1}
-          >
-            {location}
-          </AppText>
-          <AppText variant="caption" color={colors.onSurfaceVariant}>
-            {" "}
-            •{" "}
-          </AppText>
-          <AppText variant="caption" style={styles.metaText}>
-            {distance}
-          </AppText>
-        </View>
+        {(location || distance) ? (
+          <View style={styles.locationRow}>
+            <MapPin size={16} color={colors.onSurfaceVariant} />
+            {location ? (
+              <AppText
+                variant="caption"
+                style={styles.locationText}
+                numberOfLines={1}
+              >
+                {location}
+              </AppText>
+            ) : null}
+            {location && distance ? (
+              <AppText variant="caption" color={colors.onSurfaceVariant}>
+                {" "}
+                •{" "}
+              </AppText>
+            ) : null}
+            {distance ? (
+              <AppText variant="caption" style={styles.metaText}>
+                {distance}
+              </AppText>
+            ) : null}
+          </View>
+        ) : null}
 
         {description.trim().length > 0 ? (
           <AppText
             variant="caption"
             color={colors.onSurfaceVariant}
+            numberOfLines={3}
             style={styles.description}
           >
             {description}

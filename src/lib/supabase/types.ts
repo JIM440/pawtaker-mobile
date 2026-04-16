@@ -15,6 +15,8 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           city: string | null;
+          /** Display-only; not used in distance calculations. */
+          zip_code: string | null;
           latitude: number | null;
           longitude: number | null;
           auth_type: string;
@@ -40,6 +42,7 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           city?: string | null;
+          zip_code?: string | null;
           latitude?: number | null;
           longitude?: number | null;
           auth_type?: string;
@@ -136,6 +139,10 @@ export interface Database {
           end_time: string | null;
           /** DB `integer`, default 0 */
           points_offered: number;
+          /** Snapshot of owner location at post time. */
+          latitude: number | null;
+          longitude: number | null;
+          city: string | null;
           created_at: string;
         };
         Insert: {
@@ -150,6 +157,9 @@ export interface Database {
           start_time?: string | null;
           end_time?: string | null;
           points_offered?: number;
+          latitude?: number | null;
+          longitude?: number | null;
+          city?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['care_requests']['Insert']>;
@@ -166,6 +176,9 @@ export interface Database {
           signed_taker: boolean;
           /** DB `text`, default `draft` */
           status: string;
+          /** Set when first party requests termination; cleared on reactivation. */
+          terminate_requested_by: string | null;
+          terminate_requested_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -176,6 +189,8 @@ export interface Database {
           signed_owner?: boolean;
           signed_taker?: boolean;
           status?: string;
+          terminate_requested_by?: string | null;
+          terminate_requested_at?: string | null;
           created_at?: string;
         };
         Update: Partial<Database['public']['Tables']['contracts']['Insert']>;
@@ -457,6 +472,19 @@ export interface Database {
     };
     Views: Record<string, never>;
     Functions: {
+      accept_care_request: {
+        Args: {
+          p_request_id: string;
+          p_owner_id: string;
+          p_taker_id: string;
+        };
+        Returns: {
+          contract_id: string | null;
+          accepted: boolean;
+          accepted_taker_id: string | null;
+          request_status: string | null;
+        }[];
+      };
       delete_my_account: {
         Args: Record<string, never>;
         Returns: undefined;
@@ -475,6 +503,22 @@ export interface Database {
           user_lng: number;
           radius_km: number;
           care_type_filter: string | null;
+        };
+        Returns: Json;
+      };
+      distances_for_requests: {
+        Args: {
+          user_lat: number;
+          user_lng: number;
+          request_ids: string[];
+        };
+        Returns: Json;
+      };
+      distances_for_users: {
+        Args: {
+          user_lat: number;
+          user_lng: number;
+          user_ids: string[];
         };
         Returns: Json;
       };

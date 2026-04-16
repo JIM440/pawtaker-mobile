@@ -7,8 +7,16 @@ import { ProfilePetsTab } from "@/src/features/profile/components/ProfilePetsTab
 import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileReviewsTab";
 import { PublicProfileActionsMenu } from "@/src/features/profile/components/public-profile/PublicProfileActionsMenu";
 import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
-import { hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import {
+  blockUser,
+  getBlockDirection,
+  type BlockDirection,
+  unblockUser,
+} from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
+import { formatLocalYyyyMmDd } from "@/src/lib/datetime/localDate";
+import { formatRequestDateRange } from "@/src/lib/datetime/request-date-time-format";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
@@ -21,6 +29,7 @@ import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
@@ -41,6 +50,7 @@ import { useLocalSearchParams, useRouter } from "expo-router";
 import { MoreHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useFocusEffect } from "@react-navigation/native";
 import {
   RefreshControl,
   ScrollView,
@@ -51,9 +61,35 @@ import {
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
+function formatCurrentTimeForComparison(date: Date) {
+  return `${String(date.getHours()).padStart(2, "0")}:${String(
+    date.getMinutes(),
+  ).padStart(2, "0")}`;
+}
+
+function isRequestStillSeekable(
+  request: Pick<any, "end_date" | "end_time"> | null | undefined,
+  now: Date,
+) {
+  const endDate =
+    typeof request?.end_date === "string" ? request.end_date.trim() : "";
+  if (!endDate) return false;
+
+  const today = formatLocalYyyyMmDd(now);
+  if (endDate > today) return true;
+  if (endDate < today) return false;
+
+  const endTime =
+    typeof request?.end_time === "string" ? request.end_time.trim().slice(0, 5) : "";
+  if (!endTime) return true;
+
+  return endTime >= formatCurrentTimeForComparison(now);
+}
+
 export default function PublicProfileScreen() {
-  const { id: profileIdParam } = useLocalSearchParams<{
+  const { id: profileIdParam, initialTab: initialTabParam } = useLocalSearchParams<{
     id: string | string[];
+    initialTab?: string;
   }>();
   const profileId =
     typeof profileIdParam === "string"
@@ -67,12 +103,18 @@ export default function PublicProfileScreen() {
   const isOwnProfile = Boolean(user?.id && profileId && user.id === profileId);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
+  const validInitialTab = (["pets", "availability", "bio", "reviews"] as ProfileTab[]).includes(initialTabParam as ProfileTab)
+    ? (initialTabParam as ProfileTab)
+    : "pets";
+  const [activeTab, setActiveTab] = useState<ProfileTab>(validInitialTab);
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [sendRequestBusy, setSendRequestBusy] = useState(false);
+  const [sendRequestLoading, setSendRequestLoading] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
+  const [blockStatus, setBlockStatus] = useState<BlockDirection>("none");
   const [sendRequestOpen, setSendRequestOpen] = useState(false);
   const [userPets, setUserPets] = useState<any[]>([]);
   const [selectedSeekingPet, setSelectedSeekingPet] = useState<any | null>(
@@ -93,6 +135,17 @@ export default function PublicProfileScreen() {
     any
   > | null>(null);
   const [publicReviews, setPublicReviews] = useState<any[]>([]);
+  const [reviewerMap, setReviewerMap] = useState<
+    Record<
+      string,
+      {
+        full_name: string | null;
+        avatar_url: string | null;
+        care_given_count: number | null;
+        care_received_count: number | null;
+      }
+    >
+  >({});
 
   const loadPublicProfile = async (opts?: { refresh?: boolean }) => {
     if (!profileId) {
@@ -143,7 +196,37 @@ export default function PublicProfileScreen() {
       setPublicAvailability(
         (takerRow?.availability_json as Record<string, any> | null) ?? null,
       );
-      setPublicReviews(reviewsData ?? []);
+      const reviews = reviewsData ?? [];
+      setPublicReviews(reviews);
+
+      // Fetch reviewer user data in one batch
+      const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id as string).filter(Boolean))];
+      if (reviewerIds.length > 0) {
+        const { data: reviewerUsers } = await supabase
+          .from("users")
+          .select("id,full_name,avatar_url,care_given_count,care_received_count")
+          .in("id", reviewerIds);
+        const map: Record<
+          string,
+          {
+            full_name: string | null;
+            avatar_url: string | null;
+            care_given_count: number | null;
+            care_received_count: number | null;
+          }
+        > = {};
+        for (const u of reviewerUsers ?? []) {
+          map[(u as any).id] = {
+            full_name: (u as any).full_name ?? null,
+            avatar_url: (u as any).avatar_url ?? null,
+            care_given_count: (u as any).care_given_count ?? 0,
+            care_received_count: (u as any).care_received_count ?? 0,
+          };
+        }
+        setReviewerMap(map);
+      } else {
+        setReviewerMap({});
+      }
     } catch (err) {
       setLoadError(
         err instanceof Error ? err.message : "Failed to load profile.",
@@ -157,6 +240,48 @@ export default function PublicProfileScreen() {
     void loadPublicProfile();
   }, [profileId]);
 
+  useEffect(() => {
+    let cancelled = false;
+
+    const loadBlockStatus = async () => {
+      if (!user?.id || !profileId || isOwnProfile) {
+        if (!cancelled) setBlockStatus("none");
+        return;
+      }
+
+      try {
+        const next = await getBlockDirection(user.id, profileId);
+        if (!cancelled) setBlockStatus(next);
+      } catch {
+        if (!cancelled) setBlockStatus("none");
+      }
+    };
+
+    void loadBlockStatus();
+    return () => {
+      cancelled = true;
+    };
+  }, [isOwnProfile, profileId, user?.id]);
+
+  useFocusEffect(
+    React.useCallback(() => {
+      let cancelled = false;
+      const refreshBlockStatus = async () => {
+        if (!user?.id || !profileId || isOwnProfile) return;
+        try {
+          const next = await getBlockDirection(user.id, profileId);
+          if (!cancelled) setBlockStatus(next);
+        } catch {
+          // no-op
+        }
+      };
+      void refreshBlockStatus();
+      return () => {
+        cancelled = true;
+      };
+    }, [isOwnProfile, profileId, user?.id]),
+  );
+
   const onRefresh = async () => {
     setRefreshing(true);
     try {
@@ -168,8 +293,8 @@ export default function PublicProfileScreen() {
 
   const loadSendRequestPets = async () => {
     if (!sendRequestOpen || !user?.id) return;
+    setSendRequestLoading(true);
     setSelectedSeekingPet(null);
-    setUserPets([]);
     setPetSendSubtitleById({});
     setOpenReqByPetId({});
     try {
@@ -179,67 +304,50 @@ export default function PublicProfileScreen() {
         .eq("owner_id", user.id)
         .order("created_at", { ascending: false });
       if (petsError) throw petsError;
-      if (!pets?.length) {
-        showToast({
-          message: t(
-            "post.request.emptyPetsSubtitle",
-            "You have not added any pets yet",
-          ),
-        });
-        setSendRequestOpen(false);
-        return;
-      }
-      setUserPets(pets);
+      const nextPets = pets ?? [];
+      setUserPets(nextPets);
+      if (nextPets.length === 0) return;
 
       const { data: openReqRows, error: reqError } = await supabase
         .from("care_requests")
-        .select("id,pet_id,care_type,start_date,end_date")
+        .select("id,pet_id,care_type,start_date,end_date,end_time")
         .eq("owner_id", user.id)
         .eq("status", "open")
         .in(
           "pet_id",
-          pets.map((p: any) => p.id),
+          nextPets.map((p: any) => p.id),
         )
         .order("created_at", { ascending: false });
       if (reqError) throw reqError;
 
+      const now = new Date();
       const reqByPet: Record<string, any> = {};
       (openReqRows ?? []).forEach((r: any) => {
+        if (!isRequestStillSeekable(r, now)) return;
         if (!reqByPet[r.pet_id]) reqByPet[r.pet_id] = r;
       });
+
+      const eligiblePets = nextPets.filter((p: any) => Boolean(reqByPet[p.id]));
       const subtitleByPet: Record<string, string> = {};
       Object.entries(reqByPet).forEach(([pid, r]: [string, any]) => {
-        subtitleByPet[pid] =
-          r.start_date && r.end_date
-            ? `${new Date(r.start_date).toLocaleDateString()} - ${new Date(r.end_date).toLocaleDateString()}`
-            : "";
+        subtitleByPet[pid] = formatRequestDateRange(r.start_date, r.end_date);
       });
+
+      setUserPets(eligiblePets);
       setOpenReqByPetId(reqByPet);
       setPetSendSubtitleById(subtitleByPet);
 
-      const firstEligible = pets.find((p: any) => Boolean(reqByPet[p.id]));
-      if (!firstEligible) {
-        showToast({
-          message: t(
-            "home.sendRequest.needsOpenRequest",
-            "Create an open care request for this pet first, then you can message a taker.",
-          ),
-        });
-        setSendRequestOpen(false);
-        return;
-      }
+      const firstEligible = eligiblePets[0] ?? null;
       setSelectedSeekingPet(firstEligible);
     } catch (err) {
       showToast({
-        message:
-          err instanceof Error
-            ? err.message
-            : t(
-                "home.sendRequest.sendFailed",
-                "Couldn't send the request right now. Please try again.",
-              ),
+        message: errorMessageFromUnknown(
+          err,
+          t("errors.sendRequestFailed"),
+        ),
       });
-      setSendRequestOpen(false);
+    } finally {
+      setSendRequestLoading(false);
     }
   };
 
@@ -256,12 +364,13 @@ export default function PublicProfileScreen() {
       !selectedSeekingPet
     )
       return;
-    const blocked = await hasUserBlockRelation(user.id, profileId);
-    if (blocked) {
+    const blockDirection = await getBlockDirection(user.id, profileId);
+    if (blockDirection !== "none") {
       showToast({
         message: t(
-          "messages.blockedNoMessaging",
-          "You cannot message this user because one of you has blocked the other.",
+          blockDirection === "i_blocked"
+            ? "messages.blockedBySelfSend"
+            : "messages.blockedByOtherSend",
         ),
       });
       return;
@@ -271,10 +380,7 @@ export default function PublicProfileScreen() {
     const eligibility = await getRequestEligibility(openReq.id);
     if (!eligibility.eligible) {
       showToast({
-        message: t(
-          "requestDetails.requestClosedForApplications",
-          "This request is no longer accepting applications.",
-        ),
+        message: t("requestDetails.requestClosedForApplications"),
       });
       return;
     }
@@ -286,12 +392,12 @@ export default function PublicProfileScreen() {
         userB: profileId,
         requestId: openReq.id,
       });
-      if (!threadId) throw new Error("Could not create chat thread.");
+      if (!threadId) throw new Error(t("errors.chatThreadCreateFailed"));
 
       const { error: msgError } = await supabase.from("messages").insert({
         thread_id: threadId,
         sender_id: user.id,
-        content: t("common.sendRequest", "Send request"),
+        content: t("common.sendRequest"),
         type: "proposal",
         metadata: { requestId: openReq.id },
       });
@@ -302,10 +408,10 @@ export default function PublicProfileScreen() {
         .update({ last_message_at: new Date().toISOString() })
         .eq("id", threadId);
 
-      const dateRange =
-        openReq.start_date && openReq.end_date
-          ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(openReq.end_date).toLocaleDateString()}`
-          : "";
+      const dateRange = formatRequestDateRange(
+        openReq.start_date,
+        openReq.end_date,
+      );
       const price =
         openReq.start_date && openReq.end_date
           ? formatCarePointsPts(
@@ -317,11 +423,11 @@ export default function PublicProfileScreen() {
 
       setSendRequestOpen(false);
       router.push({
-        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        pathname: "/(private)/chat/[threadId]" as any,
         params: {
           threadId,
           mode: "seeking",
-          petName: selectedSeekingPet.name ?? t("pets.add.name", "Pet"),
+          petName: selectedSeekingPet.name ?? t("pets.add.name"),
           breed: selectedSeekingPet.breed ?? "",
           date: dateRange,
           time: "",
@@ -331,13 +437,10 @@ export default function PublicProfileScreen() {
       });
     } catch (err) {
       showToast({
-        message:
-          err instanceof Error
-            ? err.message
-            : t(
-                "home.sendRequest.sendFailed",
-                "Couldn't send the request right now. Please try again.",
-              ),
+        message: errorMessageFromUnknown(
+          err,
+          t("errors.sendRequestFailed"),
+        ),
       });
     } finally {
       setSendRequestBusy(false);
@@ -348,26 +451,43 @@ export default function PublicProfileScreen() {
     if (!user?.id || !profileId || blockBusy) return;
     setBlockBusy(true);
     try {
-      const { error } = await supabase
-        .from("user_blocks")
-        .upsert(
-          { blocker_id: user.id, blocked_id: profileId },
-          { onConflict: "blocker_id,blocked_id" },
-        );
-      if (error) throw error;
-
+      await blockUser(user.id, profileId);
       setShowBlockConfirm(false);
       setBlockReason("");
+      setBlockStatus("i_blocked");
       showToast({
-        message: t("messages.blockedToast", "User blocked."),
+        message: t("messages.blockedToast"),
       });
-      router.replace("/(private)/(tabs)/(home)" as any);
     } catch (err) {
       showToast({
-        message:
-          err instanceof Error
-            ? err.message
-            : t("common.error", "Something went wrong"),
+        message: errorMessageFromUnknown(
+          err,
+          t("messages.blockUpdateFailed"),
+        ),
+      });
+    } finally {
+      setBlockBusy(false);
+    }
+  };
+
+  const handleUnblock = async () => {
+    if (!user?.id || !profileId || blockBusy) return;
+    setBlockBusy(true);
+    try {
+      await unblockUser(user.id, profileId);
+      setShowUnblockConfirm(false);
+      setBlockStatus("none");
+      showToast({
+        variant: "success",
+        message: t("messages.unblocked"),
+      });
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(
+          err,
+          t("messages.unblockFailed"),
+        ),
       });
     } finally {
       setBlockBusy(false);
@@ -379,7 +499,7 @@ export default function PublicProfileScreen() {
       avatarUri: publicProfile?.avatar_url || null,
       name: resolveDisplayName(publicProfile) || "User",
       location:
-        publicProfile?.city?.trim() || t("profile.noLocation", "No location"),
+        publicProfile?.city?.trim() || t("profile.noLocation"),
       points: publicProfile?.points_balance ?? 0,
       handshakes: 0,
       paws: publicReviews.length,
@@ -442,7 +562,7 @@ export default function PublicProfileScreen() {
         ) : loadError ? (
           <ErrorState
             error={loadError}
-            actionLabel={t("common.retry", "Retry")}
+            actionLabel={t("common.retry")}
             onAction={() => {
               void loadPublicProfile();
             }}
@@ -467,16 +587,16 @@ export default function PublicProfileScreen() {
             {/* Tabs */}
             <TabBar<ProfileTab>
               tabs={[
-                { key: "pets", label: t("profile.pets.tab", "Pets") },
+                { key: "pets", label: t("profile.pets.tab") },
                 {
                   key: "availability",
-                  label: t("profile.edit.availabilityTab", "Availability"),
+                  label: t("profile.edit.availabilityTab"),
                 },
                 {
                   key: "bio",
-                  label: t("auth.signup.profile.bio", "Short Bio"),
+                  label: t("auth.signup.profile.bio"),
                 },
-                { key: "reviews", label: t("profile.reviews", "Reviews") },
+                { key: "reviews", label: t("profile.reviews") },
               ]}
               activeKey={activeTab}
               onChange={setActiveTab}
@@ -570,22 +690,23 @@ export default function PublicProfileScreen() {
                 rating={derived.rating}
                 handshakes={derived.handshakes}
                 paws={derived.paws}
-                items={publicReviews.map((r) => ({
-                  id: r.id,
-                  reviewerId: r.reviewer_id,
-                  name: "Reviewer",
-                  avatar: null,
-                  rating: r.rating ?? 0,
-                  handshakes: 0,
-                  paws: 0,
-                  date: r.created_at
-                    ? new Date(r.created_at).toLocaleDateString()
-                    : "",
-                  review: r.comment || "No review comment.",
-                }))}
+                items={publicReviews.map((r) => {
+                  const rev = reviewerMap[r.reviewer_id] ?? null;
+                  return {
+                    id: r.id,
+                    reviewerId: r.reviewer_id,
+                    name: rev?.full_name?.trim() || "User",
+                    avatar: rev?.avatar_url ?? null,
+                    rating: r.rating ?? 0,
+                    handshakes: rev?.care_given_count ?? 0,
+                    paws: rev?.care_received_count ?? 0,
+                    date: formatReviewRelativeDate(r.created_at),
+                    review: r.comment || "",
+                  };
+                })}
                 onReviewerPress={(reviewerId) => {
                   router.push({
-                    pathname: "/(private)/(tabs)/profile/users/[id]",
+                    pathname: "/(private)/(tabs)/(home)/users/[id]",
                     params: { id: reviewerId },
                   });
                 }}
@@ -598,14 +719,26 @@ export default function PublicProfileScreen() {
 
       <PublicProfileActionsMenu
         visible={optionsVisible}
-        canSendRequest={!sendRequestBusy && Boolean(profileId) && !isOwnProfile}
-        canOpenChat={!chatOpening && Boolean(profileId) && !isOwnProfile}
+        canSendRequest={
+          !sendRequestBusy &&
+          Boolean(profileId) &&
+          !isOwnProfile &&
+          blockStatus === "none"
+        }
+        canOpenChat={
+          !chatOpening &&
+          Boolean(profileId) &&
+          !isOwnProfile &&
+          blockStatus !== "they_blocked"
+        }
+        isBlockedByMe={blockStatus === "i_blocked"}
         colors={colors}
         t={(key, fallback) => t(key, fallback as string)}
         styles={styles}
         onClose={() => setOptionsVisible(false)}
         onSendRequest={() => {
           setOptionsVisible(false);
+          setSendRequestLoading(true);
           setSendRequestOpen(true);
         }}
         onOpenChat={() => {
@@ -620,8 +753,12 @@ export default function PublicProfileScreen() {
             }
           })();
         }}
-        onBlock={() => {
+        onToggleBlock={() => {
           setOptionsVisible(false);
+          if (blockStatus === "i_blocked") {
+            setShowUnblockConfirm(true);
+            return;
+          }
           setShowBlockConfirm(true);
         }}
       />
@@ -631,6 +768,7 @@ export default function PublicProfileScreen() {
         colors={colors}
         styles={styles}
         userPets={userPets}
+        loading={sendRequestLoading}
         selectedSeekingPet={selectedSeekingPet}
         petSendSubtitleById={petSendSubtitleById}
         sendingToName={derived.name || ""}
@@ -648,6 +786,10 @@ export default function PublicProfileScreen() {
             params: userPets?.[0]?.id ? { petId: userPets[0].id } : undefined,
           } as any);
         }}
+        onAddPet={() => {
+          setSendRequestOpen(false);
+          router.push("/(private)/pets/add" as any);
+        }}
       />
 
       <FeedbackModal
@@ -656,7 +798,7 @@ export default function PublicProfileScreen() {
         description={t("profile.blockConfirmDescription")}
         body={
           <Input
-            label={t("messages.blockReasonLabel", "Reason (optional)")}
+            label={t("messages.blockReasonLabel")}
             placeholder={t(
               "messages.blockReasonPlaceholder",
               "Tell us why you are blocking this user",
@@ -685,6 +827,28 @@ export default function PublicProfileScreen() {
           if (blockBusy) return;
           setShowBlockConfirm(false);
           setBlockReason("");
+        }}
+      />
+      <FeedbackModal
+        visible={showUnblockConfirm}
+        title={t("messages.unblock")}
+        description={t(
+          "messages.unblockConfirmDescription",
+          "You’ll be able to message this user again after unblocking them.",
+        )}
+        primaryLabel={t("messages.unblock")}
+        secondaryLabel={t("common.cancel")}
+        primaryLoading={blockBusy}
+        onPrimary={() => {
+          void handleUnblock();
+        }}
+        onSecondary={() => {
+          if (blockBusy) return;
+          setShowUnblockConfirm(false);
+        }}
+        onRequestClose={() => {
+          if (blockBusy) return;
+          setShowUnblockConfirm(false);
         }}
       />
       <ImageViewerModal

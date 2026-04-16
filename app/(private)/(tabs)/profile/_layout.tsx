@@ -14,7 +14,6 @@ export default function ProfileLayout() {
       }}
     >
       <Stack.Screen name="index" />
-      <Stack.Screen name="users/[id]" options={{ title: "Profile" }} />
       <Stack.Screen name="edit" options={{ title: "Edit Profile" }} />
       <Stack.Screen
         name="emergency-contacts"

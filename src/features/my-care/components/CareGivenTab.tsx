@@ -1,4 +1,5 @@
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { CareRow, CareTable } from "./CareTable";
 import { CareTableSkeleton } from "./CareTableSkeleton";
 import { EmptyState } from "./EmptyState";
@@ -32,6 +33,7 @@ export function CareGivenTab({
   onPressPerson,
   onPressPet,
 }: CareGivenTabProps) {
+  const { t } = useTranslation();
   if (loading) {
     return <CareTableSkeleton colors={colors} rowCount={5} />;
   }
@@ -57,7 +59,7 @@ export function CareGivenTab({
     <CareTable
       colors={colors}
       rows={tableRows}
-      headerLabel="Pet owner"
+      headerLabel={t("pet.detail.petOwner")}
       onPressPerson={onPressPerson}
       onPressPet={onPressPet}
     />

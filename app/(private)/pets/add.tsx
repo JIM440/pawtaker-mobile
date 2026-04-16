@@ -19,7 +19,6 @@ import { PageContainer } from "@/src/shared/components/layout";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { StepProgress } from "@/src/shared/components/ui/StepProgress";
 import { useFocusEffect } from "@react-navigation/native";
 import { useRouter } from "expo-router";
@@ -64,10 +63,6 @@ export default function AddPetScreen() {
   const [energyLevel, setEnergyLevel] = useState<string | null>(null);
   const [photos, setPhotos] = useState<string[]>([]);
   const [isSaving, setIsSaving] = useState(false);
-  const [feedbackDialog, setFeedbackDialog] = useState<{
-    title: string;
-    description: string;
-  } | null>(null);
 
   useEffect(() => {
     const backAction = () => {
@@ -127,19 +122,18 @@ export default function AddPetScreen() {
 
   const savePet = async (launchRequest: boolean) => {
     if (!user?.id) {
-      setFeedbackDialog({
-        title: t("common.error", "Something went wrong"),
-        description: t("common.error", "Something went wrong"),
+      showToast({
+        variant: "error",
+        message: t("pets.add.signInRequired"),
+        durationMs: 3000,
       });
       return;
     }
     if (!kind || !breed || !petName.trim()) {
-      setFeedbackDialog({
-        title: t("common.error", "Something went wrong"),
-        description: t(
-          "pets.add.requiredFields",
-          "Please complete required pet fields.",
-        ),
+      showToast({
+        variant: "error",
+        message: t("pets.add.requiredFields"),
+        durationMs: 3000,
       });
       return;
     }
@@ -215,17 +209,10 @@ export default function AddPetScreen() {
         params: { tab: "pets", refreshPets: "true" },
       });
     } catch (err) {
-      const details =
-        err instanceof Error
-          ? err.message
-          : t("common.error", "Something went wrong");
-      const friendly = t(
-        "pets.add.saveFailed",
-        "Couldn't save your pet. Please try again.",
-      );
-      setFeedbackDialog({
-        title: t("common.error", "Something went wrong"),
-        description: `${friendly}\n\nDetails: ${details}`,
+      showToast({
+        variant: "error",
+        message: t("pets.add.saveFailed"),
+        durationMs: 3400,
       });
     } finally {
       setIsSaving(false);
@@ -290,7 +277,7 @@ export default function AddPetScreen() {
             color={colors.onSurface}
             style={styles.question}
           >
-            Just some more details
+            {t("pets.add.moreDetails")}
           </AppText>
 
           <PetPhotoSelector photos={photos} setPhotos={setPhotos} />
@@ -373,14 +360,6 @@ export default function AddPetScreen() {
         )}
       </View>
 
-      <FeedbackModal
-        visible={feedbackDialog !== null}
-        title={feedbackDialog?.title ?? ""}
-        description={feedbackDialog?.description}
-        primaryLabel={t("common.ok", "OK")}
-        onPrimary={() => setFeedbackDialog(null)}
-        onRequestClose={() => setFeedbackDialog(null)}
-      />
     </PageContainer>
   );
 }

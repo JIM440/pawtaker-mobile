@@ -1,6 +1,7 @@
 import { Colors } from "@/src/constants/colors";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
-import { navigateForNotificationPayload } from "@/src/features/notifications/notificationNavigation";
+import { navigateForNotificationPayloadAsync } from "@/src/features/notifications/notificationNavigation";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -48,6 +49,24 @@ function isKycRejectionNotification(n: NotificationItem): boolean {
   return n.type === "kyc_rejected";
 }
 
+function buildPersonAvatarById(
+  usersData:
+    | Array<{ id: string; avatar_url: string | null }>
+    | null
+    | undefined,
+): Map<string, string> {
+  const map = new Map<string, string>();
+  for (const u of usersData ?? []) {
+    if (
+      typeof u.avatar_url === "string" &&
+      u.avatar_url.trim().length > 0
+    ) {
+      map.set(u.id, u.avatar_url.trim());
+    }
+  }
+  return map;
+}
+
 export default function NotificationsScreen() {
   const { t } = useTranslation();
   const router = useRouter();
@@ -71,18 +90,6 @@ export default function NotificationsScreen() {
   } | null>(null);
 
   const menuButtonRefs = useRef<Record<string, View | null>>({});
-
-  const relativeTime = (isoDate: string) => {
-    const now = Date.now();
-    const diffMs = Math.max(0, now - new Date(isoDate).getTime());
-    const mins = Math.floor(diffMs / 60000);
-    if (mins < 1) return "now";
-    if (mins < 60) return `${mins}m`;
-    const hours = Math.floor(mins / 60);
-    if (hours < 24) return `${hours}h`;
-    const days = Math.floor(hours / 24);
-    return `${days}d`;
-  };
 
   const loadNotifications = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) {
@@ -121,6 +128,7 @@ export default function NotificationsScreen() {
         const revieweeId = rawData?.reviewee_id;
         const takerId = rawData?.taker_id;
         const threadId = rawData?.threadId;
+        const senderId = rawData?.sender_id;
 
         if (
           (row.type === "pet_added" || row.type === "care_request_posted") &&
@@ -138,14 +146,28 @@ export default function NotificationsScreen() {
         if (typeof takerId === "string" && takerId.trim().length > 0) {
           personIds.add(takerId);
         }
-        if (row.type === "chat" && typeof threadId === "string" && threadId.trim()) {
+        if (
+          row.type === "chat" &&
+          typeof threadId === "string" &&
+          threadId.trim().length > 0
+        ) {
           threadIds.add(threadId);
+        }
+        if (
+          row.type === "chat" &&
+          typeof senderId === "string" &&
+          senderId.trim().length > 0
+        ) {
+          personIds.add(senderId.trim());
         }
       }
 
       const [{ data: petsData }, { data: threadsData }] = await Promise.all([
         petIds.size > 0
-          ? supabase.from("pets").select("id,photo_urls").in("id", Array.from(petIds))
+          ? supabase
+              .from("pets")
+              .select("id,photo_urls")
+              .in("id", Array.from(petIds))
           : Promise.resolve({ data: [] } as any),
         threadIds.size > 0
           ? supabase
@@ -184,17 +206,15 @@ export default function NotificationsScreen() {
               .select("id,avatar_url")
               .in("id", Array.from(personIds))
           : ({ data: [] } as any);
-      const personAvatarById = new Map<string, string>();
-      for (const u of usersData ?? []) {
-        if (typeof (u as any)?.avatar_url === "string" && (u as any).avatar_url.trim()) {
-          personAvatarById.set((u as any).id, (u as any).avatar_url.trim());
-        }
-      }
+      const personAvatarById = buildPersonAvatarById(
+        usersData as Array<{ id: string; avatar_url: string | null }> | null,
+      );
 
       const mapped: NotificationItem[] = rows.map((row) => {
         const rawData = rawById.get(row.id)?.rawData ?? null;
         const directPetPhoto =
-          typeof rawData?.photo_url === "string" && rawData.photo_url.trim().length > 0
+          typeof rawData?.photo_url === "string" &&
+          rawData.photo_url.trim().length > 0
             ? rawData.photo_url.trim()
             : undefined;
         const petPhoto =
@@ -217,23 +237,39 @@ export default function NotificationsScreen() {
           (typeof rawData?.taker_id === "string"
             ? personAvatarById.get(rawData.taker_id)
             : undefined) ||
-          (threadOtherUserId ? personAvatarById.get(threadOtherUserId) : undefined);
+          (threadOtherUserId
+            ? personAvatarById.get(threadOtherUserId)
+            : undefined);
+
+        const senderIdTrim =
+          typeof rawData?.sender_id === "string"
+            ? rawData.sender_id.trim()
+            : "";
+        const directSenderAvatar =
+          typeof rawData?.sender_avatar_url === "string" &&
+          rawData.sender_avatar_url.trim().length > 0
+            ? rawData.sender_avatar_url.trim()
+            : undefined;
+        const senderImage =
+          directSenderAvatar ||
+          (senderIdTrim ? personAvatarById.get(senderIdTrim) : undefined);
 
         const image =
           row.type === "pet_added" || row.type === "care_request_posted"
             ? petPhoto
             : row.type === "review_received" ||
                 row.type === "review_submitted" ||
-                row.type === "chat" ||
                 row.type === "applied"
               ? personImage
-              : undefined;
+              : row.type === "chat"
+                ? senderImage || personImage
+                : undefined;
 
         return {
           id: row.id,
           title: row.title,
           body: row.body,
-          time: relativeTime(row.created_at),
+          time: formatReviewRelativeDate(row.created_at),
           unread: !row.read,
           type: row.type,
           data: rawData,
@@ -243,7 +279,7 @@ export default function NotificationsScreen() {
       setItems(mapped);
     } catch (err) {
       setLoadError(
-        errorMessageFromUnknown(err, t("common.error", "Something went wrong")),
+        errorMessageFromUnknown(err, t("notifications.loadFailed")),
       );
     } finally {
       setLoading(false);
@@ -302,11 +338,11 @@ export default function NotificationsScreen() {
     setMenuForId(null);
     setMenuPosition(null);
     const { error } = await supabase
-      .from('notifications')
+      .from("notifications")
       .delete()
-      .eq('id', id);
+      .eq("id", id);
     if (error) {
-      console.error('[Notifications] Delete failed:', error.message);
+      console.error("[Notifications] Delete failed:", error.message);
     }
   };
 
@@ -329,18 +365,11 @@ export default function NotificationsScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t("notifications.markReadFailed"),
         ),
         durationMs: 3200,
       });
     }
-  };
-
-  const navigateForNotification = (item: NotificationItem) => {
-    navigateForNotificationPayload(router, {
-      type: item.type ?? "",
-      data: item.data as Record<string, unknown> | null | undefined,
-    });
   };
 
   const handleNotificationPress = (id: string) => {
@@ -350,7 +379,14 @@ export default function NotificationsScreen() {
       if (item.unread) {
         await markNotificationRead(id);
       }
-      navigateForNotification(item);
+      await navigateForNotificationPayloadAsync(
+        router,
+        {
+          type: item.type ?? "",
+          data: item.data as Record<string, unknown> | null | undefined,
+        },
+        { currentUserId: user?.id },
+      );
     })();
   };
 

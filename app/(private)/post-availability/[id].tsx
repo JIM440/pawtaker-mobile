@@ -1,38 +1,43 @@
 import { Colors } from "@/src/constants/colors";
-import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
-import { ensureCareContractForRequest } from "@/src/lib/contracts/ensureCareContract";
-import { createInAppNotification } from "@/src/lib/notifications/in-app";
 import { MyCareContractActionsMenu } from "@/src/features/my-care/components/MyCareContractActionsMenu";
+import {
+  blockUser,
+  getBlockDirection,
+} from "@/src/lib/blocks/user-blocks";
+import { acceptCareRequest } from "@/src/lib/contracts/accept-care-request";
 import {
   isResourceNotFound,
   RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { blockIfKycNotApproved } from "@/src/lib/kyc/kyc-gate";
+import { createInAppNotification } from "@/src/lib/notifications/in-app";
+import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { enforceLocationGate } from "@/src/shared/utils/locationGate";
 import { useThemeStore } from "@/src/lib/store/theme.store";
+import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
+import {
+  errorMessageFromUnknown,
+  isMissingColumnError,
+} from "@/src/lib/supabase/errors";
 import type { TablesRow } from "@/src/lib/supabase/types";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
-import { AppText } from "@/src/shared/components/ui/AppText";
-import { Button } from "@/src/shared/components/ui/Button";
-import { Input } from "@/src/shared/components/ui/Input";
-import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { ViewOfferDetailScreenSkeleton } from "@/src/shared/components/skeletons/DetailScreenSkeleton";
 import { DataState, ResourceMissingState } from "@/src/shared/components/ui";
+import { AppText } from "@/src/shared/components/ui/AppText";
+import { Button } from "@/src/shared/components/ui/Button";
+import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { Input } from "@/src/shared/components/ui/Input";
 import { RatingSummary } from "@/src/shared/components/ui/RatingSummary";
+import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
-import {
-  ChevronLeft,
-  EllipsisVertical,
-  MapPin,
-} from "lucide-react-native";
+import { AlertCircle, Ellipsis, MapPin } from "lucide-react-native";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
-import { useToastStore } from "@/src/lib/store/toast.store";
 
 export default function ViewOfferScreen() {
   const { id: requestId, accepted: acceptedParam } = useLocalSearchParams<{
@@ -41,32 +46,36 @@ export default function ViewOfferScreen() {
   }>();
   const router = useRouter();
   const { t } = useTranslation();
-  const { user } = useAuthStore();
+  const { user, profile } = useAuthStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const [reqRow, setReqRow] = useState<any | null>(null);
+  const [reqRow, setReqRow] = useState<TablesRow<"care_requests"> | null>(null);
   const [petRow, setPetRow] = useState<any | null>(null);
   const [ownerId, setOwnerId] = useState<string | null>(null);
   const [takerId, setTakerId] = useState<string | null>(null);
   const [takerUser, setTakerUser] = useState<any | null>(null);
   const [takerProfile, setTakerProfile] = useState<any | null>(null);
   const [takerReviews, setTakerReviews] = useState<any[]>([]);
+  const [contractRow, setContractRow] = useState<any | null>(null);
   const [contractId, setContractId] = useState<string | null>(null);
+  const [takerAlreadyCaring, setTakerAlreadyCaring] = useState(false);
 
   const [acceptedConfirmOpen, setAcceptedConfirmOpen] = React.useState(false);
   const [accepted, setAccepted] = React.useState(
-    () => acceptedParam === '1' || acceptedParam === 'true',
+    () => acceptedParam === "1" || acceptedParam === "true",
   );
   const [actionsOpen, setActionsOpen] = React.useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = React.useState(false);
   const [showTerminateConfirm, setShowTerminateConfirm] = React.useState(false);
+  // Termination is single-party; no mutual acceptance flow.
   const [showReportConfirm, setShowReportConfirm] = React.useState(false);
   const [reportReason, setReportReason] = React.useState("");
   const [blockReason, setBlockReason] = React.useState("");
   const [busyAction, setBusyAction] = React.useState(false);
+  const [acceptingOffer, setAcceptingOffer] = React.useState(false);
   const showToast = useToastStore((s) => s.showToast);
 
   const load = useCallback(async () => {
@@ -77,12 +86,18 @@ export default function ViewOfferScreen() {
     }
     if (!user?.id) {
       setLoading(false);
-      setError(t("common.error", "Something went wrong"));
+      setError(
+        t(
+          "myCare.contract.offerDetailsLoadFailed",
+          "We couldn't load this offer.",
+        ),
+      );
       return;
     }
 
     setLoading(true);
     setError(null);
+
     try {
       const { data: requestRaw, error: reqError } = await supabase
         .from("care_requests")
@@ -90,6 +105,7 @@ export default function ViewOfferScreen() {
         .eq("id", requestId)
         .maybeSingle();
       if (reqError) throw reqError;
+
       const request = requestRaw as TablesRow<"care_requests"> | null;
       if (!request) {
         setReqRow(null);
@@ -99,21 +115,27 @@ export default function ViewOfferScreen() {
         setTakerUser(null);
         setTakerProfile(null);
         setTakerReviews([]);
+        setContractId(null);
+        setTakerAlreadyCaring(false);
         setError(RESOURCE_NOT_FOUND);
         return;
       }
 
-      const oId = request.owner_id as string;
-      setOwnerId(oId);
+      const currentOwnerId = request.owner_id as string;
+      setOwnerId(currentOwnerId);
 
-      if (user.id !== oId) {
-        setError(t("offer.wrongRecipient", "Only the pet owner can view this offer."));
+      if (user.id !== currentOwnerId) {
         setReqRow(request);
         setPetRow(null);
         setTakerId(null);
         setTakerUser(null);
         setTakerProfile(null);
         setTakerReviews([]);
+        setContractId(null);
+        setTakerAlreadyCaring(false);
+        setError(
+          t("offer.wrongRecipient", "Only the pet owner can view this offer."),
+        );
         return;
       }
 
@@ -129,24 +151,27 @@ export default function ViewOfferScreen() {
         if (threadsError) throw threadsError;
 
         const peerFromParticipants = () => {
-          for (const th of threads ?? []) {
-            const parts = (th.participant_ids ?? []) as string[];
-            if (!parts.includes(oId)) continue;
-            const peer = parts.find((p) => p && p !== oId) ?? null;
+          for (const thread of threads ?? []) {
+            const participants = (thread.participant_ids ?? []) as string[];
+            if (!participants.includes(currentOwnerId)) continue;
+            const peer =
+              participants.find((participant) => participant !== currentOwnerId) ??
+              null;
             if (peer) return peer;
           }
           return null;
         };
 
-        const threadIds = (threads ?? []).map((th) => th.id).filter(Boolean);
+        const threadIds = (threads ?? []).map((thread) => thread.id).filter(Boolean);
         let proposalSenderId: string | null = null;
-        if (threadIds.length) {
+
+        if (threadIds.length > 0) {
           const { data: proposalSenders, error: proposalError } = await supabase
             .from("messages")
             .select("sender_id,created_at")
             .eq("type", "proposal")
             .in("thread_id", threadIds)
-            .neq("sender_id", oId)
+            .neq("sender_id", currentOwnerId)
             .order("created_at", { ascending: false })
             .limit(1);
           if (proposalError) throw proposalError;
@@ -156,51 +181,92 @@ export default function ViewOfferScreen() {
         applicantId = proposalSenderId || peerFromParticipants();
       }
 
-      const [{ data: pet, error: petError }, { data: tUser, error: tUserError }, { data: tProfile, error: tpError }, { data: reviews, error: revError }] =
-        await Promise.all([
-          supabase.from("pets").select("*").eq("id", request.pet_id).maybeSingle(),
-          applicantId
-            ? supabase
-                .from("users")
-                .select(
-                  "id,full_name,avatar_url,city,bio,points_balance,care_given_count,care_received_count",
-                )
-                .eq("id", applicantId)
-                .maybeSingle()
-            : Promise.resolve({ data: null } as any),
-          applicantId
-            ? supabase.from("taker_profiles").select("*").eq("user_id", applicantId).maybeSingle()
-            : Promise.resolve({ data: null } as any),
-          applicantId
-            ? supabase.from("reviews").select("rating").eq("reviewee_id", applicantId)
-            : Promise.resolve({ data: [] } as any),
-        ]);
-
+      const [
+        { data: pet, error: petError },
+        { data: takerUserData, error: takerUserError },
+        { data: takerProfileData, error: takerProfileError },
+        { data: reviewRows, error: reviewError },
+      ] = await Promise.all([
+        supabase.from("pets").select("*").eq("id", request.pet_id).maybeSingle(),
+        applicantId
+          ? supabase
+              .from("users")
+              .select(
+                "id,full_name,avatar_url,city,bio,points_balance,care_given_count,care_received_count",
+              )
+              .eq("id", applicantId)
+              .maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        applicantId
+          ? supabase
+              .from("taker_profiles")
+              .select("*")
+              .eq("user_id", applicantId)
+              .maybeSingle()
+          : Promise.resolve({ data: null } as any),
+        applicantId
+          ? supabase
+              .from("reviews")
+              .select("rating")
+              .eq("reviewee_id", applicantId)
+          : Promise.resolve({ data: [] } as any),
+      ]);
       if (petError) throw petError;
-      if (tUserError) throw tUserError;
-      if (tpError) throw tpError;
-      if (revError) throw revError;
+      if (takerUserError) throw takerUserError;
+      if (takerProfileError) throw takerProfileError;
+      if (reviewError) throw reviewError;
 
       setReqRow(request);
       setPetRow(pet ?? null);
       setTakerId(applicantId);
-      setTakerUser(tUser ?? null);
-      setTakerProfile(tProfile ?? null);
-      setTakerReviews(reviews ?? []);
+      setTakerUser(takerUserData ?? null);
+      setTakerProfile(takerProfileData ?? null);
+      setTakerReviews(reviewRows ?? []);
 
-      if (applicantId) {
-        const { data: existingContract, error: contractErr } = await supabase
+      if (!applicantId) {
+        setContractId(null);
+        setContractRow(null);
+        setTakerAlreadyCaring(false);
+        return;
+      }
+
+      const { data: existingContract, error: contractError } = await supabase
+        .from("contracts")
+        .select("*")
+        .eq("request_id", requestId)
+        .maybeSingle();
+      if (contractError) throw contractError;
+
+      const currentContractId =
+        (existingContract?.id as string | undefined) ?? null;
+      setContractRow(existingContract ?? null);
+      setContractId(currentContractId);
+      setAccepted(Boolean(existingContract?.id || request.status === "accepted"));
+
+      const { data: otherActiveContracts, error: otherActiveError } =
+        await supabase
           .from("contracts")
           .select("id")
-          .eq("request_id", requestId)
-          .maybeSingle();
-        if (contractErr) throw contractErr;
-        setContractId((existingContract?.id as string | undefined) ?? null);
-      } else {
-        setContractId(null);
-      }
+          .eq("taker_id", applicantId)
+          .in("status", ["signed", "active"])
+          .limit(10);
+      if (otherActiveError) throw otherActiveError;
+
+      const otherActiveFiltered = currentContractId
+        ? (otherActiveContracts ?? []).filter(
+            (contract) => contract.id !== currentContractId,
+          )
+        : (otherActiveContracts ?? []);
+      setTakerAlreadyCaring(otherActiveFiltered.length > 0);
     } catch (err) {
-      setError(err instanceof Error ? err.message : t("common.error", "Something went wrong"));
+      setError(
+        err instanceof Error
+          ? err.message
+          : t(
+              "myCare.contract.offerDetailsLoadFailed",
+              "We couldn't load this offer.",
+            ),
+      );
     } finally {
       setLoading(false);
     }
@@ -212,78 +278,126 @@ export default function ViewOfferScreen() {
     }, [load]),
   );
 
+  React.useEffect(() => {
+    if (!contractId) return;
+    const channel = supabase
+      .channel(`owner-offer-contract-${contractId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "contracts",
+          filter: `id=eq.${contractId}`,
+        },
+        (payload) => {
+          setContractRow((prev: any) =>
+            prev ? { ...prev, ...payload.new } : payload.new,
+          );
+        },
+      )
+      .subscribe();
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [contractId]);
+
   const availability = useMemo(() => {
     const raw = takerProfile?.availability_json;
-    return raw && typeof raw === "object" && !Array.isArray(raw) ? (raw as Record<string, any>) : null;
+    return raw && typeof raw === "object" && !Array.isArray(raw)
+      ? (raw as Record<string, any>)
+      : null;
   }, [takerProfile?.availability_json]);
-
-  const formatDaysTime = useMemo(() => {
-    const days = Array.isArray(availability?.days) ? (availability.days as string[]) : [];
-    const start = typeof availability?.startTime === "string" ? availability.startTime : "";
-    const end = typeof availability?.endTime === "string" ? availability.endTime : "";
-    const dayLabel =
-      days.length > 0
-        ? days.join(", ")
-        : t("common.empty", "—");
-    const timeLabel =
-      start && end ? `${start}-${end}` : t("common.empty", "—");
-    return `${dayLabel} | ${timeLabel}`;
-  }, [availability?.days, availability?.endTime, availability?.startTime, t]);
 
   const mapServiceKeyToLabel = useCallback(
     (key: string) => {
-      const k = key === "playwalk" ? "playwalk" : key === "overnight" ? "overnight" : key === "vacation" ? "vacation" : key === "daytime" ? "daytime" : key;
-      return t(`feed.careTypes.${k}` as any);
+      const normalizedKey =
+        key === "playwalk"
+          ? "playwalk"
+          : key === "overnight"
+            ? "overnight"
+            : key === "vacation"
+              ? "vacation"
+              : key === "daytime"
+                ? "daytime"
+                : key;
+      return t(`feed.careTypes.${normalizedKey}` as any);
     },
     [t],
   );
 
-  const careOfferingLabel = useMemo(() => {
-    const services = Array.isArray(availability?.services) ? (availability.services as string[]) : [];
-    if (!services.length) return t("common.empty", "—");
-    return services.map(mapServiceKeyToLabel).join(" • ");
+  const activePillValues = useMemo(() => {
+    const days = Array.isArray(availability?.days)
+      ? (availability.days as string[])
+      : [];
+    const start =
+      typeof availability?.startTime === "string" ? availability.startTime : "";
+    const end =
+      typeof availability?.endTime === "string" ? availability.endTime : "";
+
+    if (days.length > 0 && start && end) {
+      return [`${days.join(", ")} | ${start}-${end}`];
+    }
+
+    return [t("common.empty", "—")];
+  }, [
+    availability?.days,
+    availability?.endTime,
+    availability?.startTime,
+    t,
+  ]);
+
+  const careOfferingPillValues = useMemo(() => {
+    const services = Array.isArray(availability?.services)
+      ? (availability.services as string[])
+      : [];
+    if (!services.length) return [t("common.empty", "—")];
+    return services.map(mapServiceKeyToLabel);
   }, [availability?.services, mapServiceKeyToLabel, t]);
 
-  const careTypesDetail = useMemo(() => {
-    const services = Array.isArray(availability?.services) ? (availability.services as string[]) : [];
-    if (!services.length) return t("common.empty", "—");
-    return services.map(mapServiceKeyToLabel).join(", ");
-  }, [availability?.services, mapServiceKeyToLabel, t]);
-
-  const petOwnerDetail = useMemo(() => {
-    const v = availability?.petOwner;
-    if (v === "yes" || v === true) return t("post.availability.ownerYes");
-    if (v === "no" || v === false) return t("post.availability.ownerNo");
-    return t("common.empty", "—");
+  const petOwnerPillValue = useMemo(() => {
+    const rawValue = availability?.petOwner;
+    if (rawValue === "yes" || rawValue === true) {
+      return [t("post.availability.ownerYes")];
+    }
+    if (rawValue === "no" || rawValue === false) {
+      return [t("post.availability.ownerNo")];
+    }
+    return [t("common.empty", "—")];
   }, [availability?.petOwner, t]);
 
-  const yardDetail = useMemo(() => {
-    const y = typeof availability?.yardType === "string" ? availability.yardType : null;
-    if (!y) {
-      const parsed = parsePetNotes(takerUser?.bio);
-      return parsed.yardType ?? t("common.empty", "—");
-    }
-    return y;
+  const yardPillValue = useMemo(() => {
+    const yardType =
+      typeof availability?.yardType === "string" ? availability.yardType : null;
+    if (yardType) return [yardType];
+
+    const parsed = parsePetNotes(takerUser?.bio);
+    return [parsed.yardType ?? t("common.empty", "—")];
   }, [availability?.yardType, t, takerUser?.bio]);
 
-  const petTypesLabel = useMemo(() => {
+  const acceptedSpecies = useMemo(() => {
     const species = Array.isArray(takerProfile?.accepted_species)
       ? (takerProfile.accepted_species as string[])
       : [];
-    if (!species.length) return t("common.empty", "—");
-    return species.join(" • ");
+    if (!species.length) return [t("common.empty", "—")];
+    return species;
   }, [t, takerProfile?.accepted_species]);
 
   const note = useMemo(() => {
-    const n = typeof availability?.note === "string" ? availability.note.trim() : "";
-    if (n) return n;
+    const availabilityNote =
+      typeof availability?.note === "string" ? availability.note.trim() : "";
+    if (availabilityNote) return availabilityNote;
+
     const bio = typeof takerUser?.bio === "string" ? takerUser.bio.trim() : "";
     return bio || t("profile.bio.empty", "No bio yet.");
   }, [availability?.note, t, takerUser?.bio]);
 
   const rating = useMemo(() => {
     if (!takerReviews.length) return 0;
-    return takerReviews.reduce((sum, r) => sum + (r.rating ?? 0), 0) / takerReviews.length;
+    return (
+      takerReviews.reduce((sum, review) => sum + (review.rating ?? 0), 0) /
+      takerReviews.length
+    );
   }, [takerReviews]);
 
   const offer = useMemo(() => {
@@ -297,36 +411,39 @@ export default function ViewOfferScreen() {
         rating,
         handshakes: takerUser?.care_given_count ?? 0,
         paws: takerUser?.care_received_count ?? 0,
-        petTypes: petTypesLabel,
-        careOffering: careOfferingLabel,
+        petTypes: acceptedSpecies,
+        careOffering: careOfferingPillValues,
         location: takerUser?.city?.trim() || t("profile.noLocation"),
       },
       details: {
-        yardType: yardDetail,
-        active: formatDaysTime,
-        careTypes: careTypesDetail,
-        petOwner: petOwnerDetail,
+        yardType: yardPillValue,
+        active: activePillValues,
+        careTypes: careOfferingPillValues,
+        petOwner: petOwnerPillValue,
       },
       note,
     };
   }, [
+    acceptedSpecies,
+    activePillValues,
     availability?.available,
-    careOfferingLabel,
-    careTypesDetail,
-    formatDaysTime,
+    careOfferingPillValues,
     note,
+    petOwnerPillValue,
     petRow?.name,
-    petOwnerDetail,
-    petTypesLabel,
     rating,
     t,
     takerUser,
-    yardDetail,
+    yardPillValue,
   ]);
+
+  const contractStatus = contractRow?.status as string | undefined;
+  const agreementEnded = contractStatus === "completed";
 
   if (loading) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <BackHeader title="" onBack={() => router.back()} />
         <ScrollView
           style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
@@ -345,7 +462,9 @@ export default function ViewOfferScreen() {
         <ResourceMissingState
           onBack={() => router.back()}
           onHome={() =>
-            router.replace("/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0])
+            router.replace(
+              "/(private)/(tabs)/(home)" as Parameters<typeof router.replace>[0],
+            )
           }
         />
       </View>
@@ -355,8 +474,12 @@ export default function ViewOfferScreen() {
   if (error || !reqRow) {
     return (
       <View style={[styles.screen, { backgroundColor: colors.background }]}>
+        <BackHeader title="" onBack={() => router.back()} />
         <DataState
-          title={t("common.error", "Something went wrong")}
+          title={t(
+            "myCare.contract.offerDetailsLoadFailed",
+            "We couldn't load this offer.",
+          )}
           message={error ?? undefined}
           actionLabel={t("common.retry", "Retry")}
           onAction={() => {
@@ -370,45 +493,87 @@ export default function ViewOfferScreen() {
 
   return (
     <View style={[styles.screen, { backgroundColor: colors.background }]}>
+      <View
+        style={[styles.headerSticky, { backgroundColor: colors.background }]}
+      >
+        <BackHeader
+          onBack={() => router.back()}
+          title={
+            <View style={styles.headerTitleRow}>
+              <AppText variant="body" style={styles.titleLabel}>
+                {t("messages.applyingFor")}
+              </AppText>
+              <TouchableOpacity
+                disabled={!petRow?.id}
+                onPress={() => {
+                  if (!petRow?.id) return;
+                  router.push({
+                    pathname: "/(private)/pets/[id]",
+                    params: { id: petRow.id },
+                  });
+                }}
+              >
+                <AppText
+                  variant="title"
+                  color={colors.primary}
+                  style={styles.titleLink}
+                >
+                  {offer.petName}
+                </AppText>
+              </TouchableOpacity>
+            </View>
+          }
+          rightSlot={
+            accepted ? (
+              <TouchableOpacity
+                style={styles.headerMenuBtn}
+                hitSlop={8}
+                onPress={() => setActionsOpen(true)}
+                activeOpacity={0.9}
+              >
+                <Ellipsis size={22} color={colors.onSurface} />
+              </TouchableOpacity>
+            ) : null
+          }
+        />
+      </View>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.scrollContent}
         showsVerticalScrollIndicator={false}
       >
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn} hitSlop={12}>
-            <ChevronLeft size={24} color={colors.onSurface} />
-          </TouchableOpacity>
-          <View style={styles.titleRow}>
-            <AppText variant="body" style={styles.titleLabel}>
-              {t("messages.applyingFor")}
-            </AppText>
-            <TouchableOpacity
-              disabled={!petRow?.id}
-              onPress={() => {
-                if (!petRow?.id) return;
-                router.push({ pathname: "/(private)/pets/[id]", params: { id: petRow.id } });
-              }}
+        {takerAlreadyCaring ? (
+          <View
+            style={[
+              styles.noticeBanner,
+              { backgroundColor: colors.surfaceContainerHighest },
+            ]}
+          >
+            <AlertCircle size={20} color={colors.onSurfaceVariant} />
+            <AppText
+              variant="body"
+              color={colors.onSurfaceVariant}
+              style={styles.noticeText}
             >
-              <AppText variant="title" color={colors.primary} style={styles.titleLink}>
-                {offer.petName}
-              </AppText>
-            </TouchableOpacity>
+              {t("myCare.contract.takerAlreadyCaring")}
+            </AppText>
           </View>
-        </View>
+        ) : null}
 
-        {/* Taker profile card */}
         <TouchableOpacity
           activeOpacity={0.9}
           onPress={() => {
             if (!takerId) return;
             router.push({
-              pathname: "/(private)/(tabs)/profile/users/[id]",
+                pathname: "/(private)/(tabs)/(home)/users/[id]",
               params: { id: takerId },
             });
           }}
           disabled={!takerId}
-          style={[styles.takerCard, { backgroundColor: colors.surfaceContainerLowest }]}
+          style={[
+            styles.takerCard,
+            { backgroundColor: colors.surfaceContainerLowest },
+          ]}
         >
           <UserAvatar
             uri={offer.taker.avatarUri}
@@ -418,27 +583,25 @@ export default function ViewOfferScreen() {
           />
           <View style={styles.takerBody}>
             <View style={styles.takerTitleRow}>
-              <AppText variant="title" numberOfLines={1} style={styles.takerName}>
+              <AppText
+                variant="title"
+                numberOfLines={1}
+                style={styles.takerName}
+              >
                 {offer.taker.name}
               </AppText>
-              {offer.taker.available && (
-                <View style={[styles.availablePill, { backgroundColor: colors.tertiaryContainer }]}>
+              {offer.taker.available ? (
+                <View
+                  style={[
+                    styles.availablePill,
+                    { backgroundColor: colors.tertiaryContainer },
+                  ]}
+                >
                   <AppText variant="caption" color={colors.onTertiaryContainer}>
                     {t("myCare.available")}
                   </AppText>
                 </View>
-              )}
-              <TouchableOpacity
-                style={styles.menuBtn}
-                hitSlop={8}
-                onPress={() => {
-                  if (!accepted) return;
-                  setActionsOpen(true);
-                }}
-                activeOpacity={0.9}
-              >
-                <EllipsisVertical size={24} color={colors.onSurface} />
-              </TouchableOpacity>
+              ) : null}
             </View>
             <View style={styles.statsRow}>
               <RatingSummary
@@ -447,33 +610,66 @@ export default function ViewOfferScreen() {
                 paws={offer.taker.paws}
               />
             </View>
-            <AppText variant="caption" color={colors.onSurface} style={styles.petTypes}>
-              {offer.taker.petTypes}
+            <AppText
+              variant="caption"
+              color={colors.onSurface}
+              style={styles.inlineMeta}
+            >
+              {offer.taker.petTypes.join(" • ")}
             </AppText>
-            <View style={[styles.carePill, { backgroundColor: colors.surfaceContainer }]}>
-              <AppText variant="caption" color={colors.onSecondaryContainer}>{offer.taker.careOffering}</AppText>
+            <View style={styles.cardPillsRow}>
+              <PillList values={offer.taker.careOffering} colors={colors} />
             </View>
-            <View style={styles.locationRow}>
-              <MapPin size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" color={colors.onSurfaceVariant}>{offer.taker.location}</AppText>
+            <View style={styles.locationPillWrap}>
+              <View
+                style={[
+                  styles.locationPill,
+                  { backgroundColor: colors.surfaceContainer },
+                ]}
+              >
+                <MapPin size={16} color={colors.onSurfaceVariant} />
+                <AppText variant="caption" color={colors.onSurfaceVariant}>
+                  {offer.taker.location}
+                </AppText>
+              </View>
             </View>
           </View>
         </TouchableOpacity>
 
-        {/* Details */}
         <AppText variant="title" style={styles.sectionTitle}>
           {t("requestDetails.details")}
         </AppText>
         <View style={styles.detailGrid}>
-          <DetailRow label={t('requestDetails.yardType')} value={offer.details.yardType} colors={colors} />
-          <DetailRow label={t("myCare.contract.active")} value={offer.details.active} colors={colors} />
-          <DetailRow label={t('requestDetails.careTypes')} value={offer.details.careTypes} colors={colors} />
-          <DetailRow label={t('requestDetails.petOwner')} value={offer.details.petOwner} colors={colors} />
+          <DetailPillGroup
+            label={t("requestDetails.yardType")}
+            values={offer.details.yardType}
+            colors={colors}
+          />
+          <DetailPillGroup
+            label={t("myCare.contract.active")}
+            values={offer.details.active}
+            colors={colors}
+          />
+          <DetailPillGroup
+            label={t("requestDetails.careTypes")}
+            values={offer.details.careTypes}
+            colors={colors}
+          />
+          <DetailPillGroup
+            label={t("requestDetails.petOwner")}
+            values={offer.details.petOwner}
+            colors={colors}
+          />
         </View>
 
-        {/* Note */}
-        <AppText variant="title" style={styles.sectionTitle}>{t("post.availability.note")}</AppText>
-        <AppText variant="body" color={colors.onSurfaceVariant} style={styles.note}>
+        <AppText variant="title" style={styles.sectionTitle}>
+          {t("post.availability.note")}
+        </AppText>
+        <AppText
+          variant="body"
+          color={colors.onSurfaceVariant}
+          style={styles.note}
+        >
           {offer.note}
         </AppText>
 
@@ -498,14 +694,14 @@ export default function ViewOfferScreen() {
       <MyCareContractActionsMenu
         visible={actionsOpen}
         colors={colors}
-        styles={styles}
         t={(key, fallback) => t(key, fallback as string)}
         onClose={() => setActionsOpen(false)}
-        onTerminate={() => {
+        onPrimaryAction={() => {
           setActionsOpen(false);
           setShowTerminateConfirm(true);
         }}
-        terminateDisabled={busyAction}
+        primaryActionLabel={t("myCare.contract.terminate")}
+        primaryActionDisabled={agreementEnded || busyAction}
         onReport={() => {
           setActionsOpen(false);
           setShowReportConfirm(true);
@@ -519,7 +715,10 @@ export default function ViewOfferScreen() {
           if (!contractId) {
             showToast({
               variant: "error",
-              message: t("myCare.review.noContract", "No completed contract found to review yet."),
+              message: t(
+                "myCare.review.noContract",
+                "No completed contract found to review yet.",
+              ),
               durationMs: 3200,
             });
             return;
@@ -536,11 +735,42 @@ export default function ViewOfferScreen() {
 
       <FeedbackModal
         visible={showTerminateConfirm}
-        title={t("myCare.contract.terminateConfirmTitle", "Terminate agreement?")}
-        description={t(
-          "myCare.contract.terminateConfirmDescription",
-          "This action cannot be undone.",
+        title={t(
+          "myCare.contract.terminateConfirmTitle",
+          "Terminate agreement?",
         )}
+        description={t(
+          "myCare.contract.terminateConfirmLead",
+          "This ends the contract immediately.",
+        )}
+        body={
+          <View style={styles.terminateRulesBody}>
+            <AppText variant="label" style={styles.terminateRulesHeading}>
+              {t("myCare.contract.terminateRulesTitle", "How points are handled")}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {t(
+                "myCare.contract.terminateRuleBeforeStart",
+                "Before start date: if owner ends the contract, taker gets 0 points.",
+              )}
+            </AppText>
+            <AppText variant="caption" style={styles.terminateRulesSubheading}>
+              {t("myCare.contract.terminateRuleAfterStartTitle", "After start date")}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {t(
+                "myCare.contract.terminateRuleAfterStartOwner",
+                "Owner ends contract: taker gets full points immediately.",
+              )}
+            </AppText>
+            <AppText variant="caption" color={colors.onSurfaceVariant}>
+              {t(
+                "myCare.contract.terminateRuleAfterStartTaker",
+                "Taker ends contract: taker gets 0 points (owner keeps/gets points back).",
+              )}
+            </AppText>
+          </View>
+        }
         primaryLabel={t("myCare.contract.terminate")}
         secondaryLabel={t("common.cancel")}
         destructive
@@ -553,40 +783,54 @@ export default function ViewOfferScreen() {
             }
             setBusyAction(true);
             try {
-              const { error } = await supabase
+              const nowIso = new Date().toISOString();
+              let { error: contractError } = await supabase
                 .from("contracts")
-                .update({ status: "completed" })
+                .update({
+                  status: "completed",
+                  terminate_requested_by: user?.id ?? null,
+                  terminate_requested_at: nowIso,
+                })
                 .eq("id", contractId);
-              if (error) throw error;
+              if (contractError && isMissingColumnError(contractError)) {
+                const fallback = await supabase
+                  .from("contracts")
+                  .update({ status: "completed" })
+                  .eq("id", contractId);
+                contractError = fallback.error;
+              }
+              if (contractError) throw contractError;
+
               if (requestId) {
                 await supabase
                   .from("care_requests")
-                  .update({ status: "terminated" })
+                  .update({ status: "completed" })
                   .eq("id", requestId);
               }
-              if (takerId) {
-                await createInAppNotification({
-                  userId: takerId,
-                  type: "offer_terminated",
-                  title: t("myCare.contract.terminatedToast", "Agreement ended."),
-                  body: t(
-                    "myCare.contract.terminatedNotificationBody",
-                    "A care agreement was terminated.",
-                  ),
-                  data: { contract_id: contractId, request_id: requestId },
-                });
-              }
-              setAccepted(false);
-              setShowTerminateConfirm(false);
+
+              setContractRow((prev: any) =>
+                prev
+                  ? {
+                      ...prev,
+                      status: "completed",
+                      terminate_requested_by: user?.id ?? null,
+                      terminate_requested_at: nowIso,
+                    }
+                  : prev,
+              );
               showToast({
                 variant: "info",
-                message: t("myCare.contract.terminatedToast", "Agreement ended."),
+                message: t("myCare.contract.terminatedToast"),
                 durationMs: 3000,
               });
+              setShowTerminateConfirm(false);
             } catch (err) {
               showToast({
                 variant: "error",
-                message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+                message: errorMessageFromUnknown(
+                  err,
+                  t("myCare.contract.terminationRequestFailed"),
+                ),
                 durationMs: 3200,
               });
             } finally {
@@ -594,8 +838,14 @@ export default function ViewOfferScreen() {
             }
           })();
         }}
-        onSecondary={() => setShowTerminateConfirm(false)}
-        onRequestClose={() => setShowTerminateConfirm(false)}
+        onSecondary={() => {
+          if (busyAction) return;
+          setShowTerminateConfirm(false);
+        }}
+        onRequestClose={() => {
+          if (busyAction) return;
+          setShowTerminateConfirm(false);
+        }}
       />
 
       <FeedbackModal
@@ -608,7 +858,10 @@ export default function ViewOfferScreen() {
         body={
           <Input
             label={t("messages.reportReasonLabel", "Reason")}
-            placeholder={t("messages.reportReasonPlaceholder", "Describe what happened")}
+            placeholder={t(
+              "messages.reportReasonPlaceholder",
+              "Describe what happened",
+            )}
             value={reportReason}
             onChangeText={setReportReason}
             maxLength={250}
@@ -624,24 +877,30 @@ export default function ViewOfferScreen() {
         onPrimary={() => {
           void (async () => {
             if (!user?.id || !takerId) return;
+
             const details = reportReason.trim();
             if (!details) {
               showToast({
                 variant: "error",
-                message: t("messages.reportReasonRequired", "Please enter a reason."),
+                message: t(
+                  "messages.reportReasonRequired",
+                  "Please enter a reason.",
+                ),
                 durationMs: 2800,
               });
               return;
             }
+
             setBusyAction(true);
             try {
-              const { error } = await supabase.from("reports").insert({
+              const { error: reportError } = await supabase.from("reports").insert({
                 reporter_id: user.id,
                 reported_user_id: takerId,
                 reason: "agreement_report",
                 details,
               });
-              if (error) throw error;
+              if (reportError) throw reportError;
+
               setShowReportConfirm(false);
               setReportReason("");
               showToast({
@@ -652,7 +911,10 @@ export default function ViewOfferScreen() {
             } catch (err) {
               showToast({
                 variant: "error",
-                message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+                message: errorMessageFromUnknown(
+                  err,
+                  t("messages.reportFailed"),
+                ),
                 durationMs: 3200,
               });
             } finally {
@@ -672,8 +934,8 @@ export default function ViewOfferScreen() {
 
       <FeedbackModal
         visible={showBlockConfirm}
-        title={t('messages.blockConfirmTitle')}
-        description={t('messages.blockConfirmDescription')}
+        title={t("messages.blockConfirmTitle")}
+        description={t("messages.blockConfirmDescription")}
         body={
           <Input
             label={t("messages.blockReasonLabel", "Reason (optional)")}
@@ -689,23 +951,45 @@ export default function ViewOfferScreen() {
             containerStyle={{ marginBottom: 0 }}
           />
         }
-        primaryLabel={t('messages.block')}
-        secondaryLabel={t('common.cancel')}
+        primaryLabel={t("messages.block")}
+        secondaryLabel={t("common.cancel")}
         destructive
+        primaryLoading={busyAction}
         onPrimary={() => {
-          setShowBlockConfirm(false);
-          setBlockReason("");
-          showToast({
-            variant: 'info',
-            message: t("messages.blockedToast", "User blocked."),
-            durationMs: 3000,
-          });
+          void (async () => {
+            if (!user?.id || !takerId || busyAction) return;
+
+            setBusyAction(true);
+            try {
+              await blockUser(user.id, takerId);
+              setShowBlockConfirm(false);
+              setBlockReason("");
+              showToast({
+                variant: "info",
+                message: t("messages.blockedToast", "User blocked."),
+                durationMs: 3000,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: errorMessageFromUnknown(
+                  err,
+                  t("messages.blockUpdateFailed"),
+                ),
+                durationMs: 3200,
+              });
+            } finally {
+              setBusyAction(false);
+            }
+          })();
         }}
         onSecondary={() => {
+          if (busyAction) return;
           setShowBlockConfirm(false);
           setBlockReason("");
         }}
         onRequestClose={() => {
+          if (busyAction) return;
           setShowBlockConfirm(false);
           setBlockReason("");
         }}
@@ -717,24 +1001,61 @@ export default function ViewOfferScreen() {
         description={t("myCare.contract.acceptConfirmDescription")}
         primaryLabel={t("myCare.contract.acceptOffer")}
         secondaryLabel={t("common.cancel")}
+        secondaryVariant="outline"
+        primaryLoading={acceptingOffer}
         onPrimary={() => {
-          setAcceptedConfirmOpen(false);
           if (blockIfKycNotApproved()) return;
+          if (!enforceLocationGate(profile, router, showToast, t)) return;
+
           void (async () => {
+            setAcceptingOffer(true);
             try {
               if (!requestId || !ownerId || !takerId) {
-                throw new Error(t("common.error", "Something went wrong"));
+                throw new Error(t("errors.confirmOfferMissingRequest"));
               }
-              const cid = await ensureCareContractForRequest({
+
+              const blockDirection = await getBlockDirection(ownerId, takerId);
+              if (blockDirection !== "none") {
+                throw new Error(
+                  t(
+                    blockDirection === "i_blocked"
+                      ? "messages.blockedBySelfSend"
+                      : "messages.blockedByOtherSend",
+                    blockDirection === "i_blocked"
+                      ? "You blocked this user, so you can't message them."
+                      : "This user blocked you, so you can't message them.",
+                  ),
+                );
+              }
+
+              if (!takerProfile?.user_id) {
+                throw new Error(t("offer.takerAvailabilityMissing"));
+              }
+
+              const acceptance = await acceptCareRequest({
                 requestId,
                 ownerId,
                 takerId,
               });
-              await supabase
-                .from("care_requests")
-                .update({ status: "accepted", taker_id: takerId })
-                .eq("id", requestId)
-                .eq("owner_id", ownerId);
+
+              if (!acceptance.accepted) {
+                throw new Error(
+                  acceptance.selectedTakerId &&
+                    acceptance.selectedTakerId !== takerId
+                    ? t("requestDetails.requestAcceptedByAnother")
+                    : t("requestDetails.requestClosedForApplications"),
+                );
+              }
+
+              if (!acceptance.contractId) {
+                throw new Error(
+                  t(
+                    "myCare.contract.acceptOfferFailed",
+                    "We couldn't create the care contract for this offer.",
+                  ),
+                );
+              }
+
               await createInAppNotification({
                 userId: takerId,
                 type: "offer_accepted",
@@ -743,44 +1064,92 @@ export default function ViewOfferScreen() {
                   "myCare.contract.acceptedNotificationBody",
                   "Your care agreement was accepted.",
                 ),
-                data: { contract_id: cid, request_id: requestId },
+                data: {
+                  contract_id: acceptance.contractId,
+                  request_id: requestId,
+                },
               });
-              setContractId(cid);
+
+              setContractId(acceptance.contractId);
               setAccepted(true);
+              setAcceptedConfirmOpen(false);
               router.push({
                 pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
-                params: { id: cid, accepted: "1" } as any,
+                params: { id: acceptance.contractId, accepted: "1" } as any,
               });
             } catch (err) {
               showToast({
                 variant: "error",
-                message: err instanceof Error ? err.message : t("common.error", "Something went wrong"),
+                message: errorMessageFromUnknown(
+                  err,
+                  t("errors.createContractFailed"),
+                ),
                 durationMs: 3200,
               });
+            } finally {
+              setAcceptingOffer(false);
             }
           })();
         }}
-        onSecondary={() => setAcceptedConfirmOpen(false)}
-        onRequestClose={() => setAcceptedConfirmOpen(false)}
+        onSecondary={() => {
+          if (acceptingOffer) return;
+          setAcceptedConfirmOpen(false);
+        }}
+        onRequestClose={() => {
+          if (acceptingOffer) return;
+          setAcceptedConfirmOpen(false);
+        }}
       />
     </View>
   );
 }
 
-function DetailRow({
-  label,
-  value,
+function PillList({
+  values,
   colors,
 }: {
-  label: string;
-  value: string;
+  values: string[];
   colors: typeof Colors.light | typeof Colors.dark;
 }) {
   return (
-    <View style={styles.detailRow}>
-      <AppText variant="caption" color={colors.onSurfaceVariant}>{label}</AppText>
-      <View style={[styles.detailValue, { backgroundColor: colors.surfaceContainer }]}>
-        <AppText variant="caption" color={colors.onSecondaryContainer}>{value}</AppText>
+    <>
+      {values.map((value, index) => (
+        <View
+          key={`${value}-${index}`}
+          style={[
+            styles.valuePill,
+            { backgroundColor: colors.surfaceContainerHighest },
+          ]}
+        >
+          <AppText variant="caption" color={colors.onSecondaryContainer}>
+            {value}
+          </AppText>
+        </View>
+      ))}
+    </>
+  );
+}
+
+function DetailPillGroup({
+  label,
+  values,
+  colors,
+}: {
+  label: string;
+  values: string[];
+  colors: typeof Colors.light | typeof Colors.dark;
+}) {
+  return (
+    <View style={styles.detailGroup}>
+      <AppText
+        variant="caption"
+        color={colors.onSurfaceVariant}
+        style={styles.detailLabel}
+      >
+        {label}
+      </AppText>
+      <View style={styles.detailPillsRow}>
+        <PillList values={values} colors={colors} />
       </View>
     </View>
   );
@@ -790,36 +1159,53 @@ const styles = StyleSheet.create({
   screen: {
     flex: 1,
   },
+  headerSticky: {
+    zIndex: 2,
+  },
   scroll: {
     flex: 1,
   },
   scrollContent: {
-    padding: 16,
+    paddingHorizontal: 16,
+    paddingTop: 8,
     paddingBottom: 32,
   },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    marginBottom: 16,
-  },
-  backBtn: {
-    padding: 4,
-    marginRight: 8,
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  headerTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexWrap: "wrap",
     flex: 1,
+    minWidth: 0,
+    gap: 4,
   },
   titleLabel: {
     fontSize: 16,
   },
   titleLink: {
-    textDecorationLine: 'underline',
+    textDecorationLine: "underline",
     fontSize: 16,
   },
+  noticeBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 16,
+    borderRadius: 8,
+    marginBottom: 16,
+  },
+  noticeText: {
+    flex: 1,
+  },
+  noticeCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  noticeTitle: {
+    fontWeight: "600",
+  },
   takerCard: {
-    flexDirection: 'row',
+    flexDirection: "row",
     padding: 16,
     borderRadius: 16,
     gap: 12,
@@ -836,8 +1222,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   takerTitleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 8,
   },
   takerName: {
@@ -850,54 +1236,62 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
     borderRadius: 4,
   },
-  menuBtn: {
+  headerMenuBtn: {
     padding: 4,
+    marginLeft: 8,
   },
   statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+    flexDirection: "row",
+    alignItems: "center",
     gap: 6,
   },
-  statPill: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 2,
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 999,
-  },
-  petTypes: {
+  inlineMeta: {
     fontSize: 12,
   },
-  carePill: {
-    alignSelf: 'flex-start',
-    paddingHorizontal: 4,
-    paddingVertical: 2,
-    borderRadius: 999,
+  cardPillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
   },
-  locationRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  locationPillWrap: {
+    flexDirection: "row",
+  },
+  locationPill: {
+    flexDirection: "row",
+    alignItems: "center",
     gap: 4,
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
   },
   sectionTitle: {
     fontSize: 16,
     marginBottom: 12,
   },
   detailGrid: {
-    gap: 12,
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 24,
     marginBottom: 24,
   },
-  detailRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
+  detailGroup: {
+    gap: 4,
+    minWidth: 80,
+    maxWidth: "48%",
   },
-  detailValue: {
-    paddingHorizontal: 8,
-    paddingVertical: 4,
+  detailLabel: {
+    paddingHorizontal: 6,
+  },
+  detailPillsRow: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: 6,
+  },
+  valuePill: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
     borderRadius: 999,
+    alignSelf: "flex-start",
   },
   note: {
     marginBottom: 24,
@@ -907,25 +1301,35 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   disclaimer: {
-    textAlign: 'center',
+    textAlign: "center",
+  },
+  terminateRulesBody: {
+    gap: 6,
+  },
+  terminateRulesHeading: {
+    fontWeight: "700",
+  },
+  terminateRulesSubheading: {
+    fontWeight: "600",
+    marginTop: 2,
   },
   actionsOverlay: {
-    position: 'absolute',
+    position: "absolute",
     top: 0,
     right: 0,
     bottom: 0,
     left: 0,
-    alignItems: 'flex-end',
+    alignItems: "flex-end",
     paddingTop: 60,
     paddingRight: 16,
-    backgroundColor: 'transparent',
+    backgroundColor: "transparent",
   },
   actionsCard: {
     width: 172,
     borderRadius: 8,
     borderWidth: 1,
-    overflow: 'hidden',
-    shadowColor: '#000',
+    overflow: "hidden",
+    shadowColor: "#000",
     shadowOffset: { width: 0, height: 12 },
     shadowOpacity: 0.1,
     shadowRadius: 16,
@@ -937,7 +1341,7 @@ const styles = StyleSheet.create({
     height: 48,
     paddingHorizontal: 16,
     paddingVertical: 4,
-    justifyContent: 'center',
+    justifyContent: "center",
   },
   menuDivider: {
     height: 1,

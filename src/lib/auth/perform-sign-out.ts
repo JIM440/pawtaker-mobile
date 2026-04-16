@@ -1,7 +1,7 @@
 import * as SecureStore from "expo-secure-store";
 import { Platform } from "react-native";
 
-import { removeSavedPushToken } from "@/src/lib/notifications/push";
+import { removeAllSavedPushTokens } from "@/src/lib/notifications/push";
 import { supabase, SUPABASE_AUTH_STORAGE_KEY } from "@/src/lib/supabase/client";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useForgotPasswordStore } from "@/src/lib/store/forgotPassword.store";
@@ -32,7 +32,8 @@ export async function wipeAuthStorageAndClientState(): Promise<void> {
   const uid = useAuthStore.getState().user?.id;
   if (uid) {
     try {
-      await removeSavedPushToken(uid);
+      // Delete all tokens for this user while we still have an authenticated session.
+      await removeAllSavedPushTokens(uid);
     } catch {
       /* non-blocking */
     }

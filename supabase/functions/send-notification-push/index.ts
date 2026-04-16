@@ -14,7 +14,8 @@
  * Deploy: supabase functions deploy send-notification-push --no-verify-jwt
  */
 
-import { createClient } from "https://esm.sh/@supabase/supabase-js@2.49.4";
+// @ts-ignore - Deno/Supabase Edge resolves npm: specifiers at runtime.
+import { createClient } from "npm:@supabase/supabase-js@2.49.4";
 
 const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Origin": "*",
@@ -114,6 +115,15 @@ Deno.serve(async (req) => {
       type: record.type ?? "unknown",
       notificationId: record.id ?? "",
     };
+    const imageCandidate =
+      (typeof extra?.photo_url === "string" && extra.photo_url.trim().length > 0
+        ? extra.photo_url.trim()
+        : null) ||
+      (typeof extra?.sender_avatar_url === "string" &&
+      extra.sender_avatar_url.trim().length > 0
+        ? extra.sender_avatar_url.trim()
+        : null) ||
+      null;
 
     const messages = tokens.map((to: string) => ({
       to,
@@ -122,6 +132,9 @@ Deno.serve(async (req) => {
       data: dataPayload,
       sound: "default" as const,
       priority: "high" as const,
+      ...(imageCandidate
+        ? { richContent: { image: imageCandidate } }
+        : {}),
     }));
 
     const res = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -135,7 +148,10 @@ Deno.serve(async (req) => {
       body: JSON.stringify(messages),
     });
 
-    const expoJson = await res.json().catch(() => ({}));
+    const expoJson = (await res.json().catch(() => ({}))) as Record<
+      string,
+      unknown
+    >;
     if (!res.ok) {
       console.error("expo push", res.status, expoJson);
       return new Response(
@@ -147,8 +163,38 @@ Deno.serve(async (req) => {
       );
     }
 
+    // HTTP 200 but each message has a ticket: ok | error (see Expo push docs).
+    const tickets = Array.isArray(expoJson.data) ? expoJson.data : [];
+    const ticketErrors = tickets.filter(
+      (t: unknown) =>
+        t &&
+        typeof t === "object" &&
+        (t as { status?: string }).status === "error",
+    );
+    if (ticketErrors.length > 0) {
+      console.error(
+        "send-notification-push: some Expo tickets failed",
+        ticketErrors,
+      );
+    }
+    const okCount = tickets.filter(
+      (t: unknown) =>
+        t &&
+        typeof t === "object" &&
+        (t as { status?: string }).status === "ok",
+    ).length;
+
+    const allTicketsFailed =
+      tickets.length > 0 && okCount === 0 && ticketErrors.length === tickets.length;
+
     return new Response(
-      JSON.stringify({ ok: true, sent: tokens.length, expo: expoJson }),
+      JSON.stringify({
+        ok: !allTicketsFailed,
+        sent: okCount,
+        attempted: tokens.length,
+        ...(allTicketsFailed ? { error: "all_expo_tickets_failed" } : {}),
+        expo: expoJson,
+      }),
       {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },

@@ -1,5 +1,6 @@
 import { Colors } from '@/src/constants/colors';
 import { useThemeStore } from '@/src/lib/store/theme.store';
+import { AppImage } from '@/src/shared/components/ui/AppImage';
 import { Bell, X } from 'lucide-react-native';
 import { useEffect, useRef } from 'react';
 import {
@@ -71,6 +72,14 @@ export function NotificationToast({ notification, onDismiss, onPress }: Props) {
 
   if (!notification) return null;
 
+  const d = notification.data;
+  const senderUri =
+    d?.messageType === 'proposal' &&
+    typeof d?.sender_avatar_url === 'string' &&
+    d.sender_avatar_url.trim().length > 0
+      ? d.sender_avatar_url.trim()
+      : null;
+
   return (
     <Animated.View
       style={[
@@ -96,9 +105,17 @@ export function NotificationToast({ notification, onDismiss, onPress }: Props) {
           },
         ]}
       >
-        <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight + '22' }]}>
-          <Bell size={20} color={colors.primary} />
-        </View>
+        {senderUri ? (
+          <AppImage
+            source={{ uri: senderUri }}
+            style={styles.avatar}
+            contentFit="cover"
+          />
+        ) : (
+          <View style={[styles.iconContainer, { backgroundColor: colors.primaryLight + '22' }]}>
+            <Bell size={20} color={colors.primary} />
+          </View>
+        )}
 
         <View style={styles.textContainer}>
           <Text
@@ -148,6 +165,12 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     justifyContent: 'center',
     alignItems: 'center',
+    marginRight: 12,
+  },
+  avatar: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
     marginRight: 12,
   },
   textContainer: {

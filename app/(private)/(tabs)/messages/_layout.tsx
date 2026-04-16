@@ -14,7 +14,6 @@ export default function MessagesLayout() {
       }}
     >
       <Stack.Screen name="index" />
-      <Stack.Screen name="[threadId]" options={{ headerShown: false }} />
     </Stack>
   );
 }

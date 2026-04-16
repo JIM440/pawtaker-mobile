@@ -81,10 +81,10 @@ export function ToastHost() {
             accessibilityRole="button"
             accessibilityLabel="Close toast"
             onPress={hideToast}
-            hitSlop={10}
+            hitSlop={{ top: 12, bottom: 12, left: 8, right: 8 }}
             style={styles.closeBtn}
           >
-            <X size={24} color={variantStyles.textColor} />
+            <X size={20} color={variantStyles.textColor} />
           </Pressable>
         </View>
       </View>
@@ -107,13 +107,12 @@ const styles = StyleSheet.create({
   },
   toast: {
     flexDirection: "row",
-    alignItems: "flex-start",
+    alignItems: "center",
     width: "100%",
     minHeight: 48,
     paddingLeft: 16,
-    paddingTop: 10,
-    paddingBottom: 10,
-    paddingRight: 0,
+    paddingVertical: 12,
+    paddingRight: 4,
     borderRadius: 4,
     ...Platform.select({
       ios: {
@@ -129,14 +128,14 @@ const styles = StyleSheet.create({
   },
   iconLeft: {
     width: 28,
-    minHeight: 28,
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
     marginRight: 10,
   },
   textWrap: {
     flex: 1,
-    paddingRight: 8,
+    paddingRight: 4,
+    justifyContent: "center",
   },
   message: {
     fontSize: 14,
@@ -144,11 +143,12 @@ const styles = StyleSheet.create({
     fontWeight: "400",
     letterSpacing: 0.25,
   },
+  /** Compact so row height follows text; minHeight 48 on toast. hitSlop widens the tap target. */
   closeBtn: {
-    width: 48,
-    height: 48,
+    width: 36,
+    height: 24,
     alignItems: "center",
-    justifyContent: "flex-start",
+    justifyContent: "center",
   },
 });
 

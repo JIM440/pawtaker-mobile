@@ -1,10 +1,14 @@
 import { Colors } from "@/src/constants/colors";
 import { ProfileHeader } from "@/src/features/profile/components/ProfileHeader";
 import { ProfileTabContent } from "@/src/features/profile/components/ProfileTabContent";
+import { useFocusEffect } from "@react-navigation/native";
+import { completeExpiredContractsForUser } from "@/src/lib/contracts/complete-expired-contracts";
+import { countCanonicalCare } from "@/src/lib/contracts/count-canonical-care";
 import {
   formatRequestDateRange,
   formatRequestTimeRange,
 } from "@/src/lib/datetime/request-date-time-format";
+import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
@@ -13,6 +17,7 @@ import {
   errorMessageFromUnknown,
   isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
+import { isRequestSeekingActive } from "@/src/lib/requests/is-request-seeking-active";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PageContainer } from "@/src/shared/components/layout";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
@@ -22,7 +27,7 @@ import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
 import { router, useLocalSearchParams } from "expo-router";
 import { Settings } from "lucide-react-native";
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   RefreshControl,
@@ -34,13 +39,19 @@ import {
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
 
+const ALLOWED_PROFILE_TABS: ProfileTab[] = [
+  "pets",
+  "availability",
+  "bio",
+  "reviews",
+];
+
 export default function ProfileScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const { user, profile, fetchProfile } = useAuthStore();
   const colors = Colors[resolvedTheme];
   const [refreshing, setRefreshing] = useState(false);
-  const [activeTab, setActiveTab] = useState<ProfileTab>("pets");
   const [avatarViewerOpen, setAvatarViewerOpen] = useState(false);
   const [deletePetId, setDeletePetId] = useState<string | null>(null);
   const [deletePetLoading, setDeletePetLoading] = useState(false);
@@ -52,6 +63,13 @@ export default function ProfileScreen() {
     refreshAvailability?: string;
     refreshReviews?: string;
   }>();
+
+  const [activeTab, setActiveTab] = useState<ProfileTab>(() => {
+    const raw = params.tab;
+    return ALLOWED_PROFILE_TABS.includes(raw as ProfileTab)
+      ? (raw as ProfileTab)
+      : "pets";
+  });
 
   const [pets, setPets] = useState<any[]>([]);
   const [petsLoading, setPetsLoading] = useState(false);
@@ -73,12 +91,13 @@ export default function ProfileScreen() {
   const [reviewsError, setReviewsError] = useState<string | null>(null);
 
   const [reviewersById, setReviewersById] = useState<Record<string, any>>({});
-  const [completedContractsCount, setCompletedContractsCount] = useState(0);
-  /** Header badges (handshakes / review avg / count) — loaded once per user, not tied to reviews tab. */
+  /** Header badges (review avg / count) — loaded once per user, not tied to reviews tab. */
   const [headerReviewStats, setHeaderReviewStats] = useState({
-    count: 0,
     avg: 0,
   });
+
+  /** Canonical care counts — from completed contracts where start_date has passed. */
+  const [canonicalCare, setCanonicalCare] = useState({ careGiven: 0, careReceived: 0 });
 
   /** Header (avatar, stats) + tab strip: wait for `users` row fetch; tab bodies keep their own loaders. */
   const [profileHeaderLoading, setProfileHeaderLoading] = useState(true);
@@ -99,7 +118,11 @@ export default function ProfileScreen() {
     setProfileHeaderLoading(true);
     void (async () => {
       try {
-        await fetchProfile(user.id);
+        const [, counts] = await Promise.all([
+          fetchProfile(user.id),
+          countCanonicalCare(user.id),
+        ]);
+        if (!cancelled) setCanonicalCare(counts);
       } finally {
         if (!cancelled) setProfileHeaderLoading(false);
       }
@@ -111,13 +134,9 @@ export default function ProfileScreen() {
 
   useEffect(() => {
     const requestedTabRaw = params.tab;
-    const allowedTabs: ProfileTab[] = [
-      "pets",
-      "availability",
-      "bio",
-      "reviews",
-    ];
-    const requestedTab = allowedTabs.includes(requestedTabRaw as ProfileTab)
+    const requestedTab = ALLOWED_PROFILE_TABS.includes(
+      requestedTabRaw as ProfileTab,
+    )
       ? (requestedTabRaw as ProfileTab)
       : undefined;
     if (requestedTab) setActiveTab(requestedTab);
@@ -140,7 +159,7 @@ export default function ProfileScreen() {
     refreshAvailabilityFlag,
     refreshReviewsFlag,
   ]);
-  const loadPetsTab = async (opts?: { refresh?: boolean }) => {
+  const loadPetsTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setPetsLoading(true);
     setPetsError(null);
@@ -160,7 +179,9 @@ export default function ProfileScreen() {
       if (petIds.length > 0) {
         const { data: openReqs, error: openReqErr } = await supabase
           .from("care_requests")
-          .select("pet_id,start_date,end_date,start_time,end_time,created_at")
+          .select(
+            "pet_id,start_date,end_date,start_time,end_time,created_at,status,taker_id",
+          )
           .eq("owner_id", user.id)
           .eq("status", "open")
           .in("pet_id", petIds)
@@ -173,6 +194,7 @@ export default function ProfileScreen() {
         for (const req of openReqs ?? []) {
           const pid = req?.pet_id as string | undefined;
           if (!pid) continue;
+          if (!isRequestSeekingActive(req)) continue;
           if (!openRequestsByPetId[pid]) openRequestsByPetId[pid] = req;
         }
       }
@@ -180,15 +202,14 @@ export default function ProfileScreen() {
       const petsWithSeeking = basePets.map((p: any) => {
         const pid = p?.id as string | undefined;
         const req = pid ? openRequestsByPetId[pid] : undefined;
+        const isSeeking = isRequestSeekingActive(req);
 
-        const seekingDateRange = formatRequestDateRange(
-          req?.start_date,
-          req?.end_date,
-        );
-        const seekingTime = formatRequestTimeRange(
-          req?.start_time,
-          req?.end_time,
-        );
+        const seekingDateRange = isSeeking
+          ? formatRequestDateRange(req?.start_date, req?.end_date)
+          : undefined;
+        const seekingTime = isSeeking
+          ? formatRequestTimeRange(req?.start_time, req?.end_time)
+          : undefined;
 
         return {
           ...p,
@@ -200,11 +221,11 @@ export default function ProfileScreen() {
       setPets(petsWithSeeking);
       setPetsLoaded(true);
     } catch (err) {
-      setPetsError(errorMessageFromUnknown(err, "Failed to load pets."));
+      setPetsError(errorMessageFromUnknown(err, t("errors.loadPets")));
     } finally {
       setPetsLoading(false);
     }
-  };
+  }, [user?.id, t]);
 
   const confirmDeletePet = async () => {
     if (!user?.id || !deletePetId) return;
@@ -219,7 +240,7 @@ export default function ProfileScreen() {
 
       showToast({
         variant: "success",
-        message: t("pets.delete.success", "Pet deleted."),
+        message: t("pets.delete.success"),
         durationMs: 2400,
       });
       setDeletePetId(null);
@@ -230,10 +251,7 @@ export default function ProfileScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "pets.delete.failed",
-            "Couldn't delete this pet. Please try again.",
-          ),
+          t("errors.deletePetFailed"),
         ),
         durationMs: 3200,
       });
@@ -242,7 +260,7 @@ export default function ProfileScreen() {
     }
   };
 
-  const loadAvailabilityTab = async (opts?: { refresh?: boolean }) => {
+  const loadAvailabilityTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setAvailabilityLoading(true);
     setAvailabilityError(null);
@@ -268,43 +286,33 @@ export default function ProfileScreen() {
       setAvailabilityLoaded(true);
     } catch (err) {
       setAvailabilityError(
-        errorMessageFromUnknown(err, "Failed to load availability."),
+        errorMessageFromUnknown(err, t("errors.loadAvailability")),
       );
     } finally {
       setAvailabilityLoading(false);
     }
-  };
+  }, [user?.id, t]);
 
-  const loadHeaderStats = async () => {
+  const loadHeaderStats = useCallback(async () => {
     if (!user?.id) return;
     try {
-      const [
-        { data: contractsRows, error: cErr },
-        { data: ratingRows, error: rErr },
-      ] = await Promise.all([
-        supabase
-          .from("contracts")
-          .select("id")
-          .or(`owner_id.eq.${user.id},taker_id.eq.${user.id}`)
-          .eq("status", "completed"),
-        supabase.from("reviews").select("rating").eq("reviewee_id", user.id),
-      ]);
-      if (!cErr) {
-        setCompletedContractsCount((contractsRows ?? []).length);
-      }
+      const { data: ratingRows, error: rErr } = await supabase
+        .from("reviews")
+        .select("rating")
+        .eq("reviewee_id", user.id);
       if (!rErr) {
         const rows = (ratingRows ?? []) as { rating: number | null }[];
         const n = rows.length;
         const avg =
           n > 0 ? rows.reduce((s, x) => s + (x.rating ?? 0), 0) / n : 0;
-        setHeaderReviewStats({ count: n, avg });
+        setHeaderReviewStats({ avg });
       }
     } catch {
       /* non-blocking for header */
     }
-  };
+  }, [user?.id]);
 
-  const loadReviewsTab = async (opts?: { refresh?: boolean }) => {
+  const loadReviewsTab = useCallback(async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
     if (!opts?.refresh) setReviewsLoading(true);
     setReviewsError(null);
@@ -327,7 +335,7 @@ export default function ProfileScreen() {
       if (uniqueReviewerIds.length > 0) {
         const { data: reviewerUsers, error: reviewerUsersErr } = await supabase
           .from("users")
-          .select("id,full_name,avatar_url")
+          .select("id,full_name,avatar_url,care_given_count,care_received_count")
           .in("id", uniqueReviewerIds);
 
         if (
@@ -348,55 +356,89 @@ export default function ProfileScreen() {
       setReviewersById(reviewerMap);
       setReviewsLoaded(true);
     } catch (err) {
-      setReviewsError(errorMessageFromUnknown(err, "Failed to load reviews."));
+      setReviewsError(errorMessageFromUnknown(err, t("errors.loadReviews")));
     } finally {
       setReviewsLoading(false);
     }
-  };
+  }, [user?.id, t]);
 
   useEffect(() => {
     if (!user?.id) return;
     void loadHeaderStats();
-  }, [user?.id]);
+  }, [loadHeaderStats, user?.id]);
 
   useEffect(() => {
-    if (!user?.id || activeTab !== "pets") return;
+    if (!user?.id) return;
+    if (activeTab !== "pets") return;
     if (petsLoaded || petsLoading || petsError) return;
     void loadPetsTab();
-  }, [user?.id, activeTab, petsLoaded, petsLoading, petsError]);
+  }, [
+    activeTab,
+    loadPetsTab,
+    petsError,
+    petsLoaded,
+    petsLoading,
+    user?.id,
+  ]);
 
   useEffect(() => {
-    if (!user?.id || activeTab !== "availability") return;
+    if (!user?.id) return;
+    if (activeTab !== "availability") return;
     if (availabilityLoaded || availabilityLoading || availabilityError) return;
     void loadAvailabilityTab();
   }, [
-    user?.id,
     activeTab,
+    loadAvailabilityTab,
+    user?.id,
     availabilityLoaded,
     availabilityLoading,
     availabilityError,
   ]);
 
   useEffect(() => {
-    if (!user?.id || activeTab !== "reviews") return;
+    if (!user?.id) return;
+    if (activeTab !== "reviews") return;
     if (reviewsLoaded || reviewsLoading || reviewsError) return;
     void loadReviewsTab();
-  }, [user?.id, activeTab, reviewsLoaded, reviewsLoading, reviewsError]);
+  }, [
+    activeTab,
+    loadReviewsTab,
+    reviewsError,
+    reviewsLoaded,
+    reviewsLoading,
+    user?.id,
+  ]);
+
+  const refreshScreenData = useCallback(async () => {
+    if (!user?.id) return;
+
+    await completeExpiredContractsForUser(user.id);
+    await fetchProfile(user.id);
+    await Promise.all([
+      loadHeaderStats(),
+      loadPetsTab({ refresh: true }),
+      loadAvailabilityTab({ refresh: true }),
+      loadReviewsTab({ refresh: true }),
+    ]);
+  }, [
+    fetchProfile,
+    loadAvailabilityTab,
+    loadHeaderStats,
+    loadPetsTab,
+    loadReviewsTab,
+    user?.id,
+  ]);
+
+  useFocusEffect(
+    useCallback(() => {
+      void refreshScreenData();
+    }, [refreshScreenData]),
+  );
 
   const onRefresh = async () => {
     setRefreshing(true);
     try {
-      if (user?.id) {
-        await fetchProfile(user.id);
-      }
-      await loadHeaderStats();
-      if (activeTab === "availability") {
-        await loadAvailabilityTab({ refresh: true });
-      } else if (activeTab === "reviews") {
-        await loadReviewsTab({ refresh: true });
-      } else if (activeTab === "pets") {
-        await loadPetsTab({ refresh: true });
-      }
+      await refreshScreenData();
       // "bio" tab uses `profile` from the store — refreshed via fetchProfile above.
     } finally {
       setRefreshing(false);
@@ -404,8 +446,8 @@ export default function ProfileScreen() {
   };
 
   const profileData = useMemo(() => {
-    const loadingName = t("common.loading", "Loading...");
-    const defaultName = t("profile.defaultName", "Pawtaker User");
+    const loadingName = t("common.loading");
+    const defaultName = t("profile.defaultName");
     const name = profileHeaderLoading
       ? loadingName
       : profile?.full_name?.trim() || defaultName;
@@ -417,22 +459,19 @@ export default function ProfileScreen() {
         ? loadingName
         : profile?.city?.trim()
           ? profile.city.trim()
-          : t("profile.noLocation", "No location"),
+          : t("profile.noLocation"),
       points: profile?.points_balance ?? 0,
-      handshakes: completedContractsCount,
-      paws: headerReviewStats.count,
+      handshakes: canonicalCare.careGiven,
+      paws: canonicalCare.careReceived,
       rating: headerReviewStats.avg,
       currentTask: undefined as string | undefined,
     };
   }, [
-    completedContractsCount,
+    canonicalCare,
     headerReviewStats.avg,
-    headerReviewStats.count,
     profile,
     profileHeaderLoading,
     t,
-    user?.email,
-    user?.user_metadata,
   ]);
 
   const reviewsUiItems = useMemo(
@@ -442,16 +481,17 @@ export default function ProfileScreen() {
         return {
           id: item.id,
           reviewerId: item.reviewer_id,
-          name: resolveDisplayName(reviewer) || "Anonymous",
+          name:
+            resolveDisplayName(reviewer) || t("profile.anonymousReviewer"),
           avatar: reviewer?.avatar_url || null,
           rating: item.rating ?? 0,
-          handshakes: 0,
-          paws: 0,
-          date: new Date(item.created_at).toLocaleDateString(),
-          review: item.comment || "No review comment.",
+          handshakes: reviewer?.care_given_count ?? 0,
+          paws: reviewer?.care_received_count ?? 0,
+          date: formatReviewRelativeDate(item.created_at),
+          review: item.comment || t("profile.emptyReviewComment"),
         };
       }),
-    [reviewersById, reviews],
+    [reviewersById, reviews, t],
   );
 
   return (
@@ -463,7 +503,7 @@ export default function ProfileScreen() {
           style={styles.title}
           color={colors.onSurface}
         >
-          {t("profile.title", "Profile")}
+          {t("profile.title")}
         </AppText>
         <View style={styles.headerActions}>
           <TouchableOpacity
@@ -475,7 +515,7 @@ export default function ProfileScreen() {
               color={colors.onSurface}
               style={styles.editLink}
             >
-              {t("settings.editProfile", "Edit Profile")}
+              {t("settings.editProfile")}
             </AppText>
           </TouchableOpacity>
           <TouchableOpacity
@@ -522,16 +562,16 @@ export default function ProfileScreen() {
 
             <TabBar<ProfileTab>
               tabs={[
-                { key: "pets", label: t("profile.edit.petsTab", "Your Pets") },
+                { key: "pets", label: t("profile.edit.petsTab") },
                 {
                   key: "availability",
-                  label: t("profile.edit.availabilityTab", "Availability"),
+                  label: t("profile.edit.availabilityTab"),
                 },
                 {
                   key: "bio",
-                  label: t("auth.signup.profile.bio", "Short Bio"),
+                  label: t("auth.signup.profile.bio"),
                 },
-                { key: "reviews", label: t("profile.reviews", "Reviews") },
+                { key: "reviews", label: t("profile.reviews") },
               ]}
               activeKey={activeTab}
               onChange={setActiveTab}
@@ -542,7 +582,7 @@ export default function ProfileScreen() {
 
         <ProfileTabContent
           activeTab={activeTab}
-          t={(key, fallback) => t(key, fallback as string)}
+          t={t as any}
           petsLoading={petsLoading}
           petsError={petsError}
           setPetsError={setPetsError}
@@ -581,15 +621,12 @@ export default function ProfileScreen() {
 
       <FeedbackModal
         visible={deletePetId !== null}
-        title={t("common.deleteConfirmTitle", "Delete pet?")}
-        description={t(
-          "common.deleteConfirmMessage",
-          "This will permanently delete the pet from your account.",
-        )}
-        primaryLabel={t("common.delete", "Delete")}
+        title={t("common.deleteConfirmTitle")}
+        description={t("common.deleteConfirmMessage")}
+        primaryLabel={t("common.delete")}
         onPrimary={() => void confirmDeletePet()}
         primaryLoading={deletePetLoading}
-        secondaryLabel={t("common.cancel", "Cancel")}
+        secondaryLabel={t("common.cancel")}
         onSecondary={() => !deletePetLoading && setDeletePetId(null)}
         onRequestClose={() => !deletePetLoading && setDeletePetId(null)}
         destructive

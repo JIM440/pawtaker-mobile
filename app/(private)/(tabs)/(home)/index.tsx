@@ -1,46 +1,52 @@
 import { Colors } from "@/src/constants/colors";
-import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
 import { SearchFilterStyles } from "@/src/constants/searchFilter";
-import { filterOutBlockedUsers, hasUserBlockRelation } from "@/src/lib/blocks/user-blocks";
+import { HomeTakerActionsMenu } from "@/src/features/home/components/home-taker-actions-menu";
+import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
+import {
+    filterOutBlockedUsers,
+    getBlockDirection,
+} from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
-import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
+import {
+    formatRequestDateRange,
+    formatRequestTimeRange,
+} from "@/src/lib/datetime/request-date-time-format";
 import { blockIfKycNotApproved, isKycApproved } from "@/src/lib/kyc/kyc-gate";
+import { useLocationGate } from "@/src/lib/location/useLocationGate";
+import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
+import { useUnreadNotificationCount } from "@/src/lib/notifications/useUnreadNotificationCount";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
 import { petGalleryUrls } from "@/src/lib/pets/petGalleryUrls";
 import {
-  formatCarePointsPts,
-  normalizeCareTypeForPoints,
+    formatCarePointsPts,
+    normalizeCareTypeForPoints,
 } from "@/src/lib/points/carePoints";
-import { useUnreadNotificationCount } from "@/src/lib/notifications/useUnreadNotificationCount";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import {
-  errorMessageFromUnknown,
-  isMissingBackendResourceError,
+    errorMessageFromUnknown,
+    isMissingBackendResourceError,
 } from "@/src/lib/supabase/errors";
 import { resolveDisplayName } from "@/src/lib/user/displayName";
 import { PetCard, TakerCard } from "@/src/shared/components/cards";
 import { SearchField } from "@/src/shared/components/forms/SearchField";
 import { KycPromptModal } from "@/src/shared/components/kyc/KycPromptModal";
 import { PageContainer } from "@/src/shared/components/layout";
-import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
 import {
-  FeedRequestsSkeleton,
-  FeedTakersSkeleton,
+    FeedRequestsSkeleton,
+    FeedTakersSkeleton,
 } from "@/src/shared/components/skeletons/FeedSkeleton";
 import {
-  DataState,
-  IllustratedEmptyState,
-  IllustratedEmptyStateIllustrations,
+    DataState,
+    IllustratedEmptyState,
+    IllustratedEmptyStateIllustrations,
 } from "@/src/shared/components/ui";
-import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Button } from "@/src/shared/components/ui/Button";
 import {
-  CARE_TYPE_KEYS,
-  type CareTypeKey,
+    CARE_TYPE_KEYS,
+    type CareTypeKey,
 } from "@/src/shared/components/ui/CareTypeSelector";
 import { RangeSlider } from "@/src/shared/components/ui/RangeSlider";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
@@ -49,84 +55,68 @@ import { Bell, Search, SlidersHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  FlatList,
-  Modal,
-  Pressable,
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TextInput,
-  TouchableOpacity,
-  TouchableWithoutFeedback,
-  View,
+    FlatList,
+    RefreshControl,
+    StyleSheet,
+    TextInput,
+    TouchableOpacity,
+    View
 } from "react-native";
 
 /** Inclusive km range for feed filter (0 = no minimum). */
 const DISTANCE_MIN_KM = 0;
-const DISTANCE_MAX_KM = 50;
-
-function parseDistanceKm(s: string): number {
-  const n = parseInt(s.replace(/\D/g, ""), 10);
-  return Number.isFinite(n) ? n : 0;
-}
+// Neighboring towns can easily be >50km depending on the region.
+const DISTANCE_MAX_KM = 150;
 
 function clampKm(n: number): number {
   return Math.max(DISTANCE_MIN_KM, Math.min(DISTANCE_MAX_KM, Math.round(n)));
 }
 
-function formatRequestDateRange(
-  startDateRaw?: string | null,
-  endDateRaw?: string | null,
-): string {
-  if (!startDateRaw) return "";
-  const start = new Date(startDateRaw);
-  const end = endDateRaw ? new Date(endDateRaw) : null;
-  if (Number.isNaN(start.getTime())) return "";
-  if (end && Number.isNaN(end.getTime())) return "";
+type ReviewStats = { avg: number; count: number };
 
-  const monthShort = (d: Date) =>
-    d.toLocaleDateString(undefined, { month: "short" });
-  const day = (d: Date) => d.getDate();
-
-  if (!end) return `${monthShort(start)} ${day(start)}`;
-  const sameMonth =
-    start.getFullYear() === end.getFullYear() &&
-    start.getMonth() === end.getMonth();
-
-  return sameMonth
-    ? `${monthShort(start)} ${day(start)}-${day(end)}`
-    : `${monthShort(start)} ${day(start)}-${monthShort(end)} ${day(end)}`;
-}
-
-function formatRequestTimeRange(
-  startTimeRaw?: string | null,
-  endTimeRaw?: string | null,
-): string {
-  const toLabel = (raw?: string | null) => {
-    if (!raw || typeof raw !== "string") return "";
-    const hhmm = raw.slice(0, 5);
-    const [hRaw, mRaw] = hhmm.split(":");
-    const hour = Number(hRaw);
-    const minute = Number(mRaw);
-    if (!Number.isFinite(hour) || !Number.isFinite(minute)) return "";
-    const isPm = hour >= 12;
-    const hour12 = hour % 12 === 0 ? 12 : hour % 12;
-    const minutePart = minute === 0 ? "" : `:${String(minute).padStart(2, "0")}`;
-    return `${hour12}${minutePart}${isPm ? "pm" : "am"}`;
-  };
-
-  const start = toLabel(startTimeRaw);
-  const end = toLabel(endTimeRaw);
-  if (!start && !end) return "";
-  if (!end) return start;
-  if (!start) return end;
-  return `${start}-${end}`;
+function computeReviewStats(
+  rows: { reviewee_id: string; rating: number | null }[],
+): Record<string, ReviewStats> {
+  const acc: Record<string, { sum: number; count: number }> = {};
+  for (const r of rows) {
+    const id = r.reviewee_id;
+    if (!id) continue;
+    const rating = typeof r.rating === "number" ? r.rating : null;
+    if (rating == null || !Number.isFinite(rating)) continue;
+    if (!acc[id]) acc[id] = { sum: 0, count: 0 };
+    acc[id].sum += rating;
+    acc[id].count += 1;
+  }
+  const out: Record<string, ReviewStats> = {};
+  for (const [id, v] of Object.entries(acc)) {
+    out[id] = { avg: v.count > 0 ? v.sum / v.count : 0, count: v.count };
+  }
+  return out;
 }
 
 /** `taker_profiles.availability_json` — matches DB trigger shape (`available` boolean). */
 function isTakerAvailableFromJson(availabilityJson: unknown): boolean {
   if (!availabilityJson || typeof availabilityJson !== "object") return false;
   return (availabilityJson as Record<string, unknown>)["available"] === true;
+}
+
+function isRequestStillSeekable(
+  request: Pick<any, "end_date" | "end_time"> | null | undefined,
+  now: Date,
+) {
+  const endDate =
+    typeof request?.end_date === "string" ? request.end_date.trim() : "";
+  if (!endDate) return false;
+  const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+  if (endDate > today) return true;
+  if (endDate < today) return false;
+  const endTime =
+    typeof request?.end_time === "string"
+      ? request.end_time.trim().slice(0, 5)
+      : "";
+  if (!endTime) return true;
+  const nowTime = `${String(now.getHours()).padStart(2, "0")}:${String(now.getMinutes()).padStart(2, "0")}`;
+  return endTime >= nowTime;
 }
 
 type FilterTab = "all" | "requests" | "takers";
@@ -140,6 +130,8 @@ type Taker = {
   tags: CareTypeKey[];
   location: string;
   distance: string;
+  /** Server-computed distance when viewer has coordinates; null if unavailable. */
+  distanceKmNumeric: number | null;
   status: "available" | "unavailable";
   completedTasks?: number;
   petsHandled?: number;
@@ -150,6 +142,7 @@ export default function HomeScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const { user, profile } = useAuthStore();
+  const { checkLocation, hasCoordinates } = useLocationGate();
   const colors = Colors[resolvedTheme];
   const [refreshing, setRefreshing] = useState(false);
 
@@ -168,7 +161,7 @@ export default function HomeScreen() {
   const [userPetsError, setUserPetsError] = useState<string | null>(null);
   const [userPetsLoaded, setUserPetsLoaded] = useState(false);
 
-  const { count: notificationsUnreadCount, markAllRead: markNotificationsRead } = useUnreadNotificationCount();
+  const { count: notificationsUnreadCount } = useUnreadNotificationCount();
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
@@ -189,6 +182,7 @@ export default function HomeScreen() {
   const [petSendSubtitleById, setPetSendSubtitleById] = useState<
     Record<string, string>
   >({});
+  const [sendRequestPetsReady, setSendRequestPetsReady] = useState(false);
 
   const loadRequestsTab = async (opts?: { refresh?: boolean }) => {
     if (!user?.id) return;
@@ -218,9 +212,37 @@ export default function HomeScreen() {
         new Set(activeReqData.map((r: any) => r.owner_id)),
       );
       const blockedOwnerIds = await filterOutBlockedUsers(user.id, ownerIds);
-      const visibleReqData = activeReqData.filter(
+      let visibleReqData = activeReqData.filter(
         (r: any) => !blockedOwnerIds.has(r.owner_id),
       );
+      // Safety gate: hide requests that already have a contract, even if request status is stale.
+      if (visibleReqData.length > 0) {
+        const visibleRequestIds = visibleReqData
+          .map((r: any) => r?.id)
+          .filter(Boolean) as string[];
+        if (visibleRequestIds.length > 0) {
+          const { data: contractsRows, error: contractsError } = await supabase
+            .from("contracts")
+            .select("request_id")
+            .in("request_id", visibleRequestIds);
+          if (
+            contractsError &&
+            !isMissingBackendResourceError(contractsError)
+          ) {
+            throw contractsError;
+          }
+          const contractedRequestIds = new Set(
+            (contractsRows ?? [])
+              .map((c: any) => c?.request_id)
+              .filter(Boolean) as string[],
+          );
+          if (contractedRequestIds.size > 0) {
+            visibleReqData = visibleReqData.filter(
+              (r: any) => !contractedRequestIds.has(r.id),
+            );
+          }
+        }
+      }
       const petIds = Array.from(
         new Set(visibleReqData.map((r: any) => r.pet_id)),
       );
@@ -232,7 +254,7 @@ export default function HomeScreen() {
         ownerIds.length
           ? supabase
               .from("users")
-              .select("id,full_name,city,avatar_url")
+              .select("id,full_name,city,zip_code,avatar_url,latitude,longitude,care_given_count,care_received_count")
               .in("id", ownerIds)
           : Promise.resolve({ data: [], error: null }),
         petIds.length
@@ -253,6 +275,77 @@ export default function HomeScreen() {
         (acc: any, p: any) => ({ ...acc, [p.id]: p }),
         {},
       );
+
+      // Enrich owner stats (reviews + pets count) for the caretaker chip.
+      const ownerReviewStatsById: Record<string, ReviewStats> = {};
+      if (ownerIds.length > 0) {
+        const { data: reviewRows, error: reviewErr } = await supabase
+          .from("reviews")
+          .select("reviewee_id,rating")
+          .in("reviewee_id", ownerIds);
+        if (reviewErr && !isMissingBackendResourceError(reviewErr)) throw reviewErr;
+
+        Object.assign(
+          ownerReviewStatsById,
+          computeReviewStats(
+            (reviewRows ?? []) as { reviewee_id: string; rating: number | null }[],
+          ),
+        );
+      }
+
+      const myLat = profile?.latitude ?? null;
+      const myLng = profile?.longitude ?? null;
+      const distanceByRequestId: Record<string, number> = {};
+      const distanceByOwnerId: Record<string, number> = {};
+      if (
+        myLat != null &&
+        myLng != null &&
+        visibleReqData.length > 0
+      ) {
+        const reqIdsForDist = visibleReqData
+          .map((r: any) => r?.id)
+          .filter(Boolean) as string[];
+        if (reqIdsForDist.length > 0) {
+          const { data: distRows, error: distErr } = await supabase.rpc(
+            "distances_for_requests",
+            {
+              user_lat: myLat,
+              user_lng: myLng,
+              request_ids: reqIdsForDist,
+            },
+          );
+          if (!distErr && Array.isArray(distRows)) {
+            for (const row of distRows as {
+              request_id: string;
+              distance_km: number;
+            }[]) {
+              if (row?.request_id != null && row.distance_km != null) {
+                distanceByRequestId[row.request_id] = row.distance_km;
+              }
+            }
+          }
+        }
+        if (ownerIds.length > 0) {
+          const { data: ownerDistRows, error: ownerDistErr } = await supabase.rpc(
+            "distances_for_users",
+            {
+              user_lat: myLat,
+              user_lng: myLng,
+              user_ids: ownerIds,
+            },
+          );
+          if (!ownerDistErr && Array.isArray(ownerDistRows)) {
+            for (const row of ownerDistRows as {
+              user_id: string;
+              distance_km: number;
+            }[]) {
+              if (row?.user_id != null && row.distance_km != null) {
+                distanceByOwnerId[row.user_id] = row.distance_km;
+              }
+            }
+          }
+        }
+      }
 
       setRequests(
         visibleReqData.map((r: any) => {
@@ -280,6 +373,32 @@ export default function HomeScreen() {
           if (petYard) feedTags.push(petYard);
           if (petAge) feedTags.push(petAge);
           if (petEnergy) feedTags.push(petEnergy);
+
+          const distanceKm =
+            distanceByRequestId[r.id] ??
+            (owner?.id ? (distanceByOwnerId[owner.id] ?? null) : null);
+          const snapCity =
+            typeof r.city === "string" ? r.city.trim() : "";
+          const ownerCity =
+            typeof owner?.city === "string" ? owner.city.trim() : "";
+          const ownerZip =
+            typeof owner?.zip_code === "string"
+              ? owner.zip_code.trim()
+              : "";
+          const locationLine =
+            ownerCity ||
+            snapCity ||
+            ownerZip ||
+            t("profile.noLocation", "No location");
+          const viewerCity =
+            typeof profile?.city === "string" ? profile.city.trim() : "";
+          const isSameTown =
+            viewerCity.length > 0 &&
+            ((ownerCity.length > 0 && ownerCity.toLowerCase() === viewerCity.toLowerCase()) ||
+              (snapCity.length > 0 && snapCity.toLowerCase() === viewerCity.toLowerCase()));
+          const distanceLine =
+            distanceKm != null ? `${distanceKm.toFixed(1)} km` : isSameTown ? "0.0 km" : "";
+
           return {
             id: r.id,
             petId: r.pet_id as string,
@@ -290,9 +409,9 @@ export default function HomeScreen() {
             dateRange: formatRequestDateRange(r.start_date, r.end_date),
             time: formatRequestTimeRange(r.start_time, r.end_time),
             careTypeKey: normalizeCareTypeForPoints(r.care_type),
-            location:
-              owner?.city?.trim() || t("profile.noLocation", "No location"),
-            distance: "0km",
+            location: locationLine,
+            distance: distanceLine,
+            distanceKmNumeric: distanceKm,
             description: feedDescription,
             tags: feedTags,
             caretaker: {
@@ -303,9 +422,18 @@ export default function HomeScreen() {
                 owner.avatar_url.trim().length > 0
                   ? owner.avatar_url.trim()
                   : null,
-              rating: 0,
-              reviewsCount: 0,
-              petsCount: 0,
+              rating:
+                owner?.id && ownerReviewStatsById[owner.id]
+                  ? ownerReviewStatsById[owner.id].avg
+                  : 0,
+              reviewsCount:
+                typeof owner?.care_given_count === "number"
+                  ? owner.care_given_count
+                  : 0,
+              petsCount:
+                typeof owner?.care_received_count === "number"
+                  ? owner.care_received_count
+                  : 0,
             },
           };
         }),
@@ -313,7 +441,7 @@ export default function HomeScreen() {
       setRequestsLoaded(true);
     } catch (err) {
       setRequestsError(
-        errorMessageFromUnknown(err, "Failed to load requests."),
+        errorMessageFromUnknown(err, t("errors.loadRequests")),
       );
     } finally {
       setRequestsLoading(false);
@@ -344,7 +472,7 @@ export default function HomeScreen() {
       const { data: usersData, error: usersError } = await supabase
         .from("users")
         .select(
-          "id,full_name,avatar_url,city,kyc_status,care_given_count,care_received_count",
+          "id,full_name,avatar_url,city,zip_code,kyc_status,care_given_count,care_received_count",
         )
         .in("id", userIds)
         .eq("kyc_status", "approved");
@@ -359,6 +487,52 @@ export default function HomeScreen() {
         {} as Record<string, (typeof profileRows)[number]>,
       );
 
+      const approvedIds = (usersData ?? []).map((u: { id: string }) => u.id);
+
+      // Review stats for taker cards.
+      const takerReviewStatsById: Record<string, ReviewStats> = {};
+      if (approvedIds.length > 0) {
+        const { data: reviewRowsT, error: reviewErrT } = await supabase
+          .from("reviews")
+          .select("reviewee_id,rating")
+          .in("reviewee_id", approvedIds);
+        if (reviewErrT && !isMissingBackendResourceError(reviewErrT)) throw reviewErrT;
+        Object.assign(
+          takerReviewStatsById,
+          computeReviewStats(
+            (reviewRowsT ?? []) as { reviewee_id: string; rating: number | null }[],
+          ),
+        );
+      }
+
+      const myLatT = profile?.latitude ?? null;
+      const myLngT = profile?.longitude ?? null;
+      const distanceByUserId: Record<string, number> = {};
+      if (
+        myLatT != null &&
+        myLngT != null &&
+        approvedIds.length > 0
+      ) {
+        const { data: distRowsT, error: distErrT } = await supabase.rpc(
+          "distances_for_users",
+          {
+            user_lat: myLatT,
+            user_lng: myLngT,
+            user_ids: approvedIds,
+          },
+        );
+        if (!distErrT && Array.isArray(distRowsT)) {
+          for (const row of distRowsT as {
+            user_id: string;
+            distance_km: number;
+          }[]) {
+            if (row?.user_id != null && row.distance_km != null) {
+              distanceByUserId[row.user_id] = row.distance_km;
+            }
+          }
+        }
+      }
+
       setTakers(
         (usersData ?? []).map((u: any) => {
           const tp = profileByUserId[u.id];
@@ -369,26 +543,51 @@ export default function HomeScreen() {
               : t("feed.takerSpeciesFallback", "Pets");
           const avatarTrimmed =
             typeof u.avatar_url === "string" ? u.avatar_url.trim() : "";
+          const distanceKmT = distanceByUserId[u.id] ?? null;
+          const uCity = typeof u.city === "string" ? u.city.trim() : "";
+          const uZip =
+            typeof u.zip_code === "string" ? u.zip_code.trim() : "";
+          const locationLineT =
+            uCity ||
+            uZip ||
+            t("profile.noLocation", "No location");
+          const viewerCityT =
+            typeof profile?.city === "string" ? profile.city.trim() : "";
+          const isSameTownT =
+            viewerCityT.length > 0 &&
+            ((uCity.length > 0 && uCity.toLowerCase() === viewerCityT.toLowerCase()) ||
+              (uZip.length > 0 &&
+                typeof profile?.zip_code === "string" &&
+                profile.zip_code.trim().length > 0 &&
+                uZip.toLowerCase() === profile.zip_code.trim().toLowerCase()));
+          const distanceLineT =
+            distanceKmT != null ? `${distanceKmT.toFixed(1)} km` : isSameTownT ? "0.0 km" : "";
           return {
             id: u.id,
             name: resolveDisplayName(u) || "User",
             avatar: avatarTrimmed,
-            rating: 0,
+            rating:
+              takerReviewStatsById[u.id]?.avg != null
+                ? takerReviewStatsById[u.id].avg
+                : 0,
             species: speciesChip,
             tags: ["daytime"] as CareTypeKey[],
-            location: u.city?.trim() || t("profile.noLocation", "No location"),
-            distance: "0km",
+            location: locationLineT,
+            distance: distanceLineT,
+            distanceKmNumeric: distanceKmT,
             status: isTakerAvailableFromJson(tp?.availability_json)
               ? ("available" as const)
               : ("unavailable" as const),
-            completedTasks: u.care_given_count ?? 0,
-            petsHandled: u.care_received_count ?? 0,
+            completedTasks:
+              typeof u.care_given_count === "number" ? u.care_given_count : 0,
+            petsHandled:
+              typeof u.care_received_count === "number" ? u.care_received_count : 0,
           };
         }),
       );
       setTakersLoaded(true);
     } catch (err) {
-      setTakersError(errorMessageFromUnknown(err, "Failed to load takers."));
+      setTakersError(errorMessageFromUnknown(err, t("errors.loadTakers")));
     } finally {
       setTakersLoading(false);
     }
@@ -410,7 +609,7 @@ export default function HomeScreen() {
       setUserPetsLoaded(true);
     } catch (err) {
       setUserPetsError(
-        errorMessageFromUnknown(err, "Failed to load your pets."),
+        errorMessageFromUnknown(err, t("errors.loadYourPets")),
       );
     } finally {
       setUserPetsLoading(false);
@@ -460,6 +659,7 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!sendRequestOpen || !user?.id) {
       setPetSendSubtitleById({});
+      setSendRequestPetsReady(false);
       return;
     }
     const ids = (userPets as { id?: string }[])
@@ -467,13 +667,14 @@ export default function HomeScreen() {
       .filter(Boolean) as string[];
     if (!ids.length) {
       setPetSendSubtitleById({});
+      setSendRequestPetsReady(true);
       return;
     }
     let cancelled = false;
     void (async () => {
       const { data, error } = await supabase
         .from("care_requests")
-        .select("pet_id,start_date,end_date,care_type,created_at")
+        .select("pet_id,start_date,end_date,end_time,care_type,created_at")
         .eq("owner_id", user.id)
         .eq("status", "open")
         .in("pet_id", ids)
@@ -481,7 +682,9 @@ export default function HomeScreen() {
         .order("created_at", { ascending: false });
       if (cancelled || error) return;
       const bestByPet: Record<string, any> = {};
+      const now = new Date();
       for (const row of data ?? []) {
+        if (!isRequestStillSeekable(row, now)) continue;
         const pid = row.pet_id as string;
         if (!bestByPet[pid]) bestByPet[pid] = row;
       }
@@ -489,34 +692,21 @@ export default function HomeScreen() {
       for (const p of userPets as any[]) {
         const pid = p.id as string;
         const r = bestByPet[pid];
-        if (!r) {
-          next[pid] = [p.species || "Pet", p.breed || "—"]
-            .filter(Boolean)
-            .join(" · ");
-          continue;
-        }
-        const d1 = r.start_date ? new Date(r.start_date as string) : null;
-        const d2 = r.end_date ? new Date(r.end_date as string) : null;
-        const datePart =
-          d1 && d2
-            ? `${d1.toLocaleDateString(undefined, { month: "short", day: "numeric" })}-${d2.toLocaleDateString(undefined, { month: "short", day: "numeric" })}`
-            : d1
-              ? d1.toLocaleDateString(undefined, {
-                  month: "short",
-                  day: "numeric",
-                })
-              : "";
+        if (!r) continue;
+        const datePart = formatRequestDateRange(r.start_date, r.end_date);
         const careKey = normalizeCareTypeForPoints(r.care_type);
         const carePart = t(`feed.careTypes.${careKey}` as any);
         next[pid] = [datePart, carePart].filter(Boolean).join(" · ");
       }
-      if (!cancelled) setPetSendSubtitleById(next);
+      if (!cancelled) {
+        setPetSendSubtitleById(next);
+        setSendRequestPetsReady(true);
+      }
     })();
     return () => {
       cancelled = true;
     };
   }, [sendRequestOpen, user?.id, userPets, t]);
-
 
   const onRefresh = async () => {
     setRefreshing(true);
@@ -623,7 +813,7 @@ export default function HomeScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t("common.error", "Something went wrong"),
+          t("requestDetails.updatePetLikeFailed"),
         ),
         durationMs: 3200,
       });
@@ -710,20 +900,42 @@ export default function HomeScreen() {
         !careTypeFilter.includes(item.careTypeKey)
       )
         return false;
-      const distKm = parseDistanceKm(item.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max) {
-        return false;
+      if (hasCoordinates) {
+        const distKm = item.distanceKmNumeric ?? null;
+        if (distKm == null) {
+          if (
+            distanceRange.min > DISTANCE_MIN_KM ||
+            distanceRange.max < DISTANCE_MAX_KM
+          ) {
+            return false;
+          }
+        } else if (
+          distKm < distanceRange.min ||
+          distKm > distanceRange.max
+        ) {
+          return false;
+        }
       }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const distStr =
+        typeof item.distance === "string" ? item.distance.toLowerCase() : "";
       return (
         item.petName.toLowerCase().includes(q) ||
         item.breed.toLowerCase().includes(q) ||
         item.petType.toLowerCase().includes(q) ||
-        item.location.toLowerCase().includes(q)
+        item.location.toLowerCase().includes(q) ||
+        (distStr.length > 0 && distStr.includes(q))
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, requests]);
+  }, [
+    filter,
+    searchQuery,
+    careTypeFilter,
+    distanceRange,
+    hasCoordinates,
+    requests,
+  ]);
 
   const filteredTakers = useMemo(() => {
     return takers.filter((taker) => {
@@ -733,22 +945,41 @@ export default function HomeScreen() {
         !taker.tags.some((tag) => careTypeFilter.includes(tag))
       )
         return false;
-      const distKm = parseDistanceKm(taker.distance);
-      if (distKm < distanceRange.min || distKm > distanceRange.max) {
-        return false;
+      if (hasCoordinates) {
+        const distKm = taker.distanceKmNumeric ?? null;
+        if (distKm == null) {
+          if (
+            distanceRange.min > DISTANCE_MIN_KM ||
+            distanceRange.max < DISTANCE_MAX_KM
+          ) {
+            return false;
+          }
+        } else if (
+          distKm < distanceRange.min ||
+          distKm > distanceRange.max
+        ) {
+          return false;
+        }
       }
       if (!searchQuery.trim()) return true;
       const q = searchQuery.toLowerCase();
+      const distStr =
+        typeof taker.distance === "string" ? taker.distance.toLowerCase() : "";
       return (
         taker.name.toLowerCase().includes(q) ||
         taker.species.toLowerCase().includes(q) ||
-        taker.location.toLowerCase().includes(q)
+        taker.location.toLowerCase().includes(q) ||
+        (distStr.length > 0 && distStr.includes(q))
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, takers]);
+  }, [filter, searchQuery, careTypeFilter, distanceRange, hasCoordinates, takers]);
 
   const showRequests = filter === "all" || filter === "requests";
   const showTakers = filter === "all" || filter === "takers";
+  const hasActiveDistanceFilter =
+    hasCoordinates &&
+    (distanceRange.min > DISTANCE_MIN_KM ||
+      distanceRange.max < DISTANCE_MAX_KM);
 
   const handleConfirmSendRequest = async () => {
     if (!selectedSeekingPet || !takerForSendRequest || !user?.id) return;
@@ -757,13 +988,17 @@ export default function HomeScreen() {
     try {
       const petId = selectedSeekingPet.id as string;
       const takerId = takerForSendRequest.id;
-      const blocked = await hasUserBlockRelation(user.id, takerId);
-      if (blocked) {
+      const blockDirection = await getBlockDirection(user.id, takerId);
+      if (blockDirection !== "none") {
         showToast({
           variant: "error",
           message: t(
-            "messages.blockedNoMessaging",
-            "You cannot message this user because one of you has blocked the other.",
+            blockDirection === "i_blocked"
+              ? "messages.blockedBySelfSend"
+              : "messages.blockedByOtherSend",
+            blockDirection === "i_blocked"
+              ? "You blocked this user, so you can't message them."
+              : "This user blocked you, so you can't message them.",
           ),
           durationMs: 3200,
         });
@@ -772,7 +1007,9 @@ export default function HomeScreen() {
 
       const { data: openReqRows, error: openReqErr } = await supabase
         .from("care_requests")
-        .select("id,pet_id,owner_id,start_date,end_date,points_offered,care_type")
+        .select(
+          "id,pet_id,owner_id,start_date,end_date,points_offered,care_type",
+        )
         .eq("owner_id", user.id)
         .eq("pet_id", petId)
         .eq("status", "open")
@@ -821,10 +1058,10 @@ export default function HomeScreen() {
 
       const petName = selectedSeekingPet.name ?? t("pets.add.name", "Pet");
       const breed = selectedSeekingPet.breed ?? "";
-      const dateRange =
-        openReq.start_date && openReq.end_date
-          ? `${new Date(openReq.start_date).toLocaleDateString()} - ${new Date(openReq.end_date).toLocaleDateString()}`
-          : "";
+      const dateRange = formatRequestDateRange(
+        openReq.start_date,
+        openReq.end_date,
+      );
       const price =
         openReq.start_date && openReq.end_date
           ? formatCarePointsPts(
@@ -850,7 +1087,7 @@ export default function HomeScreen() {
 
       setSendRequestOpen(false);
       router.push({
-        pathname: "/(private)/(tabs)/messages/[threadId]" as any,
+        pathname: "/(private)/chat/[threadId]" as any,
         params: {
           threadId,
           mode: "seeking",
@@ -867,10 +1104,7 @@ export default function HomeScreen() {
         variant: "error",
         message: errorMessageFromUnknown(
           err,
-          t(
-            "home.sendRequest.sendFailed",
-            "Couldn't send the request right now. Please try again.",
-          ),
+          t("errors.sendRequestFailed"),
         ),
         durationMs: 3400,
       });
@@ -888,7 +1122,6 @@ export default function HomeScreen() {
         className="relative pr-3"
         hitSlop={12}
         onPress={() => {
-          void markNotificationsRead();
           router.push("/(private)/(tabs)/(home)/notifications");
         }}
       >
@@ -918,7 +1151,7 @@ export default function HomeScreen() {
       <FlatList
         data={showRequests ? filteredRequests : []}
         keyExtractor={(item) => item.id}
-        contentContainerStyle={{ paddingBottom: 24, gap: 8, flexGrow: 1 }}
+        contentContainerStyle={{ paddingBottom: 80, gap: 8, flexGrow: 1 }}
         showsVerticalScrollIndicator={false}
         keyboardShouldPersistTaps="handled"
         refreshControl={
@@ -1045,18 +1278,113 @@ export default function HomeScreen() {
                     </View>
                   </View>
 
-                  <AppText
-                    variant="label"
-                    color={colors.onSurfaceVariant}
-                    style={styles.filterSectionLabel}
-                  >
-                    {t("filters.distanceRange")}
-                  </AppText>
+                  {hasCoordinates ? (
+                    <>
+                      <AppText
+                        variant="label"
+                        color={colors.onSurfaceVariant}
+                        style={styles.filterSectionLabel}
+                      >
+                        {t("filters.distanceRange")}
+                      </AppText>
 
-                  <View style={styles.distanceInputsRow}>
-                    <View
+                      <View style={styles.distanceInputsRow}>
+                        <View
+                          style={[
+                            styles.distanceCard,
+                            {
+                              backgroundColor: colors.surfaceContainerHighest,
+                              borderColor: colors.outlineVariant,
+                            },
+                          ]}
+                        >
+                          <AppText
+                            variant="caption"
+                            color={colors.onSurfaceVariant}
+                            style={styles.distanceCardLabel}
+                          >
+                            {t("filters.minKm")}
+                          </AppText>
+                          <TextInput
+                            value={String(filterDraft.minKm)}
+                            onChangeText={setDraftMinKmFromText}
+                            keyboardType="number-pad"
+                            maxLength={2}
+                            placeholder="0"
+                            placeholderTextColor={colors.onSurfaceVariant}
+                            style={[
+                              styles.distanceCardInput,
+                              {
+                                color: colors.onSurface,
+                              },
+                            ]}
+                          />
+                        </View>
+
+                        <View style={styles.distanceDash}>
+                          <AppText
+                            variant="title"
+                            color={colors.onSurfaceVariant}
+                            style={styles.distanceDashText}
+                          >
+                            -
+                          </AppText>
+                        </View>
+
+                        <View
+                          style={[
+                            styles.distanceCard,
+                            {
+                              backgroundColor: colors.surfaceContainerHighest,
+                              borderColor: colors.outlineVariant,
+                            },
+                          ]}
+                        >
+                          <AppText
+                            variant="caption"
+                            color={colors.onSurfaceVariant}
+                            style={styles.distanceCardLabel}
+                          >
+                            {t("filters.maxKm")}
+                          </AppText>
+                          <TextInput
+                            value={String(filterDraft.maxKm)}
+                            onChangeText={setDraftMaxKmFromText}
+                            keyboardType="number-pad"
+                            maxLength={2}
+                            placeholder="50"
+                            placeholderTextColor={colors.onSurfaceVariant}
+                            style={[
+                              styles.distanceCardInput,
+                              {
+                                color: colors.onSurface,
+                              },
+                            ]}
+                          />
+                        </View>
+                      </View>
+
+                      <RangeSlider
+                        min={DISTANCE_MIN_KM}
+                        max={DISTANCE_MAX_KM}
+                        values={[filterDraft.minKm, filterDraft.maxKm]}
+                        onValuesChange={([minv, maxv]: [number, number]) =>
+                          setFilterDraft((d) => ({
+                            ...d,
+                            minKm: minv,
+                            maxKm: maxv,
+                          }))
+                        }
+                      />
+                    </>
+                  ) : (
+                    <TouchableOpacity
+                      activeOpacity={0.85}
+                      onPress={() => {
+                        checkLocation();
+                      }}
                       style={[
-                        styles.distanceCard,
+                        styles.locationFilterNotice,
                         {
                           backgroundColor: colors.surfaceContainerHighest,
                           borderColor: colors.outlineVariant,
@@ -1066,81 +1394,18 @@ export default function HomeScreen() {
                       <AppText
                         variant="caption"
                         color={colors.onSurfaceVariant}
-                        style={styles.distanceCardLabel}
+                        style={styles.locationFilterNoticeText}
                       >
-                        {t("filters.minKm")}
+                        {t(
+                          "filters.locationRequired",
+                          "Set your location to enable distance filtering.",
+                        )}
                       </AppText>
-                      <TextInput
-                        value={String(filterDraft.minKm)}
-                        onChangeText={setDraftMinKmFromText}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        placeholder="0"
-                        placeholderTextColor={colors.onSurfaceVariant}
-                        style={[
-                          styles.distanceCardInput,
-                          {
-                            color: colors.onSurface,
-                          },
-                        ]}
-                      />
-                    </View>
-
-                    <View style={styles.distanceDash}>
-                      <AppText
-                        variant="title"
-                        color={colors.onSurfaceVariant}
-                        style={styles.distanceDashText}
-                      >
-                        -
+                      <AppText variant="label" color={colors.primary}>
+                        {t("common.update", "Update")}
                       </AppText>
-                    </View>
-
-                    <View
-                      style={[
-                        styles.distanceCard,
-                        {
-                          backgroundColor: colors.surfaceContainerHighest,
-                          borderColor: colors.outlineVariant,
-                        },
-                      ]}
-                    >
-                      <AppText
-                        variant="caption"
-                        color={colors.onSurfaceVariant}
-                        style={styles.distanceCardLabel}
-                      >
-                        {t("filters.maxKm")}
-                      </AppText>
-                      <TextInput
-                        value={String(filterDraft.maxKm)}
-                        onChangeText={setDraftMaxKmFromText}
-                        keyboardType="number-pad"
-                        maxLength={2}
-                        placeholder="50"
-                        placeholderTextColor={colors.onSurfaceVariant}
-                        style={[
-                          styles.distanceCardInput,
-                          {
-                            color: colors.onSurface,
-                          },
-                        ]}
-                      />
-                    </View>
-                  </View>
-
-                  <RangeSlider
-                    min={DISTANCE_MIN_KM}
-                    max={DISTANCE_MAX_KM}
-                    values={[filterDraft.minKm, filterDraft.maxKm]}
-                    onValuesChange={([minv, maxv]: [number, number]) =>
-                      setFilterDraft((d) => ({
-                        ...d,
-                        minKm: minv,
-                        maxKm: maxv,
-                      }))
-                    }
-                  />
+                    </TouchableOpacity>
+                  )}
                 </View>
               </View>
             ) : null}
@@ -1163,7 +1428,10 @@ export default function HomeScreen() {
                 <FeedRequestsSkeleton count={3} />
               ) : requestsError ? (
                 <DataState
-                  title={t("common.error", "Something went wrong")}
+                  title={t(
+                    "feed.requestsLoadFailedTitle",
+                    "We couldn't load nearby pet requests.",
+                  )}
                   message={requestsError}
                   actionLabel={t("common.retry", "Retry")}
                   onAction={() => {
@@ -1178,16 +1446,14 @@ export default function HomeScreen() {
                   title={
                     searchQuery.trim() ||
                     careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
+                    hasActiveDistanceFilter
                       ? "Aw aw! No results"
                       : t("feed.noRequestsTitle", "No requests near you")
                   }
                   message={
                     searchQuery.trim() ||
                     careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
+                    hasActiveDistanceFilter
                       ? "We couldn't find any matches for your search. Try adjusting your filters"
                       : t(
                           "feed.noRequestsSubtitle",
@@ -1197,8 +1463,7 @@ export default function HomeScreen() {
                   illustration={
                     searchQuery.trim() ||
                     careTypeFilter.length > 0 ||
-                    distanceRange.min > DISTANCE_MIN_KM ||
-                    distanceRange.max < DISTANCE_MAX_KM
+                    hasActiveDistanceFilter
                       ? IllustratedEmptyStateIllustrations.noSearchResult
                       : IllustratedEmptyStateIllustrations.noCare
                   }
@@ -1206,9 +1471,7 @@ export default function HomeScreen() {
                 />
               ) : (
                 <View style={styles.resultsHeader}>
-                  {careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM ? (
+                  {careTypeFilter.length > 0 || hasActiveDistanceFilter ? (
                     <View style={styles.resultsRow}>
                       <AppText variant="title" style={{ fontSize: 16 }}>
                         {t("feed.resultsLabel")}:{" "}
@@ -1228,10 +1491,14 @@ export default function HomeScreen() {
                           ...careTypeFilter.map((k) =>
                             t(`feed.careTypes.${k}`),
                           ),
-                          t("feed.distanceKmRange", {
-                            min: distanceRange.min,
-                            max: distanceRange.max,
-                          }),
+                          ...(hasActiveDistanceFilter
+                            ? [
+                                t("feed.distanceKmRange", {
+                                  min: distanceRange.min,
+                                  max: distanceRange.max,
+                                }),
+                              ]
+                            : []),
                         ].join(", ")}
                       </AppText>
                     </View>
@@ -1271,6 +1538,7 @@ export default function HomeScreen() {
               description={item.description}
               tags={item.tags ?? []}
               caretaker={item.caretaker}
+              showFavorite={item.caretaker.id !== user?.id}
               isFavorite={Boolean(item.petId && favorites.has(item.petId))}
               onFavorite={() =>
                 void toggleFavorite(item.petId, item.id ?? null)
@@ -1291,7 +1559,7 @@ export default function HomeScreen() {
                   return;
                 }
                 router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                  pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id: item.caretaker.id },
                 });
               }}
@@ -1304,7 +1572,10 @@ export default function HomeScreen() {
               <FeedTakersSkeleton count={4} />
             ) : takersError ? (
               <DataState
-                title={t("common.error", "Something went wrong")}
+                title={t(
+                  "feed.takersLoadFailedTitle",
+                  "We couldn't load nearby caregivers.",
+                )}
                 message={takersError}
                 actionLabel={t("common.retry", "Retry")}
                 onAction={() => {
@@ -1319,16 +1590,14 @@ export default function HomeScreen() {
                 title={
                   searchQuery.trim() ||
                   careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM
+                  hasActiveDistanceFilter
                     ? "Aw aw! No results"
                     : t("feed.noTakersTitle", "No caregivers available")
                 }
                 message={
                   searchQuery.trim() ||
                   careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM
+                  hasActiveDistanceFilter
                     ? "We couldn't find any matches for your search. Try adjusting your filters"
                     : t(
                         "feed.noTakersSubtitle",
@@ -1338,8 +1607,7 @@ export default function HomeScreen() {
                 illustration={
                   searchQuery.trim() ||
                   careTypeFilter.length > 0 ||
-                  distanceRange.min > DISTANCE_MIN_KM ||
-                  distanceRange.max < DISTANCE_MAX_KM
+                  hasActiveDistanceFilter
                     ? IllustratedEmptyStateIllustrations.noSearchResult
                     : IllustratedEmptyStateIllustrations.noCare
                 }
@@ -1373,7 +1641,7 @@ export default function HomeScreen() {
                         taker.id === user?.id
                           ? router.push("/(private)/(tabs)/profile" as any)
                           : router.push({
-                              pathname: "/(private)/(tabs)/profile/users/[id]",
+                              pathname: "/(private)/(tabs)/(home)/users/[id]",
                               params: { id: taker.id },
                             })
                       }
@@ -1420,7 +1688,7 @@ export default function HomeScreen() {
             return;
           }
           router.push({
-            pathname: "/(private)/(tabs)/profile/users/[id]",
+            pathname: "/(private)/(tabs)/(home)/users/[id]",
             params: { id: openMenuTaker.id },
           });
         }}
@@ -1429,6 +1697,7 @@ export default function HomeScreen() {
           setTakerForSendRequest(openMenuTaker);
           setOpenMenuTaker(null);
           setSelectedSeekingPet(null);
+          setSendRequestPetsReady(false);
           setSendRequestOpen(true);
         }}
       />
@@ -1438,6 +1707,7 @@ export default function HomeScreen() {
         colors={colors}
         styles={styles}
         userPets={userPets}
+        loading={userPetsLoading || !sendRequestPetsReady}
         selectedSeekingPet={selectedSeekingPet}
         petSendSubtitleById={petSendSubtitleById}
         sendingToName={takerForSendRequest?.name?.trim() || ""}
@@ -1454,6 +1724,10 @@ export default function HomeScreen() {
             pathname: "/(private)/post-requests",
             params: userPets?.[0]?.id ? { petId: userPets[0].id } : undefined,
           } as any);
+        }}
+        onAddPet={() => {
+          setSendRequestOpen(false);
+          router.push("/(private)/pets/add" as any);
         }}
       />
     </PageContainer>
@@ -1525,6 +1799,20 @@ const styles = StyleSheet.create({
   },
   filterCareTypesBlock: {
     marginBottom: 20,
+  },
+  locationFilterNotice: {
+    borderWidth: 1,
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 14,
+    marginBottom: 16,
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
+  },
+  locationFilterNoticeText: {
+    flex: 1,
   },
   careTypePillsRow: {
     flexDirection: "row",

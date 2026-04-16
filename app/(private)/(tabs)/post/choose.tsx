@@ -9,6 +9,9 @@ import {
 import { useRouter } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { blockIfKycNotApproved } from '@/src/lib/kyc/kyc-gate';
+import { useAuthStore } from '@/src/lib/store/auth.store';
+import { useToastStore } from '@/src/lib/store/toast.store';
+import { enforceLocationGate } from '@/src/shared/utils/locationGate';
 import { useThemeStore } from '@/src/lib/store/theme.store';
 import { Colors } from '@/src/constants/colors';
 import { AppText } from '@/src/shared/components/ui/AppText';
@@ -16,18 +19,22 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 export default function PostChooseScreen() {
   const { t } = useTranslation();
   const router = useRouter();
+  const profile = useAuthStore((s) => s.profile);
+  const showToast = useToastStore((s) => s.showToast);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
   const [modalVisible, setModalVisible] = useState(true);
 
   const openRequest = () => {
     if (blockIfKycNotApproved()) return;
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     setModalVisible(false);
     router.replace('/(private)/post-requests' as any);
   };
 
   const openAvailability = () => {
     if (blockIfKycNotApproved()) return;
+    if (!enforceLocationGate(profile, router, showToast, t)) return;
     setModalVisible(false);
     router.replace('/(private)/post-availability' as any);
   };

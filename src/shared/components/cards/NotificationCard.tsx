@@ -3,21 +3,21 @@ import { useThemeStore } from "@/src/lib/store/theme.store";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import {
-  Activity,
-  Ellipsis,
-  Handshake,
-  PawPrint,
-  Shield,
-  Star,
+    Activity,
+    Ellipsis,
+    Handshake,
+    PawPrint,
+    Shield,
+    Star,
 } from "lucide-react-native";
 import React, { ForwardedRef, forwardRef } from "react";
 import {
-  Pressable,
-  StyleSheet,
-  TouchableOpacity,
-  View,
-  type StyleProp,
-  type ViewStyle,
+    Pressable,
+    StyleSheet,
+    TouchableOpacity,
+    View,
+    type StyleProp,
+    type ViewStyle,
 } from "react-native";
 
 export type NotificationType =
@@ -38,7 +38,8 @@ export type NotificationType =
   | "points_gained"
   | "chat"
   | "applied"
-  | "kyc_rejected";
+  | "kyc_rejected"
+  | "kyc_approved";
 
 export type NotificationCardProps = {
   id: string;
@@ -78,6 +79,14 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
   ) => {
     const { resolvedTheme } = useThemeStore();
     const colors = Colors[resolvedTheme];
+    const normalizedTitle =
+      type === "paws" || type === "paws_given"
+        ? title.replace(/\bpaws?\b/gi, "points")
+        : title;
+    const normalizedBody =
+      type === "paws" || type === "paws_given"
+        ? body.replace(/\bpaws?\b/gi, "points")
+        : body;
 
     const renderIcon = () => {
       const containerStyle: StyleProp<ViewStyle> = [
@@ -134,6 +143,7 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
           );
         case "verification":
         case "verification_complete":
+        case "kyc_approved":
         case "kyc_rejected":
           return (
             <View style={containerStyle}>
@@ -219,8 +229,10 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                   variant="body"
                   style={styles.itemTitle}
                   color={colors.onSurfaceVariant}
+                  numberOfLines={1}
+                  ellipsizeMode="tail"
                 >
-                  {title}
+                  {normalizedTitle}
                 </AppText>
                 <AppText
                   variant="caption"
@@ -245,11 +257,14 @@ export const NotificationCard = forwardRef<View, NotificationCardProps>(
                   variant="caption"
                   color={colors.onSurface}
                   style={styles.itemBody}
+                  numberOfLines={2}
+                  ellipsizeMode="tail"
                 >
-                  {body}
+                  {normalizedBody}
                 </AppText>
               </Pressable>
               <TouchableOpacity
+                style={styles.menuButton}
                 ref={ref as ForwardedRef<View>}
                 hitSlop={8}
                 onPress={() => onPressMenu?.(id)}
@@ -300,6 +315,8 @@ const styles = StyleSheet.create({
   bodyTap: {
     flex: 1,
     marginRight: 8,
+    minWidth: 0,
+    maxWidth: "76%",
   },
   itemAvatar: {
     width: 40,
@@ -309,6 +326,7 @@ const styles = StyleSheet.create({
   itemContent: {
     flex: 1,
     marginLeft: 12,
+    minWidth: 0,
   },
   row: {
     flexDirection: "row",
@@ -321,12 +339,18 @@ const styles = StyleSheet.create({
     lineHeight: 16,
   },
   itemBody: {
-    flex: 1,
-    marginRight: 8,
     lineHeight: 14,
   },
   itemTime: {
     fontSize: 11,
+    flexShrink: 0,
+    width: 46,
+    textAlign: "right",
+  },
+  menuButton: {
+    width: 28,
+    alignItems: "center",
+    justifyContent: "center",
   },
   actionRow: {
     marginTop: 8,

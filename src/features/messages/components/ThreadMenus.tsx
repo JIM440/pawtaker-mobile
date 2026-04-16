@@ -9,11 +9,12 @@ type Props = {
   colors: Record<string, string>;
   styles: any;
   insetsBottom: number;
-  tabBarHeight: number;
   t: (key: string, fallback?: string) => string;
   onCloseActions: () => void;
   onViewProfile: () => void;
   onBlock: () => void;
+  /** When set, shows "Unblock" instead of "Block" */
+  onUnblock?: () => void;
   onCloseAttach: () => void;
   onOpenPhotoLibrary: () => void;
   onOpenDocumentPicker: () => void;
@@ -26,11 +27,11 @@ export function ThreadMenus({
   colors,
   styles,
   insetsBottom,
-  tabBarHeight,
   t,
   onCloseActions,
   onViewProfile,
   onBlock,
+  onUnblock,
   onCloseAttach,
   onOpenPhotoLibrary,
   onOpenDocumentPicker,
@@ -69,11 +70,19 @@ export function ThreadMenus({
                 {t("messages.viewProfile")}
               </AppText>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.actionItem} onPress={onBlock}>
-              <AppText variant="body" color={colors.error}>
-                {t("messages.block")}
-              </AppText>
-            </TouchableOpacity>
+            {onUnblock ? (
+              <TouchableOpacity style={styles.actionItem} onPress={onUnblock}>
+                <AppText variant="body" color={colors.primary}>
+                  {t("messages.unblock", "Unblock")}
+                </AppText>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity style={styles.actionItem} onPress={onBlock}>
+                <AppText variant="body" color={colors.error}>
+                  {t("messages.block")}
+                </AppText>
+              </TouchableOpacity>
+            )}
           </View>
         </Pressable>
       </Modal>
@@ -88,7 +97,7 @@ export function ThreadMenus({
           style={[
             styles.attachOverlay,
             {
-              paddingBottom: tabBarHeight + 52 + Math.max(insetsBottom, 8) + 20,
+              paddingBottom: 52 + Math.max(insetsBottom, 8) + 20,
             },
           ]}
           onPress={onCloseAttach}

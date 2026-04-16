@@ -8,6 +8,7 @@ import {
   ProfileReviewsTabSkeleton,
 } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
 import React from "react";
+import { useTranslation } from "react-i18next";
 import { ProfileAvailabilityTab } from "./ProfileAvailabilityTab";
 import { ProfileBioTab } from "./ProfileBioTab";
 import { ProfilePetsTab } from "./ProfilePetsTab";
@@ -70,6 +71,8 @@ export function ProfileTabContent(props: Props) {
     router,
   } = props;
 
+  const { t: tRoot } = useTranslation();
+
   return (
     <>
       {activeTab === "pets" && (
@@ -79,7 +82,7 @@ export function ProfileTabContent(props: Props) {
           ) : petsError ? (
             <ErrorState
               error={petsError}
-              actionLabel={t("common.retry", "Retry")}
+              actionLabel={tRoot("common.retry")}
               onAction={() => {
                 setPetsError(null);
                 setPetsLoaded(false);
@@ -94,10 +97,10 @@ export function ProfileTabContent(props: Props) {
                 return {
                   id: pet.id,
                   imageSource: petGalleryUrls(pet)[0] ?? "",
-                  petName: pet.name || "Unnamed pet",
-                  breed: pet.breed || "Unknown breed",
-                  petType: pet.species || "Pet",
-                  bio: parsed.bio || "No pet bio yet.",
+                  petName: pet.name || tRoot("pet.detail.unnamedPet"),
+                  breed: pet.breed || tRoot("pet.detail.unknownBreed"),
+                  petType: pet.species || tRoot("pets.add.kind"),
+                  bio: parsed.bio || tRoot("pet.detail.noBioShort"),
                   yardType: ((pet as any)?.yard_type ?? parsed.yardType) || undefined,
                   ageRange: ((pet as any)?.age_range ?? parsed.ageRange) || undefined,
                   energyLevel:
@@ -138,7 +141,7 @@ export function ProfileTabContent(props: Props) {
           ) : availabilityError ? (
             <ErrorState
               error={availabilityError}
-              actionLabel={t("common.retry", "Retry")}
+              actionLabel={tRoot("common.retry")}
               onAction={() => {
                 setAvailabilityError(null);
                 setAvailabilityLoaded(false);
@@ -185,7 +188,7 @@ export function ProfileTabContent(props: Props) {
           ) : reviewsError ? (
             <ErrorState
               error={reviewsError}
-              actionLabel={t("common.retry", "Retry")}
+              actionLabel={tRoot("common.retry")}
               onAction={() => {
                 setReviewsError(null);
                 setReviewsLoaded(false);
@@ -201,7 +204,7 @@ export function ProfileTabContent(props: Props) {
               items={reviewsUiItems}
               onReviewerPress={(id) =>
                 router.push({
-                  pathname: "/(private)/(tabs)/profile/users/[id]",
+                  pathname: "/(private)/(tabs)/(home)/users/[id]",
                   params: { id },
                 })
               }

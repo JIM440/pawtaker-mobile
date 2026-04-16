@@ -12,6 +12,7 @@ export type UserProfile = {
   avatar_url: string | null;
   bio: string | null;
   city: string | null;
+  zip_code?: string | null;
   points_balance: number;
   is_verified: boolean;
   is_email_verified?: boolean;
