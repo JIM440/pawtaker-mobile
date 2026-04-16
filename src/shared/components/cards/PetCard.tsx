@@ -251,16 +251,17 @@ export function PetCard({
                 {location}
               </AppText>
             ) : null}
-            {location && distance ? (
-              <AppText variant="caption" color={colors.onSurfaceVariant}>
-                {" "}
-                •{" "}
-              </AppText>
-            ) : null}
             {distance ? (
-              <AppText variant="caption" style={styles.metaText}>
-                {distance}
-              </AppText>
+              <View style={styles.distanceWrap}>
+                {location ? (
+                  <AppText variant="caption" color={colors.onSurfaceVariant}>
+                    {" • "}
+                  </AppText>
+                ) : null}
+                <AppText variant="caption" style={styles.metaText}>
+                  {distance}
+                </AppText>
+              </View>
             ) : null}
           </View>
         ) : null}
@@ -406,9 +407,16 @@ const styles = StyleSheet.create({
   },
   locationText: {
     flexShrink: 1,
+    maxWidth: "70%",
     minWidth: 0,
     fontSize: 12,
     lineHeight: 16,
+  },
+  distanceWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 0,
+    marginLeft: 4,
   },
   description: {
     fontSize: 11,

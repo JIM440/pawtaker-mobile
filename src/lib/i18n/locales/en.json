@@ -139,7 +139,8 @@
         "usernamePlaceholder": "e.g., John Paw",
         "alreadyHaveAccount": "Already have an account? Sign in",
         "alreadyPrefix": "Already have an account?",
-        "signInLink": "Sign in"
+        "signInLink": "Sign in",
+        "genericError": "We couldn't complete sign up right now. Please try again."
       },
       "verify": {
         "title": "Check your email",
@@ -151,7 +152,10 @@
       "resending": "Sending...",
       "invalidCode": "Invalid or expired code. Please try again.",
       "resendSuccess": "A new code has been sent.",
-      "missingEmail": "We couldn't find your signup email. Enter it again from sign in or sign up."
+      "missingEmail": "We couldn't find your signup email. Enter it again from sign in or sign up.",
+      "rateLimitedUseLatest": "You've requested codes too often. Please use the most recent code in your email or wait a bit before requesting another.",
+      "useMostRecentCode": "Use the most recent verification code in your email.",
+      "resendFailed": "We couldn't send a new code right now. Please try again shortly."
       },
       "profile": {
         "title": "Your Profile",
@@ -680,7 +684,9 @@
     "openDocumentDeviceFailed": "We couldn't open this document on your device.",
     "blockUpdateFailed": "We couldn't update this block right now.",
     "sending": "Sending…",
-    "openDocumentFailed": "Could not open document."
+    "openDocumentFailed": "Could not open document.",
+    "contentBlocked": "This content was blocked because it may be explicit.",
+    "loadFailed": "Failed to load thread."
   },
   "requestDetails": {
     "title": "Request details",
@@ -712,7 +718,14 @@
     "editRequestLocked": "You can edit only when no caregiver is assigned and no contract exists.",
     "deleteRequestFailed": "We couldn't delete this request right now.",
     "updatePetLikeFailed": "We couldn't update this pet like right now.",
-    "startApplicationFailed": "We couldn't start your application for this request."
+    "startApplicationFailed": "We couldn't start your application for this request.",
+    "reportRequestTitle": "Report request",
+    "reportRequestDescription": "If this request includes inappropriate content, tell us what happened.",
+    "reportRequestPrimary": "Report request"
+  },
+  "moderation": {
+    "blockedText": "This content was blocked because it may be explicit.",
+    "blockedImage": "One or more images were blocked because they may be explicit."
   },
   "filters": {
     "title": "Filters",

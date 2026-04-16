@@ -158,11 +158,21 @@ export function TakerCard({
               ]}
             >
               <MapPin size={16} color={colors.onSurfaceVariant} />
-              <AppText variant="caption" numberOfLines={1}>
-                {taker.location
-                  ? `${taker.location}${taker.distance ? " • " + taker.distance : ""}`
-                  : taker.distance ?? "__"}
-              </AppText>
+              {taker.location ? (
+                <AppText variant="caption" numberOfLines={1} style={styles.locationText}>
+                  {taker.location}
+                </AppText>
+              ) : null}
+              {taker.distance ? (
+                <View style={styles.distanceWrap}>
+                  {taker.location ? (
+                    <AppText variant="caption" color={colors.onSurfaceVariant}>
+                      {" • "}
+                    </AppText>
+                  ) : null}
+                  <AppText variant="caption">{taker.distance}</AppText>
+                </View>
+              ) : null}
             </View>
           </View>
         </View>
@@ -244,5 +254,16 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     alignSelf: "flex-start",
     minWidth: 0,
+  },
+  locationText: {
+    flexShrink: 1,
+    maxWidth: "70%",
+    minWidth: 0,
+  },
+  distanceWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    flexShrink: 0,
+    marginLeft: 2,
   },
 });

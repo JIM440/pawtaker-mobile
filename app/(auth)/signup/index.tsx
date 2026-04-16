@@ -11,9 +11,9 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import {
-  validatePassword,
-  validatePasswordMatch,
-  validateRequired,
+    validatePassword,
+    validatePasswordMatch,
+    validateRequired,
 } from "@/src/shared/utils/auth-validation";
 import { isValidEmail } from "@/src/shared/utils/is-valid-email";
 import { Ionicons } from "@expo/vector-icons";
@@ -21,17 +21,17 @@ import { router } from "expo-router";
 import { useEffect, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
-  Linking,
-  ScrollView,
-  Text,
-  TouchableOpacity,
-  View,
+    Linking,
+    ScrollView,
+    Text,
+    TouchableOpacity,
+    View,
 } from "react-native";
 import { LocalSvg } from "react-native-svg/css";
 
 export default function SignupScreen() {
   const { t } = useTranslation();
-  const { setCredentials } = useSignupStore();
+  const { setCredentials, setSignupEmail } = useSignupStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -57,6 +57,25 @@ export default function SignupScreen() {
     title: string;
     description: string;
   } | null>(null);
+
+  const isRateLimitError = (message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("rate limit") ||
+      normalized.includes("too many requests") ||
+      normalized.includes("over_email_send_rate_limit")
+    );
+  };
+
+  const isExistingAccountError = (message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("already registered") ||
+      normalized.includes("already exists") ||
+      normalized.includes("already been registered") ||
+      normalized.includes("user already")
+    );
+  };
 
   const openLegal = (kind: "terms" | "privacy") => {
     const url =
@@ -148,7 +167,41 @@ export default function SignupScreen() {
     setLoading(false);
 
     if (signUpError) {
-      setError(signUpError.message);
+      if (isExistingAccountError(signUpError.message)) {
+        const nextEmail = email.trim();
+        setSignupEmail(nextEmail);
+
+        const { error: resendError } = await supabase.auth.resend({
+          type: "signup",
+          email: nextEmail,
+        });
+
+        const notice = resendError
+          ? isRateLimitError(resendError.message)
+            ? t("auth.signup.verify.rateLimitedUseLatest")
+            : t("auth.signup.verify.useMostRecentCode")
+          : t("auth.signup.verify.resendSuccess");
+
+        router.push({
+          pathname: "/(auth)/signup/verify",
+          params: { email: nextEmail, notice },
+        } as any);
+        return;
+      }
+
+      if (isRateLimitError(signUpError.message)) {
+        setSignupEmail(email.trim());
+        router.push({
+          pathname: "/(auth)/signup/verify",
+          params: {
+            email: email.trim(),
+            notice: t("auth.signup.verify.rateLimitedUseLatest"),
+          },
+        } as any);
+        return;
+      }
+
+      setError(t("auth.signup.credentials.genericError"));
       return;
     }
 
@@ -229,7 +282,7 @@ export default function SignupScreen() {
       <ScrollView
         keyboardShouldPersistTaps="handled"
         showsVerticalScrollIndicator={false}
-        style={{ flex: 1, paddingTop: 16 }}
+        style={{ flex: 1, paddingVertical: 16 }}
       >
         <AppText
           variant="title"

@@ -4,6 +4,7 @@ import {
 } from "@/src/lib/blocks/user-blocks";
 import { supabase } from "@/src/lib/supabase/client";
 import { useAuthStore } from "@/src/lib/store/auth.store";
+import { errorMessageFromUnknown } from "@/src/lib/supabase/errors";
 import type { Json } from "@/src/lib/supabase/types";
 import { useState } from "react";
 
@@ -33,8 +34,12 @@ export function useSendMessage() {
       .maybeSingle();
     if (threadError) {
       setSending(false);
-      setError(threadError.message);
-      return { ok: false, message: threadError.message };
+      const readable = errorMessageFromUnknown(
+        threadError,
+        "Couldn't open this chat right now.",
+      );
+      setError(readable);
+      return { ok: false, message: readable };
     }
     const participants = ((threadRow as any)?.participant_ids ?? []) as string[];
     const otherUserId = participants.find((p) => p && p !== userId);
@@ -61,8 +66,12 @@ export function useSendMessage() {
     setSending(false);
 
     if (insertError) {
-      setError(insertError.message);
-      return { ok: false, message: insertError.message };
+      const readable = errorMessageFromUnknown(
+        insertError,
+        "Couldn't send your message right now.",
+      );
+      setError(readable);
+      return { ok: false, message: readable };
     }
 
     return { ok: true };

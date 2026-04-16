@@ -139,7 +139,8 @@
         "usernamePlaceholder": "ex. John Paw",
         "alreadyHaveAccount": "DÃƒÂ©jÃƒÂ  un compte ? Se connecter",
         "alreadyPrefix": "DÃƒÂ©jÃƒÂ  un compte ?",
-        "signInLink": "Se connecter"
+        "signInLink": "Se connecter",
+        "genericError": "Nous n'avons pas pu terminer l'inscription pour le moment. Veuillez reessayer."
       },
       "verify": {
         "title": "VÃƒÂ©rifiez votre e-mail",
@@ -151,7 +152,10 @@
         "resending": "Envoi...",
         "invalidCode": "Code invalide ou expirÃƒÂ©. Veuillez rÃƒÂ©essayer.",
         "resendSuccess": "Un nouveau code a ÃƒÂ©tÃƒÂ© envoyÃƒÂ©.",
-        "missingEmail": "Nous n'avons pas retrouve votre e-mail d'inscription. Reessayez depuis l'ecran de connexion ou d'inscription."
+        "missingEmail": "Nous n'avons pas retrouve votre e-mail d'inscription. Reessayez depuis l'ecran de connexion ou d'inscription.",
+        "rateLimitedUseLatest": "Vous avez demande trop de codes. Utilisez le code le plus recent recu par e-mail ou attendez un peu avant d'en redemander un.",
+        "useMostRecentCode": "Utilisez le code de verification le plus recent recu par e-mail.",
+        "resendFailed": "Impossible d'envoyer un nouveau code pour le moment. Veuillez reessayer dans un instant."
       },
       "profile": {
         "title": "Votre profil",
@@ -680,7 +684,9 @@
     "openDocumentDeviceFailed": "Impossible d'ouvrir ce document sur cet appareil.",
     "blockUpdateFailed": "Impossible de mettre à jour ce blocage pour le moment.",
     "sending": "Envoi en cours…",
-    "openDocumentFailed": "Impossible d'ouvrir le document."
+    "openDocumentFailed": "Impossible d'ouvrir le document.",
+    "contentBlocked": "Ce contenu a ete bloque car il peut etre explicite.",
+    "loadFailed": "Impossible de charger cette conversation."
   },
   "requestDetails": {
     "title": "DÃƒÂ©tails de la demande",
@@ -712,7 +718,14 @@
     "editRequestLocked": "Vous ne pouvez modifier que lorsqu'aucun gardien n'est assigné et qu'il n'existe aucun contrat.",
     "deleteRequestFailed": "Impossible de supprimer cette demande pour le moment.",
     "updatePetLikeFailed": "Impossible de mettre à jour ce favori pour le moment.",
-    "startApplicationFailed": "Impossible de démarrer votre candidature pour cette demande."
+    "startApplicationFailed": "Impossible de démarrer votre candidature pour cette demande.",
+    "reportRequestTitle": "Signaler la demande",
+    "reportRequestDescription": "Si cette demande contient du contenu inapproprie, decrivez le probleme.",
+    "reportRequestPrimary": "Signaler la demande"
+  },
+  "moderation": {
+    "blockedText": "Ce contenu a ete bloque car il peut etre explicite.",
+    "blockedImage": "Une ou plusieurs images ont ete bloquees car elles peuvent etre explicites."
   },
   "filters": {
     "title": "Filtres",

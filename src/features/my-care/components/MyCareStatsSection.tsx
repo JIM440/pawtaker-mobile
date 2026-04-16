@@ -20,7 +20,7 @@ export function MyCareStatsSection({
   styles,
   t,
 }: Props) {
-  if (!hasActiveCare || activeTab === "liked") {
+  if (!hasActiveCare) {
     return (
       <View style={styles.summaryGrid}>
         <View
@@ -83,7 +83,10 @@ export function MyCareStatsSection({
             <View>
               <AppText
                 variant="headline"
-                style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}
+                style={[
+                  styles.statSmallValue,
+                  { color: colors.onSurfaceVariant },
+                ]}
               >
                 {String(stats.careGiven).padStart(3, "0")}
               </AppText>
@@ -113,7 +116,10 @@ export function MyCareStatsSection({
             <View>
               <AppText
                 variant="headline"
-                style={[styles.statSmallValue, { color: colors.onSurfaceVariant }]}
+                style={[
+                  styles.statSmallValue,
+                  { color: colors.onSurfaceVariant },
+                ]}
               >
                 {String(stats.careReceived).padStart(3, "0")}
               </AppText>
@@ -154,7 +160,10 @@ export function MyCareStatsSection({
         ]}
       >
         <Handshake size={16} color={colors.tertiary} />
-        <AppText variant="caption" style={{ color: colors.tertiary, fontWeight: "600" }}>
+        <AppText
+          variant="caption"
+          style={{ color: colors.tertiary, fontWeight: "600" }}
+        >
           {stats.careGiven}
         </AppText>
       </View>

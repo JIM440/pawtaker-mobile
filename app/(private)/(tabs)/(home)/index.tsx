@@ -164,6 +164,7 @@ export default function HomeScreen() {
   const { count: notificationsUnreadCount } = useUnreadNotificationCount();
   const [filter, setFilter] = useState<FilterTab>("all");
   const [searchQuery, setSearchQuery] = useState("");
+  const hasSearchQuery = searchQuery.trim().length > 0;
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
   const [openMenuTaker, setOpenMenuTaker] = useState<Taker | null>(null);
   const [menuPosition, setMenuPosition] = useState<{
@@ -375,8 +376,16 @@ export default function HomeScreen() {
           if (petEnergy) feedTags.push(petEnergy);
 
           const distanceKm =
-            distanceByRequestId[r.id] ??
-            (owner?.id ? (distanceByOwnerId[owner.id] ?? null) : null);
+            (() => {
+              const startDateRaw =
+                typeof r.start_date === "string" ? r.start_date.trim() : "";
+              const todayYmd = new Date().toISOString().slice(0, 10);
+              const hasStarted =
+                startDateRaw.length > 0 ? startDateRaw <= todayYmd : false;
+              return hasStarted
+                ? (distanceByRequestId[r.id] ?? null)
+                : (owner?.id ? (distanceByOwnerId[owner.id] ?? null) : null);
+            })();
           const snapCity =
             typeof r.city === "string" ? r.city.trim() : "";
           const ownerCity =
@@ -385,16 +394,26 @@ export default function HomeScreen() {
             typeof owner?.zip_code === "string"
               ? owner.zip_code.trim()
               : "";
-          const locationLine =
-            ownerCity ||
-            snapCity ||
-            ownerZip ||
-            t("profile.noLocation", "No location");
+          const startDateRaw =
+            typeof r.start_date === "string" ? r.start_date.trim() : "";
+          const todayYmd = new Date().toISOString().slice(0, 10);
+          const hasStarted =
+            startDateRaw.length > 0 ? startDateRaw <= todayYmd : false;
+          const locationLine = hasStarted
+            ? snapCity ||
+              ownerCity ||
+              ownerZip ||
+              t("profile.noLocation", "No location")
+            : ownerCity ||
+              snapCity ||
+              ownerZip ||
+              t("profile.noLocation", "No location");
           const viewerCity =
             typeof profile?.city === "string" ? profile.city.trim() : "";
           const isSameTown =
             viewerCity.length > 0 &&
-            ((ownerCity.length > 0 && ownerCity.toLowerCase() === viewerCity.toLowerCase()) ||
+            ((locationLine.length > 0 &&
+              locationLine.toLowerCase() === viewerCity.toLowerCase()) ||
               (snapCity.length > 0 && snapCity.toLowerCase() === viewerCity.toLowerCase()));
           const distanceLine =
             distanceKm != null ? `${distanceKm.toFixed(1)} km` : isSameTown ? "0.0 km" : "";
@@ -488,14 +507,19 @@ export default function HomeScreen() {
       );
 
       const approvedIds = (usersData ?? []).map((u: { id: string }) => u.id);
+      const blockedTakerIds = await filterOutBlockedUsers(user.id, approvedIds);
+      const visibleUsersData = (usersData ?? []).filter(
+        (u: { id: string }) => !blockedTakerIds.has(u.id),
+      );
+      const visibleIds = visibleUsersData.map((u: { id: string }) => u.id);
 
       // Review stats for taker cards.
       const takerReviewStatsById: Record<string, ReviewStats> = {};
-      if (approvedIds.length > 0) {
+      if (visibleIds.length > 0) {
         const { data: reviewRowsT, error: reviewErrT } = await supabase
           .from("reviews")
           .select("reviewee_id,rating")
-          .in("reviewee_id", approvedIds);
+          .in("reviewee_id", visibleIds);
         if (reviewErrT && !isMissingBackendResourceError(reviewErrT)) throw reviewErrT;
         Object.assign(
           takerReviewStatsById,
@@ -511,14 +535,14 @@ export default function HomeScreen() {
       if (
         myLatT != null &&
         myLngT != null &&
-        approvedIds.length > 0
+        visibleIds.length > 0
       ) {
         const { data: distRowsT, error: distErrT } = await supabase.rpc(
           "distances_for_users",
           {
             user_lat: myLatT,
             user_lng: myLngT,
-            user_ids: approvedIds,
+            user_ids: visibleIds,
           },
         );
         if (!distErrT && Array.isArray(distRowsT)) {
@@ -534,7 +558,7 @@ export default function HomeScreen() {
       }
 
       setTakers(
-        (usersData ?? []).map((u: any) => {
+        visibleUsersData.map((u: any) => {
           const tp = profileByUserId[u.id];
           const speciesList = (tp?.accepted_species ?? []) as string[];
           const speciesChip =
@@ -619,7 +643,8 @@ export default function HomeScreen() {
   useEffect(() => {
     if (!user?.id) return;
 
-    const shouldLoadRequests = filter === "all" || filter === "requests";
+    const shouldLoadRequests =
+      hasSearchQuery || filter === "all" || filter === "requests";
     if (
       shouldLoadRequests &&
       !requestsLoading &&
@@ -629,7 +654,8 @@ export default function HomeScreen() {
       void loadRequestsTab();
     }
 
-    const shouldLoadTakers = filter === "all" || filter === "takers";
+    const shouldLoadTakers =
+      hasSearchQuery || filter === "all" || filter === "takers";
     if (shouldLoadTakers && !takersLoading && !takersLoaded && !takersError) {
       void loadTakersTab();
     }
@@ -642,6 +668,7 @@ export default function HomeScreen() {
     takersLoading,
     takersLoaded,
     takersError,
+    hasSearchQuery,
   ]);
 
   useEffect(() => {
@@ -894,7 +921,7 @@ export default function HomeScreen() {
 
   const filteredRequests = useMemo(() => {
     return requests.filter((item) => {
-      if (filter === "takers") return false;
+      if (!hasSearchQuery && filter === "takers") return false;
       if (
         careTypeFilter.length > 0 &&
         !careTypeFilter.includes(item.careTypeKey)
@@ -916,7 +943,7 @@ export default function HomeScreen() {
           return false;
         }
       }
-      if (!searchQuery.trim()) return true;
+      if (!hasSearchQuery) return true;
       const q = searchQuery.toLowerCase();
       const distStr =
         typeof item.distance === "string" ? item.distance.toLowerCase() : "";
@@ -930,6 +957,7 @@ export default function HomeScreen() {
     });
   }, [
     filter,
+    hasSearchQuery,
     searchQuery,
     careTypeFilter,
     distanceRange,
@@ -939,7 +967,7 @@ export default function HomeScreen() {
 
   const filteredTakers = useMemo(() => {
     return takers.filter((taker) => {
-      if (filter === "requests") return false;
+      if (!hasSearchQuery && filter === "requests") return false;
       if (
         careTypeFilter.length > 0 &&
         !taker.tags.some((tag) => careTypeFilter.includes(tag))
@@ -961,7 +989,7 @@ export default function HomeScreen() {
           return false;
         }
       }
-      if (!searchQuery.trim()) return true;
+      if (!hasSearchQuery) return true;
       const q = searchQuery.toLowerCase();
       const distStr =
         typeof taker.distance === "string" ? taker.distance.toLowerCase() : "";
@@ -972,10 +1000,18 @@ export default function HomeScreen() {
         (distStr.length > 0 && distStr.includes(q))
       );
     });
-  }, [filter, searchQuery, careTypeFilter, distanceRange, hasCoordinates, takers]);
+  }, [
+    filter,
+    hasSearchQuery,
+    searchQuery,
+    careTypeFilter,
+    distanceRange,
+    hasCoordinates,
+    takers,
+  ]);
 
-  const showRequests = filter === "all" || filter === "requests";
-  const showTakers = filter === "all" || filter === "takers";
+  const showRequests = hasSearchQuery || filter === "all" || filter === "requests";
+  const showTakers = hasSearchQuery || filter === "all" || filter === "takers";
   const hasActiveDistanceFilter =
     hasCoordinates &&
     (distanceRange.min > DISTANCE_MIN_KM ||

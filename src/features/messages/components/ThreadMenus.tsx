@@ -12,6 +12,7 @@ type Props = {
   t: (key: string, fallback?: string) => string;
   onCloseActions: () => void;
   onViewProfile: () => void;
+  onReport: () => void;
   onBlock: () => void;
   /** When set, shows "Unblock" instead of "Block" */
   onUnblock?: () => void;
@@ -30,6 +31,7 @@ export function ThreadMenus({
   t,
   onCloseActions,
   onViewProfile,
+  onReport,
   onBlock,
   onUnblock,
   onCloseAttach,
@@ -68,6 +70,20 @@ export function ThreadMenus({
             >
               <AppText variant="body" color={colors.onSurface}>
                 {t("messages.viewProfile")}
+              </AppText>
+            </TouchableOpacity>
+            <TouchableOpacity
+              style={[
+                styles.actionItem,
+                {
+                  borderBottomWidth: 1,
+                  borderBottomColor: colors.outlineVariant,
+                },
+              ]}
+              onPress={onReport}
+            >
+              <AppText variant="body" color={colors.error}>
+                {t("messages.reportUser", "Report user")}
               </AppText>
             </TouchableOpacity>
             {onUnblock ? (

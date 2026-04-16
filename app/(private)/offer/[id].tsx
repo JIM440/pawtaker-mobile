@@ -34,6 +34,7 @@ import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useCallback, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Flag } from "lucide-react-native";
 import { ScrollView, StyleSheet, View } from "react-native";
 
 /**
@@ -60,6 +61,8 @@ export default function SendOfferScreen() {
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [showReportConfirm, setShowReportConfirm] = useState(false);
+  const [reportReason, setReportReason] = useState("");
 
   const load = useCallback(async () => {
     if (!requestId) {
@@ -256,7 +259,6 @@ export default function SendOfferScreen() {
         const body =
           message.trim() ||
           t("offer.defaultProposalMessage", "I’d like to help with this care request.");
-
         const { error: msgError } = await supabase.from("messages").insert({
           thread_id: threadId,
           sender_id: user.id,
@@ -421,6 +423,15 @@ export default function SendOfferScreen() {
           loading={sending}
           disabled={sending || isOwner || reqRow?.status !== "open"}
         />
+        {!isOwner ? (
+          <Button
+            label={t("requestDetails.reportRequestPrimary", "Report request")}
+            variant="outline"
+            onPress={() => setShowReportConfirm(true)}
+            style={styles.reportBtn}
+            leftIcon={<Flag size={16} color={colors.onSurface} />}
+          />
+        ) : null}
       </View>
 
       <FeedbackModal
@@ -436,6 +447,92 @@ export default function SendOfferScreen() {
         }}
         onSecondary={() => setShowConfirm(false)}
         onRequestClose={() => setShowConfirm(false)}
+      />
+
+      <FeedbackModal
+        visible={showReportConfirm}
+        title={t("requestDetails.reportRequestTitle", "Report request")}
+        description={t(
+          "requestDetails.reportRequestDescription",
+          "If this request includes inappropriate content, tell us what happened.",
+        )}
+        body={
+          <View>
+            <Input
+              label={t("messages.reportReasonLabel", "Reason")}
+              placeholder={t(
+                "messages.reportReasonPlaceholder",
+                "Describe what happened",
+              )}
+              value={reportReason}
+              onChangeText={setReportReason}
+              maxLength={250}
+              multiline
+              inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+              containerStyle={{ marginBottom: 0 }}
+            />
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={{ textAlign: "right", marginTop: 6 }}
+            >
+              {`${reportReason.length}/250`}
+            </AppText>
+          </View>
+        }
+        primaryLabel={t("requestDetails.reportRequestPrimary", "Report request")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={sending}
+        onPrimary={() => {
+          void (async () => {
+            if (!user?.id || !ownerRow?.id || !reqRow?.id) return;
+            const details = reportReason.trim();
+            if (!details) {
+              showToast({
+                variant: "error",
+                message: t("messages.reportReasonRequired", "Please enter a reason."),
+                durationMs: 2800,
+              });
+              return;
+            }
+
+            setSending(true);
+            try {
+              const { error: reportError } = await supabase.from("reports").insert({
+                reporter_id: user.id,
+                reported_user_id: ownerRow.id,
+                reason: "pet_request_content",
+                details: `request_id=${reqRow.id}; ${details}`,
+              });
+              if (reportError) throw reportError;
+
+              setShowReportConfirm(false);
+              setReportReason("");
+              showToast({
+                variant: "success",
+                message: t("messages.reportSubmitted", "Report submitted."),
+                durationMs: 2800,
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: errorMessageFromUnknown(err, t("messages.reportFailed")),
+                durationMs: 3200,
+              });
+            } finally {
+              setSending(false);
+            }
+          })();
+        }}
+        onSecondary={() => {
+          if (sending) return;
+          setShowReportConfirm(false);
+        }}
+        onRequestClose={() => {
+          if (sending) return;
+          setShowReportConfirm(false);
+        }}
       />
     </PageContainer>
   );
@@ -487,5 +584,9 @@ const styles = StyleSheet.create({
   footer: {
     paddingTop: 8,
     paddingBottom: 24,
+    gap: 10,
+  },
+  reportBtn: {
+    width: "100%",
   },
 });

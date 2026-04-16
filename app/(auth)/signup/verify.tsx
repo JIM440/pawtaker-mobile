@@ -12,9 +12,21 @@ import { AppText } from '@/src/shared/components/ui/AppText';
 import { Button } from '@/src/shared/components/ui/Button';
 import { OtpInput } from '@/src/shared/components/forms/OtpInput';
 
+const isRateLimitError = (message: string) => {
+  const normalized = message.toLowerCase();
+  return (
+    normalized.includes("rate limit") ||
+    normalized.includes("too many requests") ||
+    normalized.includes("over_email_send_rate_limit")
+  );
+};
+
 export default function VerifyScreen() {
   const { t } = useTranslation();
-  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const params = useLocalSearchParams<{
+    email?: string | string[];
+    notice?: string | string[];
+  }>();
   const { email, clearSignup, setSignupEmail } = useSignupStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
@@ -33,6 +45,14 @@ export default function VerifyScreen() {
     return params.email?.trim() ?? '';
   }, [params.email]);
 
+  const routeNotice = useMemo(() => {
+    if (Array.isArray(params.notice)) {
+      return params.notice[0]?.trim() ?? "";
+    }
+
+    return params.notice?.trim() ?? "";
+  }, [params.notice]);
+
   const activeEmail = routeEmail || email;
 
   useEffect(() => {
@@ -40,6 +60,12 @@ export default function VerifyScreen() {
       setSignupEmail(routeEmail);
     }
   }, [routeEmail, setSignupEmail]);
+
+  useEffect(() => {
+    if (routeNotice) {
+      setSuccessMsg(routeNotice);
+    }
+  }, [routeNotice]);
 
   const handleVerify = async () => {
     if (!activeEmail) {
@@ -89,7 +115,12 @@ export default function VerifyScreen() {
     setResending(false);
 
     if (resendError) {
-      setError(t('common.error'));
+      setSuccessMsg(null);
+      setError(
+        isRateLimitError(resendError.message)
+          ? t("auth.signup.verify.rateLimitedUseLatest")
+          : t("auth.signup.verify.resendFailed"),
+      );
     } else {
       setSuccessMsg(t('auth.signup.verify.resendSuccess'));
     }

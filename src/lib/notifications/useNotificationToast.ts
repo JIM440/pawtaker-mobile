@@ -9,6 +9,11 @@ export function useNotificationToast() {
     const subscription = Notifications.addNotificationReceivedListener(
       (notification) => {
         const { title, body, data } = notification.request.content;
+        const notificationType =
+          typeof data?.type === "string" ? data.type : undefined;
+        const isMessageNotification =
+          notificationType === "chat" || notificationType === "message_received";
+        if (isMessageNotification) return;
         setToast({
           title: title ?? 'New notification',
           body: body ?? '',

@@ -14,6 +14,8 @@ export type UserProfile = {
   city: string | null;
   zip_code?: string | null;
   points_balance: number;
+  care_given_count?: number;
+  care_received_count?: number;
   is_verified: boolean;
   is_email_verified?: boolean;
   has_had_pet?: boolean;

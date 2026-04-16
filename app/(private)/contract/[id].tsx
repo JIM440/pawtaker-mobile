@@ -31,20 +31,13 @@ import { PetPhotoCarousel } from "@/src/shared/components/pets/PetPhotoCarousel"
 import { PetDetailScreenSkeleton } from "@/src/shared/components/skeletons";
 import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
-import { Button } from "@/src/shared/components/ui/Button";
 import { type CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { Input } from "@/src/shared/components/ui/Input";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import {
-  AlertCircle,
-  Ellipsis,
-  Handshake,
-  PawPrint,
-  Star
-} from "lucide-react-native";
+import { Ellipsis, Handshake, PawPrint, Star } from "lucide-react-native";
 import React, { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Platform, ScrollView, StyleSheet, TouchableOpacity, View } from "react-native";
@@ -200,21 +193,21 @@ export default function ContractDetailScreen() {
       const [{ data: owner }, { data: taker }] = await Promise.all([
         ownerId
           ? supabase
-            .from("users")
-            .select(
-              "id,full_name,avatar_url,city,care_given_count,care_received_count",
-            )
-            .eq("id", ownerId)
-            .maybeSingle()
+              .from("users")
+              .select(
+                "id,full_name,avatar_url,city,care_given_count,care_received_count",
+              )
+              .eq("id", ownerId)
+              .maybeSingle()
           : Promise.resolve({ data: null } as any),
         takerId
           ? supabase
-            .from("users")
-            .select(
-              "id,full_name,avatar_url,city,care_given_count,care_received_count",
-            )
-            .eq("id", takerId)
-            .maybeSingle()
+              .from("users")
+              .select(
+                "id,full_name,avatar_url,city,care_given_count,care_received_count",
+              )
+              .eq("id", takerId)
+              .maybeSingle()
           : Promise.resolve({ data: null } as any),
       ]);
 
@@ -323,10 +316,10 @@ export default function ContractDetailScreen() {
   const price =
     requestRow?.start_date && requestRow?.end_date
       ? formatCarePointsPts(
-        requestRow.care_type,
-        requestRow.start_date as string,
-        requestRow.end_date as string,
-      )
+          requestRow.care_type,
+          requestRow.start_date as string,
+          requestRow.end_date as string,
+        )
       : (priceParam ?? "");
 
   const mode =
@@ -336,7 +329,6 @@ export default function ContractDetailScreen() {
         ? "seeking"
         : "applying";
 
-  const isOwnerView = mode === "seeking";
   const ownerName = resolveDisplayName(ownerRow) || t("requestDetails.owner", "Owner");
   const takerName = resolveDisplayName(takerRow) || t("common.user");
   const petType = typeof petRow?.species === "string" ? petRow.species : "";
@@ -354,16 +346,12 @@ export default function ContractDetailScreen() {
 
   const isExpired = requestRow?.end_date && new Date(requestRow.end_date) < new Date();
 
-
   const formattedTime =
     requestRow?.start_time && requestRow?.end_time
       ? formatRequestTimeRange(requestRow.start_time, requestRow.end_time)
       : (time || null);
   const ownerLocation = ownerRow?.city?.trim() || t("profile.noLocation");
   const takerLocation = takerRow?.city?.trim() || t("profile.noLocation");
-  const requestContextLabel = petName
-    ? t("messages.applyingForPet", { petName })
-    : t("myCare.contract.title", "Contract");
   const petAttributes = {
     yardType: petRow?.yard_type ?? t("common.empty", "-"),
     ageRange: petRow?.age_range ?? t("common.empty", "-"),
@@ -377,8 +365,6 @@ export default function ContractDetailScreen() {
     contractStatus === "signed" ||
     contractStatus === "active";
   const agreementEnded = contractStatus === "completed";
-
-  /** Deep-link param lets the UI unlock immediately after accepting an offer (before sign rows sync). */
   const acceptedUI = (paramAccepted && !agreementEnded) || agreementLive;
 
   const [actionsOpen, setActionsOpen] = useState(false);
@@ -421,7 +407,6 @@ export default function ContractDetailScreen() {
     return null;
   }, [contractRow?.owner_id, contractRow?.taker_id, requestRow?.owner_id, requestRow?.taker_id, user?.id]);
 
-  // Realtime: keep contractRow in sync with DB changes (e.g. other party triggers terminate)
   useEffect(() => {
     if (!resolvedContractId) return;
     const channel = supabase
@@ -446,7 +431,6 @@ export default function ContractDetailScreen() {
     };
   }, [resolvedContractId]);
 
-  /** One-tap termination: completes the agreement immediately (modal stays open with loading until done). */
   const terminateAgreement = async () => {
     if (!resolvedContractId || !user?.id) return;
     setBusy(true);
@@ -496,7 +480,6 @@ export default function ContractDetailScreen() {
       });
       setShowTerminateConfirm(false);
     } catch (err) {
-      console.error("[ContractDetail] Terminate Error:", err);
       showToast({
         variant: "error",
         message: errorMessageFromUnknown(
@@ -607,7 +590,6 @@ export default function ContractDetailScreen() {
     );
   }
 
-
   return (
     <PageContainer contentStyle={{ paddingTop: 0, paddingHorizontal: 0 }}>
       <BackHeader
@@ -660,7 +642,6 @@ export default function ContractDetailScreen() {
           location={ownerLocation}
           description={petBio}
           showFavorite={false}
-          // Hide seeking badge if expired
           isSeeking={!isExpired && requestRow?.status === "open"}
         />
 
@@ -676,7 +657,6 @@ export default function ContractDetailScreen() {
             </View>
           ) : null}
 
-          {/* Owner/User Card */}
           <AppText variant="label" color={colors.onSurfaceVariant} style={styles.roleLabel}>
             {t("myCare.contract.petOwner", "Pet Owner")}
           </AppText>
@@ -736,7 +716,6 @@ export default function ContractDetailScreen() {
             </AppText>
           </TouchableOpacity>
 
-          {/* Taker Card - Home Page style */}
           {takerRow ? (
             <View style={{ marginTop: 24, marginBottom: 12 }}>
               <AppText variant="label" color={colors.onSurfaceVariant} style={styles.roleLabel}>
@@ -749,9 +728,9 @@ export default function ContractDetailScreen() {
                   avatar: takerRow.avatar_url,
                   rating: takerRatingAvg,
                   species: petType,
-                  tags: proposalCareTypes.map(tag => t(`feed.careTypes.${tag}`)),
+                  tags: proposalCareTypes.map((tag) => t(`feed.careTypes.${tag}`)),
                   location: takerLocation,
-                  distance: "-", // Distance not applicable here
+                  distance: "-",
                   status: takerAlreadyCaring ? "unavailable" : "available",
                   completedTasks: takerRow.care_given_count ?? 0,
                   petsHandled: takerRow.care_received_count ?? 0,
@@ -762,7 +741,7 @@ export default function ContractDetailScreen() {
                     return;
                   }
                   router.push({
-                pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
+                    pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
                     params: { id: takerRow.id },
                   });
                 }}
@@ -771,7 +750,6 @@ export default function ContractDetailScreen() {
             </View>
           ) : null}
 
-          {/* Details Section - Hide if expired */}
           {!isExpired && (
             <>
               <AppText variant="title" color={colors.onSurface} style={styles.sectionTitle}>
@@ -800,7 +778,6 @@ export default function ContractDetailScreen() {
                 </View>
               </View>
 
-              {/* Special Needs Section */}
               <AppText variant="label" color={colors.onSurfaceVariant} style={styles.specialLabel}>
                 *{t("requestDetails.specialNeeds")}
               </AppText>
@@ -810,19 +787,17 @@ export default function ContractDetailScreen() {
             </>
           )}
 
-          {/* Status Message */}
           <View style={[styles.statusBox, { backgroundColor: colors.surfaceContainerLow }]}>
             <AppText variant="body" color={colors.onSurfaceVariant}>
               {agreementEnded
                 ? t("myCare.contract.agreementEnded")
                 : isExpired
-                  ? t("myCare.contract.agreementActive", "Agreement is active.") // Keep it active if it's just expired but not completed yet
+                  ? t("myCare.contract.agreementActive", "Agreement is active.")
                   : acceptedUI
                     ? t("myCare.contract.agreementActive")
                     : t("myCare.contract.acceptHint")}
             </AppText>
           </View>
-
         </View>
       </ScrollView>
 
@@ -833,34 +808,6 @@ export default function ContractDetailScreen() {
           "myCare.contract.terminateConfirmLead",
           "This ends the contract immediately.",
         )}
-        body={
-          <View style={styles.terminateRulesBody}>
-            <AppText variant="label" style={styles.terminateRulesHeading}>
-              {t("myCare.contract.terminateRulesTitle", "How points are handled")}
-            </AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {t(
-                "myCare.contract.terminateRuleBeforeStart",
-                "Before start date: if owner ends the contract, taker gets 0 points.",
-              )}
-            </AppText>
-            <AppText variant="caption" style={styles.terminateRulesSubheading}>
-              {t("myCare.contract.terminateRuleAfterStartTitle", "After start date")}
-            </AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {t(
-                "myCare.contract.terminateRuleAfterStartOwner",
-                "Owner ends contract: taker gets full points immediately.",
-              )}
-            </AppText>
-            <AppText variant="caption" color={colors.onSurfaceVariant}>
-              {t(
-                "myCare.contract.terminateRuleAfterStartTaker",
-                "Taker ends contract: taker gets 0 points (owner keeps/gets points back).",
-              )}
-            </AppText>
-          </View>
-        }
         primaryLabel={t("myCare.contract.terminateConfirm", "Terminate")}
         secondaryLabel={t("common.cancel")}
         destructive
@@ -902,7 +849,6 @@ export default function ContractDetailScreen() {
         onPrimary={() => {
           void (async () => {
             if (!user?.id || !otherPartyId || busy) return;
-
             setBusy(true);
             try {
               await blockUser(user.id, otherPartyId);
@@ -947,19 +893,28 @@ export default function ContractDetailScreen() {
           "Are you sure? Please provide a reason.",
         )}
         body={
-          <Input
-            label={t("messages.reportReasonLabel", "Reason")}
-            placeholder={t(
-              "messages.reportReasonPlaceholder",
-              "Describe what happened",
-            )}
-            value={reportReason}
-            onChangeText={setReportReason}
-            maxLength={250}
-            multiline
-            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
-            containerStyle={{ marginBottom: 0 }}
-          />
+          <View>
+            <Input
+              label={t("messages.reportReasonLabel", "Reason")}
+              placeholder={t(
+                "messages.reportReasonPlaceholder",
+                "Describe what happened",
+              )}
+              value={reportReason}
+              onChangeText={setReportReason}
+              maxLength={250}
+              multiline
+              inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+              containerStyle={{ marginBottom: 0 }}
+            />
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={{ textAlign: "right", marginTop: 6 }}
+            >
+              {`${reportReason.length}/250`}
+            </AppText>
+          </View>
         }
         primaryLabel={t("messages.reportUser", "Report user")}
         secondaryLabel={t("common.cancel")}
@@ -1015,7 +970,7 @@ export default function ContractDetailScreen() {
             return;
           }
           router.push({
-            pathname: "/(private)/(tabs)/my-care/review/[id]" as any,
+            pathname: "/(private)/review/[id]" as any,
             params: {
               id: rid,
               ...(revieweeId ? { revieweeId } : {}),
@@ -1090,10 +1045,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6,
     paddingVertical: 2,
   },
-  divider: {
-    height: 1,
-    marginVertical: 20,
-  },
   sectionTitle: {
     fontSize: 16,
     fontWeight: "600",
@@ -1106,22 +1057,6 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
-  },
-  detailPillGroup: {
-    gap: 8,
-    flex: 1,
-    minWidth: "30%",
-  },
-  pillLabel: {
-    fontSize: 12,
-    fontWeight: "500",
-  },
-  pillValue: {
-    alignSelf: "flex-start",
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    borderRadius: 999,
-    borderWidth: 1,
   },
   specialLabel: {
     fontSize: 12,
@@ -1139,23 +1074,8 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     marginBottom: 24,
   },
-  footer: {
-    padding: 16,
-    paddingBottom: Platform.OS === "ios" ? 34 : 24,
-    borderTopWidth: StyleSheet.hairlineWidth,
-  },
   menuBtnTop: {
     padding: 8,
     borderRadius: 20,
-  },
-  terminateRulesBody: {
-    gap: 6,
-  },
-  terminateRulesHeading: {
-    fontWeight: "700",
-  },
-  terminateRulesSubheading: {
-    fontWeight: "600",
-    marginTop: 2,
   },
 });

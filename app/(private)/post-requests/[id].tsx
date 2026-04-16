@@ -35,10 +35,12 @@ import { ErrorState, ResourceMissingState } from "@/src/shared/components/ui";
 import { AppText } from "@/src/shared/components/ui/AppText";
 import type { CareTypeKey } from "@/src/shared/components/ui/CareTypeSelector";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
+import { Input } from "@/src/shared/components/ui/Input";
 import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import {
     Ellipsis,
+  Flag,
     Pencil,
     Trash2
 } from "lucide-react-native";
@@ -94,8 +96,14 @@ export default function RequestDetailScreen() {
   } | null>(null);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [reportConfirmOpen, setReportConfirmOpen] = useState(false);
+  const [reportReason, setReportReason] = useState("");
+  const [reporting, setReporting] = useState(false);
   const [hasContract, setHasContract] = useState(false);
   const [distanceKmServer, setDistanceKmServer] = useState<number | null>(null);
+  const [ownerDistanceKmServer, setOwnerDistanceKmServer] = useState<number | null>(
+    null,
+  );
   const menuBtnRef = useRef<View>(null);
 
   const load = useCallback(async () => {
@@ -352,7 +360,15 @@ export default function RequestDetailScreen() {
 
   const careTypeLabel = t(`feed.careTypes.${careTypeKey}`);
 
-  const location = owner?.city?.trim() || t("profile.noLocation");
+  const requestStartDate = typeof reqRow?.start_date === "string" ? reqRow.start_date : "";
+  const todayYmd = localYyyyMmDd(new Date());
+  const hasStarted = Boolean(requestStartDate) && requestStartDate <= todayYmd;
+  const requestSnapshotCity =
+    typeof reqRow?.city === "string" ? reqRow.city.trim() : "";
+  const ownerCity = typeof owner?.city === "string" ? owner.city.trim() : "";
+  const location = hasStarted
+    ? requestSnapshotCity || ownerCity || t("profile.noLocation")
+    : ownerCity || requestSnapshotCity || t("profile.noLocation");
 
   useEffect(() => {
     if (!id || viewer?.latitude == null || viewer?.longitude == null) {
@@ -392,8 +408,42 @@ export default function RequestDetailScreen() {
     viewer?.longitude,
   ]);
 
+  useEffect(() => {
+    if (!owner?.id || viewer?.latitude == null || viewer?.longitude == null) {
+      setOwnerDistanceKmServer(null);
+      return;
+    }
+    let cancelled = false;
+    void (async () => {
+      const { data, error } = await supabase.rpc("distances_for_users", {
+        user_lat: viewer.latitude as number,
+        user_lng: viewer.longitude as number,
+        user_ids: [owner.id],
+      });
+      if (cancelled) return;
+      if (error || !Array.isArray(data) || data.length === 0) {
+        setOwnerDistanceKmServer(null);
+        return;
+      }
+      const row = data[0] as { distance_km?: number };
+      const km = row?.distance_km;
+      setOwnerDistanceKmServer(
+        typeof km === "number" && Number.isFinite(km) ? km : null,
+      );
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [owner?.id, viewer?.latitude, viewer?.longitude]);
+
   const distanceLabel =
-    distanceKmServer != null ? `${distanceKmServer.toFixed(1)} km` : "";
+    hasStarted
+      ? distanceKmServer != null
+        ? `${distanceKmServer.toFixed(1)} km`
+        : ""
+      : ownerDistanceKmServer != null
+        ? `${ownerDistanceKmServer.toFixed(1)} km`
+        : "";
 
   const petBioForCard = parsedPetNotes.bio?.trim() ?? "";
 
@@ -770,6 +820,46 @@ export default function RequestDetailScreen() {
     })();
   };
 
+  const handleReportRequest = async () => {
+    if (!user?.id || !owner?.id || !reqRow?.id) return;
+    const details = reportReason.trim();
+    if (!details) {
+      showToast({
+        variant: "error",
+        message: t("messages.reportReasonRequired", "Please enter a reason."),
+        durationMs: 2800,
+      });
+      return;
+    }
+
+    setReporting(true);
+    try {
+      const { error: reportError } = await supabase.from("reports").insert({
+        reporter_id: user.id,
+        reported_user_id: owner.id,
+        reason: "pet_request_content",
+        details: `request_id=${reqRow.id}; ${details}`,
+      });
+      if (reportError) throw reportError;
+
+      setReportConfirmOpen(false);
+      setReportReason("");
+      showToast({
+        variant: "success",
+        message: t("messages.reportSubmitted", "Report submitted."),
+        durationMs: 2800,
+      });
+    } catch (err) {
+      showToast({
+        variant: "error",
+        message: errorMessageFromUnknown(err, t("messages.reportFailed")),
+        durationMs: 3200,
+      });
+    } finally {
+      setReporting(false);
+    }
+  };
+
   if (loading) {
     return (
       <PageContainer contentStyle={{ paddingTop: 0 }}>
@@ -843,7 +933,15 @@ export default function RequestDetailScreen() {
                 <Ellipsis size={22} color={colors.onSurfaceVariant} />
               </TouchableOpacity>
             </View>
-          ) : undefined
+          ) : (
+            <TouchableOpacity
+              onPress={() => setReportConfirmOpen(true)}
+              style={styles.menuBtn}
+              hitSlop={8}
+            >
+              <Flag size={18} color={colors.onSurfaceVariant} />
+            </TouchableOpacity>
+          )
         }
       />
       <RequestPetDetailView
@@ -1002,6 +1100,54 @@ export default function RequestDetailScreen() {
         secondaryLabel={t("common.cancel", "Cancel")}
         onSecondary={() => setDeleteConfirmOpen(false)}
         onRequestClose={() => setDeleteConfirmOpen(false)}
+      />
+
+      <FeedbackModal
+        visible={reportConfirmOpen}
+        title={t("requestDetails.reportRequestTitle", "Report request")}
+        description={t(
+          "requestDetails.reportRequestDescription",
+          "If this request includes inappropriate content, tell us what happened.",
+        )}
+        body={
+          <View>
+            <Input
+              label={t("messages.reportReasonLabel", "Reason")}
+              placeholder={t(
+                "messages.reportReasonPlaceholder",
+                "Describe what happened",
+              )}
+              value={reportReason}
+              onChangeText={setReportReason}
+              maxLength={250}
+              multiline
+              inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+              containerStyle={{ marginBottom: 0 }}
+            />
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={{ textAlign: "right", marginTop: 6 }}
+            >
+              {`${reportReason.length}/250`}
+            </AppText>
+          </View>
+        }
+        primaryLabel={t("requestDetails.reportRequestPrimary", "Report request")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={reporting}
+        onPrimary={() => {
+          void handleReportRequest();
+        }}
+        onSecondary={() => {
+          if (reporting) return;
+          setReportConfirmOpen(false);
+        }}
+        onRequestClose={() => {
+          if (reporting) return;
+          setReportConfirmOpen(false);
+        }}
       />
     </PageContainer>
   );

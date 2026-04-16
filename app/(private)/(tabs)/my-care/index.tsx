@@ -99,6 +99,10 @@ export default function MyCareScreen() {
   const showToast = useToastStore((s) => s.showToast);
   const { openThread } = useOrCreateThread();
   const [hasAvailabilityProfile, setHasAvailabilityProfile] = useState(false);
+  const profileStats = profile as (typeof profile & {
+    care_given_count?: number;
+    care_received_count?: number;
+  }) | null;
 
   const onAvailableChange = (value: boolean) => {
     if (!user?.id || value === available) return;
@@ -769,13 +773,13 @@ export default function MyCareScreen() {
     setStats((s) => ({
       ...s,
       points: profile?.points_balance ?? 0,
-      careGiven: profile?.care_given_count ?? 0,
-      careReceived: profile?.care_received_count ?? 0,
+      careGiven: profileStats?.care_given_count ?? 0,
+      careReceived: profileStats?.care_received_count ?? 0,
     }));
   }, [
     profile?.points_balance,
-    profile?.care_given_count,
-    profile?.care_received_count,
+    profileStats?.care_given_count,
+    profileStats?.care_received_count,
   ]);
 
   useEffect(() => {
@@ -888,7 +892,7 @@ export default function MyCareScreen() {
     const agreementId = row.contractId ?? row.id;
     if (!agreementId) return;
     router.push({
-      pathname: "/(private)/(tabs)/my-care/contract/[id]" as const,
+      pathname: "/(private)/contract/[id]" as const,
       params: { id: agreementId },
     });
   };
@@ -909,7 +913,7 @@ export default function MyCareScreen() {
     const agreementId = activeCare?.contractId as string | undefined;
     if (!agreementId) return;
     router.push({
-      pathname: "/(private)/(tabs)/my-care/contract/[id]" as const,
+      pathname: "/(private)/contract/[id]" as const,
       params: { id: agreementId },
     });
   };

@@ -685,7 +685,10 @@ export default function ViewOfferScreen() {
               color={colors.onSurfaceVariant}
               style={styles.disclaimer}
             >
-              {t("myCare.contract.acceptDisclaimer")}
+              {t(
+                "messages.adviceMeet",
+                "You are advised to meet users before confirming care agreements.",
+              )}
             </AppText>
           </>
         ) : null}
@@ -724,7 +727,7 @@ export default function ViewOfferScreen() {
             return;
           }
           router.push({
-            pathname: "/(private)/(tabs)/my-care/review/[id]" as any,
+            pathname: "/(private)/review/[id]" as any,
             params: {
               id: contractId,
               ...(takerId ? { revieweeId: takerId } : {}),
@@ -856,19 +859,28 @@ export default function ViewOfferScreen() {
           "Are you sure? Please provide a reason.",
         )}
         body={
-          <Input
-            label={t("messages.reportReasonLabel", "Reason")}
-            placeholder={t(
-              "messages.reportReasonPlaceholder",
-              "Describe what happened",
-            )}
-            value={reportReason}
-            onChangeText={setReportReason}
-            maxLength={250}
-            multiline
-            inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
-            containerStyle={{ marginBottom: 0 }}
-          />
+          <View>
+            <Input
+              label={t("messages.reportReasonLabel", "Reason")}
+              placeholder={t(
+                "messages.reportReasonPlaceholder",
+                "Describe what happened",
+              )}
+              value={reportReason}
+              onChangeText={setReportReason}
+              maxLength={250}
+              multiline
+              inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+              containerStyle={{ marginBottom: 0 }}
+            />
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={{ textAlign: "right", marginTop: 6 }}
+            >
+              {`${reportReason.length}/250`}
+            </AppText>
+          </View>
         }
         primaryLabel={t("messages.reportUser", "Report user")}
         secondaryLabel={t("common.cancel")}
@@ -1074,7 +1086,7 @@ export default function ViewOfferScreen() {
               setAccepted(true);
               setAcceptedConfirmOpen(false);
               router.push({
-                pathname: "/(private)/(tabs)/my-care/contract/[id]" as any,
+                pathname: "/(private)/contract/[id]" as any,
                 params: { id: acceptance.contractId, accepted: "1" } as any,
               });
             } catch (err) {

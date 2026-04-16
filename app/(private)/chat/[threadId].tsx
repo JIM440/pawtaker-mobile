@@ -25,6 +25,7 @@ import {
     uploadToCloudinary,
 } from "@/src/lib/cloudinary/upload";
 import { navigateProposalOfferDetails } from "@/src/features/notifications/notificationNavigation";
+import { shouldBlockImageLikeSubmission } from "@/src/lib/moderation/content-moderation";
 import {
     isResourceNotFound,
     RESOURCE_NOT_FOUND,
@@ -48,6 +49,7 @@ import { AppText } from "@/src/shared/components/ui/AppText";
 import { Button } from "@/src/shared/components/ui/Button";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
+import { Input } from "@/src/shared/components/ui/Input";
 import { UserAvatar } from "@/src/shared/components/ui/UserAvatar";
 import * as ImagePicker from "expo-image-picker";
 import * as Linking from "expo-linking";
@@ -929,6 +931,8 @@ export default function ThreadScreen() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [actionsOpen, setActionsOpen] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
+  const [showReportConfirm, setShowReportConfirm] = useState(false);
+  const [reportReason, setReportReason] = useState("");
   const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
   const [blockStatus, setBlockStatus] = useState<BlockDirection>("none");
@@ -1251,7 +1255,7 @@ export default function ThreadScreen() {
       } catch (err) {
         if (!cancelled) {
           setLoadError(
-            err instanceof Error ? err.message : "Failed to load thread.",
+            errorMessageFromUnknown(err, t("messages.loadFailed", "Failed to load thread.")),
           );
         }
       } finally {
@@ -1338,6 +1342,23 @@ export default function ThreadScreen() {
     "";
 
   const queueAttachmentPreview = (attachment: AttachmentPreview) => {
+    if (
+      shouldBlockImageLikeSubmission({
+        fileName: attachment.name,
+        uri: attachment.uri,
+      })
+    ) {
+      showToast({
+        variant: "error",
+        message: t(
+          "messages.contentBlocked",
+          "This content was blocked because it may be explicit.",
+        ),
+        durationMs: 3600,
+      });
+      return;
+    }
+
     if (
       attachment.kind === "image" &&
       attachment.sizeBytes &&
@@ -1458,16 +1479,16 @@ export default function ThreadScreen() {
       } catch (e) {
         showToast({
           variant: "error",
-          message:
-            e instanceof Error
-              ? e.message
-              : t(
-                  snapshot.kind === "video"
-                    ? "messages.sendVideoFailed"
-                    : snapshot.kind === "image"
-                      ? "messages.sendImageFailed"
-                      : "messages.sendDocumentFailed",
-                ),
+          message: errorMessageFromUnknown(
+            e,
+            t(
+              snapshot.kind === "video"
+                ? "messages.sendVideoFailed"
+                : snapshot.kind === "image"
+                  ? "messages.sendImageFailed"
+                  : "messages.sendDocumentFailed",
+            ),
+          ),
         });
       } finally {
         removePending();
@@ -1755,6 +1776,10 @@ export default function ThreadScreen() {
                   setActionsOpen(false);
                   setShowBlockConfirm(true);
                 }}
+                onReport={() => {
+                  setActionsOpen(false);
+                  setShowReportConfirm(true);
+                }}
                 onUnblock={
                   blockStatus === "i_blocked"
                     ? () => {
@@ -1804,6 +1829,95 @@ export default function ThreadScreen() {
                   })();
                 }}
                 onCancel={() => setShowBlockConfirm(false)}
+              />
+
+              <FeedbackModal
+                visible={showReportConfirm}
+                title={t("messages.reportUser", "Report user")}
+                description={t(
+                  "messages.reportConfirmDescription",
+                  "Are you sure? Please provide a reason.",
+                )}
+                body={
+                  <View>
+                    <Input
+                      label={t("messages.reportReasonLabel", "Reason")}
+                      placeholder={t(
+                        "messages.reportReasonPlaceholder",
+                        "Describe what happened",
+                      )}
+                      value={reportReason}
+                      onChangeText={setReportReason}
+                      maxLength={250}
+                      multiline
+                      inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+                      containerStyle={{ marginBottom: 0 }}
+                    />
+                    <AppText
+                      variant="caption"
+                      color={colors.onSurfaceVariant}
+                      style={{ textAlign: "right", marginTop: 6 }}
+                    >
+                      {`${reportReason.length}/250`}
+                    </AppText>
+                  </View>
+                }
+                primaryLabel={t("messages.reportUser", "Report user")}
+                secondaryLabel={t("common.cancel")}
+                destructive
+                primaryLoading={busy}
+                onPrimary={() => {
+                  void (async () => {
+                    if (!user?.id || !threadHeader.userId || busy) return;
+                    const details = reportReason.trim();
+                    if (!details) {
+                      showToast({
+                        variant: "error",
+                        message: t(
+                          "messages.reportReasonRequired",
+                          "Please enter a reason.",
+                        ),
+                      });
+                      return;
+                    }
+                    setBusy(true);
+                    try {
+                      const { error } = await supabase.from("reports").insert({
+                        reporter_id: user.id,
+                        reported_user_id: threadHeader.userId,
+                        reason: "chat_report",
+                        details,
+                      });
+                      if (error) throw error;
+                      setShowReportConfirm(false);
+                      setReportReason("");
+                      showToast({
+                        variant: "success",
+                        message: t("messages.reportSubmitted", "Report submitted."),
+                      });
+                    } catch (err) {
+                      showToast({
+                        variant: "error",
+                        message: errorMessageFromUnknown(
+                          err,
+                          t("messages.reportFailed"),
+                        ),
+                      });
+                    } finally {
+                      setBusy(false);
+                    }
+                  })();
+                }}
+                onSecondary={() => {
+                  if (busy) return;
+                  setShowReportConfirm(false);
+                  setReportReason("");
+                }}
+                onRequestClose={() => {
+                  if (busy) return;
+                  setShowReportConfirm(false);
+                  setReportReason("");
+                }}
               />
 
               <FeedbackModal
@@ -1917,6 +2031,7 @@ export default function ThreadScreen() {
                     borderColor:
                       blockStatus === "none" ? "transparent" : colors.error,
                     borderWidth: blockStatus === "none" ? 0 : 1,
+                    display: blockStatus === "none" ? "none" : "flex",
                   },
                 ]}
               >
@@ -1925,22 +2040,10 @@ export default function ThreadScreen() {
                 )}
                 <AppText
                   variant="caption"
-                  color={
-                    blockStatus === "none"
-                      ? colors.onSurfaceVariant
-                      : colors.onErrorContainer
-                  }
-                  style={[
-                    styles.blockBannerText,
-                    blockStatus === "none" && { textAlign: "center" },
-                  ]}
+                  color={colors.onErrorContainer}
+                  style={styles.blockBannerText}
                 >
-                  {blockStatus === "none"
-                    ? t(
-                        "messages.adviceMeet",
-                        "You are advised to meet users before confirming care agreements.",
-                      )
-                    : blockBannerMessage}
+                  {blockBannerMessage}
                 </AppText>
                 {blockStatus === "i_blocked" && (
                   <TouchableOpacity

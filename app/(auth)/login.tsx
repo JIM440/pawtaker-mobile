@@ -32,6 +32,7 @@ export default function LoginScreen() {
   const [emailError, setEmailError] = useState<string | null>(null);
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [resendingVerification, setResendingVerification] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showVerificationHelp, setShowVerificationHelp] = useState(false);
   const [infoModal, setInfoModal] = useState<{
@@ -39,14 +40,36 @@ export default function LoginScreen() {
     description: string;
   } | null>(null);
 
-  const openSignupVerification = () => {
+  const isRateLimitError = (message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("rate limit") ||
+      normalized.includes("too many requests") ||
+      normalized.includes("over_email_send_rate_limit")
+    );
+  };
+
+  const openSignupVerification = async () => {
     const nextEmail = email.trim();
     if (!nextEmail) return;
+
+    setResendingVerification(true);
+    const { error: resendError } = await supabase.auth.resend({
+      type: "signup",
+      email: nextEmail,
+    });
+    setResendingVerification(false);
+
+    const notice = resendError
+      ? isRateLimitError(resendError.message)
+        ? t("auth.signup.verify.rateLimitedUseLatest")
+        : t("auth.signup.verify.useMostRecentCode")
+      : t("auth.signup.verify.resendSuccess");
 
     setSignupEmail(nextEmail);
     router.push({
       pathname: "/(auth)/signup/verify",
-      params: { email: nextEmail },
+      params: { email: nextEmail, notice },
     } as any);
   };
 
@@ -231,11 +254,16 @@ export default function LoginScreen() {
 
         {showVerificationHelp ? (
           <TouchableOpacity
-            onPress={openSignupVerification}
+            onPress={() => {
+              void openSignupVerification();
+            }}
             style={{ alignSelf: "flex-start", marginBottom: 12 }}
+            disabled={resendingVerification}
           >
             <AppText variant="body" color={colors.primary}>
-              {t("auth.login.resumeVerification")}
+              {resendingVerification
+                ? t("auth.signup.verify.resending")
+                : t("auth.login.resumeVerification")}
             </AppText>
           </TouchableOpacity>
         ) : null}

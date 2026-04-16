@@ -8,18 +8,18 @@ import { ProfileReviewsTab } from "@/src/features/profile/components/ProfileRevi
 import { PublicProfileActionsMenu } from "@/src/features/profile/components/public-profile/PublicProfileActionsMenu";
 import { SendRequestToUserModal } from "@/src/features/profile/components/public-profile/SendRequestToUserModal";
 import {
-  blockUser,
-  getBlockDirection,
-  type BlockDirection,
-  unblockUser,
+    blockUser,
+    getBlockDirection,
+    unblockUser,
+    type BlockDirection,
 } from "@/src/lib/blocks/user-blocks";
 import { getRequestEligibility } from "@/src/lib/contracts/request-eligibility";
 import { formatLocalYyyyMmDd } from "@/src/lib/datetime/localDate";
 import { formatRequestDateRange } from "@/src/lib/datetime/request-date-time-format";
 import { formatReviewRelativeDate } from "@/src/lib/datetime/review-relative-date";
 import {
-  isResourceNotFound,
-  RESOURCE_NOT_FOUND,
+    isResourceNotFound,
+    RESOURCE_NOT_FOUND,
 } from "@/src/lib/errors/resource-not-found";
 import { getOrCreateThreadForUsers } from "@/src/lib/messages/get-or-create-thread";
 import { parsePetNotes } from "@/src/lib/pets/parsePetNotes";
@@ -36,27 +36,28 @@ import { BackHeader } from "@/src/shared/components/layout/BackHeader";
 import { ProfileHeaderAndTabsSkeleton } from "@/src/shared/components/skeletons/ProfileScreenSkeleton";
 import { ProfilePetsTabSkeleton } from "@/src/shared/components/skeletons/ProfileTabSkeletons";
 import {
-  DataState,
-  ErrorState,
-  IllustratedEmptyStateIllustrations,
-  ResourceMissingState,
+    AppText,
+    DataState,
+    ErrorState,
+    IllustratedEmptyStateIllustrations,
+    ResourceMissingState,
 } from "@/src/shared/components/ui";
 import { AppImage } from "@/src/shared/components/ui/AppImage";
 import { FeedbackModal } from "@/src/shared/components/ui/FeedbackModal";
 import { ImageViewerModal } from "@/src/shared/components/ui/ImageViewerModal";
 import { Input } from "@/src/shared/components/ui/Input";
 import { TabBar } from "@/src/shared/components/ui/TabBar";
+import { useFocusEffect } from "@react-navigation/native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { MoreHorizontal } from "lucide-react-native";
 import React, { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useFocusEffect } from "@react-navigation/native";
 import {
-  RefreshControl,
-  ScrollView,
-  StyleSheet,
-  TouchableOpacity,
-  View,
+    RefreshControl,
+    ScrollView,
+    StyleSheet,
+    TouchableOpacity,
+    View,
 } from "react-native";
 
 type ProfileTab = "pets" | "availability" | "bio" | "reviews";
@@ -80,17 +81,20 @@ function isRequestStillSeekable(
   if (endDate < today) return false;
 
   const endTime =
-    typeof request?.end_time === "string" ? request.end_time.trim().slice(0, 5) : "";
+    typeof request?.end_time === "string"
+      ? request.end_time.trim().slice(0, 5)
+      : "";
   if (!endTime) return true;
 
   return endTime >= formatCurrentTimeForComparison(now);
 }
 
 export default function PublicProfileScreen() {
-  const { id: profileIdParam, initialTab: initialTabParam } = useLocalSearchParams<{
-    id: string | string[];
-    initialTab?: string;
-  }>();
+  const { id: profileIdParam, initialTab: initialTabParam } =
+    useLocalSearchParams<{
+      id: string | string[];
+      initialTab?: string;
+    }>();
   const profileId =
     typeof profileIdParam === "string"
       ? profileIdParam
@@ -103,14 +107,18 @@ export default function PublicProfileScreen() {
   const isOwnProfile = Boolean(user?.id && profileId && user.id === profileId);
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
-  const validInitialTab = (["pets", "availability", "bio", "reviews"] as ProfileTab[]).includes(initialTabParam as ProfileTab)
+  const validInitialTab = (
+    ["pets", "availability", "bio", "reviews"] as ProfileTab[]
+  ).includes(initialTabParam as ProfileTab)
     ? (initialTabParam as ProfileTab)
     : "pets";
   const [activeTab, setActiveTab] = useState<ProfileTab>(validInitialTab);
   const [optionsVisible, setOptionsVisible] = useState(false);
   const [showBlockConfirm, setShowBlockConfirm] = useState(false);
   const [showUnblockConfirm, setShowUnblockConfirm] = useState(false);
+  const [showReportConfirm, setShowReportConfirm] = useState(false);
   const [blockReason, setBlockReason] = useState("");
+  const [reportReason, setReportReason] = useState("");
   const [sendRequestBusy, setSendRequestBusy] = useState(false);
   const [sendRequestLoading, setSendRequestLoading] = useState(false);
   const [blockBusy, setBlockBusy] = useState(false);
@@ -200,11 +208,17 @@ export default function PublicProfileScreen() {
       setPublicReviews(reviews);
 
       // Fetch reviewer user data in one batch
-      const reviewerIds = [...new Set(reviews.map((r: any) => r.reviewer_id as string).filter(Boolean))];
+      const reviewerIds = [
+        ...new Set(
+          reviews.map((r: any) => r.reviewer_id as string).filter(Boolean),
+        ),
+      ];
       if (reviewerIds.length > 0) {
         const { data: reviewerUsers } = await supabase
           .from("users")
-          .select("id,full_name,avatar_url,care_given_count,care_received_count")
+          .select(
+            "id,full_name,avatar_url,care_given_count,care_received_count",
+          )
           .in("id", reviewerIds);
         const map: Record<
           string,
@@ -341,10 +355,7 @@ export default function PublicProfileScreen() {
       setSelectedSeekingPet(firstEligible);
     } catch (err) {
       showToast({
-        message: errorMessageFromUnknown(
-          err,
-          t("errors.sendRequestFailed"),
-        ),
+        message: errorMessageFromUnknown(err, t("errors.sendRequestFailed")),
       });
     } finally {
       setSendRequestLoading(false);
@@ -437,10 +448,7 @@ export default function PublicProfileScreen() {
       });
     } catch (err) {
       showToast({
-        message: errorMessageFromUnknown(
-          err,
-          t("errors.sendRequestFailed"),
-        ),
+        message: errorMessageFromUnknown(err, t("errors.sendRequestFailed")),
       });
     } finally {
       setSendRequestBusy(false);
@@ -460,10 +468,7 @@ export default function PublicProfileScreen() {
       });
     } catch (err) {
       showToast({
-        message: errorMessageFromUnknown(
-          err,
-          t("messages.blockUpdateFailed"),
-        ),
+        message: errorMessageFromUnknown(err, t("messages.blockUpdateFailed")),
       });
     } finally {
       setBlockBusy(false);
@@ -484,10 +489,7 @@ export default function PublicProfileScreen() {
     } catch (err) {
       showToast({
         variant: "error",
-        message: errorMessageFromUnknown(
-          err,
-          t("messages.unblockFailed"),
-        ),
+        message: errorMessageFromUnknown(err, t("messages.unblockFailed")),
       });
     } finally {
       setBlockBusy(false);
@@ -498,8 +500,7 @@ export default function PublicProfileScreen() {
     return {
       avatarUri: publicProfile?.avatar_url || null,
       name: resolveDisplayName(publicProfile) || "User",
-      location:
-        publicProfile?.city?.trim() || t("profile.noLocation"),
+      location: publicProfile?.city?.trim() || t("profile.noLocation"),
       points: publicProfile?.points_balance ?? 0,
       handshakes: 0,
       paws: publicReviews.length,
@@ -761,6 +762,10 @@ export default function PublicProfileScreen() {
           }
           setShowBlockConfirm(true);
         }}
+        onReport={() => {
+          setOptionsVisible(false);
+          setShowReportConfirm(true);
+        }}
       />
 
       <SendRequestToUserModal
@@ -792,6 +797,95 @@ export default function PublicProfileScreen() {
         }}
       />
 
+      <FeedbackModal
+        visible={showReportConfirm}
+        title={t("messages.reportUser", "Report user")}
+        description={t(
+          "messages.reportConfirmDescription",
+          "Are you sure? Please provide a reason.",
+        )}
+        body={
+          <View>
+            <Input
+              label={t("messages.reportReasonLabel", "Reason")}
+              placeholder={t(
+                "messages.reportReasonPlaceholder",
+                "Describe what happened",
+              )}
+              value={reportReason}
+              onChangeText={setReportReason}
+              maxLength={250}
+              multiline
+              inputStyle={{ minHeight: 88, textAlignVertical: "top" }}
+              containerStyle={{ marginBottom: 0 }}
+            />
+            <AppText
+              variant="caption"
+              color={colors.onSurfaceVariant}
+              style={{ textAlign: "right", marginTop: 6 }}
+            >
+              {`${reportReason.length}/250`}
+            </AppText>
+          </View>
+        }
+        primaryLabel={t("messages.reportUser", "Report user")}
+        secondaryLabel={t("common.cancel")}
+        destructive
+        primaryLoading={blockBusy}
+        onPrimary={() => {
+          void (async () => {
+            if (!user?.id || !profileId || blockBusy) return;
+            const details = reportReason.trim();
+            if (!details) {
+              showToast({
+                variant: "error",
+                message: t(
+                  "messages.reportReasonRequired",
+                  "Please enter a reason.",
+                ),
+              });
+              return;
+            }
+
+            setBlockBusy(true);
+            try {
+              const { error } = await supabase.from("reports").insert({
+                reporter_id: user.id,
+                reported_user_id: profileId,
+                reason: "profile_report",
+                details,
+              });
+              if (error) throw error;
+              setShowReportConfirm(false);
+              setReportReason("");
+              showToast({
+                variant: "success",
+                message: t("messages.reportSubmitted", "Report submitted."),
+              });
+            } catch (err) {
+              showToast({
+                variant: "error",
+                message: errorMessageFromUnknown(
+                  err,
+                  t("messages.reportFailed"),
+                ),
+              });
+            } finally {
+              setBlockBusy(false);
+            }
+          })();
+        }}
+        onSecondary={() => {
+          if (blockBusy) return;
+          setShowReportConfirm(false);
+          setReportReason("");
+        }}
+        onRequestClose={() => {
+          if (blockBusy) return;
+          setShowReportConfirm(false);
+          setReportReason("");
+        }}
+      />
       <FeedbackModal
         visible={showBlockConfirm}
         title={t("profile.blockConfirmTitle")}

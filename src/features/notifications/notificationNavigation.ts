@@ -35,7 +35,7 @@ export async function navigateProposalOfferDetails(
     if (!eligibility.eligible && eligibility.contractId && uid) {
       if (uid === ownerId || uid === takerId) {
         router.push({
-          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          pathname: "/(private)/contract/[id]",
           params: { id: eligibility.contractId },
         });
         return;
@@ -158,7 +158,7 @@ export function navigateForNotificationPayload(
         typeof d.contract_id === "string" ? d.contract_id : null;
       if (contractId) {
         router.push({
-          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          pathname: "/(private)/contract/[id]",
           params: { id: contractId },
         });
       } else {
@@ -174,7 +174,7 @@ export function navigateForNotificationPayload(
         typeof d.contract_id === "string" ? d.contract_id : null;
       if (contractId) {
         router.push({
-          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          pathname: "/(private)/contract/[id]",
           params: { id: contractId },
         });
       } else {
@@ -197,12 +197,12 @@ export function navigateForNotificationPayload(
       const requestId = typeof d.request_id === "string" ? d.request_id : null;
       if (contractId) {
         router.push({
-          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          pathname: "/(private)/contract/[id]",
           params: { id: contractId },
         });
       } else if (requestId) {
         router.push({
-          pathname: "/(private)/(tabs)/my-care/contract/[id]",
+          pathname: "/(private)/contract/[id]",
           params: { id: requestId },
         });
       } else {

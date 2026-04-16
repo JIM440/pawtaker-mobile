@@ -12,6 +12,7 @@ type Props = {
   onClose: () => void;
   onSendRequest: () => void;
   onOpenChat: () => void;
+  onReport: () => void;
   onToggleBlock: () => void;
   styles: any;
 };
@@ -26,6 +27,7 @@ export function PublicProfileActionsMenu({
   onClose,
   onSendRequest,
   onOpenChat,
+  onReport,
   onToggleBlock,
   styles,
 }: Props) {
@@ -70,6 +72,20 @@ export function PublicProfileActionsMenu({
         >
           <AppText variant="body" color={colors.onSurface}>
             {t("myCare.goToChat")}
+          </AppText>
+        </TouchableOpacity>
+        <TouchableOpacity
+          style={[
+            styles.menuItem,
+            {
+              borderBottomWidth: 1,
+              borderBottomColor: colors.outlineVariant,
+            },
+          ]}
+          onPress={onReport}
+        >
+          <AppText variant="body" color={colors.error}>
+            {t("messages.reportUser", "Report user")}
           </AppText>
         </TouchableOpacity>
         <TouchableOpacity style={styles.menuItem} onPress={onToggleBlock}>

@@ -67,6 +67,8 @@ export default function PrivateLayout() {
           options={{ headerShown: false }}
         />
         <Stack.Screen name="offer" options={{ headerShown: false }} />
+        <Stack.Screen name="contract" options={{ headerShown: false }} />
+        <Stack.Screen name="review" options={{ headerShown: false }} />
         <Stack.Screen name="kyc/index" options={{ headerShown: false }} />
         <Stack.Screen name="pets" options={{ headerShown: false }} />
       </Stack>

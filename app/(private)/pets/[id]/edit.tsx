@@ -11,6 +11,10 @@ import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useToastStore } from "@/src/lib/store/toast.store";
 import { supabase } from "@/src/lib/supabase/client";
 import {
+  shouldBlockImageLikeSubmission,
+  shouldBlockTextSubmission,
+} from "@/src/lib/moderation/content-moderation";
+import {
   isRemotePetPhotoUri,
   petGalleryUrls,
 } from "@/src/lib/pets/petGalleryUrls";
@@ -62,6 +66,36 @@ export default function EditPetScreen() {
         variant: "error",
         message: t("pets.add.requiredFields"),
         durationMs: 3000,
+      });
+      return;
+    }
+
+    if (
+      shouldBlockTextSubmission(petBio) ||
+      shouldBlockTextSubmission(specialNeedsText)
+    ) {
+      showToast({
+        variant: "error",
+        message: t(
+          "moderation.blockedText",
+          "This content was blocked because it may be explicit.",
+        ),
+        durationMs: 3600,
+      });
+      return;
+    }
+
+    const hasBlockedImageHint = photos.some((uri) =>
+      shouldBlockImageLikeSubmission({ uri }),
+    );
+    if (hasBlockedImageHint) {
+      showToast({
+        variant: "error",
+        message: t(
+          "moderation.blockedImage",
+          "One or more images were blocked because they may be explicit.",
+        ),
+        durationMs: 3600,
       });
       return;
     }

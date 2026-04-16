@@ -2,8 +2,10 @@ import { Colors } from "@/src/constants/colors";
 import { useAuthStore } from "@/src/lib/store/auth.store";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { router, Stack, usePathname } from "expo-router";
+import { StatusBar } from "expo-status-bar";
 import { useEffect } from "react";
 import { Platform } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 
 export default function AuthLayout() {
   const { resolvedTheme } = useThemeStore();
@@ -29,22 +31,29 @@ export default function AuthLayout() {
   }, [session, onboardingSeen, authHydrated, isLoading, pathname]);
 
   return (
-    <Stack
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
-        ...(Platform.OS === "ios"
-          ? { animation: "ios" as any, gestureEnabled: true }
-          : Platform.OS !== "web"
-            ? { animation: "slide_from_right" }
-            : {}),
-      }}
+    <SafeAreaView
+      className={`flex-1`}
+      style={{ backgroundColor: colors.background }}
+      edges={["top", "bottom"]}
     >
-      <Stack.Screen name="onboarding" />
-      <Stack.Screen name="welcome" />
-      <Stack.Screen name="login" />
-      <Stack.Screen name="signup" />
-      <Stack.Screen name="forgot-password" />
-    </Stack>
+      <StatusBar style={resolvedTheme === "light" ? "dark" : "light"} />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+          ...(Platform.OS === "ios"
+            ? { animation: "ios" as any, gestureEnabled: true }
+            : Platform.OS !== "web"
+              ? { animation: "slide_from_right" }
+              : {}),
+        }}
+      >
+        <Stack.Screen name="onboarding" />
+        <Stack.Screen name="welcome" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
+        <Stack.Screen name="forgot-password" />
+      </Stack>
+    </SafeAreaView>
   );
 }

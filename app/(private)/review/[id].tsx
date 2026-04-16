@@ -69,7 +69,7 @@ export default function PostCareReviewScreen() {
 
       let contract: any | null = contractDirect ?? null;
 
-      // Fallback: route id is a care_request id — pick most recent contract for that request involving the user.
+      // Fallback: route id is a care_request id - pick most recent contract for that request involving the user.
       if (!contract) {
         const { data: contracts, error: cErr } = await supabase
           .from("contracts")
@@ -224,7 +224,7 @@ export default function PostCareReviewScreen() {
           durationMs: 2600,
         });
         router.replace({
-        pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
+          pathname: "/(private)/(tabs)/(home)/users/[id]" as any,
           params: { id: reviewee.id, initialTab: "reviews" },
         });
       } catch (err) {
