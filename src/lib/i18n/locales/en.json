@@ -97,7 +97,9 @@
       "noAccount": "Don't have an account? Sign up",
       "noAccountPrefix": "Don't have an account?",
       "signUpLink": "Sign up",
-      "invalidCredentials": "Invalid email or password."
+      "invalidCredentials": "Invalid email or password.",
+      "emailNotVerified": "Your email is not verified yet. Finish verification to sign in.",
+      "resumeVerification": "Resend verification code"
     },
     "welcome": {
       "title": "Welcome,\nthis is PawTaker",
@@ -143,12 +145,13 @@
         "title": "Check your email",
         "subtitle": "We sent a 6-digit code to",
         "codePlaceholder": "6-digit code",
-        "submit": "Verify Email",
-        "verifying": "Verifying...",
-        "resend": "Resend code",
-        "resending": "Sending...",
-        "invalidCode": "Invalid or expired code. Please try again.",
-        "resendSuccess": "A new code has been sent."
+      "submit": "Verify Email",
+      "verifying": "Verifying...",
+      "resend": "Resend code",
+      "resending": "Sending...",
+      "invalidCode": "Invalid or expired code. Please try again.",
+      "resendSuccess": "A new code has been sent.",
+      "missingEmail": "We couldn't find your signup email. Enter it again from sign in or sign up."
       },
       "profile": {
         "title": "Your Profile",

@@ -63,13 +63,6 @@ Deno.serve(async (req) => {
     }
 
     const expoToken = Deno.env.get("EXPO_ACCESS_TOKEN");
-    if (!expoToken) {
-      console.error("send-notification-push: missing EXPO_ACCESS_TOKEN");
-      return new Response(JSON.stringify({ ok: false, error: "missing_expo_token" }), {
-        status: 500,
-        headers: { ...corsHeaders, "Content-Type": "application/json" },
-      });
-    }
 
     const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
     const serviceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
@@ -82,12 +75,42 @@ Deno.serve(async (req) => {
     }
 
     const admin = createClient(supabaseUrl, serviceKey);
+    const logStage = async (stage: string, detail: Record<string, unknown>) => {
+      try {
+        await admin.from("push_delivery_debug").insert({
+          notification_id: record.id ?? null,
+          user_id: record.user_id ?? null,
+          stage,
+          detail,
+        });
+      } catch (error) {
+        console.error("push debug log failed", stage, error);
+      }
+    };
+
+    await logStage("webhook_received", {
+      type: record.type ?? "unknown",
+      hasBody: Boolean(record.body),
+    });
+
+    if (!expoToken) {
+      await logStage("missing_expo_token", {});
+      console.error("send-notification-push: missing EXPO_ACCESS_TOKEN");
+      return new Response(JSON.stringify({ ok: false, error: "missing_expo_token" }), {
+        status: 500,
+        headers: { ...corsHeaders, "Content-Type": "application/json" },
+      });
+    }
+
     const { data: tokenRows, error: tokErr } = await admin
       .from("push_tokens")
       .select("token")
       .eq("user_id", record.user_id);
 
     if (tokErr) {
+      await logStage("token_query_failed", {
+        message: tokErr.message,
+      });
       console.error("push_tokens", tokErr);
       return new Response(JSON.stringify({ ok: false, error: "token_query_failed" }), {
         status: 500,
@@ -100,11 +123,16 @@ Deno.serve(async (req) => {
       .filter((t: string) => typeof t === "string" && t.length > 0);
 
     if (tokens.length === 0) {
+      await logStage("no_tokens_found", {});
       return new Response(JSON.stringify({ ok: true, sent: 0 }), {
         status: 200,
         headers: { ...corsHeaders, "Content-Type": "application/json" },
       });
     }
+
+    await logStage("tokens_loaded", {
+      tokenCount: tokens.length,
+    });
 
     const extra =
       record.data && typeof record.data === "object"
@@ -137,6 +165,11 @@ Deno.serve(async (req) => {
         : {}),
     }));
 
+    await logStage("expo_request_prepared", {
+      attempted: messages.length,
+      hasRichContent: Boolean(imageCandidate),
+    });
+
     const res = await fetch("https://exp.host/--/api/v2/push/send", {
       method: "POST",
       headers: {
@@ -153,6 +186,10 @@ Deno.serve(async (req) => {
       unknown
     >;
     if (!res.ok) {
+      await logStage("expo_http_error", {
+        status: res.status,
+        detail: expoJson,
+      });
       console.error("expo push", res.status, expoJson);
       return new Response(
         JSON.stringify({ ok: false, error: "expo_push_failed", detail: expoJson }),
@@ -186,6 +223,12 @@ Deno.serve(async (req) => {
 
     const allTicketsFailed =
       tickets.length > 0 && okCount === 0 && ticketErrors.length === tickets.length;
+
+    await logStage("expo_response", {
+      attempted: tokens.length,
+      okCount,
+      ticketErrors,
+    });
 
     return new Response(
       JSON.stringify({

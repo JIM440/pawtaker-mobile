@@ -114,7 +114,9 @@
       "noAccount": "Pas de compte ? S'inscrire",
       "noAccountPrefix": "Pas de compte ?",
       "signUpLink": "S'inscrire",
-      "invalidCredentials": "E-mail ou mot de passe invalide."
+      "invalidCredentials": "E-mail ou mot de passe invalide.",
+      "emailNotVerified": "Votre e-mail n'est pas encore verifie. Terminez la verification pour vous connecter.",
+      "resumeVerification": "Renvoyer le code de verification"
     },
     "signup": {
       "credentials": {
@@ -148,7 +150,8 @@
         "resend": "Renvoyer le code",
         "resending": "Envoi...",
         "invalidCode": "Code invalide ou expirÃƒÂ©. Veuillez rÃƒÂ©essayer.",
-        "resendSuccess": "Un nouveau code a ÃƒÂ©tÃƒÂ© envoyÃƒÂ©."
+        "resendSuccess": "Un nouveau code a ÃƒÂ©tÃƒÂ© envoyÃƒÂ©.",
+        "missingEmail": "Nous n'avons pas retrouve votre e-mail d'inscription. Reessayez depuis l'ecran de connexion ou d'inscription."
       },
       "profile": {
         "title": "Votre profil",

@@ -13,6 +13,7 @@ type SignupStore = {
 
   // Setters
   setCredentials: (fullName: string, email: string, password: string) => void;
+  setSignupEmail: (email: string) => void;
   setProfile: (displayName: string, location: string, bio: string) => void;
   clearSignup: () => void;
 };
@@ -27,6 +28,8 @@ export const useSignupStore = create<SignupStore>((set) => ({
 
   setCredentials: (fullName, email, password) =>
     set({ fullName, email, password }),
+
+  setSignupEmail: (email) => set({ email }),
 
   setProfile: (displayName, location, bio) =>
     set({ displayName, location, bio }),
