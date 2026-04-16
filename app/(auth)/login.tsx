@@ -1,4 +1,5 @@
 import { Colors } from "@/src/constants/colors";
+import { useSignupStore } from "@/src/lib/store/signup.store";
 import { INPUT_LIMITS } from "@/src/constants/input-limits";
 import { useThemeStore } from "@/src/lib/store/theme.store";
 import { supabase } from "@/src/lib/supabase/client";
@@ -22,6 +23,7 @@ export default function LoginScreen() {
   const { t } = useTranslation();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
+  const { setSignupEmail } = useSignupStore();
 
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -31,10 +33,31 @@ export default function LoginScreen() {
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showVerificationHelp, setShowVerificationHelp] = useState(false);
   const [infoModal, setInfoModal] = useState<{
     title: string;
     description: string;
   } | null>(null);
+
+  const openSignupVerification = () => {
+    const nextEmail = email.trim();
+    if (!nextEmail) return;
+
+    setSignupEmail(nextEmail);
+    router.push({
+      pathname: "/(auth)/signup/verify",
+      params: { email: nextEmail },
+    } as any);
+  };
+
+  const isUnverifiedEmailError = (message: string) => {
+    const normalized = message.toLowerCase();
+    return (
+      normalized.includes("email not confirmed") ||
+      normalized.includes("email not verified") ||
+      normalized.includes("confirm your email")
+    );
+  };
 
   const openLegal = (kind: "terms" | "privacy") => {
     const url =
@@ -60,6 +83,7 @@ export default function LoginScreen() {
 
   const handleGoogleSignIn = async () => {
     setError(null);
+    setShowVerificationHelp(false);
     setLoading(true);
     const { error: googleError } = await signInWithGoogleNative();
     setLoading(false);
@@ -71,6 +95,7 @@ export default function LoginScreen() {
 
   const handleSignIn = async () => {
     setError(null);
+    setShowVerificationHelp(false);
 
     setEmailTouched(true);
     setPasswordTouched(true);
@@ -100,6 +125,13 @@ export default function LoginScreen() {
     setLoading(false);
 
     if (signInError) {
+      if (isUnverifiedEmailError(signInError.message)) {
+        setSignupEmail(emailValue);
+        setError(t("auth.login.emailNotVerified"));
+        setShowVerificationHelp(true);
+        return;
+      }
+
       setError(t("auth.login.invalidCredentials"));
     }
   };
@@ -162,6 +194,7 @@ export default function LoginScreen() {
           onChangeText={(text) => {
             setEmail(text);
             setEmailTouched(true);
+            setShowVerificationHelp(false);
           }}
           placeholder={t("auth.login.emailPlaceholder")}
           keyboardType="email-address"
@@ -176,6 +209,7 @@ export default function LoginScreen() {
           onChangeText={(text) => {
             setPassword(text);
             setPasswordTouched(true);
+            setShowVerificationHelp(false);
           }}
           placeholder={t("auth.login.passwordPlaceholder")}
           isPassword
@@ -193,6 +227,17 @@ export default function LoginScreen() {
           >
             {error}
           </AppText>
+        ) : null}
+
+        {showVerificationHelp ? (
+          <TouchableOpacity
+            onPress={openSignupVerification}
+            style={{ alignSelf: "flex-start", marginBottom: 12 }}
+          >
+            <AppText variant="body" color={colors.primary}>
+              {t("auth.login.resumeVerification")}
+            </AppText>
+          </TouchableOpacity>
         ) : null}
 
         <TouchableOpacity

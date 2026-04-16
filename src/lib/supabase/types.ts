@@ -469,6 +469,26 @@ export interface Database {
         Update: Partial<Database['public']['Tables']['push_tokens']['Insert']>;
         Relationships: never[];
       };
+      push_delivery_debug: {
+        Row: {
+          id: string;
+          notification_id: string | null;
+          user_id: string | null;
+          stage: string;
+          detail: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          notification_id?: string | null;
+          user_id?: string | null;
+          stage: string;
+          detail?: Json | null;
+          created_at?: string;
+        };
+        Update: Partial<Database['public']['Tables']['push_delivery_debug']['Insert']>;
+        Relationships: never[];
+      };
     };
     Views: Record<string, never>;
     Functions: {

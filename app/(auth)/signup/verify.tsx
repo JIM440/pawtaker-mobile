@@ -1,6 +1,6 @@
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { ScrollView, TouchableOpacity, View } from 'react-native';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import { useTranslation } from 'react-i18next';
 import { supabase } from '@/src/lib/supabase/client';
 import { useSignupStore } from '@/src/lib/store/signup.store';
@@ -14,7 +14,8 @@ import { OtpInput } from '@/src/shared/components/forms/OtpInput';
 
 export default function VerifyScreen() {
   const { t } = useTranslation();
-  const { email, clearSignup } = useSignupStore();
+  const params = useLocalSearchParams<{ email?: string | string[] }>();
+  const { email, clearSignup, setSignupEmail } = useSignupStore();
   const { resolvedTheme } = useThemeStore();
   const colors = Colors[resolvedTheme];
 
@@ -24,7 +25,28 @@ export default function VerifyScreen() {
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
+  const routeEmail = useMemo(() => {
+    if (Array.isArray(params.email)) {
+      return params.email[0]?.trim() ?? '';
+    }
+
+    return params.email?.trim() ?? '';
+  }, [params.email]);
+
+  const activeEmail = routeEmail || email;
+
+  useEffect(() => {
+    if (routeEmail) {
+      setSignupEmail(routeEmail);
+    }
+  }, [routeEmail, setSignupEmail]);
+
   const handleVerify = async () => {
+    if (!activeEmail) {
+      setError(t('auth.signup.verify.missingEmail'));
+      return;
+    }
+
     if (otp.length < 8) {
       setError(t('auth.signup.verify.invalidCode'));
       return;
@@ -33,7 +55,7 @@ export default function VerifyScreen() {
     setError(null);
 
     const { error: verifyError } = await supabase.auth.verifyOtp({
-      email,
+      email: activeEmail,
       token: otp,
       type: 'email',
     });
@@ -50,13 +72,18 @@ export default function VerifyScreen() {
   };
 
   const handleResend = async () => {
+    if (!activeEmail) {
+      setError(t('auth.signup.verify.missingEmail'));
+      return;
+    }
+
     setResending(true);
     setError(null);
     setSuccessMsg(null);
 
     const { error: resendError } = await supabase.auth.resend({
       type: 'signup',
-      email,
+      email: activeEmail,
     });
 
     setResending(false);
@@ -95,7 +122,7 @@ export default function VerifyScreen() {
           color={colors.onSurface}
           style={{ fontWeight: '700', marginBottom: 24 }}
         >
-          {email}
+          {activeEmail}
         </AppText>
 
         <View style={{ width: '100%' }}>
